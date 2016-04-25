@@ -9,3 +9,11 @@ fn test_attack_sets() {
     assert_eq!(att_sets[2][0], 0b11111110 | 1<<8 | 1<<16 | 1<<24 | 1<<32 | 1<<40 | 1<<48 | 1<<56);
     assert_eq!(bl_sets[2][0], 0b01111110 | 1<<8 | 1<<16 | 1<<24 | 1<<32 | 1<<40 | 1<<48 | 0<<56);
 }
+
+#[test]
+fn test_fen_parsing() {
+    use socrates::utils::*;
+    let b = Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").unwrap();
+    assert_eq!(b.en_passant_square, Some(20u8));
+}
+
