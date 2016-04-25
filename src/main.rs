@@ -1,6 +1,14 @@
+extern crate regex;
+
 mod utils;
 
 fn main() {
-    let attack_sets = utils::generate_attack_and_blockers_arrays();
-    println!("Hello, world!");
+    use regex::Regex;
+    let re = Regex::new(r"^[a-h][1-8]$").unwrap();
+    if re.is_match("e8") {
+        println!("The square is \"{}\"", "e8");
+        
+    } else {
+        println!("Wrong format!");
+    }
 }
