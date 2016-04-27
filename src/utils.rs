@@ -1,29 +1,31 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+pub type Color = usize;
+pub type File = usize;
+pub type Rank = usize;
+pub type Square = usize;
+pub type PieceType = usize;
+pub type Bitboard = [[u64; 6]; 2];
+pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
+
 // Useful square-sets
 const EMPTY_SET: u64 = 0;
 const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 
 // Color
-const WHITE: usize = 0;
-const BLACK: usize = 1;
+const WHITE: Color = 0;
+const BLACK: Color = 1;
 
-// PieceType
-const KING: usize = 0;
-const QUEEN: usize = 1;
-const ROOK: usize = 2;
-const BISHOP: usize = 3;
-const KNIGHT: usize = 4;
-const PAWN: usize = 5;
+// Piece types
+const KING: PieceType = 0;
+const QUEEN: PieceType = 1;
+const ROOK: PieceType = 2;
+const BISHOP: PieceType = 3;
+const KNIGHT: PieceType = 4;
+const PAWN: PieceType = 5;
 
-pub type Color = usize;
-pub type Square = u8;
-pub type PieceType = usize;
-pub type Bitboard = [[u64; 6]; 2];
-pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
-
-fn square(file: u8, rank: u8) -> Square {
+fn square(file: File, rank: Rank) -> Square {
     assert!(file < 8);
     assert!(rank < 8);
     rank * 8 + file
@@ -40,8 +42,7 @@ pub struct Board {
 
 pub struct ParseError;
 
-extern crate std;
-pub type Result<T> = std::result::Result<T, ParseError>;
+pub type Result<T> = ::std::result::Result<T, ParseError>;
 
 impl Board {
     pub fn from_fen(fen: &str) -> Result<Board> {
@@ -69,9 +70,9 @@ impl Board {
 
         if re.is_match(s) {
             let mut chars = s.chars();
-            let file = chars.next().unwrap().to_digit(18).unwrap() - 10;
-            let rank = chars.next().unwrap().to_digit(9).unwrap() - 1;
-            Ok(square(file as u8, rank as u8))
+            let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
+            let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
+            Ok(square(file, rank))
         } else {
             Err(ParseError)
         }
@@ -84,13 +85,13 @@ impl Board {
         // We start with an empty bitboard. FEN describes the board
         // starting at A8 and going toward H1.
         let mut bitboard = [[0u64; 6]; 2];
-        let mut file = 0u8;
-        let mut rank = 7u8;
+        let mut file = 0;
+        let mut rank = 7;
 
         // These are the possible productions in the grammar.
         enum Token {
             Piece(Color, PieceType),
-            EmptySquares(u8),
+            EmptySquares(u32),
             Separator,
         }
 
@@ -110,7 +111,7 @@ impl Board {
                 'b' => Token::Piece(BLACK, BISHOP),
                 'n' => Token::Piece(BLACK, KNIGHT),
                 'p' => Token::Piece(BLACK, PAWN),
-                n @ '1'...'8' => Token::EmptySquares(n.to_digit(9).unwrap() as u8),
+                n @ '1'...'8' => Token::EmptySquares(n.to_digit(9).unwrap()),
                 '/' => Token::Separator,
                 _ => return Err(ParseError),
             };
@@ -125,7 +126,7 @@ impl Board {
                     file += 1;
                 }
                 Token::EmptySquares(n) => {
-                    file += n;
+                    file += n as File;
                     if file > 8 {
                         return Err(ParseError);
                     }
@@ -226,17 +227,16 @@ pub type AttackArray = [[u64; 64]; 5];  // for example
                                    // at A1.
 
 
-#[allow(dead_code)]
 pub fn generate_attack_and_blockers_arrays() -> (AttackArray, AttackArray) {
 
-    fn square2grid_index(i: usize) -> usize {
+    fn square2grid_index(i: Square) -> usize {
         ((i / 8) * 10 + (i % 8) + 21)
     }
 
     // Generate a 10x12 grid -- 0xff is the "out of board" marker.
     let mut grid = [0xffu8; 120];
     for i in 0..64 {
-        grid[square2grid_index(i)] = i as Square;
+        grid[square2grid_index(i)] = i as u8;
     }
 
     // 0: King, 1: Queen, 2: Rook, 3: Bishop, 4: Knight.
