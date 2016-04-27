@@ -10,8 +10,7 @@ pub type Bitboard = [[i64; 6]; 2];
 pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
 
 // Useful square-sets
-#[allow(overflowing_literals)]
-const UNIVERSAL_SET: i64 = 0xffffffffffffffff;
+const UNIVERSAL_SET: i64 = -1;
 const EMPTY_SET: i64 = 0;
 
 // Color
@@ -40,6 +39,37 @@ pub fn clear_ls1b(x: &mut i64) {
     *x = *x & (*x - 1);
 }
 
+pub fn above_ls1b_mask(x: i64) -> i64 {
+    x ^ -x
+}
+
+pub fn below_lsb1_mask_including(x: i64) -> i64 {
+    x ^ (x - 1)
+}
+
+pub fn below_lsb1_mask(x: i64) -> i64 {
+    !x & (x - 1)
+}
+
+pub fn smeared_ls1b_up(x: i64) -> i64 {
+    x | -x
+}
+
+pub fn smeared_ls1b_down(x: i64) -> i64 {
+    x | (x - 1)
+}
+
+pub fn bitscan_forward(b: i64) -> Square {
+    use std::num::Wrapping;
+    const DEBRUIJN64: Wrapping<u64> = Wrapping(0x03f79d71b4cb0a89);
+    const INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62,
+                                   55, 59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63,
+                                   47, 56, 27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11, 46,
+                                   26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
+    assert!(b != 0);
+    let lsb1_b = Wrapping((b & -b) as u64);
+    INDEX64[((lsb1_b * DEBRUIJN64).0 >> 58) as usize]
+}
 
 pub struct Board {
     bitboard: Bitboard,
@@ -72,13 +102,13 @@ impl Board {
         }
     }
 
-    
+
     // Perform basic position sanity checks.
     // fn is_position_possible(&self) -> bool {
-        
+
     // }
-    
-    
+
+
     // Parses a square in algebraic notation.
     fn parse_square_notation(s: &str) -> Result<Square> {
         use regex::Regex;
@@ -234,7 +264,6 @@ impl Board {
             _ => Ok(Some(try!(Board::parse_square_notation(s).map_err(|e| ParseError)))),
         }
     }
-    
 }
 
 pub type AttackArray = [[i64; 64]; 5];  // for example
