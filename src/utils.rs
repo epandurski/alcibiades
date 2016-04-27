@@ -31,6 +31,15 @@ fn square(file: File, rank: Rank) -> Square {
     rank * 8 + file
 }
 
+pub fn ls1b(x: u64) -> u64 {
+    (x as i64 & - (x as i64)) as u64
+}
+
+pub fn clear_ls1b(x: &mut u64) {
+    *x = (*x as i64 & (*x as i64 - 1)) as u64;
+}
+
+
 pub struct Board {
     bitboard: Bitboard,
     to_move: Color,
@@ -62,7 +71,13 @@ impl Board {
         }
     }
 
-
+    
+    // Perform basic position sanity checks.
+    // fn is_position_possible(&self) -> bool {
+        
+    // }
+    
+    
     // Parses a square in algebraic notation.
     fn parse_square_notation(s: &str) -> Result<Square> {
         use regex::Regex;
