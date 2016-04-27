@@ -61,34 +61,27 @@ pub struct Board {
     fullmove_number: u32,
 }
 
+pub struct ParseError;
+
+extern crate std;
+pub type Result<T> = std::result::Result<T, ParseError>;
+
 impl Board {
-    
-    pub fn from_fen(fen: &str) -> Option<Board> {
+
+    pub fn from_fen(fen: &str) -> Result<Board> {
         let parts: Vec<&str> = fen.split_whitespace().collect();
         if parts.len() != 6 {
-            return None;
+            return Err(ParseError);
         }
 
-        let bitboard = match Board::parse_fen_piece_placement_description(parts[0]) {
-            Some(b) => b, 
-            None => {
-                return None;
-            }
-        };
+        let bitboard = try!(Board::parse_fen_piece_placement(parts[0]));
+        let to_move = try!(Board::parse_fen_active_color(parts[1]));
 
-        let to_move = match parts[1] {
-            "w" => WHITE,
-            "b" => BLACK,
-            _ => {
-                return None;
-            }
-        };
-
-        Some(Board {
+        Ok(Board {
             bitboard: bitboard,
             to_move: to_move,
             castling_rights: Board::parse_fen_castling_rights(parts[2]),
-            en_passant_square: Board::parse_square_notation(parts[3]),
+            en_passant_square: Board::parse_square_notation(parts[3]).ok(),
             halfmove_clock: parts[4].parse::<u32>().unwrap_or(0),
             fullmove_number: parts[5].parse::<u32>().unwrap_or(1),
         })
@@ -96,7 +89,7 @@ impl Board {
 
 
     // This function parses a square in algebraic notation.
-    fn parse_square_notation(s: &str) -> Option<Square> {
+    fn parse_square_notation(s: &str) -> Result<Square> {
         use regex::Regex;
         let re = Regex::new(r"^[a-h][1-8]$").unwrap();  // TODO: Do this at compile time!
 
@@ -104,34 +97,42 @@ impl Board {
             let mut chars = s.chars();
             let file = chars.next().unwrap().to_digit(18).unwrap() - 10;
             let rank = chars.next().unwrap().to_digit(9).unwrap() - 1;
-            Some(square(file as u8, rank as u8))
+            Ok(square(file as u8, rank as u8))
         } else {
-            None
+            Err(ParseError)
         }
     }
 
 
-    // This function parses FEN piece placement descriptions.
-    fn parse_fen_piece_placement_description(ppd: &str) -> Option<Bitboard> {
+    // This function parses FEN active color field.
+    fn parse_fen_active_color(s: &str) -> Result<Color> {
+        match s {
+            "w" => Ok(WHITE),
+            "b" => Ok(BLACK),
+            _ => Err(ParseError)
+        }
+    }
 
-        // We start with an empty board.
+
+    // Parse FEN piece placement field.
+    fn parse_fen_piece_placement(s: &str) -> Result<Bitboard> {
+
+        // We start with an empty bitboard. FEN describes the board
+        // starting at A8 and going toward H1.
         let mut bitboard = [[0u64; 6]; 2];
-
-        // FEN describes the board starting at A8 and going toward H1.
         let mut file = 0u8;
         let mut rank = 7u8;
-        let mut error_detected = false;
 
+        // These are the possible productions in the grammar.
         enum Token {
             Piece(Color, PieceType),
             EmptySquares(u8),
             Separator,
-            Error,
         }
 
-        for c in ppd.chars() {
+        for c in s.chars() {
 
-            // Parse the token
+            // Parse the next character.
             let token = match c {
                 'K' => Token::Piece(WHITE, KING),
                 'Q' => Token::Piece(WHITE, QUEEN),
@@ -147,15 +148,14 @@ impl Board {
                 'p' => Token::Piece(BLACK, PAWN),
                 n @ '1'...'8' => Token::EmptySquares(n.to_digit(9).unwrap() as u8),
                 '/' => Token::Separator,
-                _ => Token::Error,
+                _ => { return Err(ParseError) }
             };
 
-            // Update the bitboard
+            // Update the bitboard accordting to the token.
             match token {
                 Token::Piece(color, piece_type) => {
                     if file > 7 {
-                        error_detected = true;
-                        break;
+                        return Err(ParseError);
                     }
                     bitboard[color][piece_type] |= 1 << square(file, rank);
                     file += 1;
@@ -163,8 +163,7 @@ impl Board {
                 Token::EmptySquares(n) => {
                     file += n;
                     if file > 8 {
-                        error_detected = true;
-                        break;
+                        return Err(ParseError);
                     }
                 }
                 Token::Separator => {
@@ -172,27 +171,22 @@ impl Board {
                         file = 0;
                         rank -= 1;
                     } else {
-                        error_detected = true;
-                        break;
+                        return Err(ParseError);
                     }
-                }
-                Token::Error => {
-                    error_detected = true;
-                    break;
                 }
             }
         }
 
-        // Ensure everything is OK.
-        if !error_detected && file == 8 && rank == 0 {
-            Some(bitboard)
+        // Ensure the piece placement field had the right length.
+        if file == 8 && rank == 0 {
+            Ok(bitboard)
         } else {
-            None
+            Err(ParseError)
         }
     }
 
 
-    // This function parses FEN castling.
+    // This function parses FEN castling rights field.
     fn parse_fen_castling_rights(cr: &str) -> CastlingRights {
 
         const NO_CASTLING: CastlingRights = [(false, false); 2];
