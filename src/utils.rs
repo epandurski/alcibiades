@@ -67,28 +67,25 @@ extern crate std;
 pub type Result<T> = std::result::Result<T, ParseError>;
 
 impl Board {
-
     pub fn from_fen(fen: &str) -> Result<Board> {
-        let parts: Vec<&str> = fen.split_whitespace().collect();
-        if parts.len() != 6 {
-            return Err(ParseError);
+        let parts: Vec<_> = fen.split_whitespace().collect();
+
+        if parts.len() == 6 {
+            Ok(Board {
+                bitboard: try!(Board::parse_fen_piece_placement(parts[0])),
+                to_move: try!(Board::parse_fen_active_color(parts[1])),
+                castling_rights: try!(Board::parse_fen_castling_rights(parts[2])),
+                en_passant_square: try!(Board::parse_fen_enpassant_square(parts[3])),
+                halfmove_clock: try!(parts[4].parse::<u32>().map_err(|e| ParseError)),
+                fullmove_number: try!(parts[5].parse::<u32>().map_err(|e| ParseError)),
+            })
+        } else {
+            Err(ParseError)
         }
-
-        let bitboard = try!(Board::parse_fen_piece_placement(parts[0]));
-        let to_move = try!(Board::parse_fen_active_color(parts[1]));
-
-        Ok(Board {
-            bitboard: bitboard,
-            to_move: to_move,
-            castling_rights: Board::parse_fen_castling_rights(parts[2]),
-            en_passant_square: Board::parse_square_notation(parts[3]).ok(),
-            halfmove_clock: parts[4].parse::<u32>().unwrap_or(0),
-            fullmove_number: parts[5].parse::<u32>().unwrap_or(1),
-        })
     }
 
 
-    // This function parses a square in algebraic notation.
+    // Parses a square in algebraic notation.
     fn parse_square_notation(s: &str) -> Result<Square> {
         use regex::Regex;
         let re = Regex::new(r"^[a-h][1-8]$").unwrap();  // TODO: Do this at compile time!
@@ -100,16 +97,6 @@ impl Board {
             Ok(square(file as u8, rank as u8))
         } else {
             Err(ParseError)
-        }
-    }
-
-
-    // This function parses FEN active color field.
-    fn parse_fen_active_color(s: &str) -> Result<Color> {
-        match s {
-            "w" => Ok(WHITE),
-            "b" => Ok(BLACK),
-            _ => Err(ParseError)
         }
     }
 
@@ -148,7 +135,7 @@ impl Board {
                 'p' => Token::Piece(BLACK, PAWN),
                 n @ '1'...'8' => Token::EmptySquares(n.to_digit(9).unwrap() as u8),
                 '/' => Token::Separator,
-                _ => { return Err(ParseError) }
+                _ => return Err(ParseError),
             };
 
             // Update the bitboard accordting to the token.
@@ -186,58 +173,74 @@ impl Board {
     }
 
 
-    // This function parses FEN castling rights field.
-    fn parse_fen_castling_rights(cr: &str) -> CastlingRights {
+    // Parse FEN active color field.
+    fn parse_fen_active_color(s: &str) -> Result<Color> {
+        match s {
+            "w" => Ok(WHITE),
+            "b" => Ok(BLACK),
+            _ => Err(ParseError),
+        }
+    }
 
-        const NO_CASTLING: CastlingRights = [(false, false); 2];
 
-        // We start with an no caltling allowed.
-        let mut castling_rights = NO_CASTLING;
+    // Parses FEN castling rights field.
+    fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights> {
 
-        for c in cr.chars() {
+        // We start with no caltling allowed.
+        let mut castling_rights = [(false, false); 2];
 
-            // Parse a character and update castling rights.
-            //
-            // We do not allow the same character to occur more than
-            // once, even though it is not ambiguous, because that is
-            // probably due to an error.
-            match c {
-                'K' => {
-                    if !castling_rights[WHITE].0 {
-                        castling_rights[WHITE].0 = true;
-                    } else {
-                        return NO_CASTLING;
+        // Then we parse the content and update the castling rights.
+        if s != "-" {
+            for c in s.chars() {
+                match c {
+                    'K' => {
+                        if !castling_rights[WHITE].0 {
+                            castling_rights[WHITE].0 = true;
+                        } else {
+                            return Err(ParseError);
+                        }
                     }
-                }
-                'Q' => {
-                    if !castling_rights[WHITE].1 {
-                        castling_rights[WHITE].1 = true;
-                    } else {
-                        return NO_CASTLING;
+                    'Q' => {
+                        if !castling_rights[WHITE].1 {
+                            castling_rights[WHITE].1 = true;
+                        } else {
+                            return Err(ParseError);
+                        }
                     }
-                }
-                'k' => {
-                    if !castling_rights[BLACK].0 {
-                        castling_rights[BLACK].0 = true;
-                    } else {
-                        return NO_CASTLING;
+                    'k' => {
+                        if !castling_rights[BLACK].0 {
+                            castling_rights[BLACK].0 = true;
+                        } else {
+                            return Err(ParseError);
+                        }
                     }
-                }
-                'q' => {
-                    if !castling_rights[BLACK].1 {
-                        castling_rights[BLACK].1 = true;
-                    } else {
-                        return NO_CASTLING;
+                    'q' => {
+                        if !castling_rights[BLACK].1 {
+                            castling_rights[BLACK].1 = true;
+                        } else {
+                            return Err(ParseError);
+                        }
                     }
-                }
-                _ => {
-                    return NO_CASTLING;
-                }
-            };
+                    _ => {
+                        return Err(ParseError);
+                    }
+                };
+            }
         }
 
-        castling_rights
+        // Successfully parsed.
+        Ok(castling_rights)
     }
+
+
+    // Parse FEN en-passant square field.
+    fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>> {
+        match s {
+            "-" => Ok(None),
+            _ => Ok(Some(try!(Board::parse_square_notation(s).map_err(|e| ParseError)))),
+        }
+    }
+    
 }
 
 pub type AttackArray = [[u64; 64]; 5];  // for example
