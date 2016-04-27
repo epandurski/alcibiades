@@ -1,17 +1,19 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use std::num::Wrapping;
+
 pub type Color = usize;
 pub type File = usize;
 pub type Rank = usize;
 pub type Square = usize;
 pub type PieceType = usize;
-pub type Bitboard = [[i64; 6]; 2];
+pub type Bitboard = [[u64; 6]; 2];
 pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
 
 // Useful square-sets
-const UNIVERSAL_SET: i64 = -1;
-const EMPTY_SET: i64 = 0;
+const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
+const EMPTY_SET: u64 = 0;
 
 // Color
 const WHITE: Color = 0;
@@ -31,44 +33,47 @@ fn square(file: File, rank: Rank) -> Square {
     rank * 8 + file
 }
 
-pub fn ls1b(x: i64) -> i64 {
-    x & -x
+pub fn ls1b(x: u64) -> u64 {
+    (x as i64 & (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
-pub fn clear_ls1b(x: &mut i64) {
-    *x = *x & (*x - 1);
+pub fn clear_ls1b(x: &mut u64) {
+    *x &= (Wrapping(*x) - Wrapping(1)).0;
 }
 
-pub fn above_ls1b_mask(x: i64) -> i64 {
-    x ^ -x
+pub fn above_ls1b_mask(x: u64) -> u64 {
+    assert!(x != 0);
+    (x as i64 ^ (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
-pub fn below_lsb1_mask_including(x: i64) -> i64 {
+pub fn below_lsb1_mask_including(x: u64) -> u64 {
+    assert!(x != 0);
     x ^ (x - 1)
 }
 
-pub fn below_lsb1_mask(x: i64) -> i64 {
+pub fn below_lsb1_mask(x: u64) -> u64 {
+    assert!(x != 0);
     !x & (x - 1)
 }
 
-pub fn smeared_ls1b_up(x: i64) -> i64 {
-    x | -x
+pub fn smeared_ls1b_up(x: u64) -> u64 {
+    assert!(x != 0);
+    ((x as i64) | (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
-pub fn smeared_ls1b_down(x: i64) -> i64 {
+pub fn smeared_ls1b_down(x: u64) -> u64 {
+    assert!(x != 0);
     x | (x - 1)
 }
 
-pub fn bitscan_forward(b: i64) -> Square {
-    use std::num::Wrapping;
+pub fn bitscan_forward(b: u64) -> Square {
     const DEBRUIJN64: Wrapping<u64> = Wrapping(0x03f79d71b4cb0a89);
     const INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62,
                                    55, 59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63,
                                    47, 56, 27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11, 46,
                                    26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
     assert!(b != 0);
-    let lsb1_b = Wrapping((b & -b) as u64);
-    INDEX64[((lsb1_b * DEBRUIJN64).0 >> 58) as usize]
+    INDEX64[((Wrapping(ls1b(b)) * DEBRUIJN64).0 >> 58) as usize]
 }
 
 pub struct Board {
@@ -130,7 +135,7 @@ impl Board {
 
         // We start with an empty bitboard. FEN describes the board
         // starting at A8 and going toward H1.
-        let mut bitboard = [[0i64; 6]; 2];
+        let mut bitboard = [[0u64; 6]; 2];
         let mut file = 0;
         let mut rank = 7;
 
@@ -266,7 +271,7 @@ impl Board {
     }
 }
 
-pub type AttackArray = [[i64; 64]; 5];  // for example
+pub type AttackArray = [[u64; 64]; 5];  // for example
                                    // attack_set[Pieces::Queen][0]
                                    // gives the attack set for a queen
                                    // at A1.
@@ -295,17 +300,17 @@ pub fn generate_attack_and_blockers_arrays() -> (AttackArray, AttackArray) {
     // At the end those arrays will hold the attack bitsets, and the
     // "blockers and beyond" bitsets for each piece on each possible
     // square.
-    let mut attack_array = [[0i64; 64]; 5];
-    let mut blockers_array = [[0i64; 64]; 5];
+    let mut attack_array = [[0u64; 64]; 5];
+    let mut blockers_array = [[0u64; 64]; 5];
 
     for piece_type in 0..5 {
         for square in 0..64 {
-            let mut attack = 0i64;
-            let mut blockers = 0i64;
+            let mut attack = 0u64;
+            let mut blockers = 0u64;
             for move_direction in 0..8 {
                 let delta = PIECE_DELTAS[piece_type][move_direction];
                 if delta != 0 {
-                    let mut last_mask = 0i64;
+                    let mut last_mask = 0u64;
                     let mut curr_grid_index = square2grid_index(square);
                     loop {
                         curr_grid_index = (curr_grid_index as i8 + delta) as usize;
