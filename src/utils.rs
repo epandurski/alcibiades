@@ -1,29 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-// enum Color {
-//     White = 0,
-//     Black = 1,
-// }
-
-// pub enum Pieces {
-//     King = 0,
-//     Queen = 1,
-//     Rook = 2,
-//     Bishop = 3,
-//     Knight = 4,
-//     Pawn = 5,
-// }
-
-struct PieceSets {
-    pawns: u64,
-    knights: u64,
-    bishops: u64,
-    rooks: u64,
-    queens: u64,
-    kings: u64,
-}
-
+// Useful square-sets
 const EMPTY_SET: u64 = 0;
 const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 
@@ -42,8 +20,7 @@ const PAWN: usize = 5;
 pub type Color = usize;
 pub type Square = u8;
 pub type PieceType = usize;
-pub type OccupationArray = [u64; 6];
-pub type Bitboard = [OccupationArray; 2];
+pub type Bitboard = [[u64; 6]; 2];
 pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
 
 fn square(file: u8, rank: u8) -> Square {
@@ -56,7 +33,7 @@ pub struct Board {
     bitboard: Bitboard,
     to_move: Color,
     castling_rights: CastlingRights,
-    pub en_passant_square: Option<Square>,
+    en_passant_square: Option<Square>,
     halfmove_clock: u32,
     fullmove_number: u32,
 }
