@@ -53,9 +53,9 @@ pub fn smeared_ls1b_down(x: u64) -> u64 {
 pub fn bitscan_forward(b: u64) -> Square {
     const DEBRUIJN64: Wrapping<u64> = Wrapping(0x03f79d71b4cb0a89);
     static INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62,
-                                   55, 59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63,
-                                   47, 56, 27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11, 46,
-                                   26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
+                                    55, 59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63,
+                                    47, 56, 27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11,
+                                    46, 26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
     assert!(b != 0);
     INDEX64[((Wrapping(ls1b(b)) * DEBRUIJN64).0 >> 58) as usize]
 }
@@ -321,3 +321,79 @@ pub fn generate_attack_and_blockers_arrays() -> (AttackArray, AttackArray) {
 }
 
 // Forsyth–Edwards Notation
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ls1b_functions() {
+        assert_eq!(ls1b(0x100100), 0x100);
+        assert_eq!(ls1b(0x8000000000000000), 0x8000000000000000);
+        assert_eq!(ls1b(0xf800000000000000), 0x0800000000000000);
+        assert_eq!(ls1b(0), 0);
+        let mut x = 0x100100u64;
+        clear_ls1b(&mut x);
+        assert_eq!(x, 0x100000);
+        clear_ls1b(&mut x);
+        assert_eq!(x, 0);
+        clear_ls1b(&mut x);
+        assert_eq!(x, 0);
+        assert_eq!(above_ls1b_mask(0b11101000), 0xfffffffffffffff0);
+        assert_eq!(above_ls1b_mask(0x8000000000000000), 0);
+        assert_eq!(below_lsb1_mask_including(0b11101000), 0b1111);
+        assert_eq!(below_lsb1_mask(0b11101000), 0b111);
+        assert_eq!(smeared_ls1b_up(0b1010000), 0xfffffffffffffff0);
+        assert_eq!(smeared_ls1b_up(0x8000000000000000), 0x8000000000000000);
+        assert_eq!(smeared_ls1b_down(0b1010000), 0b1011111);
+    }
+
+    #[test]
+    fn test_bitscan() {
+        assert_eq!(bitscan_forward(0b1001101), 0);
+        assert_eq!(bitscan_forward(0b1001000), 3);
+        assert_eq!(bitscan_forward(0xf000000000000000), 60);
+    }
+
+    #[test]
+    fn test_fen_parsing() {
+        assert!(Board::from_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr1/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBN b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR/ b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNRR b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP01PPP/RNBQKBNR b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP91PPP/RNBQKBNR b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP*1PPP/RNBQKBNR b KQkq e3 0 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 * 1")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 *")
+                    .is_err());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b - e3 0 1")
+                    .is_ok());
+        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+                    .is_ok());
+    }
+
+    #[test]
+    fn test_attack_sets() {
+        let (att_sets, bl_sets) = generate_attack_and_blockers_arrays();
+        assert_eq!(att_sets[0][0], 0b11 << 8 | 0b10);
+        assert_eq!(bl_sets[0][0], 0);
+        assert_eq!(att_sets[2][0],
+                   0b11111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 1 << 56);
+        assert_eq!(bl_sets[2][0],
+                   0b01111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 0 << 56);
+    }
+
+}

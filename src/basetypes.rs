@@ -18,7 +18,7 @@ pub const BISHOP: PieceType = 3;
 pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
 
-fn square(file: File, rank: Rank) -> Square {
+pub fn square(file: File, rank: Rank) -> Square {
     assert!(file < 8);
     assert!(rank < 8);
     rank * 8 + file
