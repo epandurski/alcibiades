@@ -2,6 +2,7 @@ extern crate regex;
 
 pub mod utils;
 pub mod basetypes;
+pub mod bitsets;
 
 fn main() {
     use regex::Regex;
