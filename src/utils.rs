@@ -67,7 +67,10 @@ impl Board {
 
         // We start with an empty bitboard. FEN describes the board
         // starting at A8 and going toward H1.
-        let mut bitboard = Bitboard { piece_type_bb: [0u64; 6], color_bb: [0u64; 2] };
+        let mut bitboard = Bitboard {
+            piece_type_bb: [0u64; 6],
+            color_bb: [0u64; 2],
+        };
         let mut file = 0;
         let mut rank = 7;
 
@@ -223,13 +226,13 @@ pub fn generate_attack_and_blockers_arrays() -> (AttackArray, AttackArray) {
         grid[square2grid_index(i)] = i as u8;
     }
 
-    // 0: King, 1: Queen, 2: Rook, 3: Bishop, 4: Knight.
-    static PIECE_LONGRANGE: [bool; 5] = [false, true, true, true, false];
+    // 0: Queen, 1: Rook, 3: Bishop, 3: Knight, 4: King.
+    static PIECE_LONGRANGE: [bool; 5] = [true, true, true, false, false];
     static PIECE_DELTAS: [[i8; 8]; 5] = [[-11, -10, -9, -1, 1, 9, 10, 11],
-                                         [-11, -10, -9, -1, 1, 9, 10, 11],
                                          [0, -10, 0, -1, 1, 0, 10, 0],
                                          [-11, 0, -9, 0, 0, 9, 0, 11],
-                                         [-21, -19, -12, -8, 8, 12, 19, 21]];
+                                         [-21, -19, -12, -8, 8, 12, 19, 21],
+                                         [-11, -10, -9, -1, 1, 9, 10, 11]];
 
     // At the end those arrays will hold the attack bitsets, and the
     // "blockers and beyond" bitsets for each piece on each possible
@@ -273,6 +276,25 @@ pub fn generate_attack_and_blockers_arrays() -> (AttackArray, AttackArray) {
 // Forsyth–Edwards Notation
 
 
+// The StateInfo struct stores information needed to restore a Position
+// object to its previous state when we retract a move. Whenever a move
+// is made on the board (by calling Position::do_move), a StateInfo
+// object must be passed as a parameter.
+
+// struct StateInfo {
+//   Key pawnKey, materialKey;
+//   Value npMaterial[COLOR_NB];
+//   int castlingRights, rule50, pliesFromNull;
+//   Score psq;
+//   Square epSquare;
+
+//   Key key;
+//   Bitboard checkersBB;
+//   PieceType capturedType;
+//   StateInfo* previous;
+// };
+
+
 
 #[cfg(test)]
 mod tests {
@@ -308,12 +330,13 @@ mod tests {
 
     #[test]
     fn test_attack_sets() {
+        use basetypes::*;
         let (att_sets, bl_sets) = generate_attack_and_blockers_arrays();
-        assert_eq!(att_sets[0][0], 0b11 << 8 | 0b10);
-        assert_eq!(bl_sets[0][0], 0);
-        assert_eq!(att_sets[2][0],
+        assert_eq!(att_sets[KING][0], 0b11 << 8 | 0b10);
+        assert_eq!(bl_sets[KING][0], 0);
+        assert_eq!(att_sets[ROOK][0],
                    0b11111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 1 << 56);
-        assert_eq!(bl_sets[2][0],
+        assert_eq!(bl_sets[ROOK][0],
                    0b01111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 0 << 56);
     }
 
