@@ -5,12 +5,8 @@ pub mod basetypes;
 pub mod bitsets;
 
 fn main() {
-    use regex::Regex;
-    let re = Regex::new(r"^[a-h][1-8]$").unwrap();
-    if re.is_match("e8") {
-        println!("The square is \"{}\"", "e8");
-        
-    } else {
-        println!("Wrong format!");
-    }
+    // use regex::Regex;
+    // let c = [(true, true); 2];
+    use basetypes::*;
+    println!("Board -> {}", std::mem::size_of::<Option<Square>>());
 }

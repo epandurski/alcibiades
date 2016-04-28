@@ -3,6 +3,11 @@
 
 use basetypes::*;
 
+struct Bitboard {
+    piece_type_bb: [u64; 6],
+    color_bb: [u64; 2],
+}
+
 pub struct Board {
     bitboard: Bitboard,
     to_move: Color,
@@ -62,7 +67,7 @@ impl Board {
 
         // We start with an empty bitboard. FEN describes the board
         // starting at A8 and going toward H1.
-        let mut bitboard = [[0u64; 6]; 2];
+        let mut bitboard = Bitboard { piece_type_bb: [0u64; 6], color_bb: [0u64; 2] };
         let mut file = 0;
         let mut rank = 7;
 
@@ -100,7 +105,9 @@ impl Board {
                     if file > 7 {
                         return Err(ParseError);
                     }
-                    bitboard[color][piece_type] |= 1 << square(file, rank);
+                    let mask = 1 << square(file, rank);
+                    bitboard.piece_type_bb[piece_type] |= mask;
+                    bitboard.color_bb[color] |= mask;
                     file += 1;
                 }
                 Token::EmptySquares(n) => {
