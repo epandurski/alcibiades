@@ -1,37 +1,12 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use ::basetypes::*;
 use std::num::Wrapping;
-
-pub type Color = usize;
-pub type File = usize;
-pub type Rank = usize;
-pub type Square = usize;
-pub type PieceType = usize;
-pub type Bitboard = [[u64; 6]; 2];
-pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
 
 // Useful square-sets
 const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 const EMPTY_SET: u64 = 0;
-
-// Color
-const WHITE: Color = 0;
-const BLACK: Color = 1;
-
-// Piece types
-const KING: PieceType = 0;
-const QUEEN: PieceType = 1;
-const ROOK: PieceType = 2;
-const BISHOP: PieceType = 3;
-const KNIGHT: PieceType = 4;
-const PAWN: PieceType = 5;
-
-fn square(file: File, rank: Rank) -> Square {
-    assert!(file < 8);
-    assert!(rank < 8);
-    rank * 8 + file
-}
 
 #[inline(always)]
 pub fn ls1b(x: u64) -> u64 {

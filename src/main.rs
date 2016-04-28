@@ -1,6 +1,7 @@
 extern crate regex;
 
-mod utils;
+pub mod utils;
+pub mod basetypes;
 
 fn main() {
     use regex::Regex;
