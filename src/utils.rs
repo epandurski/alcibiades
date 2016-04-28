@@ -33,42 +33,51 @@ fn square(file: File, rank: Rank) -> Square {
     rank * 8 + file
 }
 
+#[inline(always)]
 pub fn ls1b(x: u64) -> u64 {
     (x as i64 & (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
+#[inline(always)]
 pub fn clear_ls1b(x: &mut u64) {
     *x &= (Wrapping(*x) - Wrapping(1)).0;
 }
 
+#[inline(always)]
 pub fn above_ls1b_mask(x: u64) -> u64 {
     assert!(x != 0);
     (x as i64 ^ (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
+#[inline(always)]
 pub fn below_lsb1_mask_including(x: u64) -> u64 {
     assert!(x != 0);
     x ^ (x - 1)
 }
 
+#[inline(always)]
 pub fn below_lsb1_mask(x: u64) -> u64 {
     assert!(x != 0);
     !x & (x - 1)
 }
 
+#[inline(always)]
 pub fn smeared_ls1b_up(x: u64) -> u64 {
     assert!(x != 0);
     ((x as i64) | (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
+#[inline(always)]
 pub fn smeared_ls1b_down(x: u64) -> u64 {
     assert!(x != 0);
     x | (x - 1)
 }
 
+
+#[inline]
 pub fn bitscan_forward(b: u64) -> Square {
     const DEBRUIJN64: Wrapping<u64> = Wrapping(0x03f79d71b4cb0a89);
-    const INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62,
+    static INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62,
                                    55, 59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63,
                                    47, 56, 27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11, 46,
                                    26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
