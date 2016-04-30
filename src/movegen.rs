@@ -274,6 +274,14 @@ mod tests {
                    0b11111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 1 << 56);
         assert_eq!(g.blockers_and_beyond[ROOK][A1],
                    0b01111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 0 << 56);
+        assert_eq!(g.attacks[KING][D4], g.attacks[KING][E4] >> 1);
+        assert_eq!(g.attacks[KING][D4], g.attacks[KING][D5] >> 8);
+        assert_eq!(g.attacks[KNIGHT][D4], g.attacks[KNIGHT][D5] >> 8);
+        assert_eq!(g.attacks[KNIGHT][D4] & g.attacks[KING][D5], 1 << C6 | 1 << E6);
+        assert_eq!(g.attacks[ROOK][D4] | g.attacks[BISHOP][D4], g.attacks[QUEEN][D4]);
+        assert_eq!(g.attacks[ROOK][D4] & g.attacks[BISHOP][D4], 0);
+        assert_eq!(g.attacks[KING][D4] & g.attacks[QUEEN][D4], g.attacks[KING][D4]);
+        assert_eq!(g.attacks[BISHOP][E1] & g.attacks[KNIGHT][H1], 1 << F2 | 1 << G3);
     }
 
     #[test]
