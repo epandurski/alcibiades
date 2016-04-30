@@ -122,6 +122,7 @@ pub const H8: Square = 7 + 7*8;
 pub struct Board {
     pub piece_type: [u64; 6],
     pub color: [u64; 2],
+    pub occupation: u64,
 }
 
 

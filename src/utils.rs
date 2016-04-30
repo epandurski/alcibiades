@@ -99,6 +99,7 @@ impl Position {
         let mut board = Board {
             piece_type: [0u64; 6],
             color: [0u64; 2],
+            occupation: 0u64,
         };
         let mut file = 0;
         let mut rank = 7;
@@ -161,6 +162,7 @@ impl Position {
 
         // Ensure the piece placement field had the right length.
         if file == 8 && rank == 0 {
+            board.occupation = board.color[WHITE] | board.color[BLACK];
             Ok(board)
         } else {
             Err(ParseError)
