@@ -1,8 +1,8 @@
 use basetypes::*;
 
 pub struct BoardGeometry {
-    pub grid: [u8; 120],
-    pub piece_grid_deltas: [[i8; 8]; 5],
+    grid: [u8; 120],
+    piece_grid_deltas: [[i8; 8]; 5],
     pub piece_longrange: [bool; 5],
     pub attacks: [[u64; 64]; 5],
     pub blockers_and_beyond: [[u64; 64]; 5],
@@ -123,7 +123,7 @@ impl BoardGeometry {
         g
     }
 
-    pub fn grid_index(&self, i: Square) -> usize {
+    fn grid_index(&self, i: Square) -> usize {
         Self::grid_index_from_square(i)
     }
 
