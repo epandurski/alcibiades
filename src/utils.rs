@@ -3,13 +3,8 @@
 
 use basetypes::*;
 
-struct Bitboard {
-    piece_type_bb: [u64; 6],
-    color_bb: [u64; 2],
-}
-
-pub struct Board {
-    bitboard: Bitboard,
+pub struct Position {
+    board: Board,
     to_move: Color,
     castling_rights: CastlingRights,
     en_passant_square: Option<Square>,
@@ -21,7 +16,7 @@ pub struct ParseError;
 
 pub type Result<T> = ::std::result::Result<T, ParseError>;
 
-impl Board {
+impl Position {
     
     // A FEN (Forsyth–Edwards Notation) string defines a particular
     // position using only the ASCII character set.
@@ -56,15 +51,15 @@ impl Board {
     // 6) Fullmove number. The number of the full move. It starts at 1, and is
     //    incremented after Black's move.
     //
-    pub fn from_fen(fen: &str) -> Result<Board> {
+    pub fn from_fen(fen: &str) -> Result<Position> {
         let parts: Vec<_> = fen.split_whitespace().collect();
 
         if parts.len() == 6 {
-            Ok(Board {
-                bitboard: try!(Board::parse_fen_piece_placement(parts[0])),
-                to_move: try!(Board::parse_fen_active_color(parts[1])),
-                castling_rights: try!(Board::parse_fen_castling_rights(parts[2])),
-                en_passant_square: try!(Board::parse_fen_enpassant_square(parts[3])),
+            Ok(Position {
+                board: try!(Position::parse_fen_piece_placement(parts[0])),
+                to_move: try!(Position::parse_fen_active_color(parts[1])),
+                castling_rights: try!(Position::parse_fen_castling_rights(parts[2])),
+                en_passant_square: try!(Position::parse_fen_enpassant_square(parts[3])),
                 halfmove_clock: try!(parts[4].parse::<u32>().map_err(|e| ParseError)),
                 fullmove_number: try!(parts[5].parse::<u32>().map_err(|e| ParseError)),
             })
@@ -97,13 +92,13 @@ impl Board {
 
 
     // Parse FEN piece placement field.
-    fn parse_fen_piece_placement(s: &str) -> Result<Bitboard> {
+    fn parse_fen_piece_placement(s: &str) -> Result<Board> {
 
-        // We start with an empty bitboard. FEN describes the board
+        // We start with an empty board. FEN describes the board
         // starting at A8 and going toward H1.
-        let mut bitboard = Bitboard {
-            piece_type_bb: [0u64; 6],
-            color_bb: [0u64; 2],
+        let mut board = Board {
+            piece_type: [0u64; 6],
+            color: [0u64; 2],
         };
         let mut file = 0;
         let mut rank = 7;
@@ -136,15 +131,15 @@ impl Board {
                 _ => return Err(ParseError),
             };
 
-            // Update the bitboard accordting to the token.
+            // Update the board accordting to the token.
             match token {
                 Token::Piece(color, piece_type) => {
                     if file > 7 {
                         return Err(ParseError);
                     }
                     let mask = 1 << square(file, rank);
-                    bitboard.piece_type_bb[piece_type] |= mask;
-                    bitboard.color_bb[color] |= mask;
+                    board.piece_type[piece_type] |= mask;
+                    board.color[color] |= mask;
                     file += 1;
                 }
                 Token::EmptySquares(n) => {
@@ -166,7 +161,7 @@ impl Board {
 
         // Ensure the piece placement field had the right length.
         if file == 8 && rank == 0 {
-            Ok(bitboard)
+            Ok(board)
         } else {
             Err(ParseError)
         }
@@ -237,7 +232,7 @@ impl Board {
     fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>> {
         match s {
             "-" => Ok(None),
-            _ => Ok(Some(try!(Board::parse_square_notation(s).map_err(|e| ParseError)))),
+            _ => Ok(Some(try!(Position::parse_square_notation(s).map_err(|e| ParseError)))),
         }
     }
 }
@@ -249,29 +244,29 @@ mod tests {
 
     #[test]
     fn test_fen_parsing() {
-        assert!(Board::from_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::from_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr1/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr1/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBN b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBN b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR/ b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR/ b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNRR b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNRR b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP01PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP01PPP/RNBQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP91PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP91PPP/RNBQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP*1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP*1PPP/RNBQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 * 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 * 1")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 *")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 *")
                     .is_err());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b - e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b - e3 0 1")
                     .is_ok());
-        assert!(Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
                     .is_ok());
     }
 }

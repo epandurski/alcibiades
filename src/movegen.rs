@@ -248,6 +248,12 @@ impl BoardGeometry {
 //   StateInfo* previous;
 // };
 
+pub fn generate_normal_moves(bg: &BoardGeometry, board: &Board, checkers: u64, us: Color) {
+    
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
