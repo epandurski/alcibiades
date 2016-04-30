@@ -2,7 +2,7 @@ use basetypes::*;
 
 pub struct BoardGeometry {
     pub grid: [u8; 120],
-    pub piece_deltas: [[i8; 8]; 5],
+    pub piece_grid_deltas: [[i8; 8]; 5],
     pub piece_longrange: [bool; 5],
     pub attacks: [[u64; 64]; 5],
     pub blockers_and_beyond: [[u64; 64]; 5],
@@ -38,7 +38,7 @@ impl BoardGeometry {
 
         let mut g = BoardGeometry {
             grid: grid,
-            piece_deltas: piece_deltas,
+            piece_grid_deltas: piece_deltas,
             piece_longrange: piece_longrange,
             attacks: [[0u64; 64]; 5],
             blockers_and_beyond: [[0u64; 64]; 5],
@@ -87,7 +87,7 @@ impl BoardGeometry {
                 let mut attack = 0u64;
                 let mut blockers = 0u64;
                 for move_direction in 0..8 {
-                    let delta = self.piece_deltas[piece_type][move_direction];
+                    let delta = self.piece_grid_deltas[piece_type][move_direction];
                     if delta != 0 {
                         let mut last_mask = 0u64;
                         let mut curr_grid_index = self.grid_index(square);
