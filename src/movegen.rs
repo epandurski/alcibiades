@@ -25,12 +25,12 @@ impl BoardGeometry {
         // "piece_deltas" represent the change in the grid-index when
         // sliding a particular piece by one square in a particular
         // direction. We are not concerned with pawns here.
-        let mut piece_deltas = [[0i8; 8]; 5];
-        piece_deltas[QUEEN] = [-11, -10, -9, -1, 1, 9, 10, 11];
-        piece_deltas[ROOK] = [0, -10, 0, -1, 1, 0, 10, 0];
-        piece_deltas[BISHOP] = [-11, 0, -9, 0, 0, 9, 0, 11];
-        piece_deltas[KNIGHT] = [-21, -19, -12, -8, 8, 12, 19, 21];
-        piece_deltas[KING] = [-11, -10, -9, -1, 1, 9, 10, 11];
+        let mut piece_grid_deltas = [[0i8; 8]; 5];
+        piece_grid_deltas[QUEEN] = [-11, -10, -9, -1, 1, 9, 10, 11];
+        piece_grid_deltas[ROOK] = [0, -10, 0, -1, 1, 0, 10, 0];
+        piece_grid_deltas[BISHOP] = [-11, 0, -9, 0, 0, 9, 0, 11];
+        piece_grid_deltas[KNIGHT] = [-21, -19, -12, -8, 8, 12, 19, 21];
+        piece_grid_deltas[KING] = [-11, -10, -9, -1, 1, 9, 10, 11];
 
         // All pieces except knights and kings are long-range (They
         // can slide by more than one square). We are not concerned
@@ -41,7 +41,7 @@ impl BoardGeometry {
 
         let mut g = BoardGeometry {
             grid: grid,
-            piece_grid_deltas: piece_deltas,
+            piece_grid_deltas: piece_grid_deltas,
             piece_longrange: piece_longrange,
             attacks: [[0u64; 64]; 5],
             blockers_and_beyond: [[0u64; 64]; 5],
@@ -144,7 +144,7 @@ impl BoardGeometry {
                         let mut curr_grid_index = self.grid_index(square);
                         loop {
                             curr_grid_index = (curr_grid_index as i8 + delta) as usize;
-                            let curr_square = self.grid[curr_grid_index];
+                            let curr_square = self.grid[curr_grid_index] as Square;
                             if curr_square != 0xff {
                                 last_mask = 1 << curr_square;
                                 attack |= last_mask;
@@ -164,12 +164,69 @@ impl BoardGeometry {
         }
     }
 
-    fn fill_squares_between_including_and_squares_behind_blocker_arrays(&mut self) { 
-        // TODO: implement this.
+    fn fill_squares_between_including_and_squares_behind_blocker_arrays(&mut self) {
+        for attacker in 0..64 {
+            for blocker in 0..64 {
+                // Try to find a grid-index increment (delta) that
+                // will generate all squares at the line. If the
+                // attacker and the blocker happens not to lie at a
+                // straight line, then and we simply proceed to the
+                // next attacker/blocker pair.
+                let rank_diff = rank(blocker) as i8 - rank(attacker) as i8;
+                let file_diff = file(blocker) as i8 - file(attacker) as i8;
+                let delta = match (rank_diff, file_diff) {
+                    (0, 0) => continue,
+                    (0, f) => f.signum(),
+                    (r, 0) => 10 * r.signum(),
+                    (r, f) if r == f => 10 * r.signum() + r.signum(),
+                    (r, f) if r == -f => 10 * r.signum() - r.signum(),
+                    _ => continue,
+                };
+
+                // Starting from the attacker's square update
+                // "squares_between_including" until the blocker's
+                // square is encountered, then switch to updating
+                // "squares_behind_blocker" until the end of the board
+                // is reached.
+                let mut squares_between_including = 0u64;
+                let mut squares_behind_blocker = 0u64;
+                let mut curr_grid_index = self.grid_index(attacker);
+                let mut blocker_encountered = false;
+                loop {
+                    let curr_square = self.grid[curr_grid_index] as Square;
+                    match curr_square {
+                        0xff => {
+                            break;
+                        }
+                        x if x == blocker => {
+                            squares_between_including |= 1 << curr_square;
+                            blocker_encountered = true;
+                        }
+                        _ => {
+                            if blocker_encountered {
+                                squares_behind_blocker |= 1 << curr_square;
+                            } else {
+                                squares_between_including |= 1 << curr_square;
+                            }
+                        }
+                    }
+                    curr_grid_index = (curr_grid_index as i8 + delta) as usize;
+                }
+                assert!(blocker_encountered);
+                self.squares_between_including[attacker][blocker] = squares_between_including;
+                self.squares_behind_blocker[attacker][blocker] = squares_behind_blocker;
+            }
+        }
     }
 
     fn fill_squares_at_line_array(&mut self) {
-        // TODO: implement this.
+        for a in 0..64 {
+            for b in 0..64 {
+                self.squares_at_line[a][b] = self.squares_between_including[a][b] |
+                                             self.squares_behind_blocker[a][b] |
+                                             self.squares_behind_blocker[b][a];
+            }
+        }
     }
 }
 
@@ -219,4 +276,23 @@ mod tests {
                    0b01111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 0 << 56);
     }
 
+    #[test]
+    fn test_line_sets() {
+        use basetypes::*;
+        let g = BoardGeometry::new();
+        assert_eq!(g.squares_at_line[B1][G1], 0b11111111);
+        assert_eq!(g.squares_at_line[G8][B8], 0b11111111 << 56);
+        assert_eq!(g.squares_between_including[B1][G1], 0b01111110);
+        assert_eq!(g.squares_between_including[G8][B8], 0b01111110 << 56);
+        assert_eq!(g.squares_behind_blocker[B1][G1], 1 << H1);
+        assert_eq!(g.squares_behind_blocker[G8][B8], 1 << A8);
+        assert_eq!(g.squares_behind_blocker[A1][G7], 1 << H8);
+        assert_eq!(g.squares_behind_blocker[H1][B7], 1 << A8);
+        assert_eq!(g.squares_behind_blocker[B7][G2], 1 << H1);
+        assert_eq!(g.squares_behind_blocker[G7][B2], 1 << A1);
+        assert_eq!(g.squares_behind_blocker[D7][D7], 0);
+        assert_eq!(g.squares_behind_blocker[D7][F8], 0);
+        assert_eq!(g.squares_between_including[A1][A4] | g.squares_behind_blocker[A1][A4],
+                   g.squares_at_line[A1][A4]);
+    }
 }

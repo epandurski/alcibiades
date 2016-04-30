@@ -139,3 +139,14 @@ pub fn square(file: File, rank: Rank) -> Square {
     assert!(rank < 8);
     rank * 8 + file
 }
+
+#[inline]
+pub fn rank(square: Square) -> usize {
+    square / 8
+}
+
+#[inline]
+pub fn file(square: Square) -> usize {
+    square % 8
+}
+
