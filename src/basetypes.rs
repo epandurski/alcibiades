@@ -161,12 +161,12 @@ pub fn square(file: File, rank: Rank) -> Square {
 }
 
 #[inline]
-pub fn rank(square: Square) -> usize {
+pub fn rank(square: Square) -> Rank {
     square / 8
 }
 
 #[inline]
-pub fn file(square: Square) -> usize {
+pub fn file(square: Square) -> File {
     square % 8
 }
 
