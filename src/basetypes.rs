@@ -25,6 +25,26 @@ pub const MOVE_ENPASSANT: MoveType = 1;
 pub const MOVE_PROMOTION: MoveType = 2;
 pub const MOVE_CASTLING: MoveType = 3;
 
+// Ranks
+pub const RANK_1: Rank = 0;
+pub const RANK_2: Rank = 1;
+pub const RANK_3: Rank = 2;
+pub const RANK_4: Rank = 3;
+pub const RANK_5: Rank = 4;
+pub const RANK_6: Rank = 5;
+pub const RANK_7: Rank = 6;
+pub const RANK_8: Rank = 7;
+
+// Files
+pub const FILE_A: Rank = 0;
+pub const FILE_B: Rank = 1;
+pub const FILE_C: Rank = 2;
+pub const FILE_D: Rank = 3;
+pub const FILE_E: Rank = 4;
+pub const FILE_F: Rank = 5;
+pub const FILE_G: Rank = 6;
+pub const FILE_H: Rank = 7;
+
 // Squares
 pub const A1: Square = 0 + 0*8;
 pub const B1: Square = 1 + 0*8;
