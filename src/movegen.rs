@@ -39,7 +39,7 @@ impl BoardGeometry {
         piece_longrange[KNIGHT] = false;
         piece_longrange[KING] = false;
 
-        let mut g = BoardGeometry {
+        let mut bg = BoardGeometry {
             grid: grid,
             piece_grid_deltas: piece_grid_deltas,
             piece_longrange: piece_longrange,
@@ -73,7 +73,7 @@ impl BoardGeometry {
         // . 1 . . . 1 . .       . . . . . . . .
         // . . 1 . 1 . . .       . . . . . . . .
         // . . . . . . . .       . . . . . . . .
-        g.fill_attack_and_blockers_and_beyond_arrays();
+        bg.fill_attack_and_blockers_and_beyond_arrays();
 
         // The "squares_behind_blocker" field holds bitsets that
         // describe all squares hidden behind a blocker from the
@@ -103,7 +103,7 @@ impl BoardGeometry {
         // . . 1 . . . . .
         // . 1 . . . . . .
         // . . . . . . . .
-        g.fill_squares_between_including_and_squares_behind_blocker_arrays();
+        bg.fill_squares_between_including_and_squares_behind_blocker_arrays();
 
         // The "squares_at_line" field holds bitsets that describe all
         // squares lying at the line determined by the attacker and
@@ -118,9 +118,9 @@ impl BoardGeometry {
         // . . 1 . . . . .
         // . 1 . . . . . .
         // 1 . . . . . . .
-        g.fill_squares_at_line_array();
+        bg.fill_squares_at_line_array();
 
-        g
+        bg
     }
 
     fn grid_index(&self, i: Square) -> usize {
@@ -248,8 +248,13 @@ impl BoardGeometry {
 //   StateInfo* previous;
 // };
 
-pub fn generate_normal_moves(bg: &BoardGeometry, board: &Board, checkers: u64, us: Color) {
-    
+pub fn generate_moves(bg: &BoardGeometry,
+                      board: &Board,
+                      checkers: u64,
+                      us: Color,
+                      move_stack: &mut [Move])
+                      -> usize {
+    0
 }
 
 
@@ -271,11 +276,15 @@ mod tests {
         assert_eq!(g.attacks[KING][D4], g.attacks[KING][E4] >> 1);
         assert_eq!(g.attacks[KING][D4], g.attacks[KING][D5] >> 8);
         assert_eq!(g.attacks[KNIGHT][D4], g.attacks[KNIGHT][D5] >> 8);
-        assert_eq!(g.attacks[KNIGHT][D4] & g.attacks[KING][D5], 1 << C6 | 1 << E6);
-        assert_eq!(g.attacks[ROOK][D4] | g.attacks[BISHOP][D4], g.attacks[QUEEN][D4]);
+        assert_eq!(g.attacks[KNIGHT][D4] & g.attacks[KING][D5],
+                   1 << C6 | 1 << E6);
+        assert_eq!(g.attacks[ROOK][D4] | g.attacks[BISHOP][D4],
+                   g.attacks[QUEEN][D4]);
         assert_eq!(g.attacks[ROOK][D4] & g.attacks[BISHOP][D4], 0);
-        assert_eq!(g.attacks[KING][D4] & g.attacks[QUEEN][D4], g.attacks[KING][D4]);
-        assert_eq!(g.attacks[BISHOP][E1] & g.attacks[KNIGHT][H1], 1 << F2 | 1 << G3);
+        assert_eq!(g.attacks[KING][D4] & g.attacks[QUEEN][D4],
+                   g.attacks[KING][D4]);
+        assert_eq!(g.attacks[BISHOP][E1] & g.attacks[KNIGHT][H1],
+                   1 << F2 | 1 << G3);
     }
 
     #[test]
