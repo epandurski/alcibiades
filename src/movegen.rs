@@ -6,6 +6,9 @@ pub struct BoardGeometry {
     pub piece_longrange: [bool; 5],
     pub attacks: [[u64; 64]; 5],
     pub blockers_and_beyond: [[u64; 64]; 5],
+    pub squares_at_line: [[u64; 64]; 64],
+    pub squares_between_including: [[u64; 64]; 64],
+    pub squares_behind_blocker: [[u64; 64]; 64],
 }
 
 impl BoardGeometry {
@@ -42,9 +45,12 @@ impl BoardGeometry {
             piece_longrange: piece_longrange,
             attacks: [[0u64; 64]; 5],
             blockers_and_beyond: [[0u64; 64]; 5],
+            squares_at_line: [[0u64; 64]; 64],
+            squares_between_including: [[0u64; 64]; 64],
+            squares_behind_blocker: [[0u64; 64]; 64],
         };
 
-        // "attacks" and "blockers_and_beyond" fileds hold attack and
+        // "attacks" and "blockers_and_beyond" fields hold attack and
         // blockers bitsets for each piece on each possible square.
         // For example:
         //
@@ -57,7 +63,7 @@ impl BoardGeometry {
         // . . 1 1 1 . . .       . . 1 1 1 . . .
         // . 1 . 1 . 1 . .       . 1 . 1 . 1 . .
         // 1 . . 1 . . 1 .       . . . . . . . .
-        // 
+        //
         // g.attacks[KNIGHT][D4] g.blockers_and_beyond[KNIGHT][D4]
         // . . . . . . . .       . . . . . . . .
         // . . . . . . . .       . . . . . . . .
@@ -68,6 +74,51 @@ impl BoardGeometry {
         // . . 1 . 1 . . .       . . . . . . . .
         // . . . . . . . .       . . . . . . . .
         g.fill_attack_and_blockers_and_beyond_arrays();
+
+        // The "squares_behind_blocker" field holds bitsets that
+        // describe all squares hidden behind a blocker from the
+        // attacker's position. For example:
+        //
+        // g.squares_behind_blocker[B2][F6]
+        // . . . . . . . 1
+        // . . . . . . 1 .
+        // . . . . . B . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . . . .
+        // . A . . . . . .
+        // . . . . . . . .
+        //
+        // The "squares_between_including" field holds bitsets that
+        // describe all squares between an attacker an a blocker
+        // including the attacker's and blocker's fields
+        // themselves. For example:
+        //
+        // g.squares_between_including[B2][F6]
+        // . . . . . . . .
+        // . . . . . . . .
+        // . . . . . 1 . .
+        // . . . . 1 . . .
+        // . . . 1 . . . .
+        // . . 1 . . . . .
+        // . 1 . . . . . .
+        // . . . . . . . .
+        g.fill_squares_between_including_and_squares_behind_blocker_arrays();
+
+        // The "squares_at_line" field holds bitsets that describe all
+        // squares lying at the line determined by the attacker and
+        // the blocker. For example:
+        //
+        // g.squares_at_line[B2][F6]
+        // . . . . . . . 1
+        // . . . . . . 1 .
+        // . . . . . 1 . .
+        // . . . . 1 . . .
+        // . . . 1 . . . .
+        // . . 1 . . . . .
+        // . 1 . . . . . .
+        // 1 . . . . . . .
+        g.fill_squares_at_line_array();
 
         g
     }
@@ -112,6 +163,14 @@ impl BoardGeometry {
             }
         }
     }
+
+    fn fill_squares_between_including_and_squares_behind_blocker_arrays(&mut self) { 
+        // TODO: implement this.
+    }
+
+    fn fill_squares_at_line_array(&mut self) {
+        // TODO: implement this.
+    }
 }
 
 // Attack (or blockers and beyond) array for all sliding pieces.
@@ -152,12 +211,11 @@ mod tests {
     fn test_attack_sets() {
         use basetypes::*;
         let g = BoardGeometry::new();
-        let (att_sets, bl_sets) = (g.attacks, g.blockers_and_beyond);
-        assert_eq!(att_sets[KING][0], 0b11 << 8 | 0b10);
-        assert_eq!(bl_sets[KING][0], 0);
-        assert_eq!(att_sets[ROOK][0],
+        assert_eq!(g.attacks[KING][A1], 0b11 << 8 | 0b10);
+        assert_eq!(g.blockers_and_beyond[KING][A1], 0);
+        assert_eq!(g.attacks[ROOK][A1],
                    0b11111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 1 << 56);
-        assert_eq!(bl_sets[ROOK][0],
+        assert_eq!(g.blockers_and_beyond[ROOK][A1],
                    0b01111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 0 << 56);
     }
 
