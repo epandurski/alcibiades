@@ -3,7 +3,7 @@ use basetypes::*;
 pub struct BoardGeometry {
     grid: [u8; 120],
     piece_grid_deltas: [[i8; 8]; 5],
-    pub piece_longrange: [bool; 5],
+    piece_longrange: [bool; 5],
     pub attacks: [[u64; 64]; 5],
     pub blockers_and_beyond: [[u64; 64]; 5],
     pub squares_at_line: [[u64; 64]; 64],
@@ -230,10 +230,6 @@ impl BoardGeometry {
     }
 }
 
-// Attack (or blockers and beyond) array for all sliding pieces.
-pub type SlidersArray = [[u64; 64]; 5];
-
-
 // The StateInfo struct stores information needed to restore a Position
 // object to its previous state when we retract a move. Whenever a move
 // is made on the board (by calling Position::do_move), a StateInfo
@@ -251,14 +247,6 @@ pub type SlidersArray = [[u64; 64]; 5];
 //   PieceType capturedType;
 //   StateInfo* previous;
 // };
-
-
-pub type LinesArray = [[u64; 64]; 64];
-
-// pub fn generate_behind_and_between_arrays() -> LinesArray {
-
-// }
-
 
 #[cfg(test)]
 mod tests {
