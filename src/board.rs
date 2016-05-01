@@ -14,7 +14,7 @@ impl Board {
             geometry: board_geometry(),
             piece_type: piece_type,
             color: color,
-            occupation: color[0] | color[1],
+            occupation: color[WHITE] | color[BLACK],
         }
     }
 }
