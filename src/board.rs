@@ -1,5 +1,25 @@
 use basetypes::*;
 
+pub struct Board {
+    geometry: &'static BoardGeometry,
+    pub piece_type: [u64; 6],
+    pub color: [u64; 2],
+    pub occupation: u64,
+}
+
+impl Board {
+    pub fn new(piece_type: [u64; 6], color: [u64; 2]) -> Board {
+        assert!(piece_type.into_iter().fold(0, |acc, x| { acc | x }) == color[WHITE] | color[BLACK]);
+        Board {
+            geometry: board_geometry(),
+            piece_type: piece_type,
+            color: color,
+            occupation: color[0] | color[1],
+        }
+    }
+}
+
+
 pub fn board_geometry() -> &'static BoardGeometry {
     use std::sync::{Once, ONCE_INIT};
     static INIT_GEOMETRY: Once = ONCE_INIT;

@@ -2,6 +2,7 @@
 #![allow(unused_variables)]
 
 use basetypes::*;
+use board::Board;
 
 pub struct Position {
     board: Board,

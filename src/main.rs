@@ -3,7 +3,7 @@ extern crate regex;
 pub mod utils;
 pub mod basetypes;
 pub mod bitsets;
-pub mod movegen;
+pub mod board;
 
 fn main() {
     // use regex::Regex;
