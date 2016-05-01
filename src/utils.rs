@@ -96,11 +96,8 @@ impl Position {
 
         // We start with an empty board. FEN describes the board
         // starting at A8 and going toward H1.
-        let mut board = Board {
-            piece_type: [0u64; 6],
-            color: [0u64; 2],
-            occupation: 0u64,
-        };
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
         let mut file = 0;
         let mut rank = 7;
 
@@ -134,13 +131,13 @@ impl Position {
 
             // Update the board accordting to the token.
             match token {
-                Token::Piece(color, piece_type) => {
+                Token::Piece(p_color, p_type) => {
                     if file > 7 {
                         return Err(ParseError);
                     }
                     let mask = 1 << square(file, rank);
-                    board.piece_type[piece_type] |= mask;
-                    board.color[color] |= mask;
+                    piece_type[p_type] |= mask;
+                    color[p_color] |= mask;
                     file += 1;
                 }
                 Token::EmptySquares(n) => {
@@ -162,8 +159,7 @@ impl Position {
 
         // Ensure the piece placement field had the right length.
         if file == 8 && rank == 0 {
-            board.occupation = board.color[WHITE] | board.color[BLACK];
-            Ok(board)
+            Ok(Board::new(piece_type, color))
         } else {
             Err(ParseError)
         }

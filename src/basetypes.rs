@@ -1,3 +1,5 @@
+use movegen::{BoardGeometry, board_geometry};
+
 // Basic types
 pub type Color = usize; // 0 or 1
 pub type File = usize;  // from 0 to 7
@@ -120,9 +122,22 @@ pub const H8: Square = 7 + 7*8;
 
 
 pub struct Board {
+    geometry: &'static BoardGeometry,
     pub piece_type: [u64; 6],
     pub color: [u64; 2],
     pub occupation: u64,
+}
+
+impl Board {
+    pub fn new(piece_type: [u64; 6], color: [u64; 2]) -> Board {
+        assert!(piece_type.into_iter().fold(0, |acc, x| { acc | x }) == color[WHITE] | color[BLACK]);
+        Board {
+            geometry: board_geometry(),
+            piece_type: piece_type,
+            color: color,
+            occupation: color[0] | color[1],
+        }
+    }
 }
 
 
