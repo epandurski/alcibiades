@@ -1,5 +1,18 @@
 use basetypes::*;
 
+pub fn board_geometry() -> &'static BoardGeometry {
+    static mut bg: Option<BoardGeometry> = None;
+    unsafe {
+        match bg {
+            Some(ref x) => x,
+            None => {
+                bg = Some(BoardGeometry::new());
+                board_geometry()
+            }
+        }
+    }
+}
+
 pub struct BoardGeometry {
     grid: [u8; 120],
     piece_grid_deltas: [[i8; 8]; 5],
@@ -248,14 +261,14 @@ impl BoardGeometry {
 //   StateInfo* previous;
 // };
 
-pub fn generate_moves(bg: &BoardGeometry,
-                      board: &Board,
-                      checkers: u64,
-                      us: Color,
-                      move_stack: &mut [Move])
-                      -> usize {
-    0
-}
+// pub fn generate_moves(bg: &BoardGeometry,
+//                       board: &Board,
+//                       checkers: u64,
+//                       us: Color,
+//                       move_stack: &mut [Move])
+//                       -> usize {
+//     0
+// }
 
 
 
@@ -266,7 +279,7 @@ mod tests {
     #[test]
     fn test_attack_sets() {
         use basetypes::*;
-        let g = BoardGeometry::new();
+        let g = board_geometry();
         assert_eq!(g.attacks[KING][A1], 0b11 << 8 | 0b10);
         assert_eq!(g.blockers_and_beyond[KING][A1], 0);
         assert_eq!(g.attacks[ROOK][A1],
@@ -290,7 +303,7 @@ mod tests {
     #[test]
     fn test_line_sets() {
         use basetypes::*;
-        let g = BoardGeometry::new();
+        let g = board_geometry();
         assert_eq!(g.squares_at_line[B1][G1], 0b11111111);
         assert_eq!(g.squares_at_line[G8][B8], 0b11111111 << 56);
         assert_eq!(g.squares_between_including[B1][G1], 0b01111110);
