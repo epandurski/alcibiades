@@ -1,14 +1,16 @@
 use basetypes::*;
 
 pub fn board_geometry() -> &'static BoardGeometry {
-    static mut bg: Option<BoardGeometry> = None;
+    use std::sync::{Once, ONCE_INIT};
+    static INIT_GEOMETRY: Once = ONCE_INIT;
+    static mut geometry: Option<BoardGeometry> = None;
     unsafe {
-        match bg {
+        INIT_GEOMETRY.call_once(|| {
+            geometry = Some(BoardGeometry::new());
+        });
+        match geometry {
             Some(ref x) => x,
-            None => {
-                bg = Some(BoardGeometry::new());
-                board_geometry()
-            }
+            None => panic!("board geometry not initialized")
         }
     }
 }
