@@ -1,21 +1,65 @@
 use basetypes::*;
+use bitsets::*;
+
+const KINGSIDE_PAWN_SHIFT: [i8; 2] = [9, -7];
+const QUEENSIDE_PAWN_SHIFT: [i8; 2] = [7, -9];
+
+const BB_NOT_ON_FILE_A: u64 = !(1 << A1 | 1 << A2 | 1 << A3 | 1 << A4 | 1 << A5 | 1 << A6 |
+                                1 << A7 | 1 << A8);
+const BB_NOT_ON_FILE_H: u64 = !(1 << H1 | 1 << H2 | 1 << H3 | 1 << H4 | 1 << H5 | 1 << H6 |
+                                1 << H7 | 1 << H8);
+const BB_PROMOTION_RANKS: [u64; 2] = [0xff << 56, 0xff];
+// const BB_ENDMOST_FILES: [u64; 2] = [!BB_NOT_ON_FILE_A, !BB_NOT_ON_FILE_H];
 
 pub struct Board {
     geometry: &'static BoardGeometry,
     pub piece_type: [u64; 6],
     pub color: [u64; 2],
-    pub occupation: u64,
+    pub occupied: u64,
 }
 
 impl Board {
-    pub fn new(piece_type: [u64; 6], color: [u64; 2]) -> Board {
-        assert!(piece_type.into_iter().fold(0, |acc, x| { acc | x }) == color[WHITE] | color[BLACK]);
+    pub fn new(piece_type: &[u64; 6], color: &[u64; 2]) -> Board {
+        assert!(piece_type.into_iter().fold(0, |acc, x| acc | x) == color[WHITE] | color[BLACK]);
+        assert!(piece_type[PAWN] & BB_PROMOTION_RANKS[WHITE] == 0);
+        assert!(piece_type[PAWN] & BB_PROMOTION_RANKS[BLACK] == 0);
         Board {
             geometry: board_geometry(),
-            piece_type: piece_type,
-            color: color,
-            occupation: color[WHITE] | color[BLACK],
+            piece_type: *piece_type,
+            color: *color,
+            occupied: color[WHITE] | color[BLACK],
         }
+    }
+
+    pub fn piece_attacks_from(&self, square: Square, piece: PieceType) -> u64 {
+        assert!(piece != PAWN);
+        let mut attacks = self.geometry.attacks[piece][square];
+        let mut blockers = self.occupied & self.geometry.blockers_and_beyond[piece][square];
+        loop {
+            if blockers == 0 {
+                break;
+            }
+            let blocker_square = bitscan_and_clear(&mut blockers);
+            attacks &= !self.geometry.squares_behind_blocker[square][blocker_square];
+        }
+        attacks
+    }
+
+    pub fn attacks_to(&self, square: Square, us: Color) -> u64 {
+        let occupied_by_us = self.color[us];
+        let mut attacks = 0;
+        attacks |= self.piece_attacks_from(square, ROOK) & occupied_by_us &
+                   (self.piece_type[ROOK] | self.piece_type[QUEEN]);
+        attacks |= self.piece_attacks_from(square, BISHOP) & occupied_by_us &
+                   (self.piece_type[BISHOP] | self.piece_type[QUEEN]);
+        attacks |= self.piece_attacks_from(square, KNIGHT) & occupied_by_us &
+                   self.piece_type[KNIGHT];
+        attacks |= self.piece_attacks_from(square, KING) & occupied_by_us & self.piece_type[KING];
+        attacks |= gen_shift(1 << square, -KINGSIDE_PAWN_SHIFT[us]) & occupied_by_us &
+                   self.piece_type[PAWN] & BB_NOT_ON_FILE_H;
+        attacks |= gen_shift(1 << square, -QUEENSIDE_PAWN_SHIFT[us]) & occupied_by_us &
+                   self.piece_type[PAWN] & BB_NOT_ON_FILE_A;
+        attacks
     }
 }
 
@@ -30,7 +74,7 @@ pub fn board_geometry() -> &'static BoardGeometry {
         });
         match geometry {
             Some(ref x) => x,
-            None => panic!("board geometry not initialized")
+            None => panic!("board geometry not initialized"),
         }
     }
 }
@@ -340,5 +384,51 @@ mod tests {
         assert_eq!(g.squares_behind_blocker[D7][F8], 0);
         assert_eq!(g.squares_between_including[A1][A4] | g.squares_behind_blocker[A1][A4],
                    g.squares_at_line[A1][A4]);
+    }
+
+    #[test]
+    fn test_attacks_from() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[PAWN] |= 1 << D4;
+        piece_type[PAWN] |= 1 << G7;
+        color[WHITE] = piece_type[PAWN];
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.piece_attacks_from(A1, BISHOP),
+                   1 << B2 | 1 << C3 | 1 << D4);
+        assert_eq!(b.piece_attacks_from(A1, BISHOP),
+                   1 << B2 | 1 << C3 | 1 << D4);
+        assert_eq!(b.piece_attacks_from(A1, KNIGHT), 1 << B3 | 1 << C2);
+    }
+
+    #[test]
+    fn test_attacks_to() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[PAWN] |= 1 << D3; color[WHITE] |= 1 << D3;
+        piece_type[PAWN] |= 1 << H5; color[WHITE] |= 1 << H5;
+        piece_type[KNIGHT] |= 1 << G3; color[WHITE] |= 1 << G3;
+        piece_type[BISHOP] |= 1 << B1; color[WHITE] |= 1 << B1;
+        piece_type[QUEEN] |= 1 << H1; color[WHITE] |= 1 << H1;
+        piece_type[KING] |= 1 << D5; color[WHITE] |= 1 << D5;
+        piece_type[PAWN] |= 1 << H2; color[BLACK] |= 1 << H2;
+        piece_type[PAWN] |= 1 << F5; color[BLACK] |= 1 << F5;
+        piece_type[ROOK] |= 1 << A4; color[BLACK] |= 1 << A4;
+        piece_type[QUEEN] |= 1 << E3; color[BLACK] |= 1 << E3;
+        piece_type[KING] |= 1 << F4; color[BLACK] |= 1 << F4;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.attacks_to(E4, WHITE), 1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
+        assert_eq!(b.attacks_to(E4, BLACK), 1 << E3 | 1 << F4 | 1 << F5 | 1 << A4);
+        assert_eq!(b.attacks_to(G6, BLACK), 0);
+        assert_eq!(b.attacks_to(G6, WHITE), 1 << H5);
+        assert_eq!(b.attacks_to(C2, WHITE), 1 << B1);
+        assert_eq!(b.attacks_to(F4, WHITE), 0);
+        assert_eq!(b.attacks_to(F4, BLACK), 1 << A4 | 1 << E3);
+        assert_eq!(b.attacks_to(F5, BLACK), 1 << F4);
+        assert_eq!(b.attacks_to(A6, WHITE), 0);
+        assert_eq!(b.attacks_to(G1, BLACK), 1 << H2 | 1 << E3);
+        assert_eq!(b.attacks_to(A1, BLACK),  1 << A4);
     }
 }

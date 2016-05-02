@@ -45,6 +45,11 @@ pub fn smeared_ls1b_down(x: u64) -> u64 {
     x | (x - 1)
 }
 
+#[inline(always)]
+pub fn gen_shift(x: u64, s: i8) -> u64 {
+    if s > 0 { x << s } else { x >> -s }
+}
+
 const DEBRUIJN64: Wrapping<u64> = Wrapping(0x03f79d71b4cb0a89);
 static INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62,
                                 55, 59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63,

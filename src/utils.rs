@@ -160,7 +160,7 @@ impl Position {
 
         // Ensure the piece placement field had the right length.
         if file == 8 && rank == 0 {
-            Ok(Board::new(piece_type, color))
+            Ok(Board::new(&piece_type, &color))
         } else {
             Err(ParseError)
         }
