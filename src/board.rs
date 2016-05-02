@@ -11,6 +11,8 @@ const BB_NOT_ON_FILE_H: u64 = !(1 << H1 | 1 << H2 | 1 << H3 | 1 << H4 | 1 << H5 
 const BB_PROMOTION_RANKS: [u64; 2] = [0xff << 56, 0xff];
 // const BB_ENDMOST_FILES: [u64; 2] = [!BB_NOT_ON_FILE_A, !BB_NOT_ON_FILE_H];
 
+struct SeeAttacker(PieceType, u64);
+
 pub struct Board {
     geometry: &'static BoardGeometry,
     pub piece_type: [u64; 6],
@@ -31,20 +33,14 @@ impl Board {
         }
     }
 
+    #[inline]
     pub fn piece_attacks_from(&self, square: Square, piece: PieceType) -> u64 {
-        assert!(piece != PAWN);
-        let mut attacks = self.geometry.attacks[piece][square];
-        let mut blockers = self.occupied & self.geometry.blockers_and_beyond[piece][square];
-        while blockers != 0 {
-            let blocker_square = bitscan_and_clear(&mut blockers);
-            attacks &= !self.geometry.squares_behind_blocker[square][blocker_square];
-        }
-        attacks
+        piece_attacks_from(self.geometry, self.occupied, square, piece)
     }
 
     pub fn attacks_to(&self, square: Square, us: Color) -> u64 {
         let occupied_by_us = self.color[us];
-        let mut attacks = 0;
+        let mut attacks = EMPTY_SET;
         attacks |= self.piece_attacks_from(square, ROOK) & occupied_by_us &
                    (self.piece_type[ROOK] | self.piece_type[QUEEN]);
         attacks |= self.piece_attacks_from(square, BISHOP) & occupied_by_us &
@@ -58,8 +54,92 @@ impl Board {
                    self.piece_type[PAWN] & BB_NOT_ON_FILE_A;
         attacks
     }
-}
 
+    pub fn static_exchange_evaluation(&self,
+                                      from_square: Square,
+                                      attacking_piece: PieceType,
+                                      attacking_color: Color,
+                                      to_square: Square,
+                                      target_piece: PieceType)
+                                      -> Value {
+        use std::cmp::max;
+
+        // TODO: this way of setting VALUE does not allow changing
+        // PieceType constants later!
+        static VALUE: [Value; 6] = [30000, 900, 500, 350, 300, 100];
+
+        let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
+                       self.piece_type[QUEEN];
+        let mut gain = [0; 34];
+        let mut depth = 0;
+        let mut occupied = self.occupied;
+        let mut attackers_and_defenders = self.attacks_to(to_square, WHITE) |
+                                          self.attacks_to(to_square, BLACK);
+        let mut next_attacker = Some(SeeAttacker(attacking_piece, 1 << from_square));
+        let mut side = attacking_color;
+        gain[depth] = VALUE[target_piece];
+        while let Some(SeeAttacker(piece_type, from_set)) = next_attacker {
+            depth += 1;  // next depth
+            side ^= 1;  // next side
+            gain[depth] = VALUE[piece_type] - gain[depth - 1];  // speculative store, if defended
+            if max(-gain[depth - 1], gain[depth]) < 0 {
+                break;  // pruning does not influence the sign of the result
+            }
+            attackers_and_defenders ^= from_set;
+            occupied ^= from_set;
+            if from_set & may_xray != EMPTY_SET {
+                attackers_and_defenders |= self.consider_xrays(occupied,
+                                                               to_square,
+                                                               bitscan_forward(from_set));
+            }
+            assert_eq!(occupied | attackers_and_defenders, occupied);
+            next_attacker = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
+                                                                   self.color[side]);
+        }
+
+        depth -= 1;  // discard the speculative store
+        while depth > 0 {
+            gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
+            depth -= 1;
+        }
+        gain[0]
+    }
+
+    fn consider_xrays(&self, occupied: u64, target_square: Square, xrayed_square: Square) -> u64 {
+        let behind = self.geometry.squares_behind_blocker[target_square][xrayed_square];
+        let diag_attacker = behind &
+                            piece_attacks_from(&self.geometry, occupied, target_square, BISHOP) &
+                            (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
+        let line_attacker = behind &
+                            piece_attacks_from(&self.geometry, occupied, target_square, ROOK) &
+                            (self.piece_type[QUEEN] | self.piece_type[ROOK]);
+        assert_eq!(ls1b(diag_attacker), diag_attacker);
+        if diag_attacker != EMPTY_SET {
+            return diag_attacker;
+        }
+        assert_eq!(ls1b(line_attacker), line_attacker);
+        if line_attacker != EMPTY_SET {
+            return line_attacker;
+        }
+        EMPTY_SET
+    }
+
+    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> Option<SeeAttacker> {
+        let mut p = PAWN;
+        loop {
+            let piece_subset = self.piece_type[p] & set;
+            if piece_subset != EMPTY_SET {
+                return Some(SeeAttacker(p, ls1b(piece_subset)));
+            }
+            if p == KING {
+                break;
+            } else {
+                p -= 1;
+            }
+        }
+        None
+    }
+}
 
 pub fn board_geometry() -> &'static BoardGeometry {
     use std::sync::{Once, ONCE_INIT};
@@ -306,6 +386,23 @@ impl BoardGeometry {
     }
 }
 
+
+pub fn piece_attacks_from(geometry: &BoardGeometry,
+                          occupied: u64,
+                          square: Square,
+                          piece: PieceType)
+                          -> u64 {
+    assert!(piece != PAWN);
+    let mut attacks = geometry.attacks[piece][square];
+    let mut blockers = occupied & geometry.blockers_and_beyond[piece][square];
+    while blockers != EMPTY_SET {
+        let blocker_square = bitscan_and_clear(&mut blockers);
+        attacks &= !geometry.squares_behind_blocker[square][blocker_square];
+    }
+    attacks
+}
+
+
 // The StateInfo struct stores information needed to restore a Position
 // object to its previous state when we retract a move. Whenever a move
 // is made on the board (by calling Position::do_move), a StateInfo
@@ -404,20 +501,33 @@ mod tests {
         use basetypes::*;
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << D3; color[WHITE] |= 1 << D3;
-        piece_type[PAWN] |= 1 << H5; color[WHITE] |= 1 << H5;
-        piece_type[KNIGHT] |= 1 << G3; color[WHITE] |= 1 << G3;
-        piece_type[BISHOP] |= 1 << B1; color[WHITE] |= 1 << B1;
-        piece_type[QUEEN] |= 1 << H1; color[WHITE] |= 1 << H1;
-        piece_type[KING] |= 1 << D5; color[WHITE] |= 1 << D5;
-        piece_type[PAWN] |= 1 << H2; color[BLACK] |= 1 << H2;
-        piece_type[PAWN] |= 1 << F5; color[BLACK] |= 1 << F5;
-        piece_type[ROOK] |= 1 << A4; color[BLACK] |= 1 << A4;
-        piece_type[QUEEN] |= 1 << E3; color[BLACK] |= 1 << E3;
-        piece_type[KING] |= 1 << F4; color[BLACK] |= 1 << F4;
+        piece_type[PAWN] |= 1 << D3;
+        color[WHITE] |= 1 << D3;
+        piece_type[PAWN] |= 1 << H5;
+        color[WHITE] |= 1 << H5;
+        piece_type[KNIGHT] |= 1 << G3;
+        color[WHITE] |= 1 << G3;
+        piece_type[BISHOP] |= 1 << B1;
+        color[WHITE] |= 1 << B1;
+        piece_type[QUEEN] |= 1 << H1;
+        color[WHITE] |= 1 << H1;
+        piece_type[KING] |= 1 << D5;
+        color[WHITE] |= 1 << D5;
+        piece_type[PAWN] |= 1 << H2;
+        color[BLACK] |= 1 << H2;
+        piece_type[PAWN] |= 1 << F5;
+        color[BLACK] |= 1 << F5;
+        piece_type[ROOK] |= 1 << A4;
+        color[BLACK] |= 1 << A4;
+        piece_type[QUEEN] |= 1 << E3;
+        color[BLACK] |= 1 << E3;
+        piece_type[KING] |= 1 << F4;
+        color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.attacks_to(E4, WHITE), 1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
-        assert_eq!(b.attacks_to(E4, BLACK), 1 << E3 | 1 << F4 | 1 << F5 | 1 << A4);
+        assert_eq!(b.attacks_to(E4, WHITE),
+                   1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
+        assert_eq!(b.attacks_to(E4, BLACK),
+                   1 << E3 | 1 << F4 | 1 << F5 | 1 << A4);
         assert_eq!(b.attacks_to(G6, BLACK), 0);
         assert_eq!(b.attacks_to(G6, WHITE), 1 << H5);
         assert_eq!(b.attacks_to(C2, WHITE), 1 << B1);
@@ -426,6 +536,39 @@ mod tests {
         assert_eq!(b.attacks_to(F5, BLACK), 1 << F4);
         assert_eq!(b.attacks_to(A6, WHITE), 0);
         assert_eq!(b.attacks_to(G1, BLACK), 1 << H2 | 1 << E3);
-        assert_eq!(b.attacks_to(A1, BLACK),  1 << A4);
+        assert_eq!(b.attacks_to(A1, BLACK), 1 << A4);
     }
+
+    #[test]
+    fn test_piece_type_constants_constraints() {
+        use basetypes::*;
+        assert_eq!(KING, 0);
+        assert_eq!(QUEEN, 1);
+        assert_eq!(ROOK, 2);
+        assert_eq!(BISHOP, 3);
+        assert_eq!(KNIGHT, 4);
+        assert_eq!(PAWN, 5);
+    }
+
+    #[test]
+    fn test_static_exchange_evaluation() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[QUEEN] |= 1 << E5; color[BLACK] |= 1 << E5;
+        piece_type[ROOK] |= 1 << F8; color[BLACK] |= 1 << F8;
+        piece_type[BISHOP] |= 1 << D2; color[BLACK] |= 1 << D2;
+        piece_type[PAWN] |= 1 << G5; color[BLACK] |= 1 << G5;
+        piece_type[PAWN] |= 1 << E3; color[WHITE] |= 1 << E3;
+        piece_type[PAWN] |= 1 << G3; color[WHITE] |= 1 << G3;
+        piece_type[PAWN] |= 1 << D4; color[WHITE] |= 1 << D4;
+        piece_type[BISHOP] |= 1 << H2; color[WHITE] |= 1 << H2;
+        piece_type[ROOK] |= 1 << F1; color[WHITE] |= 1 << F1;
+        piece_type[ROOK] |= 1 << F2; color[WHITE] |= 1 << F2;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, E3, PAWN), 100);
+        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, D4, PAWN), -800);
+        assert_eq!(b.static_exchange_evaluation(G3, PAWN, WHITE, F4, PAWN), 100);
+    }
+
 }

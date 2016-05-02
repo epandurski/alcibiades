@@ -5,6 +5,7 @@ pub type Rank = usize;  // from 0 to 7
 pub type Square = usize;  // from 0 to 63
 pub type PieceType = usize;  // from 0 to 5
 pub type MoveType = usize;  // from 0 to 3
+pub type Value = i16;
 pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
 
 // Color
