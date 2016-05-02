@@ -21,6 +21,7 @@ pub struct Board {
 }
 
 impl Board {
+    // Create a new board instance.
     pub fn new(piece_type: &[u64; 6], color: &[u64; 2]) -> Board {
         assert!(piece_type.into_iter().fold(0, |acc, x| acc | x) == color[WHITE] | color[BLACK]);
         assert!(piece_type[PAWN] & BB_PROMOTION_RANKS[WHITE] == 0);
@@ -33,11 +34,16 @@ impl Board {
         }
     }
 
+    // Return the set of squares that are attacked by a piece (not a
+    // pawn) of type "piece" from the square "square".
     #[inline]
     pub fn piece_attacks_from(&self, square: Square, piece: PieceType) -> u64 {
         piece_attacks_from(self.geometry, self.occupied, square, piece)
     }
 
+    // Return the set of squares that have on them pieces (or pawns)
+    // of color "us" that attack the square "square" directly (no
+    // x-rays).
     pub fn attacks_to(&self, square: Square, us: Color) -> u64 {
         let occupied_by_us = self.color[us];
         let mut attacks = EMPTY_SET;
@@ -55,6 +61,27 @@ impl Board {
         attacks
     }
 
+    // A Static Exchange Evaluation (SEE) examines the consequence of
+    // a series of exchanges on a single square after a given move,
+    // and calculates the likely evaluation change (material) to be
+    // lost or gained, Donald Michie coined the term swap-off value. A
+    // positive static exchange indicates a "winning" move. For
+    // example, PxQ will always be a win, since the Pawn side can
+    // choose to stop the exchange after its Pawn is recaptured, and
+    // still be ahead.
+    //
+    // The impemented algorithm creates a swap-list of best case
+    // material gains by traversing a square attacked/defended by set
+    // in least valuable piece order from pawn, knight, bishop, rook,
+    // queen until king, with alternating sides. The swap-list, an
+    // unary tree since there are no branches but just a series of
+    // captures, is negamaxed for a final static exchange evaluation.
+    //
+    // The returned value is the material that is expected to be
+    // gained in the exchange by the attacking side
+    // ("attacking_color"), when capturing the "target_piece" on the
+    // "target_square". The "from_square" specifies the square from
+    // which the "attacking_piece" makes the capture.
     pub fn static_exchange_evaluation(&self,
                                       from_square: Square,
                                       attacking_piece: PieceType,
@@ -64,8 +91,7 @@ impl Board {
                                       -> Value {
         use std::cmp::max;
 
-        // TODO: this way of setting VALUE does not allow changing
-        // PieceType constants later!
+        // TODO: this shold not be defined here!
         static VALUE: [Value; 6] = [30000, 900, 500, 350, 300, 100];
 
         let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
@@ -83,7 +109,7 @@ impl Board {
             side ^= 1;  // next side
             gain[depth] = VALUE[piece_type] - gain[depth - 1];  // speculative store, if defended
             if max(-gain[depth - 1], gain[depth]) < 0 {
-                break;  // pruning does not influence the sign of the result
+                break;  // pruning does not influence the result
             }
             attackers_and_defenders ^= from_set;
             occupied ^= from_set;
@@ -387,6 +413,11 @@ impl BoardGeometry {
 }
 
 
+// Return the set of squares that are attacked by a piece (not a pawn)
+// of type "piece" from the square "square", on a board which is
+// occupied with other pieces according to the "occupied"
+// bit-set. "geometry" supplies the look-up tables needed to perform
+// the calculation.
 pub fn piece_attacks_from(geometry: &BoardGeometry,
                           occupied: u64,
                           square: Square,
@@ -555,19 +586,31 @@ mod tests {
         use basetypes::*;
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
-        piece_type[QUEEN] |= 1 << E5; color[BLACK] |= 1 << E5;
-        piece_type[ROOK] |= 1 << F8; color[BLACK] |= 1 << F8;
-        piece_type[BISHOP] |= 1 << D2; color[BLACK] |= 1 << D2;
-        piece_type[PAWN] |= 1 << G5; color[BLACK] |= 1 << G5;
-        piece_type[PAWN] |= 1 << E3; color[WHITE] |= 1 << E3;
-        piece_type[PAWN] |= 1 << G3; color[WHITE] |= 1 << G3;
-        piece_type[PAWN] |= 1 << D4; color[WHITE] |= 1 << D4;
-        piece_type[BISHOP] |= 1 << H2; color[WHITE] |= 1 << H2;
-        piece_type[ROOK] |= 1 << F1; color[WHITE] |= 1 << F1;
-        piece_type[ROOK] |= 1 << F2; color[WHITE] |= 1 << F2;
+        piece_type[QUEEN] |= 1 << E5;
+        color[BLACK] |= 1 << E5;
+        piece_type[ROOK] |= 1 << F8;
+        color[BLACK] |= 1 << F8;
+        piece_type[BISHOP] |= 1 << D2;
+        color[BLACK] |= 1 << D2;
+        piece_type[PAWN] |= 1 << G5;
+        color[BLACK] |= 1 << G5;
+        piece_type[PAWN] |= 1 << E3;
+        color[WHITE] |= 1 << E3;
+        piece_type[PAWN] |= 1 << G3;
+        color[WHITE] |= 1 << G3;
+        piece_type[PAWN] |= 1 << D4;
+        color[WHITE] |= 1 << D4;
+        piece_type[BISHOP] |= 1 << H2;
+        color[WHITE] |= 1 << H2;
+        piece_type[ROOK] |= 1 << F1;
+        color[WHITE] |= 1 << F1;
+        piece_type[ROOK] |= 1 << F2;
+        color[WHITE] |= 1 << F2;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, E3, PAWN), 100);
-        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, D4, PAWN), -800);
+        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, E3, PAWN),
+                   100);
+        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, D4, PAWN),
+                   -800);
         assert_eq!(b.static_exchange_evaluation(G3, PAWN, WHITE, F4, PAWN), 100);
     }
 
