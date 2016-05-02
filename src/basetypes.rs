@@ -12,11 +12,11 @@ pub const WHITE: Color = 0;
 pub const BLACK: Color = 1;
 
 // Piece types
-pub const QUEEN: PieceType = 0;
-pub const ROOK: PieceType = 1;
-pub const BISHOP: PieceType = 2;
-pub const KNIGHT: PieceType = 3;
-pub const KING: PieceType = 4;
+pub const KING: PieceType = 0;
+pub const QUEEN: PieceType = 1;
+pub const ROOK: PieceType = 2;
+pub const BISHOP: PieceType = 3;
+pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
 
 // Move types
@@ -147,8 +147,14 @@ impl Move {
     }
 
     #[inline]
-    pub fn promotion_piece_type(&self) -> PieceType {
-        (self.0 & (0b11 << 12) >> 12) as PieceType
+    pub fn promoted_piece_type(&self) -> PieceType {
+        match self.0 & (0b11 << 12) >> 12 {
+            0 => QUEEN,
+            1 => ROOK,
+            2 => BISHOP,
+            3 => KNIGHT,
+            _ => panic!("invalid promoted piece type")
+        }
     }
 }
 
