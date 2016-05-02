@@ -35,10 +35,7 @@ impl Board {
         assert!(piece != PAWN);
         let mut attacks = self.geometry.attacks[piece][square];
         let mut blockers = self.occupied & self.geometry.blockers_and_beyond[piece][square];
-        loop {
-            if blockers == 0 {
-                break;
-            }
+        while blockers != 0 {
             let blocker_square = bitscan_and_clear(&mut blockers);
             attacks &= !self.geometry.squares_behind_blocker[square][blocker_square];
         }
