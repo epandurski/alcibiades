@@ -94,7 +94,7 @@ impl Board {
         // TODO: this shold not be defined here!
         static VALUE: [Value; 6] = [30000, 900, 500, 350, 300, 100];
 
-        // "may_xray" pieces that may block x-ray attacks from other
+        // "may_xray" pieces may block x-ray attacks from other
         // pieces, so we must consider adding new attackers/defenders
         // every time a "may_xray"-piece makes a capture.
         let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
