@@ -131,36 +131,28 @@ impl Board {
         gain[0]
     }
 
+    #[inline]
     fn consider_xrays(&self, occupied: u64, target_square: Square, xrayed_square: Square) -> u64 {
-        let behind = self.geometry.squares_behind_blocker[target_square][xrayed_square];
-        let diag_attacker = behind &
-                            piece_attacks_from(&self.geometry, occupied, target_square, BISHOP) &
-                            (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
-        let line_attacker = behind &
-                            piece_attacks_from(&self.geometry, occupied, target_square, ROOK) &
-                            (self.piece_type[QUEEN] | self.piece_type[ROOK]);
-        assert_eq!(ls1b(diag_attacker), diag_attacker);
-        if diag_attacker != EMPTY_SET {
-            return diag_attacker;
-        }
-        assert_eq!(ls1b(line_attacker), line_attacker);
-        if line_attacker != EMPTY_SET {
-            return line_attacker;
-        }
-        EMPTY_SET
+        let candidates = occupied &
+                         self.geometry.squares_behind_blocker[target_square][xrayed_square];
+        let diag_attackers = piece_attacks_from(&self.geometry, candidates, target_square, BISHOP) &
+                             (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
+        let line_attackers = piece_attacks_from(&self.geometry, candidates, target_square, ROOK) &
+                             (self.piece_type[QUEEN] | self.piece_type[ROOK]);
+        assert_eq!(diag_attackers & line_attackers, EMPTY_SET);
+        assert_eq!(ls1b(candidates & diag_attackers),
+                   candidates & diag_attackers);
+        assert_eq!(ls1b(candidates & line_attackers),
+                   candidates & line_attackers);
+        candidates & (diag_attackers | line_attackers)
     }
 
+    #[inline]
     fn get_least_valuable_piece_in_a_set(&self, set: u64) -> Option<SeeAttacker> {
-        let mut p = PAWN;
-        loop {
+        for p in (0..6).rev() {
             let piece_subset = self.piece_type[p] & set;
             if piece_subset != EMPTY_SET {
                 return Some(SeeAttacker(p, ls1b(piece_subset)));
-            }
-            if p == KING {
-                break;
-            } else {
-                p -= 1;
             }
         }
         None
@@ -418,6 +410,7 @@ impl BoardGeometry {
 // occupied with other pieces according to the "occupied"
 // bit-set. "geometry" supplies the look-up tables needed to perform
 // the calculation.
+#[inline]                                            
 pub fn piece_attacks_from(geometry: &BoardGeometry,
                           occupied: u64,
                           square: Square,
@@ -586,6 +579,8 @@ mod tests {
         use basetypes::*;
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
+        piece_type[KING] |= 1 << A3;
+        color[BLACK] |= 1 << A3;
         piece_type[QUEEN] |= 1 << E5;
         color[BLACK] |= 1 << E5;
         piece_type[ROOK] |= 1 << F8;
@@ -594,6 +589,10 @@ mod tests {
         color[BLACK] |= 1 << D2;
         piece_type[PAWN] |= 1 << G5;
         color[BLACK] |= 1 << G5;
+        piece_type[KING] |= 1 << A1;
+        color[WHITE] |= 1 << A1;
+        piece_type[PAWN] |= 1 << A2;
+        color[WHITE] |= 1 << A2;
         piece_type[PAWN] |= 1 << E3;
         color[WHITE] |= 1 << E3;
         piece_type[PAWN] |= 1 << G3;
@@ -612,6 +611,7 @@ mod tests {
         assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, D4, PAWN),
                    -800);
         assert_eq!(b.static_exchange_evaluation(G3, PAWN, WHITE, F4, PAWN), 100);
+        assert_eq!(b.static_exchange_evaluation(A3, KING, BLACK, A2, PAWN), -29900);
     }
 
 }
