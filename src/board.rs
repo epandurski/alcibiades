@@ -11,7 +11,7 @@ const BB_NOT_ON_FILE_H: u64 = !(1 << H1 | 1 << H2 | 1 << H3 | 1 << H4 | 1 << H5 
 const BB_PROMOTION_RANKS: [u64; 2] = [0xff << 56, 0xff];
 // const BB_ENDMOST_FILES: [u64; 2] = [!BB_NOT_ON_FILE_A, !BB_NOT_ON_FILE_H];
 
-struct SeeAttacker(PieceType, u64);
+struct PieceTypeAndBitboard(PieceType, u64);
 
 pub struct Board {
     geometry: &'static BoardGeometry,
@@ -101,10 +101,10 @@ impl Board {
         let mut occupied = self.occupied;
         let mut attackers_and_defenders = self.attacks_to(to_square, WHITE) |
                                           self.attacks_to(to_square, BLACK);
-        let mut next_attacker = Some(SeeAttacker(attacking_piece, 1 << from_square));
+        let mut next_attacker = Some(PieceTypeAndBitboard(attacking_piece, 1 << from_square));
         let mut side = attacking_color;
         gain[depth] = VALUE[target_piece];
-        while let Some(SeeAttacker(piece_type, from_set)) = next_attacker {
+        while let Some(PieceTypeAndBitboard(piece_type, from_set)) = next_attacker {
             depth += 1;  // next depth
             side ^= 1;  // next side
             gain[depth] = VALUE[piece_type] - gain[depth - 1];  // speculative store, if defended
@@ -148,11 +148,11 @@ impl Board {
     }
 
     #[inline]
-    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> Option<SeeAttacker> {
+    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> Option<PieceTypeAndBitboard> {
         for p in (0..6).rev() {
             let piece_subset = self.piece_type[p] & set;
             if piece_subset != EMPTY_SET {
-                return Some(SeeAttacker(p, ls1b(piece_subset)));
+                return Some(PieceTypeAndBitboard(p, ls1b(piece_subset)));
             }
         }
         None
@@ -410,7 +410,7 @@ impl BoardGeometry {
 // occupied with other pieces according to the "occupied"
 // bit-set. "geometry" supplies the look-up tables needed to perform
 // the calculation.
-#[inline]                                            
+#[inline]
 pub fn piece_attacks_from(geometry: &BoardGeometry,
                           occupied: u64,
                           square: Square,
@@ -611,7 +611,8 @@ mod tests {
         assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, D4, PAWN),
                    -800);
         assert_eq!(b.static_exchange_evaluation(G3, PAWN, WHITE, F4, PAWN), 100);
-        assert_eq!(b.static_exchange_evaluation(A3, KING, BLACK, A2, PAWN), -29900);
+        assert_eq!(b.static_exchange_evaluation(A3, KING, BLACK, A2, PAWN),
+                   -29900);
     }
 
 }
