@@ -159,6 +159,9 @@ impl Move {
     }
 }
 
+// Some auxiliary useful types
+pub struct PieceTypeAndBitboard(pub PieceType, pub u64);
+
 
 #[inline]
 pub fn square(file: File, rank: Rank) -> Square {

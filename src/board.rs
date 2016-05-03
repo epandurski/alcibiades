@@ -11,8 +11,6 @@ const BB_NOT_ON_FILE_H: u64 = !(1 << H1 | 1 << H2 | 1 << H3 | 1 << H4 | 1 << H5 
 const BB_PROMOTION_RANKS: [u64; 2] = [0xff << 56, 0xff];
 // const BB_ENDMOST_FILES: [u64; 2] = [!BB_NOT_ON_FILE_A, !BB_NOT_ON_FILE_H];
 
-struct PieceTypeAndBitboard(PieceType, u64);
-
 pub struct Board {
     geometry: &'static BoardGeometry,
     pub piece_type: [u64; 6],
