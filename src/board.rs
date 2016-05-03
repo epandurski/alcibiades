@@ -90,9 +90,7 @@ impl Board {
                                       target_piece: PieceType)
                                       -> Value {
         use std::cmp::max;
-
-        // TODO: this shold not be defined here!
-        static VALUE: [Value; 6] = [30000, 900, 500, 350, 300, 100];
+        static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
         // "may_xray" pieces may block x-ray attacks from other
         // pieces, so we must consider adding new attackers/defenders
@@ -612,10 +610,10 @@ mod tests {
         assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, E3, PAWN),
                    100);
         assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, D4, PAWN),
-                   -800);
+                   -875);
         assert_eq!(b.static_exchange_evaluation(G3, PAWN, WHITE, F4, PAWN), 100);
         assert_eq!(b.static_exchange_evaluation(A3, KING, BLACK, A2, PAWN),
-                   -29900);
+                   -9900);
     }
 
 }
