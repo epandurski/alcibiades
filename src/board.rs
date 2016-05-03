@@ -94,6 +94,9 @@ impl Board {
         // TODO: this shold not be defined here!
         static VALUE: [Value; 6] = [30000, 900, 500, 350, 300, 100];
 
+        // "may_xray" pieces that may block x-ray attacks from other
+        // pieces, so we must consider adding new attackers/defenders
+        // every time a "may_xray"-piece makes a capture.
         let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
                        self.piece_type[QUEEN];
         let mut gain = [0; 34];
@@ -104,19 +107,19 @@ impl Board {
         let mut next_attacker = Some(PieceTypeAndBitboard(attacking_piece, 1 << from_square));
         let mut side = attacking_color;
         gain[depth] = VALUE[target_piece];
-        while let Some(PieceTypeAndBitboard(piece_type, from_set)) = next_attacker {
+        while let Some(PieceTypeAndBitboard(piece_type, from_square_bb)) = next_attacker {
             depth += 1;  // next depth
             side ^= 1;  // next side
             gain[depth] = VALUE[piece_type] - gain[depth - 1];  // speculative store, if defended
             if max(-gain[depth - 1], gain[depth]) < 0 {
                 break;  // pruning does not influence the result
             }
-            attackers_and_defenders ^= from_set;
-            occupied ^= from_set;
-            if from_set & may_xray != EMPTY_SET {
+            attackers_and_defenders ^= from_square_bb;
+            occupied ^= from_square_bb;
+            if from_square_bb & may_xray != EMPTY_SET {
                 attackers_and_defenders |= self.consider_xrays(occupied,
                                                                to_square,
-                                                               bitscan_forward(from_set));
+                                                               bitscan_forward(from_square_bb));
             }
             assert_eq!(occupied | attackers_and_defenders, occupied);
             next_attacker = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
