@@ -80,13 +80,13 @@ impl Board {
     // ("attacking_color"), when capturing the "target_piece" on the
     // "target_square". The "from_square" specifies the square from
     // which the "attacking_piece" makes the capture.
-    pub fn static_exchange_evaluation(&self,
-                                      from_square: Square,
-                                      attacking_piece: PieceType,
-                                      attacking_color: Color,
-                                      to_square: Square,
-                                      target_piece: PieceType)
-                                      -> Value {
+    pub fn calc_see(&self,
+                    from_square: Square,
+                    mut attacking_piece: PieceType,
+                    mut attacking_color: Color,
+                    to_square: Square,
+                    target_piece: PieceType)
+                    -> Value {
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
@@ -95,20 +95,19 @@ impl Board {
         // every time a "may_xray"-piece makes a capture.
         let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
                        self.piece_type[QUEEN];
-        let mut gain = [0; 34];
+        let mut gain = [0; 33];
         let mut depth = 0;
         let mut occupied = self.occupied;
         let mut attackers_and_defenders = self.attacks_to(to_square, WHITE) |
                                           self.attacks_to(to_square, BLACK);
-        let mut next_attacker = Some(PieceTypeAndBitboard(attacking_piece, 1 << from_square));
-        let mut side = attacking_color;
+        let mut from_square_bb = 1 << from_square;
         gain[depth] = VALUE[target_piece];
-        while let Some(PieceTypeAndBitboard(piece_type, from_square_bb)) = next_attacker {
+        while from_square_bb != EMPTY_SET {
             depth += 1;  // next depth
-            side ^= 1;  // next side
-            gain[depth] = VALUE[piece_type] - gain[depth - 1];  // speculative store, if defended
+            attacking_color ^= 1;  // next side
+            gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
             if max(-gain[depth - 1], gain[depth]) < 0 {
-                break;  // pruning does not influence the result
+                break;  // pruning does not influence the outcome
             }
             attackers_and_defenders ^= from_square_bb;
             occupied ^= from_square_bb;
@@ -118,8 +117,12 @@ impl Board {
                                                                bitscan_forward(from_square_bb));
             }
             assert_eq!(occupied | attackers_and_defenders, occupied);
-            next_attacker = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
-                                                                   self.color[side]);
+            
+            // Find the next piece in the exchange:
+            let next_attack = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
+                                                                     self.color[attacking_color]);
+            attacking_piece = next_attack.0;
+            from_square_bb = next_attack.1;
         }
 
         depth -= 1;  // discard the speculative store
@@ -128,6 +131,27 @@ impl Board {
             depth -= 1;
         }
         gain[0]
+    }
+
+    // Generate all legal moves in the current board position.
+    //
+    // "checkers" should represent all pieces that give
+    // check. "pinned" should represent all pinned pieces (and
+    // pawns). "side" is the side to move. "castling_rights" gives the
+    // current castling rights. "en_passant_bb" is a bitboard that
+    // contains 1 for the passing square (if there is one).
+    // "move_stack" gives a slice to the global array of moves.
+    //
+    // Returns the number of moves that have been generated.
+    pub fn generate_moves(&self,
+                          checkers: u64,
+                          pinned: u64,
+                          side: Color,
+                          castling_rights: CastlingRights,
+                          en_passant_bb: u64,
+                          move_stack: &mut [MoveAndMoveScore])
+                          -> usize {
+        0
     }
 
     #[inline]
@@ -147,14 +171,14 @@ impl Board {
     }
 
     #[inline]
-    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> Option<PieceTypeAndBitboard> {
+    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> (PieceType, u64) {
         for p in (0..6).rev() {
             let piece_subset = self.piece_type[p] & set;
             if piece_subset != EMPTY_SET {
-                return Some(PieceTypeAndBitboard(p, ls1b(piece_subset)));
+                return (p, ls1b(piece_subset));
             }
         }
-        None
+        (NO_PIECE, EMPTY_SET)
     }
 }
 
@@ -444,16 +468,6 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 //   StateInfo* previous;
 // };
 
-// pub fn generate_moves(bg: &BoardGeometry,
-//                       board: &Board,
-//                       checkers: u64,
-//                       us: Color,
-//                       move_stack: &mut [Move])
-//                       -> usize {
-//     0
-// }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -605,13 +619,10 @@ mod tests {
         piece_type[ROOK] |= 1 << F2;
         color[WHITE] |= 1 << F2;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, E3, PAWN),
-                   100);
-        assert_eq!(b.static_exchange_evaluation(E5, QUEEN, BLACK, D4, PAWN),
-                   -875);
-        assert_eq!(b.static_exchange_evaluation(G3, PAWN, WHITE, F4, PAWN), 100);
-        assert_eq!(b.static_exchange_evaluation(A3, KING, BLACK, A2, PAWN),
-                   -9900);
+        assert_eq!(b.calc_see(E5, QUEEN, BLACK, E3, PAWN), 100);
+        assert_eq!(b.calc_see(E5, QUEEN, BLACK, D4, PAWN), -875);
+        assert_eq!(b.calc_see(G3, PAWN, WHITE, F4, PAWN), 100);
+        assert_eq!(b.calc_see(A3, KING, BLACK, A2, PAWN), -9900);
     }
 
 }

@@ -19,6 +19,7 @@ pub const ROOK: PieceType = 2;
 pub const BISHOP: PieceType = 3;
 pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
+pub const NO_PIECE: PieceType = 6;
 
 // Move types
 pub const MOVE_NORMAL: MoveType = 0;
@@ -159,8 +160,24 @@ impl Move {
     }
 }
 
-// Some auxiliary useful types
-pub struct PieceTypeAndBitboard(pub PieceType, pub u64);
+
+pub struct MoveScore(u16);
+
+impl MoveScore {
+    
+    #[inline]
+    pub fn captured_piece_type(&self) -> PieceType {
+        ((!self.0 & (0b111 << 3)) >> 3) as PieceType
+    }
+    
+    #[inline]
+    pub fn attacking_piece_type(&self) -> PieceType {
+        (self.0 & 0b111) as PieceType
+    }
+}
+
+
+pub struct MoveAndMoveScore(pub Move, pub MoveScore);
 
 
 #[inline]
