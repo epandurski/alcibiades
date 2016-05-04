@@ -12,8 +12,8 @@ pub static PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET,
 pub static PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 pub static PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
                                              BB_RANK_2 | BB_RANK_7,
-                                             !BB_FILE_A,
-                                             !BB_FILE_H];
+                                             !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                             !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
 
 pub const PAWN_PROMOTION_RANK: [u64; 2] = [BB_RANK_8, BB_RANK_1];
 
