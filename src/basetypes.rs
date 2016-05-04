@@ -121,6 +121,8 @@ pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
 
 
+#[derive(Debug)]
+#[derive(Clone, Copy)]
 pub struct Move(u16);
 
 impl Move {
@@ -161,6 +163,8 @@ impl Move {
 }
 
 
+#[derive(Debug)]
+#[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
 pub struct MoveScore(u16);
 
@@ -168,7 +172,7 @@ impl MoveScore {
     #[inline]
     pub fn new(attacking_piece: PieceType, target_piece: PieceType) -> MoveScore {
         assert!(attacking_piece < NO_PIECE);
-        assert!(target_piece > KING);
+        assert!(target_piece != KING && target_piece <= NO_PIECE);
         MoveScore((((!target_piece & 0b111) << 3) | attacking_piece) as u16)
     }
 
@@ -183,8 +187,15 @@ impl MoveScore {
     }
 
     #[inline]
-    pub fn set_bit<T>(&mut self, i: u16) {
+    pub fn set_bit(&mut self, i: u16) {
+        assert!(i >= 6);
         self.0 |= 1 << i;
+    }
+
+    #[inline]
+    pub fn clear_bit(&mut self, i: u16) {
+        assert!(i >= 6);
+        self.0 &= !(1 << i);
     }
 }
 

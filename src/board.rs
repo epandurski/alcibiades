@@ -624,5 +624,24 @@ mod tests {
         assert_eq!(b.calc_see(G3, PAWN, WHITE, F4, PAWN), 100);
         assert_eq!(b.calc_see(A3, KING, BLACK, A2, PAWN), -9900);
     }
+    
+    #[test]
+    fn test_move_scores() {
+        use basetypes::*;
+        let mut ms = MoveScore::new(PAWN, QUEEN);
+        assert_eq!(ms.attacking_piece(), PAWN);
+        assert_eq!(ms.target_piece(), QUEEN);
+        assert!(ms > MoveScore::new(KNIGHT, QUEEN));
+        assert!(ms > MoveScore::new(PAWN, ROOK));
+        assert_eq!(ms, MoveScore::new(PAWN, QUEEN));
+        let ms2 = ms;
+        assert_eq!(ms, ms2);
+        ms.set_bit(6);
+        assert!(ms > ms2);
+        assert_eq!(ms.attacking_piece(), PAWN);
+        assert_eq!(ms.target_piece(), QUEEN);
+        ms.clear_bit(6);
+        assert_eq!(ms, ms2);
+    }
 
 }
