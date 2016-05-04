@@ -1,15 +1,23 @@
 use basetypes::*;
 use bitsets::*;
 
-const KINGSIDE_PAWN_SHIFT: [i8; 2] = [9, -7];
-const QUEENSIDE_PAWN_SHIFT: [i8; 2] = [7, -9];
+pub type PawnMoveType = usize;
 
-const BB_NOT_ON_FILE_A: u64 = !(1 << A1 | 1 << A2 | 1 << A3 | 1 << A4 | 1 << A5 | 1 << A6 |
-                                1 << A7 | 1 << A8);
-const BB_NOT_ON_FILE_H: u64 = !(1 << H1 | 1 << H2 | 1 << H3 | 1 << H4 | 1 << H5 | 1 << H6 |
-                                1 << H7 | 1 << H8);
-const BB_PROMOTION_RANKS: [u64; 2] = [0xff << 56, 0xff];
-// const BB_ENDMOST_FILES: [u64; 2] = [!BB_NOT_ON_FILE_A, !BB_NOT_ON_FILE_H];
+pub const PAWN_PUSH: PawnMoveType = 0;
+pub const PAWN_DOUBLE_PUSH: PawnMoveType = 1;
+pub const PAWN_QUEENSIDE_CAPTURE: PawnMoveType = 2;
+pub const PAWN_KINGSIDE_CAPTURE: PawnMoveType = 3;
+
+pub static PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
+pub static PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
+pub static PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                             BB_RANK_2 | BB_RANK_7,
+                                             !BB_FILE_A,
+                                             !BB_FILE_H];
+
+pub const PAWN_PROMOTION_RANK: [u64; 2] = [BB_RANK_8, BB_RANK_1];
+
+
 
 pub struct Board {
     geometry: &'static BoardGeometry,
@@ -22,8 +30,8 @@ impl Board {
     // Create a new board instance.
     pub fn new(piece_type: &[u64; 6], color: &[u64; 2]) -> Board {
         assert!(piece_type.into_iter().fold(0, |acc, x| acc | x) == color[WHITE] | color[BLACK]);
-        assert!(piece_type[PAWN] & BB_PROMOTION_RANKS[WHITE] == 0);
-        assert!(piece_type[PAWN] & BB_PROMOTION_RANKS[BLACK] == 0);
+        assert!(piece_type[PAWN] & PAWN_PROMOTION_RANK[WHITE] == 0);
+        assert!(piece_type[PAWN] & PAWN_PROMOTION_RANK[BLACK] == 0);
         Board {
             geometry: board_geometry(),
             piece_type: *piece_type,
@@ -52,10 +60,10 @@ impl Board {
         attacks |= self.piece_attacks_from(square, KNIGHT) & occupied_by_us &
                    self.piece_type[KNIGHT];
         attacks |= self.piece_attacks_from(square, KING) & occupied_by_us & self.piece_type[KING];
-        attacks |= gen_shift(1 << square, -KINGSIDE_PAWN_SHIFT[us]) & occupied_by_us &
-                   self.piece_type[PAWN] & BB_NOT_ON_FILE_H;
-        attacks |= gen_shift(1 << square, -QUEENSIDE_PAWN_SHIFT[us]) & occupied_by_us &
-                   self.piece_type[PAWN] & BB_NOT_ON_FILE_A;
+        attacks |= gen_shift(1 << square, -PAWN_MOVE_SHIFTS[us][PAWN_KINGSIDE_CAPTURE]) &
+                   occupied_by_us & self.piece_type[PAWN] & !BB_FILE_H;
+        attacks |= gen_shift(1 << square, -PAWN_MOVE_SHIFTS[us][PAWN_QUEENSIDE_CAPTURE]) &
+                   occupied_by_us & self.piece_type[PAWN] & !BB_FILE_A;
         attacks
     }
 
@@ -117,7 +125,7 @@ impl Board {
                                                                bitscan_forward(from_square_bb));
             }
             assert_eq!(occupied | attackers_and_defenders, occupied);
-            
+
             // Find the next piece in the exchange:
             let next_attack = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
                                                                      self.color[attacking_color]);
@@ -179,6 +187,43 @@ impl Board {
             }
         }
         (NO_PIECE, EMPTY_SET)
+    }
+
+    #[inline]
+    fn piece_legal_dest_squares(&self,
+                                from_square: Square,
+                                piece: PieceType,
+                                color: Color,
+                                pinned: Option<Square>)
+                                -> u64 {
+        assert!(piece != PAWN);
+        let pseudo_legal = self.piece_attacks_from(from_square, piece) & !self.color[color];
+        match pinned {
+            Some(king_square) => {
+                pseudo_legal & self.geometry.squares_at_line[from_square][king_square]
+            }
+            None => pseudo_legal,
+        }
+    }
+
+    #[inline]
+    pub fn pawn_dest_sets(&self, pawns: u64, us: Color, en_passant_bb: u64) -> [u64; 4] {
+        use std::mem::uninitialized;
+        let shifts = &PAWN_MOVE_SHIFTS[us];
+        let not_occupied_by_us = !self.color[us];
+        let capture_targets = self.color[1 ^ us] | en_passant_bb;
+        unsafe {
+            let mut dest_sets: [u64; 4] = uninitialized();
+            for move_type in 0..4 {
+                dest_sets[move_type] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[move_type],
+                                                 shifts[move_type]) &
+                                       not_occupied_by_us &
+                                       (capture_targets ^ PAWN_MOVE_QUIET[move_type]);
+            }
+            // A double-push is legal only if a single-push is legal too.
+            dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+            dest_sets
+        }
     }
 }
 
@@ -624,7 +669,7 @@ mod tests {
         assert_eq!(b.calc_see(G3, PAWN, WHITE, F4, PAWN), 100);
         assert_eq!(b.calc_see(A3, KING, BLACK, A2, PAWN), -9900);
     }
-    
+
     #[test]
     fn test_move_scores() {
         use basetypes::*;
@@ -642,6 +687,42 @@ mod tests {
         assert_eq!(ms.target_piece(), QUEEN);
         ms.clear_bit(6);
         assert_eq!(ms, ms2);
+    }
+
+    #[test]
+    fn test_pawn_dest_sets() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[PAWN] |= 1 << E7;
+        color[WHITE] |= 1 << E7;
+        piece_type[PAWN] |= 1 << H2;
+        color[WHITE] |= 1 << H2;
+        piece_type[PAWN] |= 1 << G4;
+        color[WHITE] |= 1 << G4;
+        piece_type[PAWN] |= 1 << G5;
+        color[WHITE] |= 1 << G5;
+        piece_type[PAWN] |= 1 << F6;
+        color[WHITE] |= 1 << F6;
+        piece_type[PAWN] |= 1 << F7;
+        color[BLACK] |= 1 << F7;
+        piece_type[PAWN] |= 1 << G7;
+        color[BLACK] |= 1 << G7;
+        piece_type[PAWN] |= 1 << H5;
+        color[BLACK] |= 1 << H5;
+        piece_type[QUEEN] |= 1 << D8;
+        color[BLACK] |= 1 << D8;
+        let b = Board::new(&piece_type, &color);
+        let ds = b.pawn_dest_sets(b.piece_type[PAWN] & b.color[WHITE], WHITE, 1 << H6);
+        assert_eq!(ds[PAWN_PUSH], 1 << H3 | 1 << G6 | 1 << E8);
+        assert_eq!(ds[PAWN_DOUBLE_PUSH], 1 << H4);
+        assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 1 << H5 | 1 << G7 | 1 << H6);
+        assert_eq!(ds[PAWN_QUEENSIDE_CAPTURE], 1 << D8);
+        let ds = b.pawn_dest_sets(b.piece_type[PAWN] & b.color[BLACK], BLACK, 0);
+        assert_eq!(ds[PAWN_PUSH], 1 << H4 | 1 << G6);
+        assert_eq!(ds[PAWN_DOUBLE_PUSH], 0);
+        assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 0);
+        assert_eq!(ds[PAWN_QUEENSIDE_CAPTURE], 1 << G4 | 1 << F6);
     }
 
 }

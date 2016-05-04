@@ -5,6 +5,26 @@ use basetypes::*;
 pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 pub const EMPTY_SET: u64 = 0;
 
+pub const BB_RANK_1: u64 = 0b11111111;
+pub const BB_RANK_2: u64 = BB_RANK_1 << 8;
+pub const BB_RANK_3: u64 = BB_RANK_2 << 8;
+pub const BB_RANK_4: u64 = BB_RANK_3 << 8;
+pub const BB_RANK_5: u64 = BB_RANK_4 << 8;
+pub const BB_RANK_6: u64 = BB_RANK_5 << 8;
+pub const BB_RANK_7: u64 = BB_RANK_6 << 8;
+pub const BB_RANK_8: u64 = BB_RANK_7 << 8;
+
+pub const BB_FILE_A: u64 = 1 << A1 | 1 << A2 | 1 << A3 | 1 << A4 | 1 << A5 | 1 << A6 | 1 << A7 |
+                           1 << A8;
+pub const BB_FILE_B: u64 = BB_FILE_A << 1;
+pub const BB_FILE_C: u64 = BB_FILE_B << 1;
+pub const BB_FILE_D: u64 = BB_FILE_C << 1;
+pub const BB_FILE_E: u64 = BB_FILE_D << 1;
+pub const BB_FILE_F: u64 = BB_FILE_E << 1;
+pub const BB_FILE_G: u64 = BB_FILE_F << 1;
+pub const BB_FILE_H: u64 = BB_FILE_G << 1;
+
+
 #[inline(always)]
 pub fn ls1b(x: u64) -> u64 {
     (x as i64 & (Wrapping(0) - Wrapping(x as i64)).0) as u64
@@ -47,14 +67,18 @@ pub fn smeared_ls1b_down(x: u64) -> u64 {
 
 #[inline(always)]
 pub fn gen_shift(x: u64, s: i8) -> u64 {
-    if s > 0 { x << s } else { x >> -s }
+    if s > 0 {
+        x << s
+    } else {
+        x >> -s
+    }
 }
 
 const DEBRUIJN64: Wrapping<u64> = Wrapping(0x03f79d71b4cb0a89);
-static INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62,
-                                55, 59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63,
-                                47, 56, 27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11,
-                                46, 26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
+static INDEX64: [Square; 64] = [0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62, 55,
+                                59, 36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63, 47, 56,
+                                27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11, 46, 26, 40,
+                                15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
 #[inline]
 pub fn bitscan_forward(b: u64) -> Square {
     assert!(b != 0);
