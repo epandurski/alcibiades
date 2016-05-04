@@ -95,6 +95,7 @@ impl Board {
                     to_square: Square,
                     target_piece: PieceType)
                     -> Value {
+        use std::mem::uninitialized;
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
@@ -103,42 +104,43 @@ impl Board {
         // every time a "may_xray"-piece makes a capture.
         let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
                        self.piece_type[QUEEN];
-        let mut gain = [0; 33];
         let mut depth = 0;
         let mut occupied = self.occupied;
         let mut attackers_and_defenders = self.attacks_to(to_square, WHITE) |
                                           self.attacks_to(to_square, BLACK);
         let mut from_square_bb = 1 << from_square;
-        gain[depth] = VALUE[target_piece];
-        while from_square_bb != EMPTY_SET {
-            depth += 1;  // next depth
-            attacking_color ^= 1;  // next side
-            gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
-            if max(-gain[depth - 1], gain[depth]) < 0 {
-                break;  // pruning does not influence the outcome
+        unsafe {
+            let mut gain: [Value; 33] = uninitialized();
+            gain[depth] = VALUE[target_piece];
+            while from_square_bb != EMPTY_SET {
+                depth += 1;  // next depth
+                attacking_color ^= 1;  // next side
+                gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
+                if max(-gain[depth - 1], gain[depth]) < 0 {
+                    break;  // pruning does not influence the outcome
+                }
+                attackers_and_defenders ^= from_square_bb;
+                occupied ^= from_square_bb;
+                if from_square_bb & may_xray != EMPTY_SET {
+                    attackers_and_defenders |= self.consider_xrays(occupied,
+                                                                   to_square,
+                                                                   bitscan_forward(from_square_bb));
+                }
+                assert_eq!(occupied | attackers_and_defenders, occupied);
+                // Find the next piece in the exchange:
+                let next_attack =
+                    self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
+                                                           self.color[attacking_color]);
+                attacking_piece = next_attack.0;
+                from_square_bb = next_attack.1;
             }
-            attackers_and_defenders ^= from_square_bb;
-            occupied ^= from_square_bb;
-            if from_square_bb & may_xray != EMPTY_SET {
-                attackers_and_defenders |= self.consider_xrays(occupied,
-                                                               to_square,
-                                                               bitscan_forward(from_square_bb));
+            depth -= 1;  // discard the speculative store
+            while depth > 0 {
+                gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
+                depth -= 1;
             }
-            assert_eq!(occupied | attackers_and_defenders, occupied);
-
-            // Find the next piece in the exchange:
-            let next_attack = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
-                                                                     self.color[attacking_color]);
-            attacking_piece = next_attack.0;
-            from_square_bb = next_attack.1;
+            gain[0]
         }
-
-        depth -= 1;  // discard the speculative store
-        while depth > 0 {
-            gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
-            depth -= 1;
-        }
-        gain[0]
     }
 
     // Generate all legal moves in the current board position.
