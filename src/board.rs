@@ -330,12 +330,12 @@ impl BoardGeometry {
     }
 
     fn fill_attack_and_blockers_and_beyond_arrays(&mut self) {
-        for piece_type in 0..5 {
+        for piece in 0..5 {
             for square in 0..64 {
                 let mut attack = 0u64;
                 let mut blockers = 0u64;
                 for move_direction in 0..8 {
-                    let delta = self.piece_grid_deltas[piece_type][move_direction];
+                    let delta = self.piece_grid_deltas[piece][move_direction];
                     if delta != 0 {
                         let mut last_mask = 0u64;
                         let mut curr_grid_index = self.grid_index(square);
@@ -346,7 +346,7 @@ impl BoardGeometry {
                                 last_mask = 1 << curr_square;
                                 attack |= last_mask;
                                 blockers |= last_mask;
-                                if self.piece_longrange[piece_type] {
+                                if self.piece_longrange[piece] {
                                     continue;
                                 }
                             }
@@ -355,8 +355,8 @@ impl BoardGeometry {
                         }
                     }
                 }
-                self.attacks[piece_type][square] = attack;
-                self.blockers_and_beyond[piece_type][square] = blockers;
+                self.attacks[piece][square] = attack;
+                self.blockers_and_beyond[piece][square] = blockers;
             }
         }
     }

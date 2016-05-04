@@ -132,13 +132,13 @@ impl Position {
 
             // Update the board accordting to the token.
             match token {
-                Token::Piece(p_color, p_type) => {
+                Token::Piece(_color, _piece) => {
                     if file > 7 {
                         return Err(ParseError);
                     }
                     let mask = 1 << square(file, rank);
-                    piece_type[p_type] |= mask;
-                    color[p_color] |= mask;
+                    piece_type[_piece] |= mask;
+                    color[_color] |= mask;
                     file += 1;
                 }
                 Token::EmptySquares(n) => {
