@@ -140,7 +140,7 @@ impl Move {
 
     #[inline]
     pub fn orig_square(&self) -> Square {
-        (self.0 & (0b111111 << 6) >> 6) as Square
+        ((self.0 & (0b111111 << 6)) >> 6) as Square
     }
 
     #[inline]
@@ -150,7 +150,7 @@ impl Move {
 
     #[inline]
     pub fn promoted_piece_type(&self) -> PieceType {
-        match self.0 & (0b11 << 12) >> 12 {
+        match (self.0 & (0b11 << 12)) >> 12 {
             0 => QUEEN,
             1 => ROOK,
             2 => BISHOP,
@@ -161,23 +161,38 @@ impl Move {
 }
 
 
+#[derive(PartialOrd, Ord, PartialEq, Eq)]
 pub struct MoveScore(u16);
 
 impl MoveScore {
+    #[inline]
+    pub fn new(attacking_piece: PieceType, target_piece: PieceType) -> MoveScore {
+        assert!(attacking_piece < NO_PIECE);
+        assert!(target_piece > KING);
+        MoveScore( (((!target_piece & 0b111) << 3) | attacking_piece) as u16 )
+    }
     
     #[inline]
-    pub fn captured_piece_type(&self) -> PieceType {
+    pub fn target_piece(&self) -> PieceType {
         ((!self.0 & (0b111 << 3)) >> 3) as PieceType
     }
     
     #[inline]
-    pub fn attacking_piece_type(&self) -> PieceType {
+    pub fn attacking_piece(&self) -> PieceType {
         (self.0 & 0b111) as PieceType
+    }
+    
+    #[inline]
+    pub fn set_bit<T>(&mut self, i: u16) {
+        self.0 |= 1 << i;
     }
 }
 
 
-pub struct MoveAndMoveScore(pub Move, pub MoveScore);
+pub struct MoveAndMoveScore{
+    pub m:Move,
+    pub score: MoveScore,   
+}
 
 
 #[inline]
