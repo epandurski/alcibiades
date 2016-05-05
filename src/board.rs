@@ -269,8 +269,7 @@ impl Board {
     pub fn pawn_dest_sets(&self,
                           us: Color,
                           pawns: u64,
-                          en_passant_bb: u64,
-                          legal_dests: u64)
+                          en_passant_bb: u64)
                           -> [u64; 4] {
         use std::mem::uninitialized;
         let shifts = &PAWN_MOVE_SHIFTS[us];
@@ -314,9 +313,9 @@ impl Board {
                                  legal_dests: u64,
                                  move_stack: &mut MoveStack) {
         use std::cmp::min;
-        let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb, legal_dests);
+        let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb);
         
-        // Make sure all destination squares in all sets are legal:
+        // Make qsure all destination squares in all sets are legal:
         dest_sets[PAWN_PUSH] &= legal_dests;
         dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
         dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
@@ -825,7 +824,6 @@ mod tests {
     #[test]
     fn test_pawn_dest_sets() {
         use basetypes::*;
-        use bitsets::*;
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
         piece_type[PAWN] |= 1 << E7;
@@ -849,13 +847,12 @@ mod tests {
         let b = Board::new(&piece_type, &color);
         let ds = b.pawn_dest_sets(WHITE,
                                   b.piece_type[PAWN] & b.color[WHITE],
-                                  1 << H6,
-                                  UNIVERSAL_SET);
+                                  1 << H6);
         assert_eq!(ds[PAWN_PUSH], 1 << H3 | 1 << G6 | 1 << E8);
         assert_eq!(ds[PAWN_DOUBLE_PUSH], 1 << H4);
         assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 1 << H5 | 1 << G7 | 1 << H6);
         assert_eq!(ds[PAWN_QUEENSIDE_CAPTURE], 1 << D8);
-        let ds = b.pawn_dest_sets(BLACK, b.piece_type[PAWN] & b.color[BLACK], 0, UNIVERSAL_SET);
+        let ds = b.pawn_dest_sets(BLACK, b.piece_type[PAWN] & b.color[BLACK], 0);
         assert_eq!(ds[PAWN_PUSH], 1 << H4 | 1 << G6);
         assert_eq!(ds[PAWN_DOUBLE_PUSH], 0);
         assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 0);
