@@ -163,32 +163,82 @@ impl Board {
                           move_stack: &mut [MoveAndMoveScore])
                           -> usize {
 
+        // TODO: We should probabl pass this as a parameter too,
+        // because it is already calculated (when seeking checkers),
+        // so we better not waste time to calculate it again.
         let king_square = bitscan_forward(self.piece_type[KING] & self.color[us]);
-        let safe_dest_bb = match ls1b(checkers) {
+
+        let occupied_by_us = self.color[us];
+        let legal_dests = !occupied_by_us &
+                          match ls1b(checkers) {
             0 => {
-                // Not in check -- every piece destination may be
+                // Not in check -- every move destination may be
                 // considered "covering".
                 UNIVERSAL_SET
             }
             x if x == checkers => {
                 // Single check -- calculate the check covering
-                // destination subset (the line between the king and
-                // the checker). The subset may include king's square
-                // too, but this is not a problem, because we can not
-                // capture our own king. Notice that we must OR with
-                // "x" itself, because knights give check lot lying on
-                // a line with the king.
-                x | self.geometry.squares_between_including[king_square][bitscan_forward(x)]
+                // destination subset (the squares between the king
+                // and the checker). Notice that we must OR with "x"
+                // itself, because knights give check not lying on a
+                // line with the king.
+                x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)]
             }
             _ => {
                 // Double check -- no covering moves.
                 EMPTY_SET
             }
         };
-        if safe_dest_bb != EMPTY_SET {
-            // We are not doubue-checked, so we should try all pieces
-            // and pawns, hoping that we will cover the check or
-            // capture the checker if there is one.
+
+        if legal_dests != EMPTY_SET {
+            // Find all legal queen, rook, bishop, and knight moves:
+            for piece in QUEEN..PAWN {
+                let bb = self.piece_type[piece] & occupied_by_us;
+                let mut pinned = bb & pinned;  // pinned pieces
+                let mut free = bb ^ pinned;  // not pinned pieces
+                while free != EMPTY_SET {
+                    let from_square = bitscan_and_clear(&mut free);
+                    let dest_set = self.piece_attacks_from(from_square, piece) & legal_dests;
+                    // push_piece_moves(piece, dest_set, move_stack);
+                }
+                while pinned != EMPTY_SET {
+                    let from_square = bitscan_and_clear(&mut pinned);
+                    let dest_set = self.piece_attacks_from(from_square, piece) &
+                                   self.geometry.squares_at_line[from_square][king_square] &
+                                   legal_dests;
+                    // push_piece_moves(piece, dest_set, move_stack);
+                }
+            }
+
+            // Find all legal pawn moves:
+            let bb = self.piece_type[PAWN] & occupied_by_us;
+            let mut pinned = bb & pinned;  // pinned pawns
+            let free = bb ^ pinned;  // not pinned pawns
+            {
+                // Get all free pawn moves at once:
+                let mut dest_sets = self.pawn_dest_sets(free, us, en_passant_bb);
+                let legal_dests = legal_dests | en_passant_bb;
+                dest_sets[PAWN_PUSH] &= legal_dests;
+                dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
+                dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
+                dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
+                // push_pawn_moves(&dest_sets, move_stack);
+            }
+            // Get pinned pawn moves one by one:
+            while pinned != EMPTY_SET {
+                let pawn_bb = ls1b(pinned);
+                pinned ^= pawn_bb;
+                let from_square = bitscan_1bit(pawn_bb);
+
+                let mut dest_sets = self.pawn_dest_sets(pawn_bb, us, en_passant_bb);
+                let legal_dests = self.geometry.squares_at_line[from_square][king_square] &
+                                  (legal_dests | en_passant_bb);
+                dest_sets[PAWN_PUSH] &= legal_dests;
+                dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
+                dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
+                dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
+                // push_pawn_moves(&dest_sets, move_stack);
+            }
         }
 
         // We try to move the king here.
