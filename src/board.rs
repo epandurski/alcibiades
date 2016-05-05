@@ -29,6 +29,7 @@ pub struct Board {
 impl Board {
     // Create a new board instance.
     pub fn new(piece_type: &[u64; 6], color: &[u64; 2]) -> Board {
+        // TODO: Make sure the position is valid.
         assert!(piece_type.into_iter().fold(0, |acc, x| acc | x) == color[WHITE] | color[BLACK]);
         assert!(piece_type[PAWN] & PAWN_PROMOTION_RANK[WHITE] == 0);
         assert!(piece_type[PAWN] & PAWN_PROMOTION_RANK[BLACK] == 0);
@@ -52,7 +53,7 @@ impl Board {
     // x-rays).
     pub fn attacks_to(&self, square: Square, us: Color) -> u64 {
         let occupied_by_us = self.color[us];
-        let mut attacks = EMPTY_SET;
+        let mut attacks = EMPTY_SET;  // TODO: This could be optimized!
         attacks |= self.piece_attacks_from(square, ROOK) & occupied_by_us &
                    (self.piece_type[ROOK] | self.piece_type[QUEEN]);
         attacks |= self.piece_attacks_from(square, BISHOP) & occupied_by_us &
@@ -147,7 +148,7 @@ impl Board {
     //
     // "checkers" should represent all pieces that give
     // check. "pinned" should represent all pinned pieces (and
-    // pawns). "side" is the side to move. "castling_rights" gives the
+    // pawns). "us" is the side to move. "castling_rights" gives the
     // current castling rights. "en_passant_bb" is a bitboard that
     // contains 1 for the passing square (if there is one).
     // "move_stack" gives a slice to the global array of moves.
@@ -156,11 +157,41 @@ impl Board {
     pub fn generate_moves(&self,
                           checkers: u64,
                           pinned: u64,
-                          side: Color,
+                          us: Color,
                           castling_rights: CastlingRights,
                           en_passant_bb: u64,
                           move_stack: &mut [MoveAndMoveScore])
                           -> usize {
+
+        let king_square = bitscan_forward(self.piece_type[KING] & self.color[us]);
+        let safe_dest_bb = match ls1b(checkers) {
+            0 => {
+                // Not in check -- every piece destination may be
+                // considered "covering".
+                UNIVERSAL_SET
+            }
+            x if x == checkers => {
+                // Single check -- calculate the check covering
+                // destination subset (the line between the king and
+                // the checker). The subset may include king's square
+                // too, but this is not a problem, because we can not
+                // capture our own king. Notice that we must OR with
+                // "x" itself, because knights give check lot lying on
+                // a line with the king.
+                x | self.geometry.squares_between_including[king_square][bitscan_forward(x)]
+            }
+            _ => {
+                // Double check -- no covering moves.
+                EMPTY_SET
+            }
+        };
+        if safe_dest_bb != EMPTY_SET {
+            // We are not doubue-checked, so we should try all pieces
+            // and pawns, hoping that we will cover the check or
+            // capture the checker if there is one.
+        }
+
+        // We try to move the king here.
         0
     }
 
@@ -198,6 +229,8 @@ impl Board {
                                 color: Color,
                                 pinned: Option<Square>)
                                 -> u64 {
+        // TODO: Split this function in two functions -- one for the
+        // pinned piece case, and one for the not pinned case.
         assert!(piece != PAWN);
         let pseudo_legal = self.piece_attacks_from(from_square, piece) & !self.color[color];
         match pinned {
