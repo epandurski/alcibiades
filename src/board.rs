@@ -15,7 +15,7 @@ pub static PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
                                              !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
                                              !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
 
-pub const PAWN_PROMOTION_RANK: [u64; 2] = [BB_RANK_8, BB_RANK_1];
+pub const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
 
@@ -31,8 +31,8 @@ impl Board {
     pub fn new(piece_type: &[u64; 6], color: &[u64; 2]) -> Board {
         // TODO: Make sure the position is valid.
         assert!(piece_type.into_iter().fold(0, |acc, x| acc | x) == color[WHITE] | color[BLACK]);
-        assert!(piece_type[PAWN] & PAWN_PROMOTION_RANK[WHITE] == 0);
-        assert!(piece_type[PAWN] & PAWN_PROMOTION_RANK[BLACK] == 0);
+        assert!(piece_type[PAWN] & PAWN_PROMOTION_RANKS == 0);
+        assert!(piece_type[PAWN] & PAWN_PROMOTION_RANKS == 0);
         Board {
             geometry: board_geometry(),
             piece_type: *piece_type,
@@ -146,28 +146,26 @@ impl Board {
 
     // Generate all legal moves in the current board position.
     //
-    // "checkers" should represent all pieces that give
-    // check. "pinned" should represent all pinned pieces (and
-    // pawns). "us" is the side to move. "castling_rights" gives the
-    // current castling rights. "en_passant_bb" is a bitboard that
-    // contains 1 for the passing square (if there is one).
-    // "move_stack" gives a slice to the global array of moves.
+    // "us" is the side to move. "king_square" should be the moving
+    // side king's square. "checkers" should represent all pieces that
+    // give check. "pinned" should represent all pinned pieces (and
+    // pawns). "castling_rights" gives the current castling
+    // rights. "en_passant_bb" is a bitboard that contains 1 for the
+    // passing square (if there is one). "move_stack" is the global
+    // moves stack.
     //
     // Returns the number of moves that have been generated.
     pub fn generate_moves(&self,
+                          us: Color,
+                          king_square: Square,
                           checkers: u64,
                           pinned: u64,
-                          us: Color,
-                          castling_rights: CastlingRights,
                           en_passant_bb: u64,
-                          move_stack: &mut [MoveAndMoveScore])
+                          // castling_rights: CastlingRights,
+                          move_stack: &mut MoveStack)
                           -> usize {
 
-        // TODO: We should probabl pass this as a parameter too,
-        // because it is already calculated (when seeking checkers),
-        // so we better not waste time to calculate it again.
-        let king_square = bitscan_forward(self.piece_type[KING] & self.color[us]);
-
+        let pin_lines = &self.geometry.squares_at_line[king_square];
         let occupied_by_us = self.color[us];
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
@@ -191,53 +189,51 @@ impl Board {
         };
 
         if legal_dests != EMPTY_SET {
-            // Find all legal queen, rook, bishop, and knight moves:
+
+            // find all queen, rook, bishop, and knight moves
             for piece in QUEEN..PAWN {
                 let bb = self.piece_type[piece] & occupied_by_us;
-                let mut pinned = bb & pinned;  // pinned pieces
-                let mut free = bb ^ pinned;  // not pinned pieces
-                while free != EMPTY_SET {
-                    let from_square = bitscan_and_clear(&mut free);
-                    let dest_set = self.piece_attacks_from(from_square, piece) & legal_dests;
-                    // push_piece_moves(piece, dest_set, move_stack);
+                let mut pinned_pieces = bb & pinned;
+                let mut free_pieces = bb ^ pinned_pieces;
+                while pinned_pieces != EMPTY_SET {
+                    let from_square = bitscan_and_clear(&mut pinned_pieces);
+                    let mut dest_set = self.piece_attacks_from(from_square, piece) &
+                                       pin_lines[from_square] &
+                                       legal_dests;
+                    self.write_piece_moves_to_stack(piece, from_square, &mut dest_set, move_stack);
                 }
-                while pinned != EMPTY_SET {
-                    let from_square = bitscan_and_clear(&mut pinned);
-                    let dest_set = self.piece_attacks_from(from_square, piece) &
-                                   self.geometry.squares_at_line[from_square][king_square] &
-                                   legal_dests;
-                    // push_piece_moves(piece, dest_set, move_stack);
+                while free_pieces != EMPTY_SET {
+                    let from_square = bitscan_and_clear(&mut free_pieces);
+                    let mut dest_set = self.piece_attacks_from(from_square, piece) & legal_dests;
+                    self.write_piece_moves_to_stack(piece, from_square, &mut dest_set, move_stack);
                 }
             }
 
-            // Find all legal pawn moves:
+
             let bb = self.piece_type[PAWN] & occupied_by_us;
-            let mut pinned = bb & pinned;  // pinned pawns
-            let free = bb ^ pinned;  // not pinned pawns
-            {
-                // Get all free pawn moves at once:
-                let mut dest_sets = self.pawn_dest_sets(free, us, en_passant_bb);
-                let legal_dests = legal_dests | en_passant_bb;
-                dest_sets[PAWN_PUSH] &= legal_dests;
-                dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
-                dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
-                dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
-                // push_pawn_moves(&dest_sets, move_stack);
-            }
-            // Get pinned pawn moves one by one:
-            while pinned != EMPTY_SET {
-                let pawn_bb = ls1b(pinned);
-                pinned ^= pawn_bb;
-                let from_square = bitscan_1bit(pawn_bb);
+            let mut pinned_pawns = bb & pinned;
+            let free_pawns = bb ^ pinned_pawns;
 
+            // find free pawn moves at once
+            let mut dest_sets = self.pawn_dest_sets(free_pawns, us, en_passant_bb);
+            self.write_pawn_moves_to_stack(us,
+                                           en_passant_bb,
+                                           legal_dests | en_passant_bb,
+                                           &mut dest_sets,
+                                           move_stack);
+
+            // find pinned pawn moves pawn by pawn
+            while pinned_pawns != EMPTY_SET {
+                let pawn_bb = ls1b(pinned_pawns);
+                pinned_pawns ^= pawn_bb;
+
+                let pin_line = pin_lines[bitscan_1bit(pawn_bb)];
                 let mut dest_sets = self.pawn_dest_sets(pawn_bb, us, en_passant_bb);
-                let legal_dests = self.geometry.squares_at_line[from_square][king_square] &
-                                  (legal_dests | en_passant_bb);
-                dest_sets[PAWN_PUSH] &= legal_dests;
-                dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
-                dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
-                dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
-                // push_pawn_moves(&dest_sets, move_stack);
+                self.write_pawn_moves_to_stack(us,
+                                               en_passant_bb,
+                                               pin_line & (legal_dests | en_passant_bb),
+                                               &mut dest_sets,
+                                               move_stack);
             }
         }
 
@@ -273,25 +269,6 @@ impl Board {
     }
 
     #[inline]
-    fn piece_legal_dest_squares(&self,
-                                from_square: Square,
-                                piece: PieceType,
-                                color: Color,
-                                pinned: Option<Square>)
-                                -> u64 {
-        // TODO: Split this function in two functions -- one for the
-        // pinned piece case, and one for the not pinned case.
-        assert!(piece != PAWN);
-        let pseudo_legal = self.piece_attacks_from(from_square, piece) & !self.color[color];
-        match pinned {
-            Some(king_square) => {
-                pseudo_legal & self.geometry.squares_at_line[from_square][king_square]
-            }
-            None => pseudo_legal,
-        }
-    }
-
-    #[inline]
     pub fn pawn_dest_sets(&self, pawns: u64, us: Color, en_passant_bb: u64) -> [u64; 4] {
         use std::mem::uninitialized;
         let shifts = &PAWN_MOVE_SHIFTS[us];
@@ -308,6 +285,72 @@ impl Board {
             // A double-push is legal only if a single-push is legal too.
             dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
             dest_sets
+        }
+    }
+
+    fn write_piece_moves_to_stack(&self,
+                                  piece: PieceType,
+                                  orig_square: Square,
+                                  dest_set: &mut u64,
+                                  move_stack: &mut MoveStack) {
+        while *dest_set != EMPTY_SET {
+            let dest_bb = ls1b(*dest_set);
+            *dest_set ^= dest_bb;
+            let dest_square = bitscan_1bit(dest_bb);
+            let (captured_piece, _) = self.get_least_valuable_piece_in_a_set(dest_bb);
+            move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, QUEEN),
+                            MoveScore::new(piece, captured_piece));
+        }
+    }
+
+    fn write_pawn_moves_to_stack(&self,
+                                 us: Color,
+                                 en_passant_bb: u64,
+                                 legal_dests: u64,
+                                 dest_sets: &mut [u64; 4],
+                                 move_stack: &mut MoveStack) {
+        use std::cmp::min;
+
+        // Make sure all destination squares in all sets are legal:
+        dest_sets[PAWN_PUSH] &= legal_dests;
+        dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
+        dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
+        dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
+
+        // Scan each destination set (push, double-push, queen-side
+        // capture, king-side capture). For each move calculate the "to"
+        // and "from" sqares, and determinne the move type (en-passant
+        // capture, pawn promotion, or a normal move).
+        let shifts = &PAWN_MOVE_SHIFTS[us];
+        for pawn_move_type in 0..4 {
+            let s = &mut dest_sets[pawn_move_type];
+            while *s != EMPTY_SET {
+                let pawn_bb = ls1b(*s);
+                *s ^= pawn_bb;
+                let dest_square = bitscan_1bit(pawn_bb);
+                let orig_square = (dest_square as i8 - shifts[pawn_move_type]) as Square;
+                let move_type = match pawn_bb {
+                    x if x == en_passant_bb => MOVE_ENPASSANT,
+                    x if x & PAWN_PROMOTION_RANKS != 0 => MOVE_PROMOTION,
+                    _ => MOVE_NORMAL,
+                };
+                // TODO: Check for the special case when an en-assant move
+                // discovers check on 4/5-th rank.
+
+                let (captured_piece, _) = self.get_least_valuable_piece_in_a_set(pawn_bb);
+                if move_type == MOVE_PROMOTION {
+                    for promoted_piece in QUEEN..PAWN {
+                        move_stack.push(Move::new(move_type,
+                                                  orig_square,
+                                                  dest_square,
+                                                  promoted_piece),
+                                        MoveScore::new(PAWN, min(captured_piece, promoted_piece)));
+                    }
+                } else {
+                    move_stack.push(Move::new(move_type, orig_square, dest_square, QUEEN),
+                                    MoveScore::new(PAWN, captured_piece));
+                }
+            }
         }
     }
 }

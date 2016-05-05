@@ -120,6 +120,10 @@ pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
 
+// The maximum number of moves in the move stack. It should be large
+// enough so we that never overrun it.
+pub const MOVE_STACK_SIZE: usize = 32 * 256;
+
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]
@@ -127,12 +131,12 @@ pub struct Move(u16);
 
 impl Move {
     #[inline]
-    pub fn new(move_type: MoveType, orig: Square, dest: Square, pp_type: PieceType) -> Move {
+    pub fn new(move_type: MoveType, orig: Square, dest: Square, promoted_piece: PieceType) -> Move {
         assert!(move_type <= 3);
         assert!(orig <= 63);
         assert!(dest <= 63);
-        assert!(pp_type <= 3);
-        Move(((move_type << 14) | (pp_type << 12) | (orig << 6) | dest) as u16)
+        assert!(promoted_piece >= QUEEN && promoted_piece <= KNIGHT);
+        Move(((move_type << 14) | ((promoted_piece - QUEEN) << 12) | (orig << 6) | dest) as u16)
     }
 
     #[inline]
@@ -203,6 +207,22 @@ impl MoveScore {
 pub struct MoveAndMoveScore {
     pub m: Move,
     pub score: MoveScore,
+}
+
+
+pub struct MoveStack {
+    stack: [MoveAndMoveScore; MOVE_STACK_SIZE],
+    top_index: usize,
+}
+
+impl MoveStack {
+    #[inline(always)]
+    pub fn push(&mut self, m: Move, score: MoveScore) {
+        self.stack[self.top_index] = MoveAndMoveScore {
+            m: m,
+            score: score,
+        };
+    }
 }
 
 
