@@ -43,30 +43,27 @@ impl Board {
         }
     }
 
-    // Return the set of squares that are attacked by a piece (not a
-    // pawn) of type "piece" from the square "square".
-    #[inline]
-    pub fn piece_attacks_from(&self, piece: PieceType, square: Square) -> u64 {
-        piece_attacks_from(self.geometry, self.occupied, square, piece)
-    }
-
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no
     // x-rays).
     pub fn attacks_to(&self, square: Square, us: Color) -> u64 {
+        let geometry = self.geometry;
+        let piece_type_array = &self.piece_type;
+        let occupied = self.occupied;
         let occupied_by_us = self.color[us];
-        let mut attacks = EMPTY_SET;  // TODO: This could be optimized!
-        attacks |= self.piece_attacks_from(ROOK, square) & occupied_by_us &
-                   (self.piece_type[ROOK] | self.piece_type[QUEEN]);
-        attacks |= self.piece_attacks_from(BISHOP, square) & occupied_by_us &
-                   (self.piece_type[BISHOP] | self.piece_type[QUEEN]);
-        attacks |= self.piece_attacks_from(KNIGHT, square) & occupied_by_us &
-                   self.piece_type[KNIGHT];
-        attacks |= self.piece_attacks_from(KING, square) & occupied_by_us & self.piece_type[KING];
-        attacks |= gen_shift(1 << square, -PAWN_MOVE_SHIFTS[us][PAWN_KINGSIDE_CAPTURE]) &
-                   occupied_by_us & self.piece_type[PAWN] & !BB_FILE_H;
-        attacks |= gen_shift(1 << square, -PAWN_MOVE_SHIFTS[us][PAWN_QUEENSIDE_CAPTURE]) &
-                   occupied_by_us & self.piece_type[PAWN] & !BB_FILE_A;
+        let shifts = &PAWN_MOVE_SHIFTS[us];
+        let mut attacks = piece_attacks_from(geometry, occupied, square, ROOK) & occupied_by_us &
+                          (piece_type_array[ROOK] | piece_type_array[QUEEN]);
+        attacks |= piece_attacks_from(geometry, occupied, square, BISHOP) & occupied_by_us &
+                   (piece_type_array[BISHOP] | piece_type_array[QUEEN]);
+        attacks |= piece_attacks_from(geometry, occupied, square, KNIGHT) & occupied_by_us &
+                   piece_type_array[KNIGHT];
+        attacks |= piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
+                   piece_type_array[KING];
+        attacks |= gen_shift(1 << square, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
+                   piece_type_array[PAWN] & !BB_FILE_H;
+        attacks |= gen_shift(1 << square, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
+                   piece_type_array[PAWN] & !BB_FILE_A;
         attacks
     }
 
@@ -834,11 +831,12 @@ mod tests {
         piece_type[PAWN] |= 1 << G7;
         color[WHITE] = piece_type[PAWN];
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.piece_attacks_from(BISHOP, A1),
+        let g = board_geometry();
+        assert_eq!(piece_attacks_from(g, b.occupied, A1, BISHOP),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(b.piece_attacks_from(BISHOP, A1),
+        assert_eq!(piece_attacks_from(g, b.occupied, A1, BISHOP),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(b.piece_attacks_from(KNIGHT, A1), 1 << B3 | 1 << C2);
+        assert_eq!(piece_attacks_from(g, b.occupied, A1, KNIGHT), 1 << B3 | 1 << C2);
     }
 
     #[test]
