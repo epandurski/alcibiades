@@ -130,13 +130,13 @@ pub const MOVE_STACK_SIZE: usize = 32 * 256;
 pub struct Move(u16);
 
 impl Move {
-    #[inline]
-    pub fn new(move_type: MoveType, orig: Square, dest: Square, promoted_piece: PieceType) -> Move {
+    #[inline(always)]
+    pub fn new(move_type: MoveType, orig: Square, dest: Square, pp_code: usize) -> Move {
         assert!(move_type <= 3);
         assert!(orig <= 63);
         assert!(dest <= 63);
-        assert!(promoted_piece >= QUEEN && promoted_piece <= KNIGHT);
-        Move(((move_type << 14) | ((promoted_piece - QUEEN) << 12) | (orig << 6) | dest) as u16)
+        assert!(pp_code <= 3);
+        Move(((move_type << 14) | (pp_code << 12) | (orig << 6) | dest) as u16)
     }
 
     #[inline]
@@ -156,12 +156,17 @@ impl Move {
 
     #[inline]
     pub fn promoted_piece(&self) -> PieceType {
-        match (self.0 & (0b11 << 12)) >> 12 {
+        Move::piece_type_from_pp_code(((self.0 & (0b11 << 12)) >> 12) as usize)
+    }
+
+    #[inline(always)]
+    pub fn piece_type_from_pp_code(piece_code: usize) -> PieceType {
+        match piece_code {
             0 => QUEEN,
             1 => ROOK,
             2 => BISHOP,
             3 => KNIGHT,
-            _ => panic!("invalid promoted piece type"),
+            _ => panic!("invalid promoted piece code"),
         }
     }
 }
@@ -173,7 +178,7 @@ impl Move {
 pub struct MoveScore(u16);
 
 impl MoveScore {
-    #[inline]
+    #[inline(always)]
     pub fn new(attacking_piece: PieceType, target_piece: PieceType) -> MoveScore {
         assert!(attacking_piece < NO_PIECE);
         assert!(target_piece != KING && target_piece <= NO_PIECE);
@@ -232,6 +237,7 @@ impl MoveStack {
             m: m,
             score: score,
         };
+        self.top_index += 1;
     }
 }
 
