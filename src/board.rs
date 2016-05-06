@@ -335,7 +335,6 @@ impl Board {
                                  legal_dests: u64,
                                  move_stack: &mut MoveStack)
                                  -> usize {
-        use std::cmp::min;
         let mut counter = 0;
         let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb);
 
@@ -350,38 +349,49 @@ impl Board {
         // and "from" sqares, and determinne the move type (en-passant
         // capture, pawn promotion, or a normal move).
         let shifts = &PAWN_MOVE_SHIFTS[us];
-        for pawn_move_type in 0..4 {
-            let s = &mut dest_sets[pawn_move_type];
+        for move_type in 0..4 {
+            let s = &mut dest_sets[move_type];
             while *s != EMPTY_SET {
                 let pawn_bb = ls1b(*s);
                 *s ^= pawn_bb;
                 let dest_square = bitscan_1bit(pawn_bb);
-                let orig_square = (dest_square as i8 - shifts[pawn_move_type]) as Square;
-                let move_type = match pawn_bb {
-                    x if x == en_passant_bb => MOVE_ENPASSANT,
-                    x if x & PAWN_PROMOTION_RANKS != 0 => MOVE_PROMOTION,
-                    _ => MOVE_NORMAL,
-                };
+                let orig_square = (dest_square as i8 - shifts[move_type]) as Square;
+
                 // TODO: Check for the special case when an en-assant move
                 // discovers check on 4/5-th rank.
 
-                let captured_piece = match move_type {
-                    MOVE_ENPASSANT => PAWN,
-                    MOVE_PROMOTION => ROOK,  // a nobel lie, helping move ordering
-                    _ => get_piece_type_at(self.occupied, &self.piece_type, pawn_bb)
-                };
-                if move_type == MOVE_PROMOTION {
-                    for pp_code in 0..4 {
+                match pawn_bb {
+                    // en-passant capture
+                    x if x == en_passant_bb => {
                         counter += 1;
-                        let captured_piece = min(captured_piece,
-                                                 Move::piece_type_from_pp_code(pp_code));
-                        move_stack.push(Move::new(move_type, orig_square, dest_square, pp_code),
-                                        MoveScore::new(PAWN, captured_piece));
+                        move_stack.push(Move::new(MOVE_ENPASSANT, orig_square, dest_square, 0),
+                                        MoveScore::new(PAWN, PAWN));
                     }
-                } else {
-                    counter += 1;
-                    move_stack.push(Move::new(move_type, orig_square, dest_square, 0),
-                                    MoveScore::new(PAWN, captured_piece));
+                    // pawn promotion
+                    x if x & PAWN_PROMOTION_RANKS != 0 => {
+                        for pp_code in 0..4 {
+                            counter += 1;
+                            move_stack.push(Move::new(MOVE_PROMOTION,
+                                                      orig_square,
+                                                      dest_square,
+                                                      pp_code),
+                                            MoveScore::new(PAWN,
+                                                           if pp_code == 0 {
+                                                               QUEEN
+                                                           } else {
+                                                               ROOK
+                                                           }));
+                        }
+                    }
+                    // normal pawn move (push or plain capture)
+                    _ => {
+                        counter += 1;
+                        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
+                                        MoveScore::new(PAWN,
+                                                       get_piece_type_at(self.occupied,
+                                                                         &self.piece_type,
+                                                                         pawn_bb)));
+                    }
                 }
             }
         }
