@@ -216,6 +216,16 @@ pub struct MoveStack {
 }
 
 impl MoveStack {
+    pub fn new() -> MoveStack {
+        use std::mem::uninitialized;
+        unsafe {
+            MoveStack {
+                stack: uninitialized(),
+                top_index: 0,
+            }
+        }
+    }
+
     #[inline(always)]
     pub fn push(&mut self, m: Move, score: MoveScore) {
         self.stack[self.top_index] = MoveAndMoveScore {

@@ -164,8 +164,10 @@ impl Board {
                           // castling_rights: CastlingRights,
                           move_stack: &mut MoveStack)
                           -> usize {
-
-        let pin_lines = &self.geometry.squares_at_line[king_square];
+        let mut counter = 0;
+        let geometry = self.geometry;
+        let pin_lines = &geometry.squares_at_line[king_square];
+        let occupied = self.occupied;
         let occupied_by_us = self.color[us];
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
@@ -180,7 +182,7 @@ impl Board {
                 // and the checker). Notice that we must OR with "x"
                 // itself, because knights give check not lying on a
                 // line with the king.
-                x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)]
+                x | geometry.squares_between_including[king_square][bitscan_1bit(x)]
             }
             _ => {
                 // Double check -- no covering moves.
@@ -190,52 +192,70 @@ impl Board {
 
         if legal_dests != EMPTY_SET {
 
-            // find all queen, rook, bishop, and knight moves
+            // Find all queen, rook, bishop, and knight moves.
             for piece in QUEEN..PAWN {
                 let bb = self.piece_type[piece] & occupied_by_us;
                 let mut pinned_pieces = bb & pinned;
                 let mut free_pieces = bb ^ pinned_pieces;
                 while pinned_pieces != EMPTY_SET {
                     let from_square = bitscan_and_clear(&mut pinned_pieces);
-                    let dest_set = self.piece_attacks_from(piece, from_square) &
+                    let dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
                                    pin_lines[from_square] &
                                    legal_dests;
-                    self.write_piece_moves_to_stack(piece, from_square, dest_set, move_stack);
+                    counter += self.write_piece_moves_to_stack(piece,
+                                                               from_square,
+                                                               dest_set,
+                                                               move_stack);
                 }
                 while free_pieces != EMPTY_SET {
                     let from_square = bitscan_and_clear(&mut free_pieces);
-                    let dest_set = self.piece_attacks_from(piece, from_square) & legal_dests;
-                    self.write_piece_moves_to_stack(piece, from_square, dest_set, move_stack);
+                    let dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
+                                   legal_dests;
+                    counter += self.write_piece_moves_to_stack(piece,
+                                                               from_square,
+                                                               dest_set,
+                                                               move_stack);
                 }
             }
 
-            let pawn_legal_dests = legal_dests | en_passant_bb;
+            // When in check, en-passant capture is a legal evasion
+            // move only when the checking piece is the passing pawn
+            // itself. To determine if the checker is the passing
+            // pawn, or if there is a discovered check we take
+            // advantage of the fact that if the checker itself is the
+            // only square on the check-line, then we can not have a
+            // discovered check.
+            let pawn_legal_dests = match legal_dests == checkers {
+                false => legal_dests,
+                true => legal_dests | en_passant_bb,
+            };
+            
             let all_pawns = self.piece_type[PAWN] & occupied_by_us;
             let mut pinned_pawns = all_pawns & pinned;
             let free_pawns = all_pawns ^ pinned_pawns;
 
-            // find pinned pawn moves pawn by pawn
+            // Find pinned pawn moves pawn by pawn.
             while pinned_pawns != EMPTY_SET {
                 let pawn_bb = ls1b(pinned_pawns);
                 pinned_pawns ^= pawn_bb;
                 let pin_line = pin_lines[bitscan_1bit(pawn_bb)];
-                self.write_pawn_moves_to_stack(us,
-                                               pawn_bb,
-                                               en_passant_bb,
-                                               pin_line & pawn_legal_dests,
-                                               move_stack);
+                counter += self.write_pawn_moves_to_stack(us,
+                                                          pawn_bb,
+                                                          en_passant_bb,
+                                                          pin_line & pawn_legal_dests,
+                                                          move_stack);
             }
 
-            // find free pawn moves at once
-            self.write_pawn_moves_to_stack(us,
-                                           free_pawns,
-                                           en_passant_bb,
-                                           pawn_legal_dests,
-                                           move_stack);
+            // Find all free pawn moves at once.
+            counter += self.write_pawn_moves_to_stack(us,
+                                                      free_pawns,
+                                                      en_passant_bb,
+                                                      pawn_legal_dests,
+                                                      move_stack);
         }
 
         // We try to move the king here.
-        0
+        counter
     }
 
     #[inline]
@@ -266,11 +286,7 @@ impl Board {
     }
 
     #[inline]
-    pub fn pawn_dest_sets(&self,
-                          us: Color,
-                          pawns: u64,
-                          en_passant_bb: u64)
-                          -> [u64; 4] {
+    pub fn pawn_dest_sets(&self, us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
         use std::mem::uninitialized;
         let shifts = &PAWN_MOVE_SHIFTS[us];
         let not_occupied_by_us = !self.color[us];
@@ -294,7 +310,9 @@ impl Board {
                                   piece: PieceType,
                                   orig_square: Square,
                                   mut dest_set: u64,
-                                  move_stack: &mut MoveStack) {
+                                  move_stack: &mut MoveStack)
+                                  -> usize {
+        let mut counter = 0;
         while dest_set != EMPTY_SET {
             let dest_bb = ls1b(dest_set);
             dest_set ^= dest_bb;
@@ -302,7 +320,9 @@ impl Board {
             let (captured_piece, _) = self.get_least_valuable_piece_in_a_set(dest_bb);
             move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, QUEEN),
                             MoveScore::new(piece, captured_piece));
+            counter += 1;
         }
+        counter
     }
 
     #[inline]
@@ -311,10 +331,12 @@ impl Board {
                                  pawns: u64,
                                  en_passant_bb: u64,
                                  legal_dests: u64,
-                                 move_stack: &mut MoveStack) {
+                                 move_stack: &mut MoveStack)
+                                 -> usize {
         use std::cmp::min;
+        let mut counter = 0;
         let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb);
-        
+
         // Make qsure all destination squares in all sets are legal:
         dest_sets[PAWN_PUSH] &= legal_dests;
         dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
@@ -344,6 +366,7 @@ impl Board {
                 let (captured_piece, _) = self.get_least_valuable_piece_in_a_set(pawn_bb);
                 if move_type == MOVE_PROMOTION {
                     for promoted_piece in QUEEN..PAWN {
+                        counter += 1;
                         move_stack.push(Move::new(move_type,
                                                   orig_square,
                                                   dest_square,
@@ -351,11 +374,13 @@ impl Board {
                                         MoveScore::new(PAWN, min(captured_piece, promoted_piece)));
                     }
                 } else {
+                    counter += 1;
                     move_stack.push(Move::new(move_type, orig_square, dest_square, QUEEN),
                                     MoveScore::new(PAWN, captured_piece));
                 }
             }
         }
+        counter
     }
 }
 
@@ -845,9 +870,7 @@ mod tests {
         piece_type[QUEEN] |= 1 << D8;
         color[BLACK] |= 1 << D8;
         let b = Board::new(&piece_type, &color);
-        let ds = b.pawn_dest_sets(WHITE,
-                                  b.piece_type[PAWN] & b.color[WHITE],
-                                  1 << H6);
+        let ds = b.pawn_dest_sets(WHITE, b.piece_type[PAWN] & b.color[WHITE], 1 << H6);
         assert_eq!(ds[PAWN_PUSH], 1 << H3 | 1 << G6 | 1 << E8);
         assert_eq!(ds[PAWN_DOUBLE_PUSH], 1 << H4);
         assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 1 << H5 | 1 << G7 | 1 << H6);
@@ -857,6 +880,98 @@ mod tests {
         assert_eq!(ds[PAWN_DOUBLE_PUSH], 0);
         assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 0);
         assert_eq!(ds[PAWN_QUEENSIDE_CAPTURE], 1 << G4 | 1 << F6);
+    }
+
+    #[test]
+    fn test_move_generation_1() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[PAWN] |= 1 << D5;
+        color[WHITE] |= 1 << D5;
+        piece_type[PAWN] |= 1 << D2;
+        color[WHITE] |= 1 << D2;
+        piece_type[PAWN] |= 1 << D4;
+        color[WHITE] |= 1 << D4;
+        piece_type[ROOK] |= 1 << E4;
+        color[WHITE] |= 1 << E4;
+        piece_type[PAWN] |= 1 << C5;
+        color[BLACK] |= 1 << C5;
+        piece_type[KNIGHT] |= 1 << G6;
+        color[WHITE] |= 1 << G6;
+        piece_type[BISHOP] |= 1 << C3;
+        color[BLACK] |= 1 << C3;
+        piece_type[QUEEN] |= 1 << E3;
+        color[BLACK] |= 1 << E3;
+        let b = Board::new(&piece_type, &color);
+
+        // White to move, king on E1:
+        assert_eq!(b.generate_moves(WHITE, E1, 1 << E3, 1 << D2, 0, &mut MoveStack::new()),
+                   1);
+        // White to move, king on G1:
+        assert_eq!(b.generate_moves(WHITE, G1, 1 << E3, 0, 0, &mut MoveStack::new()),
+                   2);
+        // White to move, king on H6:
+        assert_eq!(b.generate_moves(WHITE, H6, 1 << E3, 0, 0, &mut MoveStack::new()),
+                   4);
+        // White to move, king on H1 (no check):
+        assert_eq!(b.generate_moves(WHITE, H1, 0, 0, 0, &mut MoveStack::new()),
+                   19);
+        // White to move, king on H1 (no check), en-passant on C6:
+        assert_eq!(b.generate_moves(WHITE, H1, 0, 0, 1 << C6, &mut MoveStack::new()),
+                   20);
+        // Black to move, king on H1 (no check):
+        assert_eq!(b.generate_moves(BLACK, H1, 0, 0, 0, &mut MoveStack::new()),
+                   22);
+        // Black to move, king on H4:
+        assert_eq!(b.generate_moves(BLACK, H4, 1 << E4 | 1 << G6, 0, 0, &mut MoveStack::new()),
+                   0);
+    }
+
+    #[test]
+    fn test_move_generation_2() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[PAWN] |= 1 << G4;
+        color[WHITE] |= 1 << G4;
+        piece_type[ROOK] |= 1 << F1;
+        color[WHITE] |= 1 << F1;
+        piece_type[PAWN] |= 1 << F4;
+        color[BLACK] |= 1 << F4;
+        piece_type[KING] |= 1 << H5;
+        color[BLACK] |= 1 << H5;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.generate_moves(BLACK, H5, 1 << G4, 0, 1 << G3, &mut MoveStack::new()),
+                   1);
+
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[PAWN] |= 1 << G4;
+        color[WHITE] |= 1 << G4;
+        piece_type[ROOK] |= 1 << F1;
+        color[WHITE] |= 1 << F1;
+        piece_type[PAWN] |= 1 << F4;
+        color[BLACK] |= 1 << F4;
+        piece_type[KING] |= 1 << F5;
+        color[BLACK] |= 1 << F5;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.generate_moves(BLACK, F5, 1 << G4, 1 << F4, 1 << G3, &mut MoveStack::new()),
+                   0);
+
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[PAWN] |= 1 << G4;
+        color[WHITE] |= 1 << G4;
+        piece_type[BISHOP] |= 1 << F1;
+        color[WHITE] |= 1 << F1;
+        piece_type[PAWN] |= 1 << F4;
+        color[BLACK] |= 1 << F4;
+        piece_type[KING] |= 1 << H3;
+        color[BLACK] |= 1 << H3;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.generate_moves(BLACK, H3, 1 << F1, 0, 1 << G3, &mut MoveStack::new()),
+                   0);
     }
 
 }
