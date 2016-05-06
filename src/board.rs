@@ -1,22 +1,24 @@
 use basetypes::*;
 use bitsets::*;
 
-pub type PawnMoveType = usize;
+type PawnMoveType = usize;
 
-pub const PAWN_PUSH: PawnMoveType = 0;
-pub const PAWN_DOUBLE_PUSH: PawnMoveType = 1;
-pub const PAWN_QUEENSIDE_CAPTURE: PawnMoveType = 2;
-pub const PAWN_KINGSIDE_CAPTURE: PawnMoveType = 3;
+// Pawn move types
+const PAWN_PUSH: PawnMoveType = 0;
+const PAWN_DOUBLE_PUSH: PawnMoveType = 1;
+const PAWN_QUEENSIDE_CAPTURE: PawnMoveType = 2;
+const PAWN_KINGSIDE_CAPTURE: PawnMoveType = 3;
 
-pub static PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
-pub static PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
-pub static PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                             BB_RANK_2 | BB_RANK_7,
-                                             !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                             !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+// Pawn move tables
+static PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
+static PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
+static PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                         BB_RANK_2 | BB_RANK_7,
+                                         !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                         !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
 
-pub const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
-pub const EN_PASSANT_SPECIAL_CHECK_RANKS: [u64; 2] = [BB_RANK_5, BB_RANK_4];
+// Pawn useful constants
+const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
 pub struct Board {
@@ -310,6 +312,7 @@ impl Board {
                                    orig_square: Square,
                                    dest_square: Square)
                                    -> bool {
+        const EN_PASSANT_SPECIAL_CHECK_RANKS: [u64; 2] = [BB_RANK_5, BB_RANK_4];
         let king_bb = self.piece_type[KING] & self.color[us];
         assert_eq!(king_bb, ls1b(king_bb));
         if king_bb & EN_PASSANT_SPECIAL_CHECK_RANKS[us] != 0 {
@@ -1003,15 +1006,15 @@ mod tests {
         color[BLACK] |= 1 << D8;
         let b = Board::new(&piece_type, &color);
         let ds = b.pawn_dest_sets(WHITE, b.piece_type[PAWN] & b.color[WHITE], 1 << H6);
-        assert_eq!(ds[PAWN_PUSH], 1 << H3 | 1 << G6 | 1 << E8);
-        assert_eq!(ds[PAWN_DOUBLE_PUSH], 1 << H4);
-        assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 1 << H5 | 1 << G7 | 1 << H6);
-        assert_eq!(ds[PAWN_QUEENSIDE_CAPTURE], 1 << D8);
+        assert_eq!(ds[0], 1 << H3 | 1 << G6 | 1 << E8);
+        assert_eq!(ds[1], 1 << H4);
+        assert_eq!(ds[3], 1 << H5 | 1 << G7 | 1 << H6);
+        assert_eq!(ds[2], 1 << D8);
         let ds = b.pawn_dest_sets(BLACK, b.piece_type[PAWN] & b.color[BLACK], 0);
-        assert_eq!(ds[PAWN_PUSH], 1 << H4 | 1 << G6);
-        assert_eq!(ds[PAWN_DOUBLE_PUSH], 0);
-        assert_eq!(ds[PAWN_KINGSIDE_CAPTURE], 0);
-        assert_eq!(ds[PAWN_QUEENSIDE_CAPTURE], 1 << G4 | 1 << F6);
+        assert_eq!(ds[0], 1 << H4 | 1 << G6);
+        assert_eq!(ds[1], 0);
+        assert_eq!(ds[3], 0);
+        assert_eq!(ds[2], 1 << G4 | 1 << F6);
     }
 
     #[test]
