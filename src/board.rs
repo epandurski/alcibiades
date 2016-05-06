@@ -101,16 +101,19 @@ impl Board {
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
-        // "may_xray" pieces may block x-ray attacks from other
-        // pieces, so we must consider adding new attackers/defenders
-        // every time a "may_xray"-piece makes a capture.
-        let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
-                       self.piece_type[QUEEN];
-        let mut depth = 0;
+        let piece_type_array = &self.piece_type;
+        let color = self.color;
         let mut occupied = self.occupied;
+        let mut depth = 0;
         let mut attackers_and_defenders = self.attacks_to(to_square, WHITE) |
                                           self.attacks_to(to_square, BLACK);
         let mut from_square_bb = 1 << from_square;
+
+        // "may_xray" pieces may block x-ray attacks from other
+        // pieces, so we must consider adding new attackers/defenders
+        // every time a "may_xray"-piece makes a capture.
+        let may_xray = piece_type_array[PAWN] | piece_type_array[BISHOP] | piece_type_array[ROOK] |
+                       piece_type_array[QUEEN];
         unsafe {
             let mut gain: [Value; 33] = uninitialized();
             gain[depth] = VALUE[target_piece];
@@ -130,9 +133,8 @@ impl Board {
                 }
                 assert_eq!(occupied | attackers_and_defenders, occupied);
                 // Find the next piece in the exchange:
-                let next_attack =
-                    self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
-                                                           self.color[attacking_color]);
+                let next_attack = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
+                                                                         color[attacking_color]);
                 attacking_piece = next_attack.0;
                 from_square_bb = next_attack.1;
             }
@@ -143,6 +145,35 @@ impl Board {
             }
             gain[0]
         }
+    }
+
+    #[inline(always)]
+    fn consider_xrays(&self, occupied: u64, target_square: Square, xrayed_square: Square) -> u64 {
+        let geometry = self.geometry;
+        let piece_type_array = &self.piece_type;
+        let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
+        let diag_attackers = piece_attacks_from(geometry, candidates, target_square, BISHOP) &
+                             (piece_type_array[QUEEN] | piece_type_array[BISHOP]);
+        let line_attackers = piece_attacks_from(geometry, candidates, target_square, ROOK) &
+                             (piece_type_array[QUEEN] | piece_type_array[ROOK]);
+        assert_eq!(diag_attackers & line_attackers, EMPTY_SET);
+        assert_eq!(ls1b(candidates & diag_attackers),
+                   candidates & diag_attackers);
+        assert_eq!(ls1b(candidates & line_attackers),
+                   candidates & line_attackers);
+        candidates & (diag_attackers | line_attackers)
+    }
+
+    #[inline(always)]
+    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> (PieceType, u64) {
+        let piece_type_array = &self.piece_type;
+        for p in (0..6).rev() {
+            let piece_subset = piece_type_array[p] & set;
+            if piece_subset != EMPTY_SET {
+                return (p, ls1b(piece_subset));
+            }
+        }
+        (NO_PIECE, EMPTY_SET)
     }
 
     // Generate all legal moves in the current board position.
@@ -256,38 +287,26 @@ impl Board {
                                                       move_stack);
         }
 
-        // We try to move the king here.
+        // TODO: We must try to move the king here!
         counter
     }
 
-    #[inline]
-    fn consider_xrays(&self, occupied: u64, target_square: Square, xrayed_square: Square) -> u64 {
-        let geometry = self.geometry;
-        let piece_type_array = &self.piece_type;
-        let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
-        let diag_attackers = piece_attacks_from(geometry, candidates, target_square, BISHOP) &
-                             (piece_type_array[QUEEN] | piece_type_array[BISHOP]);
-        let line_attackers = piece_attacks_from(geometry, candidates, target_square, ROOK) &
-                             (piece_type_array[QUEEN] | piece_type_array[ROOK]);
-        assert_eq!(diag_attackers & line_attackers, EMPTY_SET);
-        assert_eq!(ls1b(candidates & diag_attackers),
-                   candidates & diag_attackers);
-        assert_eq!(ls1b(candidates & line_attackers),
-                   candidates & line_attackers);
-        candidates & (diag_attackers | line_attackers)
-    }
-
-    #[inline]
-    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> (PieceType, u64) {
-        for p in (0..6).rev() {
-            let piece_subset = self.piece_type[p] & set;
-            if piece_subset != EMPTY_SET {
-                return (p, ls1b(piece_subset));
-            }
-        }
-        (NO_PIECE, EMPTY_SET)
-    }
-
+    // Generate array with pawn destination sets.
+    //
+    // We differentiate 4 types of pawn moves: single push, double
+    // push, queen-side capture (capturing toward queen side),
+    // king-side capture (capturing toward king side). The benefit of
+    // this separation is that knowing the destination square and the
+    // pawn move type (the index in the destination sets array) is
+    // enough to recover the origin square.
+    //
+    // "us" is the side to move, "pawns" is a bit-set of pawns which
+    // we want to generate moves for, "en_passant_bb" is a bit-set
+    // describing the en-passant square if there is one.
+    //
+    // Returns an array of 4 bit-sets (1 for each pawn move type),
+    // describing all pseudo-legal destination squares. (Pseudo-legal
+    // means that we may sill leave the king under check.)
     #[inline(always)]
     pub fn pawn_dest_sets(&self, us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
         use std::mem::uninitialized;
@@ -344,11 +363,13 @@ impl Board {
                                   move_stack: &mut MoveStack)
                                   -> usize {
         let mut counter = 0;
+        let occupied = self.occupied;
+        let piece_type_array = &self.piece_type;
         while *dest_set != EMPTY_SET {
             let dest_bb = ls1b(*dest_set);
             *dest_set ^= dest_bb;
             let dest_square = bitscan_1bit(dest_bb);
-            let captured_piece = get_piece_type_at(self.occupied, &self.piece_type, dest_bb);
+            let captured_piece = get_piece_type_at(occupied, piece_type_array, dest_bb);
             move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
                             MoveScore::new(piece, captured_piece));
             counter += 1;
@@ -369,7 +390,7 @@ impl Board {
         let piece_type_array = &self.piece_type;
         let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb);
 
-        // Make qsure all destination squares in all sets are legal.
+        // Make sure all destination squares in all sets are legal.
         dest_sets[PAWN_PUSH] &= legal_dests;
         dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
         dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
@@ -409,7 +430,7 @@ impl Board {
                                                            if pp_code == 0 {
                                                                QUEEN
                                                            } else {
-                                                               ROOK
+                                                               ROOK  // a lie, helps move ordering
                                                            }));
                         }
                     }
@@ -428,6 +449,7 @@ impl Board {
         counter
     }
 }
+
 
 pub fn board_geometry() -> &'static BoardGeometry {
     use std::sync::{Once, ONCE_INIT};
