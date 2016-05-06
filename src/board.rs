@@ -229,7 +229,7 @@ impl Board {
                 false => legal_dests,
                 true => legal_dests | en_passant_bb,
             };
-            
+
             let all_pawns = self.piece_type[PAWN] & occupied_by_us;
             let mut pinned_pawns = all_pawns & pinned;
             let free_pawns = all_pawns ^ pinned_pawns;
@@ -317,7 +317,7 @@ impl Board {
             let dest_bb = ls1b(dest_set);
             dest_set ^= dest_bb;
             let dest_square = bitscan_1bit(dest_bb);
-            let (captured_piece, _) = self.get_least_valuable_piece_in_a_set(dest_bb);
+            let captured_piece = get_piece_type_at(self.occupied, &self.piece_type, dest_bb);
             move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, QUEEN),
                             MoveScore::new(piece, captured_piece));
             counter += 1;
@@ -363,7 +363,7 @@ impl Board {
                 // TODO: Check for the special case when an en-assant move
                 // discovers check on 4/5-th rank.
 
-                let (captured_piece, _) = self.get_least_valuable_piece_in_a_set(pawn_bb);
+                let captured_piece = get_piece_type_at(self.occupied, &self.piece_type, pawn_bb);
                 if move_type == MOVE_PROMOTION {
                     for promoted_piece in QUEEN..PAWN {
                         counter += 1;
@@ -649,6 +649,26 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
         attacks &= !geometry.squares_behind_blocker[square][blocker_square];
     }
     attacks
+}
+
+
+// Return the piece type at the square represented by the bit-set
+// "square_bb", on a board which is occupied with other pieces
+// according to the "piece_type" array and "occupied" bit-set and.
+#[inline(always)]
+fn get_piece_type_at(occupied: u64, piece_type: &[u64; 6], square_bb: u64) -> PieceType {
+    assert!(square_bb != EMPTY_SET);
+    assert_eq!(square_bb, ls1b(square_bb));
+    match square_bb & occupied {
+        EMPTY_SET => NO_PIECE,
+        x if x & piece_type[PAWN] != 0 => PAWN,
+        x if x & piece_type[KNIGHT] != 0 => KNIGHT,
+        x if x & piece_type[BISHOP] != 0 => BISHOP,
+        x if x & piece_type[ROOK] != 0 => ROOK,
+        x if x & piece_type[QUEEN] != 0 => QUEEN,
+        x if x & piece_type[KING] != 0 => KING,
+        _ => panic!("invalid board"),
+    }
 }
 
 
