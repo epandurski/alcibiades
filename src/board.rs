@@ -29,7 +29,8 @@ pub struct Board {
 impl Board {
     // Create a new board instance.
     pub fn new(piece_type_array: &[u64; 6], color: &[u64; 2]) -> Board {
-        // TODO: Make sure the position is valid.
+        // TODO: Make sure the position is valid. Or rather this is
+        // responsibility for the "Position" type?!
         assert!(piece_type_array.into_iter().fold(0, |acc, x| acc | x) ==
                 color[WHITE] | color[BLACK]);
         assert!(piece_type_array[PAWN] & PAWN_PROMOTION_RANKS == 0);
@@ -101,6 +102,7 @@ impl Board {
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
+        let geometry = self.geometry;
         let piece_type_array = &self.piece_type;
         let color = self.color;
         let mut occupied = self.occupied;
@@ -127,14 +129,18 @@ impl Board {
                 attackers_and_defenders ^= from_square_bb;
                 occupied ^= from_square_bb;
                 if from_square_bb & may_xray != EMPTY_SET {
-                    attackers_and_defenders |= self.consider_xrays(occupied,
-                                                                   to_square,
-                                                                   bitscan_forward(from_square_bb));
+                    attackers_and_defenders |= consider_xrays(geometry,
+                                                              piece_type_array,
+                                                              occupied,
+                                                              to_square,
+                                                              bitscan_forward(from_square_bb));
                 }
                 assert_eq!(occupied | attackers_and_defenders, occupied);
-                // Find the next piece in the exchange:
-                let next_attack = self.get_least_valuable_piece_in_a_set(attackers_and_defenders &
-                                                                         color[attacking_color]);
+
+                // find the next piece in the exchange
+                let next_attack = get_least_valuable_piece_in_a_set(piece_type_array,
+                                                                    attackers_and_defenders &
+                                                                    color[attacking_color]);
                 attacking_piece = next_attack.0;
                 from_square_bb = next_attack.1;
             }
@@ -145,35 +151,6 @@ impl Board {
             }
             gain[0]
         }
-    }
-
-    #[inline(always)]
-    fn consider_xrays(&self, occupied: u64, target_square: Square, xrayed_square: Square) -> u64 {
-        let geometry = self.geometry;
-        let piece_type_array = &self.piece_type;
-        let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
-        let diag_attackers = piece_attacks_from(geometry, candidates, target_square, BISHOP) &
-                             (piece_type_array[QUEEN] | piece_type_array[BISHOP]);
-        let line_attackers = piece_attacks_from(geometry, candidates, target_square, ROOK) &
-                             (piece_type_array[QUEEN] | piece_type_array[ROOK]);
-        assert_eq!(diag_attackers & line_attackers, EMPTY_SET);
-        assert_eq!(ls1b(candidates & diag_attackers),
-                   candidates & diag_attackers);
-        assert_eq!(ls1b(candidates & line_attackers),
-                   candidates & line_attackers);
-        candidates & (diag_attackers | line_attackers)
-    }
-
-    #[inline(always)]
-    fn get_least_valuable_piece_in_a_set(&self, set: u64) -> (PieceType, u64) {
-        let piece_type_array = &self.piece_type;
-        for p in (0..6).rev() {
-            let piece_subset = piece_type_array[p] & set;
-            if piece_subset != EMPTY_SET {
-                return (p, ls1b(piece_subset));
-            }
-        }
-        (NO_PIECE, EMPTY_SET)
     }
 
     // Generate all legal moves in the current board position.
@@ -308,7 +285,7 @@ impl Board {
     // describing all pseudo-legal destination squares. (Pseudo-legal
     // means that we may sill leave the king under check.)
     #[inline(always)]
-    pub fn pawn_dest_sets(&self, us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
+    fn pawn_dest_sets(&self, us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
         use std::mem::uninitialized;
         let shifts = &PAWN_MOVE_SHIFTS[us];
         let not_occupied_by_us = !self.color[us];
@@ -694,6 +671,48 @@ impl BoardGeometry {
             }
         }
     }
+}
+
+
+// Return a bit-set describing all pieces that can attack
+// "target_square" once "xrayed_square" becomes vacant.
+//
+// This is a helper function for the static exchange evaluation
+// (Board::calc_see)
+#[inline(always)]
+fn consider_xrays(geometry: &BoardGeometry,
+                  piece_type_array: &[u64; 6],
+                  occupied: u64,
+                  target_square: Square,
+                  xrayed_square: Square)
+                  -> u64 {
+    let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
+    let diag_attackers = piece_attacks_from(geometry, candidates, target_square, BISHOP) &
+                         (piece_type_array[QUEEN] | piece_type_array[BISHOP]);
+    let line_attackers = piece_attacks_from(geometry, candidates, target_square, ROOK) &
+                         (piece_type_array[QUEEN] | piece_type_array[ROOK]);
+    assert_eq!(diag_attackers & line_attackers, EMPTY_SET);
+    assert_eq!(ls1b(candidates & diag_attackers),
+               candidates & diag_attackers);
+    assert_eq!(ls1b(candidates & line_attackers),
+               candidates & line_attackers);
+    candidates & (diag_attackers | line_attackers)
+}
+
+
+// Return the least valuble piece in the subset "set".
+//
+// This is a helper function for the static exchange evaluation
+// (Board::calc_see)
+#[inline(always)]
+fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
+    for p in (0..6).rev() {
+        let piece_subset = piece_type_array[p] & set;
+        if piece_subset != EMPTY_SET {
+            return (p, ls1b(piece_subset));
+        }
+    }
+    (NO_PIECE, EMPTY_SET)
 }
 
 
