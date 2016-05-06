@@ -426,7 +426,7 @@ impl Board {
 }
 
 
-pub fn board_geometry() -> &'static BoardGeometry {
+fn board_geometry() -> &'static BoardGeometry {
     use std::sync::{Once, ONCE_INIT};
     static INIT_GEOMETRY: Once = ONCE_INIT;
     static mut geometry: Option<BoardGeometry> = None;
@@ -440,6 +440,7 @@ pub fn board_geometry() -> &'static BoardGeometry {
         }
     }
 }
+
 
 pub struct BoardGeometry {
     grid: [u8; 120],
@@ -807,6 +808,7 @@ fn get_piece_type_at(occupied: u64, piece_type_array: &[u64; 6], square_bb: u64)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::board_geometry;
 
     #[test]
     fn test_attack_sets() {

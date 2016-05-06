@@ -8,6 +8,6 @@ pub mod board;
 fn main() {
     // use regex::Regex;
     // let c = [(true, true); 2];
-    use basetypes::*;
-    println!("Board -> {}", std::mem::size_of::<Option<Square>>());
+    use board::Board;
+    println!("Board -> {}", std::mem::size_of::<Board>());
 }
