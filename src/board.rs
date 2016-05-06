@@ -48,7 +48,7 @@ impl Board {
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no
     // x-rays).
-    pub fn attacks_to(&self, square: Square, us: Color) -> u64 {
+    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
         attacks_to(self.geometry,
                    &self.piece_type,
                    &self.color,
@@ -79,9 +79,9 @@ impl Board {
     // "target_square". The "from_square" specifies the square from
     // which the "attacking_piece" makes the capture.
     pub fn calc_see(&self,
+                    mut attacking_color: Color,
                     from_square: Square,
                     mut attacking_piece: PieceType,
-                    mut attacking_color: Color,
                     to_square: Square,
                     target_piece: PieceType)
                     -> Value {
@@ -898,19 +898,19 @@ mod tests {
         piece_type[KING] |= 1 << F4;
         color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.attacks_to(E4, WHITE),
+        assert_eq!(b.attacks_to(WHITE, E4),
                    1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
-        assert_eq!(b.attacks_to(E4, BLACK),
+        assert_eq!(b.attacks_to(BLACK, E4),
                    1 << E3 | 1 << F4 | 1 << F5 | 1 << A4);
-        assert_eq!(b.attacks_to(G6, BLACK), 0);
-        assert_eq!(b.attacks_to(G6, WHITE), 1 << H5);
-        assert_eq!(b.attacks_to(C2, WHITE), 1 << B1);
-        assert_eq!(b.attacks_to(F4, WHITE), 0);
-        assert_eq!(b.attacks_to(F4, BLACK), 1 << A4 | 1 << E3);
-        assert_eq!(b.attacks_to(F5, BLACK), 1 << F4);
-        assert_eq!(b.attacks_to(A6, WHITE), 0);
-        assert_eq!(b.attacks_to(G1, BLACK), 1 << H2 | 1 << E3);
-        assert_eq!(b.attacks_to(A1, BLACK), 1 << A4);
+        assert_eq!(b.attacks_to(BLACK, G6), 0);
+        assert_eq!(b.attacks_to(WHITE, G6), 1 << H5);
+        assert_eq!(b.attacks_to(WHITE, C2), 1 << B1);
+        assert_eq!(b.attacks_to(WHITE, F4), 0);
+        assert_eq!(b.attacks_to(BLACK, F4), 1 << A4 | 1 << E3);
+        assert_eq!(b.attacks_to(BLACK, F5), 1 << F4);
+        assert_eq!(b.attacks_to(WHITE, A6), 0);
+        assert_eq!(b.attacks_to(BLACK, G1), 1 << H2 | 1 << E3);
+        assert_eq!(b.attacks_to(BLACK, A1), 1 << A4);
     }
 
     #[test]
@@ -956,10 +956,10 @@ mod tests {
         piece_type[ROOK] |= 1 << F2;
         color[WHITE] |= 1 << F2;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.calc_see(E5, QUEEN, BLACK, E3, PAWN), 100);
-        assert_eq!(b.calc_see(E5, QUEEN, BLACK, D4, PAWN), -875);
-        assert_eq!(b.calc_see(G3, PAWN, WHITE, F4, PAWN), 100);
-        assert_eq!(b.calc_see(A3, KING, BLACK, A2, PAWN), -9900);
+        assert_eq!(b.calc_see(BLACK, E5, QUEEN, E3, PAWN), 100);
+        assert_eq!(b.calc_see(BLACK, E5, QUEEN, D4, PAWN), -875);
+        assert_eq!(b.calc_see(WHITE, G3, PAWN, F4, PAWN), 100);
+        assert_eq!(b.calc_see(BLACK, A3, KING, A2, PAWN), -9900);
     }
 
     #[test]
