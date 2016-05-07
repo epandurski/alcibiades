@@ -85,6 +85,13 @@ impl Board {
                     to_square: Square,
                     target_piece: PieceType)
                     -> Value {
+        
+        // TODO: This method (and the functions it calls) does a lot
+        // of array access and therefore, lots of array boundary
+        // check. Also I expect this code to be crucial for the
+        // performance. Therefore we probably have to switch to
+        // unchecked array indexing.
+        
         use std::mem::uninitialized;
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
