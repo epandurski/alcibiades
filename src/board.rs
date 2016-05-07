@@ -698,9 +698,9 @@ fn attacks_to(geometry: &BoardGeometry,
     attacks |= piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
                piece_type_array[KING];
     attacks |= gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
-               pawns & !BB_FILE_H;
+               pawns & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8);
     attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
-               pawns & !BB_FILE_A;
+               pawns & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8);
     attacks
 }
 
