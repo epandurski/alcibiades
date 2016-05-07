@@ -686,18 +686,21 @@ fn attacks_to(geometry: &BoardGeometry,
               -> u64 {
     let occupied_by_us = color_array[us];
     let shifts = &PAWN_MOVE_SHIFTS[us];
+    let square_bb = 1 << square;
+    let pawns = piece_type_array[PAWN];
+    let queens = piece_type_array[QUEEN];
     let mut attacks = piece_attacks_from(geometry, occupied, square, ROOK) & occupied_by_us &
-                      (piece_type_array[ROOK] | piece_type_array[QUEEN]);
+                      (piece_type_array[ROOK] | queens);
     attacks |= piece_attacks_from(geometry, occupied, square, BISHOP) & occupied_by_us &
-               (piece_type_array[BISHOP] | piece_type_array[QUEEN]);
+               (piece_type_array[BISHOP] | queens);
     attacks |= piece_attacks_from(geometry, occupied, square, KNIGHT) & occupied_by_us &
                piece_type_array[KNIGHT];
     attacks |= piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
                piece_type_array[KING];
-    attacks |= gen_shift(1 << square, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
-               piece_type_array[PAWN] & !BB_FILE_H;
-    attacks |= gen_shift(1 << square, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
-               piece_type_array[PAWN] & !BB_FILE_A;
+    attacks |= gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
+               pawns & !BB_FILE_H;
+    attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
+               pawns & !BB_FILE_A;
     attacks
 }
 
