@@ -282,7 +282,7 @@ impl Board {
     // destinations. After that it scans the resulting sets, and for
     // each destination figures out what piece is captured (if any),
     // and writes a new move and its score to the move stack. (It also
-    // recognizes and blocks a very rare case of pseudo-legal
+    // recognizes and discards the very rare case of pseudo-legal
     // en-passant capture that may leave discovered check.)
     #[inline(always)]
     fn write_pawn_moves_to_stack(&self,
