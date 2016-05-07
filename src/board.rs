@@ -10,8 +10,8 @@ const PAWN_QUEENSIDE_CAPTURE: PawnMoveType = 2;
 const PAWN_KINGSIDE_CAPTURE: PawnMoveType = 3;
 
 // Pawn move tables
+static PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
-const PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
                                         BB_RANK_2 | BB_RANK_7,
                                         !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
@@ -684,24 +684,30 @@ fn attacks_to(geometry: &BoardGeometry,
               square: Square,
               us: Color)
               -> u64 {
-    let occupied_by_us = color_array[us];
-    let shifts = &PAWN_MOVE_SHIFTS[us];
-    let square_bb = 1 << square;
-    let pawns = piece_type_array[PAWN];
-    let queens = piece_type_array[QUEEN];
-    let mut attacks = piece_attacks_from(geometry, occupied, square, ROOK) & occupied_by_us &
-                      (piece_type_array[ROOK] | queens);
-    attacks |= piece_attacks_from(geometry, occupied, square, BISHOP) & occupied_by_us &
-               (piece_type_array[BISHOP] | queens);
-    attacks |= piece_attacks_from(geometry, occupied, square, KNIGHT) & occupied_by_us &
-               piece_type_array[KNIGHT];
-    attacks |= piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
-               piece_type_array[KING];
-    attacks |= gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us & pawns &
-               !(BB_FILE_H | BB_RANK_1 | BB_RANK_8);
-    attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us & pawns &
-               !(BB_FILE_A | BB_RANK_1 | BB_RANK_8);
-    attacks
+    assert!(us <= 1);
+        
+    // This code is performance critical, so we do everything without
+    // array boundary checks.
+    unsafe {
+        let occupied_by_us: u64 = *color_array.get_unchecked(us);
+        let shifts: &[i8; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
+        let square_bb = 1 << square;
+        let pawns = piece_type_array[PAWN];
+        let queens = piece_type_array[QUEEN];
+        let mut attacks = piece_attacks_from(geometry, occupied, square, ROOK) & occupied_by_us &
+            (piece_type_array[ROOK] | queens);
+        attacks |= piece_attacks_from(geometry, occupied, square, BISHOP) & occupied_by_us &
+            (piece_type_array[BISHOP] | queens);
+        attacks |= piece_attacks_from(geometry, occupied, square, KNIGHT) & occupied_by_us &
+            piece_type_array[KNIGHT];
+        attacks |= piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
+            piece_type_array[KING];
+        attacks |= gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us & pawns &
+            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8);
+        attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us & pawns &
+            !(BB_FILE_A | BB_RANK_1 | BB_RANK_8);
+        attacks
+    }
 }
 
 
