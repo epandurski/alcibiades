@@ -1130,4 +1130,26 @@ mod tests {
         assert_eq!(b.generate_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
                    1);
     }
+
+    #[test]
+    fn test_move_generation_4() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[KING] |= 1 << H1;
+        color[WHITE] |= 1 << H1;
+        piece_type[PAWN] |= 1 << G4;
+        color[WHITE] |= 1 << G4;
+        piece_type[PAWN] |= 1 << E4;
+        color[WHITE] |= 1 << E4;
+        piece_type[QUEEN] |= 1 << D4;
+        color[WHITE] |= 1 << D4;
+        piece_type[KING] |= 1 << H4;
+        color[BLACK] |= 1 << H4;
+        piece_type[PAWN] |= 1 << F4;
+        color[BLACK] |= 1 << F4;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.generate_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
+                   2);
+    }
 }
