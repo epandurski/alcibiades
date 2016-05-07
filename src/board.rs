@@ -777,14 +777,23 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
                           square: Square,
                           piece: PieceType)
                           -> u64 {
-    assert!(piece != PAWN);
-    let behind = geometry.squares_behind_blocker[square];
-    let mut attacks = geometry.attacks[piece][square];
-    let mut blockers = occupied & geometry.blockers_and_beyond[piece][square];
-    while blockers != EMPTY_SET {
-        attacks &= !behind[bitscan_and_clear(&mut blockers)];
+    assert!(piece < PAWN);
+    assert!(square <= 63);
+    
+    // This code is extremely performance critical, so we must do
+    // everything without array boundary checks.
+    unsafe {
+        let behind: &[u64; 64] = geometry.squares_behind_blocker.get_unchecked(square);
+        let mut attacks: u64 = *geometry.attacks.get_unchecked(piece).get_unchecked(square);
+        let mut blockers: u64 = occupied &
+                                *geometry.blockers_and_beyond
+                                         .get_unchecked(piece)
+                                         .get_unchecked(square);
+        while blockers != EMPTY_SET {
+            attacks &= !*behind.get_unchecked(bitscan_and_clear(&mut blockers));
+        }
+        attacks
     }
-    attacks
 }
 
 
