@@ -209,19 +209,23 @@ impl Board {
                     let mut dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
                                        pin_lines[from_square] &
                                        legal_dests;
-                    counter += self.write_piece_moves_to_stack(piece,
-                                                               from_square,
-                                                               &mut dest_set,
-                                                               move_stack);
+                    counter += write_piece_moves_to_stack(piece_type_array,
+                                                          occupied,
+                                                          piece,
+                                                          from_square,
+                                                          &mut dest_set,
+                                                          move_stack);
                 }
                 while free_pieces != EMPTY_SET {
                     let from_square = bitscan_and_clear(&mut free_pieces);
                     let mut dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
                                        legal_dests;
-                    counter += self.write_piece_moves_to_stack(piece,
-                                                               from_square,
-                                                               &mut dest_set,
-                                                               move_stack);
+                    counter += write_piece_moves_to_stack(piece_type_array,
+                                                          occupied,
+                                                          piece,
+                                                          from_square,
+                                                          &mut dest_set,
+                                                          move_stack);
                 }
             }
 
@@ -284,9 +288,10 @@ impl Board {
     #[inline(always)]
     fn pawn_dest_sets(&self, us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
         use std::mem::uninitialized;
+        let color_array = &self.color;
         let shifts = &PAWN_MOVE_SHIFTS[us];
-        let not_occupied_by_us = !self.color[us];
-        let capture_targets = self.color[1 ^ us] | en_passant_bb;
+        let not_occupied_by_us = !color_array[us];
+        let capture_targets = color_array[1 ^ us] | en_passant_bb;
         unsafe {
             let mut dest_sets: [u64; 4] = uninitialized();
             for move_type in 0..4 {
@@ -328,28 +333,6 @@ impl Board {
         } else {
             true
         }
-    }
-
-    #[inline(always)]
-    fn write_piece_moves_to_stack(&self,
-                                  piece: PieceType,
-                                  orig_square: Square,
-                                  dest_set: &mut u64,
-                                  move_stack: &mut MoveStack)
-                                  -> usize {
-        let mut counter = 0;
-        let occupied = self.occupied;
-        let piece_type_array = &self.piece_type;
-        while *dest_set != EMPTY_SET {
-            let dest_bb = ls1b(*dest_set);
-            *dest_set ^= dest_bb;
-            let dest_square = bitscan_1bit(dest_bb);
-            let captured_piece = get_piece_type_at(occupied, piece_type_array, dest_bb);
-            move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
-                            MoveScore::new(piece, captured_piece));
-            counter += 1;
-        }
-        counter
     }
 
     #[inline]
@@ -702,6 +685,31 @@ fn attacks_to(geometry: &BoardGeometry,
     attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us & pawns &
                !(BB_FILE_A | BB_RANK_1 | BB_RANK_8);
     attacks
+}
+
+
+// This is a helper function for Board::generate_moves(). It really
+// does not do anything other than figuring out what piece is captured
+// (if any), and writes a new move and its score to the move stack.
+#[inline(always)]
+fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
+                              occupied: u64,
+                              piece: PieceType,
+                              orig_square: Square,
+                              dest_set: &mut u64,
+                              move_stack: &mut MoveStack)
+                              -> usize {
+    let mut counter = 0;
+    while *dest_set != EMPTY_SET {
+        let dest_bb = ls1b(*dest_set);
+        *dest_set ^= dest_bb;
+        let dest_square = bitscan_1bit(dest_bb);
+        let captured_piece = get_piece_type_at(occupied, piece_type_array, dest_bb);
+        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
+                        MoveScore::new(piece, captured_piece));
+        counter += 1;
+    }
+    counter
 }
 
 
