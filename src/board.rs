@@ -10,12 +10,12 @@ const PAWN_QUEENSIDE_CAPTURE: PawnMoveType = 2;
 const PAWN_KINGSIDE_CAPTURE: PawnMoveType = 3;
 
 // Pawn move tables
-static PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
-static PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
-static PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                         BB_RANK_2 | BB_RANK_7,
-                                         !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                         !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
+const PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
+const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                        BB_RANK_2 | BB_RANK_7,
+                                        !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                        !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
 
 // Pawn useful constants
 const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
@@ -697,10 +697,10 @@ fn attacks_to(geometry: &BoardGeometry,
                piece_type_array[KNIGHT];
     attacks |= piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
                piece_type_array[KING];
-    attacks |= gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
-               pawns & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8);
-    attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
-               pawns & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8);
+    attacks |= gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us & pawns &
+               !(BB_FILE_H | BB_RANK_1 | BB_RANK_8);
+    attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us & pawns &
+               !(BB_FILE_A | BB_RANK_1 | BB_RANK_8);
     attacks
 }
 
