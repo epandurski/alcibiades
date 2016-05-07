@@ -269,6 +269,88 @@ impl Board {
         counter
     }
 
+    // This is a helper method for Board::generate_moves(). It
+    // generates candidate pawn destination sets, then performs an
+    // intersection between those sets and the set of legal
+    // destinations. After that it scans the resulting sets, and for
+    // each destination figures out what piece is captured (if any),
+    // and writes a new move and its score to the move stack. (It also
+    // recognizes and blocks a very rare case of pseudo-legal
+    // en-passant capture that may leave discovered check.)
+    #[inline]
+    fn write_pawn_moves_to_stack(&self,
+                                 us: Color,
+                                 pawns: u64,
+                                 en_passant_bb: u64,
+                                 legal_dests: u64,
+                                 move_stack: &mut MoveStack)
+                                 -> usize {
+        let mut counter = 0;
+        let occupied = self.occupied;
+        let piece_type_array = &self.piece_type;
+
+        // Generate candidate pawn destination sets.
+        let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb);
+
+        // Make sure all destination squares in all sets are legal.
+        dest_sets[PAWN_PUSH] &= legal_dests;
+        dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
+        dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
+        dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
+
+        // Scan each destination set (push, double-push, queen-side
+        // capture, king-side capture). For each move calculate the "to"
+        // and "from" sqares, and determinne the move type (en-passant
+        // capture, pawn promotion, or a normal move).
+        let shifts = &PAWN_MOVE_SHIFTS[us];
+        for move_type in 0..4 {
+            let s = &mut dest_sets[move_type];
+            while *s != EMPTY_SET {
+                let pawn_bb = ls1b(*s);
+                *s ^= pawn_bb;
+                let dest_square = bitscan_1bit(pawn_bb);
+                let orig_square = (dest_square as i8 - shifts[move_type]) as Square;
+                match pawn_bb {
+                    // en-passant capture
+                    x if x == en_passant_bb => {
+                        if self.en_passant_special_check_ok(us, orig_square, dest_square) {
+                            counter += 1;
+                            move_stack.push(Move::new(MOVE_ENPASSANT, orig_square, dest_square, 0),
+                                            MoveScore::new(PAWN, PAWN));
+
+                        }
+                    }
+                    // pawn promotion
+                    x if x & PAWN_PROMOTION_RANKS != 0 => {
+                        for pp_code in 0..4 {
+                            counter += 1;
+                            move_stack.push(Move::new(MOVE_PROMOTION,
+                                                      orig_square,
+                                                      dest_square,
+                                                      pp_code),
+                                            MoveScore::new(PAWN,
+                                                           if pp_code == 0 {
+                                                               QUEEN
+                                                           } else {
+                                                               ROOK  // a lie, helps move ordering
+                                                           }));
+                        }
+                    }
+                    // normal pawn move (push or plain capture)
+                    _ => {
+                        counter += 1;
+                        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
+                                        MoveScore::new(PAWN,
+                                                       get_piece_type_at(occupied,
+                                                                         piece_type_array,
+                                                                         pawn_bb)));
+                    }
+                }
+            }
+        }
+        counter
+    }
+
     // Generate array with pawn destination sets.
     //
     // We differentiate 4 types of pawn moves: single push, double
@@ -333,78 +415,6 @@ impl Board {
         } else {
             true
         }
-    }
-
-    #[inline]
-    fn write_pawn_moves_to_stack(&self,
-                                 us: Color,
-                                 pawns: u64,
-                                 en_passant_bb: u64,
-                                 legal_dests: u64,
-                                 move_stack: &mut MoveStack)
-                                 -> usize {
-        let mut counter = 0;
-        let occupied = self.occupied;
-        let piece_type_array = &self.piece_type;
-        let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb);
-
-        // Make sure all destination squares in all sets are legal.
-        dest_sets[PAWN_PUSH] &= legal_dests;
-        dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
-        dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
-        dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
-
-        // Scan each destination set (push, double-push, queen-side
-        // capture, king-side capture). For each move calculate the "to"
-        // and "from" sqares, and determinne the move type (en-passant
-        // capture, pawn promotion, or a normal move).
-        let shifts = &PAWN_MOVE_SHIFTS[us];
-        for move_type in 0..4 {
-            let s = &mut dest_sets[move_type];
-            while *s != EMPTY_SET {
-                let pawn_bb = ls1b(*s);
-                *s ^= pawn_bb;
-                let dest_square = bitscan_1bit(pawn_bb);
-                let orig_square = (dest_square as i8 - shifts[move_type]) as Square;
-                match pawn_bb {
-                    // en-passant capture
-                    x if x == en_passant_bb => {
-                        if self.en_passant_special_check_ok(us, orig_square, dest_square) {
-                            counter += 1;
-                            move_stack.push(Move::new(MOVE_ENPASSANT, orig_square, dest_square, 0),
-                                            MoveScore::new(PAWN, PAWN));
-
-                        }
-                    }
-                    // pawn promotion
-                    x if x & PAWN_PROMOTION_RANKS != 0 => {
-                        for pp_code in 0..4 {
-                            counter += 1;
-                            move_stack.push(Move::new(MOVE_PROMOTION,
-                                                      orig_square,
-                                                      dest_square,
-                                                      pp_code),
-                                            MoveScore::new(PAWN,
-                                                           if pp_code == 0 {
-                                                               QUEEN
-                                                           } else {
-                                                               ROOK  // a lie, helps move ordering
-                                                           }));
-                        }
-                    }
-                    // normal pawn move (push or plain capture)
-                    _ => {
-                        counter += 1;
-                        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
-                                        MoveScore::new(PAWN,
-                                                       get_piece_type_at(occupied,
-                                                                         piece_type_array,
-                                                                         pawn_bb)));
-                    }
-                }
-            }
-        }
-        counter
     }
 }
 
@@ -689,8 +699,9 @@ fn attacks_to(geometry: &BoardGeometry,
 
 
 // This is a helper function for Board::generate_moves(). It really
-// does not do anything other than figuring out what piece is captured
-// (if any), and writes a new move and its score to the move stack.
+// does not do anything other than scanning the destination set, and
+// for each move destination it figures out what piece is captured (if
+// any), and writes a new move and its score to the move stack.
 #[inline(always)]
 fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
                               occupied: u64,
