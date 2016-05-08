@@ -594,10 +594,10 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
     const PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
     assert!(us <= 1);
     let mut counter = 0;
-    let them = 1 ^ us;
 
     // can not castle if in check
     if checkers == EMPTY_SET {
+        let them = 1 ^ us;
 
         // try queen-side and king-side castling
         for side in 0..2 {
