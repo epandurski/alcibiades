@@ -282,7 +282,17 @@ impl Board {
             }
         }
 
-        // TODO: We must try to move the king here!
+        // Find all king moves (pseudo-legal, possibly moving into check).
+        let mut king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
+                                !occupied_by_us;
+        counter += write_piece_moves_to_stack(piece_type_array,
+                                              occupied,
+                                              KING,
+                                              king_square,
+                                              &mut king_dest_set,
+                                              move_stack);
+
+        // TODO: We must try to castle the king here!
         counter
     }
 
@@ -1104,22 +1114,22 @@ mod tests {
                                                 1 << D2,
                                                 0,
                                                 &mut MoveStack::new()),
-                   1);
+                   5);
         // White to move, king on G1:
         assert_eq!(b.generate_pseudolegal_moves(WHITE, G1, 1 << E3, 0, 0, &mut MoveStack::new()),
-                   2);
+                   7);
         // White to move, king on H6:
         assert_eq!(b.generate_pseudolegal_moves(WHITE, H6, 1 << E3, 0, 0, &mut MoveStack::new()),
-                   4);
+                   8);
         // White to move, king on H1 (no check):
         assert_eq!(b.generate_pseudolegal_moves(WHITE, H1, 0, 0, 0, &mut MoveStack::new()),
-                   19);
+                   22);
         // White to move, king on H1 (no check), en-passant on C6:
         assert_eq!(b.generate_pseudolegal_moves(WHITE, H1, 0, 0, 1 << C6, &mut MoveStack::new()),
-                   20);
+                   23);
         // Black to move, king on H1 (no check):
         assert_eq!(b.generate_pseudolegal_moves(BLACK, H1, 0, 0, 0, &mut MoveStack::new()),
-                   22);
+                   25);
         // Black to move, king on H4:
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 H4,
@@ -1127,7 +1137,7 @@ mod tests {
                                                 0,
                                                 0,
                                                 &mut MoveStack::new()),
-                   0);
+                   5);
     }
 
     #[test]
@@ -1150,7 +1160,7 @@ mod tests {
                                                 0,
                                                 1 << G3,
                                                 &mut MoveStack::new()),
-                   1);
+                   6);
 
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
@@ -1169,7 +1179,7 @@ mod tests {
                                                 1 << F4,
                                                 1 << G3,
                                                 &mut MoveStack::new()),
-                   0);
+                   7);
 
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
@@ -1188,7 +1198,7 @@ mod tests {
                                                 0,
                                                 1 << G3,
                                                 &mut MoveStack::new()),
-                   0);
+                   5);
     }
 
     #[test]
@@ -1208,7 +1218,7 @@ mod tests {
         color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
         assert_eq!(b.generate_pseudolegal_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
-                   1);
+                   6);
     }
 
     #[test]
@@ -1230,6 +1240,6 @@ mod tests {
         color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
         assert_eq!(b.generate_pseudolegal_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
-                   2);
+                   7);
     }
 }
