@@ -193,7 +193,7 @@ impl Board {
         let piece_type_array = &self.piece_type;
         let color_array = &self.color;
         let occupied = self.occupied;
-        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
+        let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
         let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
@@ -234,13 +234,13 @@ impl Board {
                         0 => legal_dests,
                         _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
                     };
-                    let mut dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
-                                       piece_legal_dests;
+                    let dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
+                                   piece_legal_dests;
                     counter += write_piece_moves_to_stack(piece_type_array,
                                                           occupied,
                                                           piece,
                                                           from_square,
-                                                          &mut dest_set,
+                                                          dest_set,
                                                           move_stack);
                 }
             }
@@ -283,7 +283,7 @@ impl Board {
         }
 
         // Find all king moves (pseudo-legal, possibly moving into
-        // check).  This is executed even when in double check.
+        // check). This is executed even when in double check.
         counter += write_castling_moves_to_stack(geometry,
                                                  piece_type_array,
                                                  color_array,
@@ -293,13 +293,13 @@ impl Board {
                                                  checkers,
                                                  castling,
                                                  move_stack);
-        let mut king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
-                                !occupied_by_us;
+        let king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
+                            !occupied_by_us;
         counter += write_piece_moves_to_stack(piece_type_array,
                                               occupied,
                                               KING,
                                               king_square,
-                                              &mut king_dest_set,
+                                              king_dest_set,
                                               move_stack);
         counter
     }
@@ -706,7 +706,7 @@ impl BoardGeometry {
 // Return the set of squares that have on them pieces (or pawns)
 // of color "us" that attack the square "square" directly (no
 // x-rays).
-#[inline(always)]
+#[inline]
 fn attacks_to(geometry: &BoardGeometry,
               piece_type_array: &[u64; 6],
               color_array: &[u64; 2],
@@ -749,13 +749,13 @@ fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
                               occupied: u64,
                               piece: PieceType,
                               orig_square: Square,
-                              dest_set: &mut u64,
+                              mut dest_set: u64,
                               move_stack: &mut MoveStack)
                               -> usize {
     let mut counter = 0;
-    while *dest_set != EMPTY_SET {
-        let dest_bb = ls1b(*dest_set);
-        *dest_set ^= dest_bb;
+    while dest_set != EMPTY_SET {
+        let dest_bb = ls1b(dest_set);
+        dest_set ^= dest_bb;
         let dest_square = bitscan_1bit(dest_bb);
         let captured_piece = get_piece_type_at(occupied, piece_type_array, dest_bb);
         move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
