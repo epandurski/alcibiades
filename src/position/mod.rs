@@ -1,8 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+pub mod board_geometry;
+pub mod board;
+
 use basetypes::*;
-use board::Board;
+use self::board::Board;
 
 pub struct Position {
     board: Board,
