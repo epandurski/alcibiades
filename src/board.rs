@@ -195,6 +195,11 @@ impl Board {
         let occupied = self.occupied;
         let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
         let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
+        
+        // When in check, for every move except king's moves, the only
+        // legal destination squares are those lying on the line
+        // between the checker and the king. Also, no piece can move
+        // to a square that is occupied by a friendly piece.
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
             0 => {
@@ -222,6 +227,7 @@ impl Board {
         };
 
         if legal_dests != EMPTY_SET {
+            // This block is not executed when in double check.
 
             // Find all queen, rook, bishop, and knight moves.
             for piece in QUEEN..PAWN {
