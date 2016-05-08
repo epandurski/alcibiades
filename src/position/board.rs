@@ -230,7 +230,8 @@ impl Board {
         };
 
         if legal_dests != EMPTY_SET {
-            // This block is not executed when in double check.
+            // This block is not executed when the king is in double
+            // check.
 
             // Find all queen, rook, bishop, and knight moves.
             for piece in QUEEN..PAWN {
@@ -382,7 +383,7 @@ fn attacks_to(geometry: &BoardGeometry,
 
 
 
-// This is a helper function for Board::generate_moves().
+// This is a helper function for Board::generate_pseudolegal_moves().
 //
 // It generates candidate pawn destination sets, then performs an
 // intersection between those sets and the set of legal
@@ -434,18 +435,19 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
             match pawn_bb {
                 // en-passant capture
                 x if x == en_passant_bb => {
-                    if en_passant_special_check_ok(geometry,
+                    let king_bb = piece_type_array[KING] & occupied_by_us;
+                    if king_bb & [BB_RANK_5, BB_RANK_4][us] == 0 ||
+                       en_passant_special_check_ok(geometry,
                                                    piece_type_array,
                                                    occupied,
-                                                   occupied_by_us,
                                                    occupied_by_them,
                                                    us,
+                                                   bitscan_1bit(king_bb),
                                                    orig_square,
                                                    dest_square) {
                         counter += 1;
                         move_stack.push(Move::new(MOVE_ENPASSANT, orig_square, dest_square, 0),
                                         MoveScore::new(PAWN, PAWN));
-
                     }
                 }
                 // pawn promotion
@@ -520,47 +522,37 @@ fn pawn_dest_sets(occupied_by_us: u64,
 }
 
 
-// This is a helper function for Board::generate_moves().
+// This is a helper function for Board::generate_pseudolegal_moves().
 //
-// It generates checks for the special case when an en-passant capture
-// discovers check on 4/5-th rank. This is the very rare occasion when
-// the two pawns participating in en-passant capture, disappearing in
-// one move, discover an unexpected check along the horizontal (rank 4
-// of 5).
-#[inline(always)]
+// It tests for the special case when an en-passant capture discovers
+// check on 4/5-th rank. This is the very rare occasion when the two
+// pawns participating in en-passant capture, disappearing in one
+// move, discover an unexpected check along the horizontal (rank 4 of
+// 5).
 fn en_passant_special_check_ok(geometry: &BoardGeometry,
                                piece_type_array: &[u64; 6],
                                occupied: u64,
-                               occupied_by_us: u64,
                                occupied_by_them: u64,
                                us: Color,
+                               king_square: Square,
                                orig_square: Square,
                                dest_square: Square)
                                -> bool {
-    const EN_PASSANT_SPECIAL_CHECK_RANKS: [u64; 2] = [BB_RANK_5, BB_RANK_4];
-    let king_bb = piece_type_array[KING] & occupied_by_us;
-    assert!(us <= 1);
-    assert_eq!(king_bb, ls1b(king_bb));
-    if king_bb & unsafe { *EN_PASSANT_SPECIAL_CHECK_RANKS.get_unchecked(us) } != 0 {
-        let the_two_pawns = 1 << orig_square |
-                            gen_shift(1, dest_square as isize - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
-        let king_square = bitscan_1bit(king_bb);
-        let occupied = occupied & !the_two_pawns;
-        let occupied_by_them = occupied_by_them & !the_two_pawns;
-        let checkers = piece_attacks_from(geometry, occupied, king_square, ROOK) &
-                       occupied_by_them &
-                       (piece_type_array[ROOK] | piece_type_array[QUEEN]);
-        checkers == EMPTY_SET
-    } else {
-        true
-    }
+    let the_two_pawns = 1 << orig_square |
+                        gen_shift(1, dest_square as isize - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
+    let occupied = occupied & !the_two_pawns;
+    let occupied_by_them = occupied_by_them & !the_two_pawns;
+    let checkers = piece_attacks_from(geometry, occupied, king_square, ROOK) & occupied_by_them &
+                   (piece_type_array[ROOK] | piece_type_array[QUEEN]);
+    checkers == EMPTY_SET
 }
 
 
-// This is a helper function for Board::generate_moves(). It really
-// does not do anything other than scanning the destination set, and
-// for each move destination it figures out what piece is captured (if
-// any), and writes a new move and its score to the move stack.
+// This is a helper function for
+// Board::generate_pseudolegal_moves(). It really does not do anything
+// other than scanning the destination set, and for each move
+// destination it figures out what piece is captured (if any), and
+// writes a new move and its score to the move stack.
 #[inline(always)]
 fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
                               occupied: u64,
@@ -583,9 +575,10 @@ fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
 }
 
 
-// This is a helper function for Board::generate_moves(). It figures
-// out if castling on each side is pseudo-legal and if it is, writes a
-// new move and its score to the move stack.
+// This is a helper function for
+// Board::generate_pseudolegal_moves(). It figures out if castling on
+// each side is pseudo-legal and if it is, writes a new move and its
+// score to the move stack.
 #[inline(always)]
 fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                  piece_type_array: &[u64; 6],
@@ -601,6 +594,7 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
     const PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
     assert!(us <= 1);
     let mut counter = 0;
+    let them = 1 ^ us;
 
     // can not castle if in check
     if checkers == EMPTY_SET {
@@ -618,7 +612,7 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                               color_array,
                               occupied,
                               unsafe { *PASSING_SQUARES[side].get_unchecked(us) },
-                              us) == 0 {
+                              them) == 0 {
 
                     // it seems castling is legal unless king's final
                     // square is attacked, but we do not care about
@@ -1130,6 +1124,107 @@ mod tests {
                                                 0,
                                                 1 << G3,
                                                 CastlingRights::new(),
+                                                &mut MoveStack::new()),
+                   7);
+    }
+
+    #[test]
+    fn test_move_generation_5() {
+        use basetypes::*;
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[KNIGHT] |= 1 << B8;
+        color[BLACK] |= 1 << B8;
+        let b = Board::new(&piece_type, &color);
+        let mut cr = CastlingRights::new();
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   5);
+        cr.set(CASTLE_WHITE_KINGSIDE);
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   6);
+        cr.set(CASTLE_WHITE_QUEENSIDE);
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   7);
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                E8,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   8);
+        cr.set(CASTLE_BLACK_KINGSIDE);
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                E8,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   9);
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[KNIGHT] |= 1 << G3;
+        color[BLACK] |= 1 << G3;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                1 << F3,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   5);
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   6);
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[KNIGHT] |= 1 << E3;
+        color[BLACK] |= 1 << E3;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
+                                                &mut MoveStack::new()),
+                   5);
+        let mut piece_type = [0u64; 6];
+        let mut color = [0u64; 2];
+        piece_type[KNIGHT] |= 1 << H3;
+        color[BLACK] |= 1 << H3;
+        let b = Board::new(&piece_type, &color);
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                0,
+                                                0,
+                                                0,
+                                                cr,
                                                 &mut MoveStack::new()),
                    7);
     }
