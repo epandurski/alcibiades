@@ -30,7 +30,6 @@ pub struct Board {
 }
 
 impl Board {
-
     // Create a new board instance.
     pub fn new(piece_type_array: &[u64; 6], color_array: &[u64; 2]) -> Board {
         // TODO: Make sure the position is valid. Or rather this is
@@ -47,7 +46,7 @@ impl Board {
         }
     }
 
-    
+
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no
     // x-rays).
@@ -60,7 +59,7 @@ impl Board {
                    us)
     }
 
-    
+
     // Generate pseudo-legal moves in the current board position.
     //
     // It is guaranteed that all legal moves will be found. It is also
@@ -229,7 +228,7 @@ impl Board {
         counter
     }
 
-    
+
     // A Static Exchange Evaluation (SEE) examines the consequence of
     // a series of exchanges on a single square after a given move,
     // and calculates the likely evaluation change (material) to be
@@ -348,7 +347,6 @@ fn board_geometry() -> &'static BoardGeometry {
 }
 
 
-
 // Return the set of squares that have on them pieces (or pawns)
 // of color "us" that attack the square "square" directly (no
 // x-rays).
@@ -446,7 +444,8 @@ fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
 
 // Return the piece type at the square represented by the bit-set
 // "square_bb", on a board which is occupied with other pieces
-// according to the "piece_type" array and "occupied" bit-set and.
+// according to the "piece_type_array" array and "occupied" bit-set
+// and.
 #[inline(always)]
 fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
     assert!(square_bb != EMPTY_SET);
@@ -470,9 +469,9 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
 // intersection between those sets and the set of legal
 // destinations. After that it scans the resulting sets, and for each
 // destination figures out what piece is captured (if any), and writes
-// a new move and its score to the move stack. (It also recognizes and
+// a new move and its score to the move stack. It also recognizes and
 // discards the very rare case of pseudo-legal en-passant capture that
-// may leave discovered check.)
+// leaves discovered check on the 4/5-th rank.
 #[inline(always)]
 fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                              piece_type_array: &[u64; 6],
@@ -603,7 +602,7 @@ fn pawn_dest_sets(occupied_by_us: u64,
 }
 
 
-// This is a helper function for Board::generate_pseudolegal_moves().
+// This is a helper function for "write_pawn_moves_to_stack()".
 //
 // It tests for the special case when an en-passant capture discovers
 // check on 4/5-th rank. This is the very rare occasion when the two
@@ -660,7 +659,11 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
             if castling.obstacles(us, side) & occupied == 0 {
 
                 // ensure king's passing square is not attacked (this
-                // is a quite expensive check)
+                // is a quite expensive check).
+                //
+                // TODO: This check is probably too expensive to do
+                // here. We probably have to move this check in the
+                // "do_move()" method of "Position" class.
                 if attacks_to(geometry,
                               piece_type_array,
                               color_array,
