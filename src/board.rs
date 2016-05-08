@@ -157,7 +157,16 @@ impl Board {
         }
     }
 
-    // Generate all legal moves in the current board position.
+    // Generate pseudo-legal moves in the current board position.
+    //
+    // It is guaranteed that all legal moves will be found. It is also
+    // guaranteed, that all generated moves with pieces other than the
+    // king are legal. *It is possible that some of the king's moves
+    // are illegal because the destination square is under
+    // check*. This is because verifying that all king destination
+    // squares are not under attack is quite expensive, and therefore
+    // we hope that the alpha-beta pruning will eliminate the need for
+    // this verification at all.
     //
     // "us" is the side to move. "king_square" should be the moving
     // side king's square. "checkers" should represent all pieces that
@@ -168,15 +177,15 @@ impl Board {
     // moves stack.
     //
     // Returns the number of moves that have been generated.
-    pub fn generate_moves(&self,
-                          us: Color,
-                          king_square: Square,
-                          checkers: u64,
-                          pinned: u64,
-                          en_passant_bb: u64,
-                          // castling_rights: CastlingRights,
-                          move_stack: &mut MoveStack)
-                          -> usize {
+    pub fn generate_pseudolegal_moves(&self,
+                                      us: Color,
+                                      king_square: Square,
+                                      checkers: u64,
+                                      pinned: u64,
+                                      en_passant_bb: u64,
+                                      // castling_rights: CastlingRights,
+                                      move_stack: &mut MoveStack)
+                                      -> usize {
         assert!(us <= 1);
         assert!(king_square <= 63);
         let mut counter = 0;
@@ -1089,25 +1098,35 @@ mod tests {
         let b = Board::new(&piece_type, &color);
 
         // White to move, king on E1:
-        assert_eq!(b.generate_moves(WHITE, E1, 1 << E3, 1 << D2, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                E1,
+                                                1 << E3,
+                                                1 << D2,
+                                                0,
+                                                &mut MoveStack::new()),
                    1);
         // White to move, king on G1:
-        assert_eq!(b.generate_moves(WHITE, G1, 1 << E3, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, G1, 1 << E3, 0, 0, &mut MoveStack::new()),
                    2);
         // White to move, king on H6:
-        assert_eq!(b.generate_moves(WHITE, H6, 1 << E3, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, H6, 1 << E3, 0, 0, &mut MoveStack::new()),
                    4);
         // White to move, king on H1 (no check):
-        assert_eq!(b.generate_moves(WHITE, H1, 0, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, H1, 0, 0, 0, &mut MoveStack::new()),
                    19);
         // White to move, king on H1 (no check), en-passant on C6:
-        assert_eq!(b.generate_moves(WHITE, H1, 0, 0, 1 << C6, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, H1, 0, 0, 1 << C6, &mut MoveStack::new()),
                    20);
         // Black to move, king on H1 (no check):
-        assert_eq!(b.generate_moves(BLACK, H1, 0, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK, H1, 0, 0, 0, &mut MoveStack::new()),
                    22);
         // Black to move, king on H4:
-        assert_eq!(b.generate_moves(BLACK, H4, 1 << E4 | 1 << G6, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                H4,
+                                                1 << E4 | 1 << G6,
+                                                0,
+                                                0,
+                                                &mut MoveStack::new()),
                    0);
     }
 
@@ -1125,7 +1144,12 @@ mod tests {
         piece_type[KING] |= 1 << H5;
         color[BLACK] |= 1 << H5;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_moves(BLACK, H5, 1 << G4, 0, 1 << G3, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                H5,
+                                                1 << G4,
+                                                0,
+                                                1 << G3,
+                                                &mut MoveStack::new()),
                    1);
 
         let mut piece_type = [0u64; 6];
@@ -1139,7 +1163,12 @@ mod tests {
         piece_type[KING] |= 1 << F5;
         color[BLACK] |= 1 << F5;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_moves(BLACK, F5, 1 << G4, 1 << F4, 1 << G3, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                F5,
+                                                1 << G4,
+                                                1 << F4,
+                                                1 << G3,
+                                                &mut MoveStack::new()),
                    0);
 
         let mut piece_type = [0u64; 6];
@@ -1153,7 +1182,12 @@ mod tests {
         piece_type[KING] |= 1 << H3;
         color[BLACK] |= 1 << H3;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_moves(BLACK, H3, 1 << F1, 0, 1 << G3, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                H3,
+                                                1 << F1,
+                                                0,
+                                                1 << G3,
+                                                &mut MoveStack::new()),
                    0);
     }
 
@@ -1173,7 +1207,7 @@ mod tests {
         piece_type[PAWN] |= 1 << F4;
         color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
                    1);
     }
 
@@ -1195,7 +1229,7 @@ mod tests {
         piece_type[PAWN] |= 1 << F4;
         color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
                    2);
     }
 }
