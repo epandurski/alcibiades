@@ -609,6 +609,7 @@ fn pawn_dest_sets(occupied_by_us: u64,
 // pawns participating in en-passant capture, disappearing in one
 // move, discover an unexpected check along the horizontal (rank 4 of
 // 5).
+#[inline]
 fn en_passant_special_check_ok(geometry: &BoardGeometry,
                                piece_type_array: &[u64; 6],
                                occupied: u64,
