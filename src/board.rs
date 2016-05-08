@@ -195,7 +195,7 @@ impl Board {
         let occupied = self.occupied;
         let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
         let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
-        
+
         // When in check, for every move except king's moves, the only
         // legal destination squares are those lying on the line
         // between the checker and the king. Also, no piece can move
@@ -268,11 +268,15 @@ impl Board {
             let mut pinned_pawns = all_pawns & pinned;
             let free_pawns = all_pawns ^ pinned_pawns;
             if free_pawns != EMPTY_SET {
-                counter += self.write_pawn_moves_to_stack(us,
-                                                          free_pawns,
-                                                          en_passant_bb,
-                                                          pawn_legal_dests,
-                                                          move_stack);
+                counter += write_pawn_moves_to_stack(geometry,
+                                                     piece_type_array,
+                                                     color_array,
+                                                     occupied,
+                                                     us,
+                                                     free_pawns,
+                                                     en_passant_bb,
+                                                     pawn_legal_dests,
+                                                     move_stack);
             }
 
             // Find pinned pawn moves pawn by pawn.
@@ -280,11 +284,15 @@ impl Board {
                 let pawn_bb = ls1b(pinned_pawns);
                 pinned_pawns ^= pawn_bb;
                 let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
-                counter += self.write_pawn_moves_to_stack(us,
-                                                          pawn_bb,
-                                                          en_passant_bb,
-                                                          pin_line & pawn_legal_dests,
-                                                          move_stack);
+                counter += write_pawn_moves_to_stack(geometry,
+                                                     piece_type_array,
+                                                     color_array,
+                                                     occupied,
+                                                     us,
+                                                     pawn_bb,
+                                                     en_passant_bb,
+                                                     pin_line & pawn_legal_dests,
+                                                     move_stack);
             }
         }
 
@@ -308,156 +316,6 @@ impl Board {
                                               king_dest_set,
                                               move_stack);
         counter
-    }
-
-    // This is a helper method for Board::generate_moves(). It
-    // generates candidate pawn destination sets, then performs an
-    // intersection between those sets and the set of legal
-    // destinations. After that it scans the resulting sets, and for
-    // each destination figures out what piece is captured (if any),
-    // and writes a new move and its score to the move stack. (It also
-    // recognizes and discards the very rare case of pseudo-legal
-    // en-passant capture that may leave discovered check.)
-    #[inline(always)]
-    fn write_pawn_moves_to_stack(&self,
-                                 us: Color,
-                                 pawns: u64,
-                                 en_passant_bb: u64,
-                                 legal_dests: u64,
-                                 move_stack: &mut MoveStack)
-                                 -> usize {
-        assert!(us <= 1);
-        let mut counter = 0;
-        let occupied = self.occupied;
-        let piece_type_array = &self.piece_type;
-
-        // Generate candidate pawn destination sets.
-        let mut dest_sets = self.pawn_dest_sets(us, pawns, en_passant_bb);
-
-        // Make sure all destination squares in all sets are legal.
-        dest_sets[PAWN_PUSH] &= legal_dests;
-        dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
-        dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
-        dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
-
-        // Scan each destination set (push, double-push, queen-side
-        // capture, king-side capture). For each move calculate the "to"
-        // and "from" sqares, and determinne the move type (en-passant
-        // capture, pawn promotion, or a normal move).
-        let shifts: &[i8; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
-        for move_type in 0..4 {
-            let s = &mut dest_sets[move_type];
-            while *s != EMPTY_SET {
-                let pawn_bb = ls1b(*s);
-                *s ^= pawn_bb;
-                let dest_square = bitscan_1bit(pawn_bb);
-                let orig_square = (dest_square as i8 - shifts[move_type]) as Square;
-                match pawn_bb {
-                    // en-passant capture
-                    x if x == en_passant_bb => {
-                        if self.en_passant_special_check_ok(us, orig_square, dest_square) {
-                            counter += 1;
-                            move_stack.push(Move::new(MOVE_ENPASSANT, orig_square, dest_square, 0),
-                                            MoveScore::new(PAWN, PAWN));
-
-                        }
-                    }
-                    // pawn promotion
-                    x if x & PAWN_PROMOTION_RANKS != 0 => {
-                        for pp_code in 0..4 {
-                            counter += 1;
-                            move_stack.push(Move::new(MOVE_PROMOTION,
-                                                      orig_square,
-                                                      dest_square,
-                                                      pp_code),
-                                            MoveScore::new(PAWN,
-                                                           if pp_code == 0 {
-                                                               QUEEN
-                                                           } else {
-                                                               ROOK  // a lie, helps move ordering
-                                                           }));
-                        }
-                    }
-                    // normal pawn move (push or plain capture)
-                    _ => {
-                        counter += 1;
-                        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
-                                        MoveScore::new(PAWN,
-                                                       get_piece_type_at(occupied,
-                                                                         piece_type_array,
-                                                                         pawn_bb)));
-                    }
-                }
-            }
-        }
-        counter
-    }
-
-    // Generate array with pawn destination sets.
-    //
-    // We differentiate 4 types of pawn moves: single push, double
-    // push, queen-side capture (capturing toward queen side),
-    // king-side capture (capturing toward king side). The benefit of
-    // this separation is that knowing the destination square and the
-    // pawn move type (the index in the destination sets array) is
-    // enough to recover the origin square.
-    //
-    // "us" is the side to move, "pawns" is a bit-set of pawns which
-    // we want to generate moves for, "en_passant_bb" is a bit-set
-    // describing the en-passant square if there is one.
-    //
-    // Returns an array of 4 bit-sets (1 for each pawn move type),
-    // describing all pseudo-legal destination squares. (Pseudo-legal
-    // means that we may sill leave the king under check.)
-    #[inline(always)]
-    fn pawn_dest_sets(&self, us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
-        use std::mem::uninitialized;
-        let color_array = &self.color;
-        unsafe {
-            let shifts: &[i8; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
-            let not_occupied_by_us = !*color_array.get_unchecked(us);
-            let capture_targets = color_array.get_unchecked(1 ^ us) | en_passant_bb;
-            let mut dest_sets: [u64; 4] = uninitialized();
-            for move_type in 0..4 {
-                dest_sets[move_type] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[move_type],
-                                                 shifts[move_type]) &
-                                       not_occupied_by_us &
-                                       (capture_targets ^ PAWN_MOVE_QUIET[move_type]);
-            }
-
-            // A double-push is legal only if a single-push is legal too.
-            dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
-            dest_sets
-        }
-    }
-
-    // Check for the special case when an en-passant capture discovers
-    // check on 4/5-th rank. This is the very rare occasion when the
-    // two pawns participating in en-passant capture, disappearing in
-    // one move, discover an unexpected check along the horizontal
-    // (rank 4 of 5).
-    #[inline(always)]
-    fn en_passant_special_check_ok(&self,
-                                   us: Color,
-                                   orig_square: Square,
-                                   dest_square: Square)
-                                   -> bool {
-        const EN_PASSANT_SPECIAL_CHECK_RANKS: [u64; 2] = [BB_RANK_5, BB_RANK_4];
-        let king_bb = self.piece_type[KING] & self.color[us];
-        assert_eq!(king_bb, ls1b(king_bb));
-        if king_bb & EN_PASSANT_SPECIAL_CHECK_RANKS[us] != 0 {
-            let the_two_pawns = 1 << orig_square |
-                                gen_shift(1, dest_square as i8 - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
-            let king_square = bitscan_1bit(king_bb);
-            let occupied = self.occupied & !the_two_pawns;
-            let occupied_by_them = self.color[1 ^ us] & !the_two_pawns;
-            let checkers = piece_attacks_from(self.geometry, occupied, king_square, ROOK) &
-                           occupied_by_them &
-                           (self.piece_type[ROOK] | self.piece_type[QUEEN]);
-            checkers == EMPTY_SET
-        } else {
-            true
-        }
     }
 }
 
@@ -746,6 +604,170 @@ fn attacks_to(geometry: &BoardGeometry,
 }
 
 
+
+// This is a helper function for Board::generate_moves().
+//
+// It generates candidate pawn destination sets, then performs an
+// intersection between those sets and the set of legal
+// destinations. After that it scans the resulting sets, and for each
+// destination figures out what piece is captured (if any), and writes
+// a new move and its score to the move stack. (It also recognizes and
+// discards the very rare case of pseudo-legal en-passant capture that
+// may leave discovered check.)
+#[inline(always)]
+fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
+                             piece_type_array: &[u64; 6],
+                             color_array: &[u64; 2],
+                             occupied: u64,
+                             us: Color,
+                             pawns: u64,
+                             en_passant_bb: u64,
+                             legal_dests: u64,
+                             move_stack: &mut MoveStack)
+                             -> usize {
+    assert!(us <= 1);
+    let mut counter = 0;
+
+    // Generate candidate pawn destination sets.
+    let mut dest_sets = pawn_dest_sets(color_array, us, pawns, en_passant_bb);
+
+    // Make sure all destination squares in all sets are legal.
+    dest_sets[PAWN_PUSH] &= legal_dests;
+    dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
+    dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
+    dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
+
+    // Scan each destination set (push, double-push, queen-side
+    // capture, king-side capture). For each move calculate the "to"
+    // and "from" sqares, and determinne the move type (en-passant
+    // capture, pawn promotion, or a normal move).
+    let shifts: &[i8; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+    for move_type in 0..4 {
+        let s = &mut dest_sets[move_type];
+        while *s != EMPTY_SET {
+            let pawn_bb = ls1b(*s);
+            *s ^= pawn_bb;
+            let dest_square = bitscan_1bit(pawn_bb);
+            let orig_square = (dest_square as i8 - shifts[move_type]) as Square;
+            match pawn_bb {
+                // en-passant capture
+                x if x == en_passant_bb => {
+                    if en_passant_special_check_ok(geometry,
+                                                   piece_type_array,
+                                                   color_array,
+                                                   occupied,
+                                                   us,
+                                                   orig_square,
+                                                   dest_square) {
+                        counter += 1;
+                        move_stack.push(Move::new(MOVE_ENPASSANT, orig_square, dest_square, 0),
+                                        MoveScore::new(PAWN, PAWN));
+
+                    }
+                }
+                // pawn promotion
+                x if x & PAWN_PROMOTION_RANKS != 0 => {
+                    for pp_code in 0..4 {
+                        counter += 1;
+                        move_stack.push(Move::new(MOVE_PROMOTION,
+                                                  orig_square,
+                                                  dest_square,
+                                                  pp_code),
+                                        MoveScore::new(PAWN,
+                                                       if pp_code == 0 {
+                                                           QUEEN
+                                                       } else {
+                                                           ROOK  // a lie, helps move ordering
+                                                       }));
+                    }
+                }
+                // normal pawn move (push or plain capture)
+                _ => {
+                    counter += 1;
+                    move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
+                                    MoveScore::new(PAWN,
+                                                   get_piece_type_at(piece_type_array,
+                                                                     occupied,
+                                                                     pawn_bb)));
+                }
+            }
+        }
+    }
+    counter
+}
+
+
+// This is a helper function for Board::generate_moves(). It generates
+// array with 4 pawn destination sets.
+//
+// We differentiate 4 types of pawn moves: single push, double
+// push, queen-side capture (capturing toward queen side),
+// king-side capture (capturing toward king side). The benefit of
+// this separation is that knowing the destination square and the
+// pawn move type (the index in the destination sets array) is
+// enough to recover the origin square.
+//
+// The function returns an array of 4 bit-sets (1 for each pawn move
+// type), describing all pseudo-legal destination
+// squares. (Pseudo-legal means that we may still leave the king under
+// check.)
+#[inline(always)]
+fn pawn_dest_sets(color_array: &[u64; 2], us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
+    use std::mem::uninitialized;
+    unsafe {
+        let shifts: &[i8; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
+        let not_occupied_by_us = !*color_array.get_unchecked(us);
+        let capture_targets = color_array.get_unchecked(1 ^ us) | en_passant_bb;
+        let mut dest_sets: [u64; 4] = uninitialized();
+        for move_type in 0..4 {
+            dest_sets[move_type] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[move_type],
+                                             shifts[move_type]) &
+                                   not_occupied_by_us &
+                                   (capture_targets ^ PAWN_MOVE_QUIET[move_type]);
+        }
+
+        // A double-push is legal only if a single-push is legal too.
+        dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+        dest_sets
+    }
+}
+
+
+// This is a helper function for Board::generate_moves().
+//
+// It generates checks for the special case when an en-passant capture
+// discovers check on 4/5-th rank. This is the very rare occasion when
+// the two pawns participating in en-passant capture, disappearing in
+// one move, discover an unexpected check along the horizontal (rank 4
+// of 5).
+#[inline(always)]
+fn en_passant_special_check_ok(geometry: &BoardGeometry,
+                               piece_type_array: &[u64; 6],
+                               color_array: &[u64; 2],
+                               occupied: u64,
+                               us: Color,
+                               orig_square: Square,
+                               dest_square: Square)
+                               -> bool {
+    const EN_PASSANT_SPECIAL_CHECK_RANKS: [u64; 2] = [BB_RANK_5, BB_RANK_4];
+    let king_bb = piece_type_array[KING] & color_array[us];
+    assert_eq!(king_bb, ls1b(king_bb));
+    if king_bb & EN_PASSANT_SPECIAL_CHECK_RANKS[us] != 0 {
+        let the_two_pawns = 1 << orig_square |
+                            gen_shift(1, dest_square as i8 - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
+        let king_square = bitscan_1bit(king_bb);
+        let occupied = occupied & !the_two_pawns;
+        let occupied_by_them = color_array[1 ^ us] & !the_two_pawns;
+        let checkers = piece_attacks_from(geometry, occupied, king_square, ROOK) &
+                       occupied_by_them &
+                       (piece_type_array[ROOK] | piece_type_array[QUEEN]);
+        checkers == EMPTY_SET
+    } else {
+        true
+    }
+}
+
+
 // This is a helper function for Board::generate_moves(). It really
 // does not do anything other than scanning the destination set, and
 // for each move destination it figures out what piece is captured (if
@@ -763,7 +785,7 @@ fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
         let dest_bb = ls1b(dest_set);
         dest_set ^= dest_bb;
         let dest_square = bitscan_1bit(dest_bb);
-        let captured_piece = get_piece_type_at(occupied, piece_type_array, dest_bb);
+        let captured_piece = get_piece_type_at(piece_type_array, occupied, dest_bb);
         move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
                         MoveScore::new(piece, captured_piece));
         counter += 1;
@@ -903,7 +925,7 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 // "square_bb", on a board which is occupied with other pieces
 // according to the "piece_type" array and "occupied" bit-set and.
 #[inline(always)]
-fn get_piece_type_at(occupied: u64, piece_type_array: &[u64; 6], square_bb: u64) -> PieceType {
+fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
     assert!(square_bb != EMPTY_SET);
     assert_eq!(square_bb, ls1b(square_bb));
     match square_bb & occupied {
@@ -1119,6 +1141,7 @@ mod tests {
     #[test]
     fn test_pawn_dest_sets() {
         use basetypes::*;
+        use super::pawn_dest_sets;
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
         piece_type[PAWN] |= 1 << E7;
@@ -1140,12 +1163,12 @@ mod tests {
         piece_type[QUEEN] |= 1 << D8;
         color[BLACK] |= 1 << D8;
         let b = Board::new(&piece_type, &color);
-        let ds = b.pawn_dest_sets(WHITE, b.piece_type[PAWN] & b.color[WHITE], 1 << H6);
+        let ds = pawn_dest_sets(&color, WHITE, b.piece_type[PAWN] & b.color[WHITE], 1 << H6);
         assert_eq!(ds[0], 1 << H3 | 1 << G6 | 1 << E8);
         assert_eq!(ds[1], 1 << H4);
         assert_eq!(ds[3], 1 << H5 | 1 << G7 | 1 << H6);
         assert_eq!(ds[2], 1 << D8);
-        let ds = b.pawn_dest_sets(BLACK, b.piece_type[PAWN] & b.color[BLACK], 0);
+        let ds = pawn_dest_sets(&color, BLACK, b.piece_type[PAWN] & b.color[BLACK], 0);
         assert_eq!(ds[0], 1 << H4 | 1 << G6);
         assert_eq!(ds[1], 0);
         assert_eq!(ds[3], 0);
