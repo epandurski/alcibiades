@@ -284,47 +284,16 @@ impl Board {
         }
 
         // Find all king moves (pseudo-legal, possibly moving into check).
-        const CASTING_FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
-        const CASTING_PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
-        if checkers == EMPTY_SET {
-            if occupied & castling.obstacles(us, 0) == 0 {
-                // queen-side castle
-                let passing_square = unsafe { *CASTING_PASSING_SQUARES[0].get_unchecked(us) };
-                if attacks_to(geometry,
-                              piece_type_array,
-                              color_array,
-                              occupied,
-                              passing_square,
-                              us) == 0 {
-                    move_stack.push(Move::new(MOVE_CASTLING,
-                                              king_square,
-                                              unsafe {
-                                                  *CASTING_FINAL_SQUARES[0].get_unchecked(us)
-                                              },
-                                              0),
-                                    MoveScore::new(KING, NO_PIECE));
+        counter += write_castling_moves_to_stack(geometry,
+                                                 piece_type_array,
+                                                 color_array,
+                                                 occupied,
+                                                 us,
+                                                 king_square,
+                                                 checkers,
+                                                 castling,
+                                                 move_stack);
 
-                }
-            }
-            if occupied & castling.obstacles(us, 1) == 0 {
-                // king-side castle
-                let passing_square = unsafe { *CASTING_PASSING_SQUARES[1].get_unchecked(us) };
-                if attacks_to(geometry,
-                              piece_type_array,
-                              color_array,
-                              occupied,
-                              passing_square,
-                              us) == 0 {
-                    move_stack.push(Move::new(MOVE_CASTLING,
-                                              king_square,
-                                              unsafe {
-                                                  *CASTING_FINAL_SQUARES[1].get_unchecked(us)
-                                              },
-                                              1),
-                                    MoveScore::new(KING, NO_PIECE));
-                }
-            }
-        }
         let mut king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
                                 !occupied_by_us;
         counter += write_piece_moves_to_stack(piece_type_array,
@@ -793,6 +762,60 @@ fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
         move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
                         MoveScore::new(piece, captured_piece));
         counter += 1;
+    }
+    counter
+}
+
+
+// This is a helper function for Board::generate_moves(). It figures
+// out if castling on each side is allowed and if it is, writes a new
+// move and its score to the move stack.
+#[inline(always)]
+fn write_castling_moves_to_stack(geometry: &BoardGeometry,
+                                 piece_type_array: &[u64; 6],
+                                 color_array: &[u64; 2],
+                                 occupied: u64,
+                                 us: Color,
+                                 king_square: Square,
+                                 checkers: u64,
+                                 castling: CastlingRights,
+                                 move_stack: &mut MoveStack)
+                                 -> usize {
+    const FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
+    const PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
+    assert!(us <= 1);
+    let mut counter = 0;
+
+    // can not castle if in check
+    if checkers == EMPTY_SET {
+
+        // try queen-side and king-side castling
+        for side in 0..2 {
+
+            // ensure squares between the king and the rook are empty
+            if castling.obstacles(us, side) & occupied == 0 {
+
+                // ensure king's passing square is not attacked (this
+                // is a quite expensive check)
+                if attacks_to(geometry,
+                              piece_type_array,
+                              color_array,
+                              occupied,
+                              unsafe { *PASSING_SQUARES[side].get_unchecked(us) },
+                              us) == 0 {
+
+                    // it seems castling is legal unless king's final
+                    // square is attacked, but we do not care about
+                    // that, because this will be verified later.
+                    counter += 1;
+                    move_stack.push(Move::new(MOVE_CASTLING,
+                                              king_square,
+                                              unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
+                                              side),
+                                    MoveScore::new(KING, NO_PIECE));
+                }
+            }
+        }
     }
     counter
 }
