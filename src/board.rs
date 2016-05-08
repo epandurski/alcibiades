@@ -194,13 +194,14 @@ impl Board {
         let color_array = &self.color;
         let occupied = self.occupied;
         let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
+        let not_occupied_by_us = !occupied_by_us;
         let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
 
         // When in check, for every move except king's moves, the only
         // legal destination squares are those lying on the line
         // between the checker and the king. Also, no piece can move
         // to a square that is occupied by a friendly piece.
-        let legal_dests = !occupied_by_us &
+        let legal_dests = not_occupied_by_us &
                           match ls1b(checkers) {
             0 => {
                 // Not in check -- every move destination may be
@@ -308,7 +309,7 @@ impl Board {
                                                  castling,
                                                  move_stack);
         let king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
-                            !occupied_by_us;
+                            not_occupied_by_us;
         counter += write_piece_moves_to_stack(piece_type_array,
                                               occupied,
                                               KING,
@@ -697,15 +698,15 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
 }
 
 
-// This is a helper function for Board::generate_moves(). It generates
-// array with 4 pawn destination sets.
+// This is a helper function for "write_pawn_moves_to_stack()". It
+// generates array with 4 pawn destination sets.
 //
-// We differentiate 4 types of pawn moves: single push, double
-// push, queen-side capture (capturing toward queen side),
-// king-side capture (capturing toward king side). The benefit of
-// this separation is that knowing the destination square and the
-// pawn move type (the index in the destination sets array) is
-// enough to recover the origin square.
+// We differentiate 4 types of pawn moves: single push, double push,
+// queen-side capture (capturing toward queen side), and king-side
+// capture (capturing toward king side). The benefit of this
+// separation is that knowing the destination square and the pawn move
+// type (the index in the destination sets array) is enough to recover
+// the origin square.
 //
 // The function returns an array of 4 bit-sets (1 for each pawn move
 // type), describing all pseudo-legal destination
