@@ -171,7 +171,7 @@ impl Board {
     // "us" is the side to move. "king_square" should be the moving
     // side king's square. "checkers" should represent all pieces that
     // give check. "pinned" should represent all pinned pieces (and
-    // pawns). "castling_rights" gives the current castling
+    // pawns). "castling" gives the current castling
     // rights. "en_passant_bb" is a bitboard that contains 1 for the
     // passing square (if there is one). "move_stack" is the global
     // moves stack.
@@ -183,7 +183,7 @@ impl Board {
                                       checkers: u64,
                                       pinned: u64,
                                       en_passant_bb: u64,
-                                      // castling_rights: CastlingRights,
+                                      castling: CastlingRights,
                                       move_stack: &mut MoveStack)
                                       -> usize {
         assert!(us <= 1);
@@ -191,6 +191,7 @@ impl Board {
         let mut counter = 0;
         let geometry = self.geometry;
         let piece_type_array = &self.piece_type;
+        let color_array = &self.color;
         let occupied = self.occupied;
         let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
         let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
@@ -283,6 +284,47 @@ impl Board {
         }
 
         // Find all king moves (pseudo-legal, possibly moving into check).
+        const CASTING_FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
+        const CASTING_PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
+        if checkers == EMPTY_SET {
+            if occupied & castling.obstacles(us, 0) == 0 {
+                // queen-side castle
+                let passing_square = unsafe { *CASTING_PASSING_SQUARES[0].get_unchecked(us) };
+                if attacks_to(geometry,
+                              piece_type_array,
+                              color_array,
+                              occupied,
+                              passing_square,
+                              us) == 0 {
+                    move_stack.push(Move::new(MOVE_CASTLING,
+                                              king_square,
+                                              unsafe {
+                                                  *CASTING_FINAL_SQUARES[0].get_unchecked(us)
+                                              },
+                                              0),
+                                    MoveScore::new(KING, NO_PIECE));
+
+                }
+            }
+            if occupied & castling.obstacles(us, 1) == 0 {
+                // king-side castle
+                let passing_square = unsafe { *CASTING_PASSING_SQUARES[1].get_unchecked(us) };
+                if attacks_to(geometry,
+                              piece_type_array,
+                              color_array,
+                              occupied,
+                              passing_square,
+                              us) == 0 {
+                    move_stack.push(Move::new(MOVE_CASTLING,
+                                              king_square,
+                                              unsafe {
+                                                  *CASTING_FINAL_SQUARES[1].get_unchecked(us)
+                                              },
+                                              1),
+                                    MoveScore::new(KING, NO_PIECE));
+                }
+            }
+        }
         let mut king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
                                 !occupied_by_us;
         counter += write_piece_moves_to_stack(piece_type_array,
@@ -291,8 +333,6 @@ impl Board {
                                               king_square,
                                               &mut king_dest_set,
                                               move_stack);
-
-        // TODO: We must try to castle the king here!
         counter
     }
 
@@ -1113,22 +1153,53 @@ mod tests {
                                                 1 << E3,
                                                 1 << D2,
                                                 0,
+                                                CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    5);
         // White to move, king on G1:
-        assert_eq!(b.generate_pseudolegal_moves(WHITE, G1, 1 << E3, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                G1,
+                                                1 << E3,
+                                                0,
+                                                0,
+                                                CastlingRights::new(),
+                                                &mut MoveStack::new()),
                    7);
         // White to move, king on H6:
-        assert_eq!(b.generate_pseudolegal_moves(WHITE, H6, 1 << E3, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                H6,
+                                                1 << E3,
+                                                0,
+                                                0,
+                                                CastlingRights::new(),
+                                                &mut MoveStack::new()),
                    8);
         // White to move, king on H1 (no check):
-        assert_eq!(b.generate_pseudolegal_moves(WHITE, H1, 0, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                H1,
+                                                0,
+                                                0,
+                                                0,
+                                                CastlingRights::new(),
+                                                &mut MoveStack::new()),
                    22);
         // White to move, king on H1 (no check), en-passant on C6:
-        assert_eq!(b.generate_pseudolegal_moves(WHITE, H1, 0, 0, 1 << C6, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE,
+                                                H1,
+                                                0,
+                                                0,
+                                                1 << C6,
+                                                CastlingRights::new(),
+                                                &mut MoveStack::new()),
                    23);
         // Black to move, king on H1 (no check):
-        assert_eq!(b.generate_pseudolegal_moves(BLACK, H1, 0, 0, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                H1,
+                                                0,
+                                                0,
+                                                0,
+                                                CastlingRights::new(),
+                                                &mut MoveStack::new()),
                    25);
         // Black to move, king on H4:
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
@@ -1136,6 +1207,7 @@ mod tests {
                                                 1 << E4 | 1 << G6,
                                                 0,
                                                 0,
+                                                CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    5);
     }
@@ -1159,6 +1231,7 @@ mod tests {
                                                 1 << G4,
                                                 0,
                                                 1 << G3,
+                                                CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    6);
 
@@ -1178,6 +1251,7 @@ mod tests {
                                                 1 << G4,
                                                 1 << F4,
                                                 1 << G3,
+                                                CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    7);
 
@@ -1197,6 +1271,7 @@ mod tests {
                                                 1 << F1,
                                                 0,
                                                 1 << G3,
+                                                CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    5);
     }
@@ -1217,7 +1292,13 @@ mod tests {
         piece_type[PAWN] |= 1 << F4;
         color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_pseudolegal_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                H4,
+                                                0,
+                                                0,
+                                                1 << G3,
+                                                CastlingRights::new(),
+                                                &mut MoveStack::new()),
                    6);
     }
 
@@ -1239,7 +1320,13 @@ mod tests {
         piece_type[PAWN] |= 1 << F4;
         color[BLACK] |= 1 << F4;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_pseudolegal_moves(BLACK, H4, 0, 0, 1 << G3, &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK,
+                                                H4,
+                                                0,
+                                                0,
+                                                1 << G3,
+                                                CastlingRights::new(),
+                                                &mut MoveStack::new()),
                    7);
     }
 }

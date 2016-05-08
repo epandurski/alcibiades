@@ -181,37 +181,29 @@ impl Position {
     fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights> {
 
         // We start with no caltling allowed.
-        let mut castling_rights = [(false, false); 2];
+        let mut rights = CastlingRights::new();
 
         // Then we parse the content and update the castling rights.
         if s != "-" {
             for c in s.chars() {
                 match c {
                     'K' => {
-                        if !castling_rights[WHITE].0 {
-                            castling_rights[WHITE].0 = true;
-                        } else {
+                        if !rights.set(CASTLE_WHITE_KINGSIDE) {
                             return Err(ParseError);
                         }
                     }
                     'Q' => {
-                        if !castling_rights[WHITE].1 {
-                            castling_rights[WHITE].1 = true;
-                        } else {
+                        if !rights.set(CASTLE_WHITE_QUEENSIDE) {
                             return Err(ParseError);
                         }
                     }
                     'k' => {
-                        if !castling_rights[BLACK].0 {
-                            castling_rights[BLACK].0 = true;
-                        } else {
+                        if !rights.set(CASTLE_BLACK_KINGSIDE) {
                             return Err(ParseError);
                         }
                     }
                     'q' => {
-                        if !castling_rights[BLACK].1 {
-                            castling_rights[BLACK].1 = true;
-                        } else {
+                        if !rights.set(CASTLE_BLACK_QUEENSIDE) {
                             return Err(ParseError);
                         }
                     }
@@ -223,7 +215,7 @@ impl Position {
         }
 
         // Successfully parsed.
-        Ok(castling_rights)
+        Ok(rights)
     }
 
 

@@ -6,7 +6,6 @@ pub type Square = usize;  // from 0 to 63
 pub type PieceType = usize;  // from 0 to 5
 pub type MoveType = usize;  // from 0 to 3
 pub type Value = i16;
-pub type CastlingRights = [(bool, bool); 2];  // (King-side, Queen-side)
 
 // Color
 pub const WHITE: Color = 0;
@@ -26,6 +25,12 @@ pub const MOVE_NORMAL: MoveType = 0;
 pub const MOVE_ENPASSANT: MoveType = 1;
 pub const MOVE_PROMOTION: MoveType = 2;
 pub const MOVE_CASTLING: MoveType = 3;
+
+// Castling rights
+pub const CASTLE_WHITE_QUEENSIDE: u8 = 1 << 0;
+pub const CASTLE_WHITE_KINGSIDE: u8 = 1 << 1;
+pub const CASTLE_BLACK_QUEENSIDE: u8 = 1 << 2;
+pub const CASTLE_BLACK_KINGSIDE: u8 = 1 << 3;
 
 // Ranks
 pub const RANK_1: Rank = 0;
@@ -123,6 +128,62 @@ pub const H8: Square = 7 + 7 * 8;
 // The maximum number of moves in the move stack. It should be large
 // enough so we that never overrun it.
 pub const MOVE_STACK_SIZE: usize = 32 * 256;
+
+
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+pub struct CastlingRights(u8);
+
+impl CastlingRights {
+    #[inline(always)]
+    pub fn new() -> CastlingRights {
+        CastlingRights(0)
+    }
+
+    pub fn set(&mut self, mask: u8) -> bool {
+        let before = self.0;
+        self.0 |= mask;
+        self.0 != before
+    }
+
+    #[inline(always)]
+    pub fn clear(&mut self, mask: u8) {
+        self.0 &= !mask;
+    }
+
+    #[inline(always)]
+    pub fn obstacles(&self, color: Color, side: usize) -> u64 {
+        assert!(color <= 1);
+        assert!(side <= 1);
+        if (1 << (color << 1) << side) & self.0 == 0 {
+            // castling is not allowed, therefore every piece on every
+            // square on the board is an obstacle
+            return 0xffffffffffffffff;
+        }
+        let obstacles = match side {
+            0 => 1 << B1 | 1 << C1 | 1 << D1,
+            _ => 1 << F1 | 1 << G1
+        };
+        match color {
+            WHITE => obstacles,
+            _ => obstacles << 56
+        }
+    }
+    
+    #[inline]
+    pub fn rook_mask(&self, color: Color, side: usize) -> u64 {
+        let mask = match side {
+            0 => 1 << A1 | 1 << D1,
+            1 => 1 << H1 | 1 << G1,
+            _ => panic!("invalid castling side"),
+        };
+        match color {
+            WHITE => mask,
+            BLACK => mask << 56,
+            _ => panic!("invalid color"),
+        }
+    }
+}
 
 
 #[derive(Debug)]
