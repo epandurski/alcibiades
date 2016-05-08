@@ -257,11 +257,10 @@ impl Board {
                 true => legal_dests | en_passant_bb,
             };
 
+            // Find all free pawn moves at once.
             let all_pawns = piece_type_array[PAWN] & occupied_by_us;
             let mut pinned_pawns = all_pawns & pinned;
             let free_pawns = all_pawns ^ pinned_pawns;
-
-            // Find all free pawn moves at once.
             if free_pawns != EMPTY_SET {
                 counter += self.write_pawn_moves_to_stack(us,
                                                           free_pawns,
@@ -283,7 +282,8 @@ impl Board {
             }
         }
 
-        // Find all king moves (pseudo-legal, possibly moving into check).
+        // Find all king moves (pseudo-legal, possibly moving into
+        // check).  This is executed even when in double check.
         counter += write_castling_moves_to_stack(geometry,
                                                  piece_type_array,
                                                  color_array,
@@ -293,7 +293,6 @@ impl Board {
                                                  checkers,
                                                  castling,
                                                  move_stack);
-
         let mut king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
                                 !occupied_by_us;
         counter += write_piece_moves_to_stack(piece_type_array,
@@ -768,8 +767,8 @@ fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
 
 
 // This is a helper function for Board::generate_moves(). It figures
-// out if castling on each side is allowed and if it is, writes a new
-// move and its score to the move stack.
+// out if castling on each side is pseudo-legal and if it is, writes a
+// new move and its score to the move stack.
 #[inline(always)]
 fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                  piece_type_array: &[u64; 6],
