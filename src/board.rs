@@ -10,7 +10,7 @@ const PAWN_QUEENSIDE_CAPTURE: PawnMoveType = 2;
 const PAWN_KINGSIDE_CAPTURE: PawnMoveType = 3;
 
 // Pawn move tables
-static PAWN_MOVE_SHIFTS: [[i8; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
+static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
 const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
                                         BB_RANK_2 | BB_RANK_7,
@@ -194,6 +194,7 @@ impl Board {
         let color_array = &self.color;
         let occupied = self.occupied;
         let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
+        let occupied_by_them = unsafe { *color_array.get_unchecked(1 ^ us) };
         let not_occupied_by_us = !occupied_by_us;
         let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
 
@@ -271,8 +272,9 @@ impl Board {
             if free_pawns != EMPTY_SET {
                 counter += write_pawn_moves_to_stack(geometry,
                                                      piece_type_array,
-                                                     color_array,
                                                      occupied,
+                                                     occupied_by_us,
+                                                     occupied_by_them,
                                                      us,
                                                      free_pawns,
                                                      en_passant_bb,
@@ -287,8 +289,9 @@ impl Board {
                 let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
                 counter += write_pawn_moves_to_stack(geometry,
                                                      piece_type_array,
-                                                     color_array,
                                                      occupied,
+                                                     occupied_by_us,
+                                                     occupied_by_them,
                                                      us,
                                                      pawn_bb,
                                                      en_passant_bb,
@@ -585,7 +588,7 @@ fn attacks_to(geometry: &BoardGeometry,
     // array boundary checks.
     unsafe {
         let occupied_by_us = *color_array.get_unchecked(us);
-        let shifts: &[i8; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
+        let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
         let square_bb = 1 << square;
         let pawns = piece_type_array[PAWN];
         let queens = piece_type_array[QUEEN];
@@ -618,8 +621,9 @@ fn attacks_to(geometry: &BoardGeometry,
 #[inline(always)]
 fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                              piece_type_array: &[u64; 6],
-                             color_array: &[u64; 2],
                              occupied: u64,
+                             occupied_by_us: u64,
+                             occupied_by_them: u64,
                              us: Color,
                              pawns: u64,
                              en_passant_bb: u64,
@@ -628,9 +632,14 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                              -> usize {
     assert!(us <= 1);
     let mut counter = 0;
+    let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
 
     // Generate candidate pawn destination sets.
-    let mut dest_sets = pawn_dest_sets(color_array, us, pawns, en_passant_bb);
+    let mut dest_sets = pawn_dest_sets(occupied_by_us,
+                                       occupied_by_them,
+                                       shifts,
+                                       pawns,
+                                       en_passant_bb);
 
     // Make sure all destination squares in all sets are legal.
     dest_sets[PAWN_PUSH] &= legal_dests;
@@ -642,21 +651,21 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
     // capture, king-side capture). For each move calculate the "to"
     // and "from" sqares, and determinne the move type (en-passant
     // capture, pawn promotion, or a normal move).
-    let shifts: &[i8; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
     for move_type in 0..4 {
         let s = &mut dest_sets[move_type];
         while *s != EMPTY_SET {
             let pawn_bb = ls1b(*s);
             *s ^= pawn_bb;
             let dest_square = bitscan_1bit(pawn_bb);
-            let orig_square = (dest_square as i8 - shifts[move_type]) as Square;
+            let orig_square = (dest_square as isize - shifts[move_type]) as Square;
             match pawn_bb {
                 // en-passant capture
                 x if x == en_passant_bb => {
                     if en_passant_special_check_ok(geometry,
                                                    piece_type_array,
-                                                   color_array,
                                                    occupied,
+                                                   occupied_by_us,
+                                                   occupied_by_them,
                                                    us,
                                                    orig_square,
                                                    dest_square) {
@@ -713,12 +722,16 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
 // squares. (Pseudo-legal means that we may still leave the king under
 // check.)
 #[inline(always)]
-fn pawn_dest_sets(color_array: &[u64; 2], us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
+fn pawn_dest_sets(occupied_by_us: u64,
+                  occupied_by_them: u64,
+                  shifts: &[isize; 4],
+                  pawns: u64,
+                  en_passant_bb: u64)
+                  -> [u64; 4] {
     use std::mem::uninitialized;
+    let not_occupied_by_us = !occupied_by_us;
+    let capture_targets = occupied_by_them | en_passant_bb;
     unsafe {
-        let shifts: &[i8; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
-        let not_occupied_by_us = !*color_array.get_unchecked(us);
-        let capture_targets = color_array.get_unchecked(1 ^ us) | en_passant_bb;
         let mut dest_sets: [u64; 4] = uninitialized();
         for move_type in 0..4 {
             dest_sets[move_type] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[move_type],
@@ -744,21 +757,23 @@ fn pawn_dest_sets(color_array: &[u64; 2], us: Color, pawns: u64, en_passant_bb: 
 #[inline(always)]
 fn en_passant_special_check_ok(geometry: &BoardGeometry,
                                piece_type_array: &[u64; 6],
-                               color_array: &[u64; 2],
                                occupied: u64,
+                               occupied_by_us: u64,
+                               occupied_by_them: u64,
                                us: Color,
                                orig_square: Square,
                                dest_square: Square)
                                -> bool {
     const EN_PASSANT_SPECIAL_CHECK_RANKS: [u64; 2] = [BB_RANK_5, BB_RANK_4];
-    let king_bb = piece_type_array[KING] & color_array[us];
+    let king_bb = piece_type_array[KING] & occupied_by_us;
+    assert!(us <= 1);
     assert_eq!(king_bb, ls1b(king_bb));
-    if king_bb & EN_PASSANT_SPECIAL_CHECK_RANKS[us] != 0 {
+    if king_bb & unsafe { *EN_PASSANT_SPECIAL_CHECK_RANKS.get_unchecked(us) } != 0 {
         let the_two_pawns = 1 << orig_square |
-                            gen_shift(1, dest_square as i8 - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
+                            gen_shift(1, dest_square as isize - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
         let king_square = bitscan_1bit(king_bb);
         let occupied = occupied & !the_two_pawns;
-        let occupied_by_them = color_array[1 ^ us] & !the_two_pawns;
+        let occupied_by_them = occupied_by_them & !the_two_pawns;
         let checkers = piece_attacks_from(geometry, occupied, king_square, ROOK) &
                        occupied_by_them &
                        (piece_type_array[ROOK] | piece_type_array[QUEEN]);
@@ -1143,6 +1158,7 @@ mod tests {
     fn test_pawn_dest_sets() {
         use basetypes::*;
         use super::pawn_dest_sets;
+        use super::PAWN_MOVE_SHIFTS;
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
         piece_type[PAWN] |= 1 << E7;
@@ -1164,12 +1180,20 @@ mod tests {
         piece_type[QUEEN] |= 1 << D8;
         color[BLACK] |= 1 << D8;
         let b = Board::new(&piece_type, &color);
-        let ds = pawn_dest_sets(&color, WHITE, b.piece_type[PAWN] & b.color[WHITE], 1 << H6);
+        let ds = pawn_dest_sets(color[WHITE],
+                                color[BLACK],
+                                &PAWN_MOVE_SHIFTS[WHITE],
+                                b.piece_type[PAWN] & b.color[WHITE],
+                                1 << H6);
         assert_eq!(ds[0], 1 << H3 | 1 << G6 | 1 << E8);
         assert_eq!(ds[1], 1 << H4);
         assert_eq!(ds[3], 1 << H5 | 1 << G7 | 1 << H6);
         assert_eq!(ds[2], 1 << D8);
-        let ds = pawn_dest_sets(&color, BLACK, b.piece_type[PAWN] & b.color[BLACK], 0);
+        let ds = pawn_dest_sets(color[BLACK],
+                                color[WHITE],
+                                &PAWN_MOVE_SHIFTS[BLACK],
+                                b.piece_type[PAWN] & b.color[BLACK],
+                                0);
         assert_eq!(ds[0], 1 << H4 | 1 << G6);
         assert_eq!(ds[1], 0);
         assert_eq!(ds[3], 0);

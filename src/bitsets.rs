@@ -66,7 +66,7 @@ pub fn smeared_ls1b_down(x: u64) -> u64 {
 }
 
 #[inline(always)]
-pub fn gen_shift(x: u64, s: i8) -> u64 {
+pub fn gen_shift(x: u64, s: isize) -> u64 {
     if s > 0 {
         x << s
     } else {
