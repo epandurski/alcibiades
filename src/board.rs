@@ -85,13 +85,13 @@ impl Board {
                     to_square: Square,
                     target_piece: PieceType)
                     -> Value {
-        
+
         // TODO: This method (and the functions it calls) does a lot
         // of array access and therefore, lots of array boundary
         // check. Also I expect this code to be crucial for the
         // performance. Therefore we probably have to switch to
         // unchecked array indexing.
-        
+
         use std::mem::uninitialized;
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
@@ -208,25 +208,17 @@ impl Board {
 
             // Find all queen, rook, bishop, and knight moves.
             for piece in QUEEN..PAWN {
-                let bb = piece_type_array[piece] & occupied_by_us;
-                let mut pinned_pieces = bb & pinned;
-                let mut free_pieces = bb ^ pinned_pieces;
-                while pinned_pieces != EMPTY_SET {
-                    let from_square = bitscan_and_clear(&mut pinned_pieces);
+                let mut bb = piece_type_array[piece] & occupied_by_us;
+                while bb != EMPTY_SET {
+                    let piece_bb = ls1b(bb);
+                    bb ^= piece_bb;
+                    let from_square = bitscan_1bit(piece_bb);
+                    let piece_legal_dests = match piece_bb & pinned {
+                        0 => legal_dests,
+                        _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
+                    };
                     let mut dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
-                                       pin_lines[from_square] &
-                                       legal_dests;
-                    counter += write_piece_moves_to_stack(piece_type_array,
-                                                          occupied,
-                                                          piece,
-                                                          from_square,
-                                                          &mut dest_set,
-                                                          move_stack);
-                }
-                while free_pieces != EMPTY_SET {
-                    let from_square = bitscan_and_clear(&mut free_pieces);
-                    let mut dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
-                                       legal_dests;
+                                       piece_legal_dests;
                     counter += write_piece_moves_to_stack(piece_type_array,
                                                           occupied,
                                                           piece,
@@ -265,11 +257,13 @@ impl Board {
             }
 
             // Find all free pawn moves at once.
-            counter += self.write_pawn_moves_to_stack(us,
-                                                      free_pawns,
-                                                      en_passant_bb,
-                                                      pawn_legal_dests,
-                                                      move_stack);
+            if free_pawns != EMPTY_SET {
+                counter += self.write_pawn_moves_to_stack(us,
+                                                          free_pawns,
+                                                          en_passant_bb,
+                                                          pawn_legal_dests,
+                                                          move_stack);
+            }
         }
 
         // TODO: We must try to move the king here!
@@ -389,6 +383,7 @@ impl Board {
                                        not_occupied_by_us &
                                        (capture_targets ^ PAWN_MOVE_QUIET[move_type]);
             }
+
             // A double-push is legal only if a single-push is legal too.
             dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
             dest_sets
@@ -685,7 +680,7 @@ fn attacks_to(geometry: &BoardGeometry,
               us: Color)
               -> u64 {
     assert!(us <= 1);
-        
+
     // This code is performance critical, so we do everything without
     // array boundary checks.
     unsafe {
@@ -694,19 +689,18 @@ fn attacks_to(geometry: &BoardGeometry,
         let square_bb = 1 << square;
         let pawns = piece_type_array[PAWN];
         let queens = piece_type_array[QUEEN];
-        let mut attacks = piece_attacks_from(geometry, occupied, square, ROOK) & occupied_by_us &
-            (piece_type_array[ROOK] | queens);
-        attacks |= piece_attacks_from(geometry, occupied, square, BISHOP) & occupied_by_us &
-            (piece_type_array[BISHOP] | queens);
-        attacks |= piece_attacks_from(geometry, occupied, square, KNIGHT) & occupied_by_us &
-            piece_type_array[KNIGHT];
-        attacks |= piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
-            piece_type_array[KING];
-        attacks |= gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us & pawns &
-            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8);
-        attacks |= gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us & pawns &
-            !(BB_FILE_A | BB_RANK_1 | BB_RANK_8);
-        attacks
+        (piece_attacks_from(geometry, occupied, square, ROOK) & occupied_by_us &
+         (piece_type_array[ROOK] | queens)) |
+        (piece_attacks_from(geometry, occupied, square, BISHOP) & occupied_by_us &
+         (piece_type_array[BISHOP] | queens)) |
+        (piece_attacks_from(geometry, occupied, square, KNIGHT) & occupied_by_us &
+         piece_type_array[KNIGHT]) |
+        (piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
+         piece_type_array[KING]) |
+        (gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us & pawns &
+         !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
+        (gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us & pawns &
+         !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 }
 
@@ -792,7 +786,7 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
                           -> u64 {
     assert!(piece < PAWN);
     assert!(square <= 63);
-    
+
     // This code is extremely performance critical, so we must do
     // everything without array boundary checks.
     unsafe {
