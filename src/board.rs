@@ -293,6 +293,7 @@ impl Board {
                                  legal_dests: u64,
                                  move_stack: &mut MoveStack)
                                  -> usize {
+        assert!(us <= 1);
         let mut counter = 0;
         let occupied = self.occupied;
         let piece_type_array = &self.piece_type;
@@ -310,7 +311,7 @@ impl Board {
         // capture, king-side capture). For each move calculate the "to"
         // and "from" sqares, and determinne the move type (en-passant
         // capture, pawn promotion, or a normal move).
-        let shifts = &PAWN_MOVE_SHIFTS[us];
+        let shifts: &[i8; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
         for move_type in 0..4 {
             let s = &mut dest_sets[move_type];
             while *s != EMPTY_SET {
@@ -379,10 +380,10 @@ impl Board {
     fn pawn_dest_sets(&self, us: Color, pawns: u64, en_passant_bb: u64) -> [u64; 4] {
         use std::mem::uninitialized;
         let color_array = &self.color;
-        let shifts = &PAWN_MOVE_SHIFTS[us];
-        let not_occupied_by_us = !color_array[us];
-        let capture_targets = color_array[1 ^ us] | en_passant_bb;
         unsafe {
+            let shifts: &[i8; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
+            let not_occupied_by_us = !*color_array.get_unchecked(us);
+            let capture_targets = color_array.get_unchecked(1 ^ us) | en_passant_bb;
             let mut dest_sets: [u64; 4] = uninitialized();
             for move_type in 0..4 {
                 dest_sets[move_type] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[move_type],
