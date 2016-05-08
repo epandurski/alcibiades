@@ -177,12 +177,14 @@ impl Board {
                           // castling_rights: CastlingRights,
                           move_stack: &mut MoveStack)
                           -> usize {
+        assert!(us <= 1);
+        assert!(king_square <= 63);
         let mut counter = 0;
         let geometry = self.geometry;
-        let pin_lines = &geometry.squares_at_line[king_square];
         let piece_type_array = &self.piece_type;
         let occupied = self.occupied;
-        let occupied_by_us = self.color[us];
+        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
+        let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
             0 => {
@@ -196,7 +198,12 @@ impl Board {
                 // and the checker). Notice that we must OR with "x"
                 // itself, because knights give check not lying on a
                 // line with the king.
-                x | geometry.squares_between_including[king_square][bitscan_1bit(x)]
+                x |
+                unsafe {
+                    *geometry.squares_between_including
+                             .get_unchecked(king_square)
+                             .get_unchecked(bitscan_1bit(x))
+                }
             }
             _ => {
                 // Double check -- no covering moves.
@@ -244,24 +251,24 @@ impl Board {
             let mut pinned_pawns = all_pawns & pinned;
             let free_pawns = all_pawns ^ pinned_pawns;
 
-            // Find pinned pawn moves pawn by pawn.
-            while pinned_pawns != EMPTY_SET {
-                let pawn_bb = ls1b(pinned_pawns);
-                pinned_pawns ^= pawn_bb;
-                let pin_line = pin_lines[bitscan_1bit(pawn_bb)];
-                counter += self.write_pawn_moves_to_stack(us,
-                                                          pawn_bb,
-                                                          en_passant_bb,
-                                                          pin_line & pawn_legal_dests,
-                                                          move_stack);
-            }
-
             // Find all free pawn moves at once.
             if free_pawns != EMPTY_SET {
                 counter += self.write_pawn_moves_to_stack(us,
                                                           free_pawns,
                                                           en_passant_bb,
                                                           pawn_legal_dests,
+                                                          move_stack);
+            }
+
+            // Find pinned pawn moves pawn by pawn.
+            while pinned_pawns != EMPTY_SET {
+                let pawn_bb = ls1b(pinned_pawns);
+                pinned_pawns ^= pawn_bb;
+                let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
+                counter += self.write_pawn_moves_to_stack(us,
+                                                          pawn_bb,
+                                                          en_passant_bb,
+                                                          pin_line & pawn_legal_dests,
                                                           move_stack);
             }
         }
@@ -684,7 +691,7 @@ fn attacks_to(geometry: &BoardGeometry,
     // This code is performance critical, so we do everything without
     // array boundary checks.
     unsafe {
-        let occupied_by_us: u64 = *color_array.get_unchecked(us);
+        let occupied_by_us = *color_array.get_unchecked(us);
         let shifts: &[i8; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
         let square_bb = 1 << square;
         let pawns = piece_type_array[PAWN];
@@ -791,11 +798,11 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
     // everything without array boundary checks.
     unsafe {
         let behind: &[u64; 64] = geometry.squares_behind_blocker.get_unchecked(square);
-        let mut attacks: u64 = *geometry.attacks.get_unchecked(piece).get_unchecked(square);
-        let mut blockers: u64 = occupied &
-                                *geometry.blockers_and_beyond
-                                         .get_unchecked(piece)
-                                         .get_unchecked(square);
+        let mut attacks = *geometry.attacks.get_unchecked(piece).get_unchecked(square);
+        let mut blockers = occupied &
+                           *geometry.blockers_and_beyond
+                                    .get_unchecked(piece)
+                                    .get_unchecked(square);
         while blockers != EMPTY_SET {
             attacks &= !*behind.get_unchecked(bitscan_and_clear(&mut blockers));
         }
