@@ -30,6 +30,7 @@ pub struct Board {
 }
 
 impl Board {
+
     // Create a new board instance.
     pub fn new(piece_type_array: &[u64; 6], color_array: &[u64; 2]) -> Board {
         // TODO: Make sure the position is valid. Or rather this is
@@ -46,6 +47,7 @@ impl Board {
         }
     }
 
+    
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no
     // x-rays).
@@ -58,106 +60,7 @@ impl Board {
                    us)
     }
 
-    // A Static Exchange Evaluation (SEE) examines the consequence of
-    // a series of exchanges on a single square after a given move,
-    // and calculates the likely evaluation change (material) to be
-    // lost or gained, Donald Michie coined the term swap-off value. A
-    // positive static exchange indicates a "winning" move. For
-    // example, PxQ will always be a win, since the Pawn side can
-    // choose to stop the exchange after its Pawn is recaptured, and
-    // still be ahead.
-    //
-    // The impemented algorithm creates a swap-list of best case
-    // material gains by traversing a square attacked/defended by set
-    // in least valuable piece order from pawn, knight, bishop, rook,
-    // queen until king, with alternating sides. The swap-list, an
-    // unary tree since there are no branches but just a series of
-    // captures, is negamaxed for a final static exchange evaluation.
-    //
-    // The returned value is the material that is expected to be
-    // gained in the exchange by the attacking side
-    // ("attacking_color"), when capturing the "target_piece" on the
-    // "target_square". The "from_square" specifies the square from
-    // which the "attacking_piece" makes the capture.
-    pub fn calc_see(&self,
-                    mut attacking_color: Color,
-                    from_square: Square,
-                    mut attacking_piece: PieceType,
-                    to_square: Square,
-                    target_piece: PieceType)
-                    -> Value {
-
-        // TODO: This method (and the functions it calls) does a lot
-        // of array access and therefore, lots of array boundary
-        // check. Also I expect this code to be crucial for the
-        // performance. Therefore we probably have to switch to
-        // unchecked array indexing.
-
-        use std::mem::uninitialized;
-        use std::cmp::max;
-        static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
-
-        let geometry = self.geometry;
-        let piece_type_array = &self.piece_type;
-        let color_array = &self.color;
-        let mut occupied = self.occupied;
-        let mut depth = 0;
-        let mut attackers_and_defenders = attacks_to(geometry,
-                                                     piece_type_array,
-                                                     color_array,
-                                                     occupied,
-                                                     to_square,
-                                                     WHITE) |
-                                          attacks_to(geometry,
-                                                     piece_type_array,
-                                                     color_array,
-                                                     occupied,
-                                                     to_square,
-                                                     BLACK);
-        let mut from_square_bb = 1 << from_square;
-
-        // "may_xray" pieces may block x-ray attacks from other
-        // pieces, so we must consider adding new attackers/defenders
-        // every time a "may_xray"-piece makes a capture.
-        let may_xray = piece_type_array[PAWN] | piece_type_array[BISHOP] | piece_type_array[ROOK] |
-                       piece_type_array[QUEEN];
-        unsafe {
-            let mut gain: [Value; 33] = uninitialized();
-            gain[depth] = VALUE[target_piece];
-            while from_square_bb != EMPTY_SET {
-                depth += 1;  // next depth
-                attacking_color ^= 1;  // next side
-                gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
-                if max(-gain[depth - 1], gain[depth]) < 0 {
-                    break;  // pruning does not influence the outcome
-                }
-                attackers_and_defenders ^= from_square_bb;
-                occupied ^= from_square_bb;
-                if from_square_bb & may_xray != EMPTY_SET {
-                    attackers_and_defenders |= consider_xrays(geometry,
-                                                              piece_type_array,
-                                                              occupied,
-                                                              to_square,
-                                                              bitscan_forward(from_square_bb));
-                }
-                assert_eq!(occupied | attackers_and_defenders, occupied);
-
-                // find the next piece in the exchange
-                let next_attack = get_least_valuable_piece_in_a_set(piece_type_array,
-                                                                    attackers_and_defenders &
-                                                                    color_array[attacking_color]);
-                attacking_piece = next_attack.0;
-                from_square_bb = next_attack.1;
-            }
-            depth -= 1;  // discard the speculative store
-            while depth > 0 {
-                gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
-                depth -= 1;
-            }
-            gain[0]
-        }
-    }
-
+    
     // Generate pseudo-legal moves in the current board position.
     //
     // It is guaranteed that all legal moves will be found. It is also
@@ -325,6 +228,107 @@ impl Board {
                                               move_stack);
         counter
     }
+
+    
+    // A Static Exchange Evaluation (SEE) examines the consequence of
+    // a series of exchanges on a single square after a given move,
+    // and calculates the likely evaluation change (material) to be
+    // lost or gained, Donald Michie coined the term swap-off value. A
+    // positive static exchange indicates a "winning" move. For
+    // example, PxQ will always be a win, since the Pawn side can
+    // choose to stop the exchange after its Pawn is recaptured, and
+    // still be ahead.
+    //
+    // The impemented algorithm creates a swap-list of best case
+    // material gains by traversing a square attacked/defended by set
+    // in least valuable piece order from pawn, knight, bishop, rook,
+    // queen until king, with alternating sides. The swap-list, an
+    // unary tree since there are no branches but just a series of
+    // captures, is negamaxed for a final static exchange evaluation.
+    //
+    // The returned value is the material that is expected to be
+    // gained in the exchange by the attacking side
+    // ("attacking_color"), when capturing the "target_piece" on the
+    // "target_square". The "from_square" specifies the square from
+    // which the "attacking_piece" makes the capture.
+    pub fn calc_see(&self,
+                    mut attacking_color: Color,
+                    from_square: Square,
+                    mut attacking_piece: PieceType,
+                    to_square: Square,
+                    target_piece: PieceType)
+                    -> Value {
+
+        // TODO: This method (and the functions it calls) does a lot
+        // of array access and therefore, lots of array boundary
+        // check. Also I expect this code to be crucial for the
+        // performance. Therefore we probably have to switch to
+        // unchecked array indexing.
+
+        use std::mem::uninitialized;
+        use std::cmp::max;
+        static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
+
+        let geometry = self.geometry;
+        let piece_type_array = &self.piece_type;
+        let color_array = &self.color;
+        let mut occupied = self.occupied;
+        let mut depth = 0;
+        let mut attackers_and_defenders = attacks_to(geometry,
+                                                     piece_type_array,
+                                                     color_array,
+                                                     occupied,
+                                                     to_square,
+                                                     WHITE) |
+                                          attacks_to(geometry,
+                                                     piece_type_array,
+                                                     color_array,
+                                                     occupied,
+                                                     to_square,
+                                                     BLACK);
+        let mut from_square_bb = 1 << from_square;
+
+        // "may_xray" pieces may block x-ray attacks from other
+        // pieces, so we must consider adding new attackers/defenders
+        // every time a "may_xray"-piece makes a capture.
+        let may_xray = piece_type_array[PAWN] | piece_type_array[BISHOP] | piece_type_array[ROOK] |
+                       piece_type_array[QUEEN];
+        unsafe {
+            let mut gain: [Value; 33] = uninitialized();
+            gain[depth] = VALUE[target_piece];
+            while from_square_bb != EMPTY_SET {
+                depth += 1;  // next depth
+                attacking_color ^= 1;  // next side
+                gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
+                if max(-gain[depth - 1], gain[depth]) < 0 {
+                    break;  // pruning does not influence the outcome
+                }
+                attackers_and_defenders ^= from_square_bb;
+                occupied ^= from_square_bb;
+                if from_square_bb & may_xray != EMPTY_SET {
+                    attackers_and_defenders |= consider_xrays(geometry,
+                                                              piece_type_array,
+                                                              occupied,
+                                                              to_square,
+                                                              bitscan_forward(from_square_bb));
+                }
+                assert_eq!(occupied | attackers_and_defenders, occupied);
+
+                // find the next piece in the exchange
+                let next_attack = get_least_valuable_piece_in_a_set(piece_type_array,
+                                                                    attackers_and_defenders &
+                                                                    color_array[attacking_color]);
+                attacking_piece = next_attack.0;
+                from_square_bb = next_attack.1;
+            }
+            depth -= 1;  // discard the speculative store
+            while depth > 0 {
+                gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
+                depth -= 1;
+            }
+            gain[0]
+        }
+    }
 }
 
 
@@ -381,6 +385,83 @@ fn attacks_to(geometry: &BoardGeometry,
     }
 }
 
+
+// Return the set of squares that are attacked by a piece (not a pawn)
+// of type "piece" from the square "square", on a board which is
+// occupied with other pieces according to the "occupied"
+// bit-set. "geometry" supplies the look-up tables needed to perform
+// the calculation.
+#[inline(always)]
+pub fn piece_attacks_from(geometry: &BoardGeometry,
+                          occupied: u64,
+                          square: Square,
+                          piece: PieceType)
+                          -> u64 {
+    assert!(piece < PAWN);
+    assert!(square <= 63);
+
+    // This code is extremely performance critical, so we must do
+    // everything without array boundary checks.
+    unsafe {
+        let behind: &[u64; 64] = geometry.squares_behind_blocker.get_unchecked(square);
+        let mut attacks = *geometry.attacks.get_unchecked(piece).get_unchecked(square);
+        let mut blockers = occupied &
+                           *geometry.blockers_and_beyond
+                                    .get_unchecked(piece)
+                                    .get_unchecked(square);
+        while blockers != EMPTY_SET {
+            attacks &= !*behind.get_unchecked(bitscan_and_clear(&mut blockers));
+        }
+        attacks
+    }
+}
+
+
+// This is a helper function for
+// Board::generate_pseudolegal_moves(). It really does not do anything
+// other than scanning the destination set, and for each move
+// destination it figures out what piece is captured (if any), and
+// writes a new move and its score to the move stack.
+#[inline(always)]
+fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
+                              occupied: u64,
+                              piece: PieceType,
+                              orig_square: Square,
+                              mut dest_set: u64,
+                              move_stack: &mut MoveStack)
+                              -> usize {
+    let mut counter = 0;
+    while dest_set != EMPTY_SET {
+        let dest_bb = ls1b(dest_set);
+        dest_set ^= dest_bb;
+        let dest_square = bitscan_1bit(dest_bb);
+        let captured_piece = get_piece_type_at(piece_type_array, occupied, dest_bb);
+        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
+                        MoveScore::new(piece, captured_piece));
+        counter += 1;
+    }
+    counter
+}
+
+
+// Return the piece type at the square represented by the bit-set
+// "square_bb", on a board which is occupied with other pieces
+// according to the "piece_type" array and "occupied" bit-set and.
+#[inline(always)]
+fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
+    assert!(square_bb != EMPTY_SET);
+    assert_eq!(square_bb, ls1b(square_bb));
+    match square_bb & occupied {
+        EMPTY_SET => NO_PIECE,
+        x if x & piece_type_array[PAWN] != 0 => PAWN,
+        x if x & piece_type_array[KNIGHT] != 0 => KNIGHT,
+        x if x & piece_type_array[BISHOP] != 0 => BISHOP,
+        x if x & piece_type_array[ROOK] != 0 => ROOK,
+        x if x & piece_type_array[QUEEN] != 0 => QUEEN,
+        x if x & piece_type_array[KING] != 0 => KING,
+        _ => panic!("invalid board"),
+    }
+}
 
 
 // This is a helper function for Board::generate_pseudolegal_moves().
@@ -549,33 +630,6 @@ fn en_passant_special_check_ok(geometry: &BoardGeometry,
 
 
 // This is a helper function for
-// Board::generate_pseudolegal_moves(). It really does not do anything
-// other than scanning the destination set, and for each move
-// destination it figures out what piece is captured (if any), and
-// writes a new move and its score to the move stack.
-#[inline(always)]
-fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
-                              occupied: u64,
-                              piece: PieceType,
-                              orig_square: Square,
-                              mut dest_set: u64,
-                              move_stack: &mut MoveStack)
-                              -> usize {
-    let mut counter = 0;
-    while dest_set != EMPTY_SET {
-        let dest_bb = ls1b(dest_set);
-        dest_set ^= dest_bb;
-        let dest_square = bitscan_1bit(dest_bb);
-        let captured_piece = get_piece_type_at(piece_type_array, occupied, dest_bb);
-        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
-                        MoveScore::new(piece, captured_piece));
-        counter += 1;
-    }
-    counter
-}
-
-
-// This is a helper function for
 // Board::generate_pseudolegal_moves(). It figures out if castling on
 // each side is pseudo-legal and if it is, writes a new move and its
 // score to the move stack.
@@ -670,57 +724,6 @@ fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (
         }
     }
     (NO_PIECE, EMPTY_SET)
-}
-
-
-// Return the set of squares that are attacked by a piece (not a pawn)
-// of type "piece" from the square "square", on a board which is
-// occupied with other pieces according to the "occupied"
-// bit-set. "geometry" supplies the look-up tables needed to perform
-// the calculation.
-#[inline(always)]
-pub fn piece_attacks_from(geometry: &BoardGeometry,
-                          occupied: u64,
-                          square: Square,
-                          piece: PieceType)
-                          -> u64 {
-    assert!(piece < PAWN);
-    assert!(square <= 63);
-
-    // This code is extremely performance critical, so we must do
-    // everything without array boundary checks.
-    unsafe {
-        let behind: &[u64; 64] = geometry.squares_behind_blocker.get_unchecked(square);
-        let mut attacks = *geometry.attacks.get_unchecked(piece).get_unchecked(square);
-        let mut blockers = occupied &
-                           *geometry.blockers_and_beyond
-                                    .get_unchecked(piece)
-                                    .get_unchecked(square);
-        while blockers != EMPTY_SET {
-            attacks &= !*behind.get_unchecked(bitscan_and_clear(&mut blockers));
-        }
-        attacks
-    }
-}
-
-
-// Return the piece type at the square represented by the bit-set
-// "square_bb", on a board which is occupied with other pieces
-// according to the "piece_type" array and "occupied" bit-set and.
-#[inline(always)]
-fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
-    assert!(square_bb != EMPTY_SET);
-    assert_eq!(square_bb, ls1b(square_bb));
-    match square_bb & occupied {
-        EMPTY_SET => NO_PIECE,
-        x if x & piece_type_array[PAWN] != 0 => PAWN,
-        x if x & piece_type_array[KNIGHT] != 0 => KNIGHT,
-        x if x & piece_type_array[BISHOP] != 0 => BISHOP,
-        x if x & piece_type_array[ROOK] != 0 => ROOK,
-        x if x & piece_type_array[QUEEN] != 0 => QUEEN,
-        x if x & piece_type_array[KING] != 0 => KING,
-        _ => panic!("invalid board"),
-    }
 }
 
 
@@ -1137,48 +1140,18 @@ mod tests {
         color[BLACK] |= 1 << B8;
         let b = Board::new(&piece_type, &color);
         let mut cr = CastlingRights::new();
-        assert_eq!(b.generate_pseudolegal_moves(WHITE,
-                                                E1,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    5);
         cr.set(CASTLE_WHITE_KINGSIDE);
-        assert_eq!(b.generate_pseudolegal_moves(WHITE,
-                                                E1,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    6);
         cr.set(CASTLE_WHITE_QUEENSIDE);
-        assert_eq!(b.generate_pseudolegal_moves(WHITE,
-                                                E1,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    7);
-        assert_eq!(b.generate_pseudolegal_moves(BLACK,
-                                                E8,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK, E8, 0, 0, 0, cr, &mut MoveStack::new()),
                    8);
         cr.set(CASTLE_BLACK_KINGSIDE);
-        assert_eq!(b.generate_pseudolegal_moves(BLACK,
-                                                E8,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(BLACK, E8, 0, 0, 0, cr, &mut MoveStack::new()),
                    9);
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
@@ -1193,39 +1166,21 @@ mod tests {
                                                 cr,
                                                 &mut MoveStack::new()),
                    5);
-        assert_eq!(b.generate_pseudolegal_moves(WHITE,
-                                                E1,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    6);
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
         piece_type[KNIGHT] |= 1 << E3;
         color[BLACK] |= 1 << E3;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_pseudolegal_moves(WHITE,
-                                                E1,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    5);
         let mut piece_type = [0u64; 6];
         let mut color = [0u64; 2];
         piece_type[KNIGHT] |= 1 << H3;
         color[BLACK] |= 1 << H3;
         let b = Board::new(&piece_type, &color);
-        assert_eq!(b.generate_pseudolegal_moves(WHITE,
-                                                E1,
-                                                0,
-                                                0,
-                                                0,
-                                                cr,
-                                                &mut MoveStack::new()),
+        assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    7);
     }
 }
