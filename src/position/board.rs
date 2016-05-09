@@ -32,13 +32,9 @@ pub struct Board {
 impl Board {
     // Create a new board instance.
     pub fn new(piece_type_array: &[u64; 6], color_array: &[u64; 2]) -> Board {
-        // TODO: Make sure the position is valid. Or rather this is
-        // responsibility for the "Position" type?!
         assert_eq!(color_array[WHITE] & color_array[BLACK], 0);
         assert!(piece_type_array.into_iter().fold(0, |acc, x| acc | x) ==
                 color_array[WHITE] | color_array[BLACK]);
-        assert!(piece_type_array[PAWN] & PAWN_PROMOTION_RANKS == 0);
-        assert!(piece_type_array[PAWN] & PAWN_PROMOTION_RANKS == 0);
         Board {
             geometry: board_geometry(),
             piece_type: *piece_type_array,

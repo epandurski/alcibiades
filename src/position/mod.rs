@@ -7,26 +7,24 @@ pub mod board;
 use basetypes::*;
 use notation;
 use self::board::Board;
-    
-    
+
+
 pub struct Position {
     board: Board,
     to_move: Color,
     castling_rights: CastlingRights,
     en_passant_square: Option<Square>,
     halfmove_clock: u32,
-    fullmove_number: u32,
-    // move_stack
-    // move_history (including fullmove_number?)
-    // ply
-    // hply?
-    // various hash tables
-    // first_move_index[usize; MAX_PLY]
-    // undo_move data stack
+    fullmove_number: u32, /* move_stack
+                           * move_history (including fullmove_number?)
+                           * ply
+                           * hply?
+                           * various hash tables
+                           * first_move_index[usize; MAX_PLY]
+                           * undo_move data stack */
 }
 
 impl Position {
-    
     // A FEN (Forsyth–Edwards Notation) string defines a particular
     // position using only the ASCII character set.
     //
@@ -64,25 +62,22 @@ impl Position {
         let parts: Vec<_> = fen.split_whitespace().collect();
 
         if parts.len() == 6 {
-            Ok(Position {
+            let p = Position {
                 board: try!(notation::parse_fen_piece_placement(parts[0])),
                 to_move: try!(notation::parse_fen_active_color(parts[1])),
                 castling_rights: try!(notation::parse_fen_castling_rights(parts[2])),
                 en_passant_square: try!(notation::parse_fen_enpassant_square(parts[3])),
                 halfmove_clock: try!(parts[4].parse::<u32>().map_err(|e| notation::ParseError)),
                 fullmove_number: try!(parts[5].parse::<u32>().map_err(|e| notation::ParseError)),
-            })
+            };
+            match p.board.is_legal(p.to_move, p.castling_rights, p.en_passant_square) {
+                true => Ok(p),
+                false => Err(notation::ParseError) // TODO: Should be other error.
+            }
         } else {
             Err(notation::ParseError)
         }
     }
-
-
-    // Perform basic position sanity checks.
-    // fn is_position_possible(&self) -> bool {
-
-    // }
-
 }
 
 
@@ -116,5 +111,35 @@ mod tests {
                     .is_ok());
         assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
                     .is_ok());
+        assert!(Position::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
+        assert!(Position::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Position::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
+        assert!(Position::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1").is_err());
+        assert!(Position::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1").is_ok());
+        assert!(Position::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Position::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
+        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").is_ok());
+        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1").is_err());
+        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
+        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
+        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_ok());
+        assert!(Position::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_err());
+        assert!(Position::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1").is_err());
+        assert!(Position::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1").is_ok());
+        assert!(Position::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
+        assert!(Position::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Position::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
+        assert!(Position::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
+        assert!(Position::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
+        assert!(Position::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1").is_err());
+        assert!(Position::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Position::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
+        assert!(Position::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
     }
 }
