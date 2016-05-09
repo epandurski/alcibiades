@@ -408,7 +408,7 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
                                     .get_unchecked(piece)
                                     .get_unchecked(square);
         while blockers != EMPTY_SET {
-            attacks &= !*behind.get_unchecked(bitscan_and_clear(&mut blockers));
+            attacks &= !*behind.get_unchecked(bitscan_forward_and_reset(&mut blockers));
         }
         attacks
     }
