@@ -7,7 +7,7 @@ pub fn ls1b(x: u64) -> u64 {
 }
 
 #[inline(always)]
-pub fn clear_ls1b(x: &mut u64) {
+pub fn reset_ls1b(x: &mut u64) {
     *x &= (Wrapping(*x) - Wrapping(1)).0;
 }
 
@@ -76,6 +76,17 @@ pub fn bitscan_1bit(b: u64) -> Square {
     unsafe { *INDEX64.get_unchecked(((Wrapping(b) * DEBRUIJN64).0 >> 58) as usize) }
 }
 
+#[inline]
+pub fn pop_count(mut b: u64) -> usize {
+   let mut count = 0;
+   while b != 0 {
+       count += 1;
+       reset_ls1b(&mut b);
+   }
+   count
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,11 +98,11 @@ mod tests {
         assert_eq!(ls1b(0xf800000000000000), 0x0800000000000000);
         assert_eq!(ls1b(0), 0);
         let mut x = 0x100100u64;
-        clear_ls1b(&mut x);
+        reset_ls1b(&mut x);
         assert_eq!(x, 0x100000);
-        clear_ls1b(&mut x);
+        reset_ls1b(&mut x);
         assert_eq!(x, 0);
-        clear_ls1b(&mut x);
+        reset_ls1b(&mut x);
         assert_eq!(x, 0);
         assert_eq!(above_ls1b_mask(0b11101000), 0xfffffffffffffff0);
         assert_eq!(above_ls1b_mask(0x8000000000000000), 0);
@@ -100,6 +111,9 @@ mod tests {
         assert_eq!(smeared_ls1b_up(0b1010000), 0xfffffffffffffff0);
         assert_eq!(smeared_ls1b_up(0x8000000000000000), 0x8000000000000000);
         assert_eq!(smeared_ls1b_down(0b1010000), 0b1011111);
+        assert_eq!(pop_count(0), 0);
+        assert_eq!(pop_count(0b1001101), 4);
+        assert_eq!(pop_count(0xffffffffffffffff), 64);
     }
 
     #[test]
