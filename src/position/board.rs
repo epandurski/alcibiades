@@ -59,6 +59,33 @@ impl Board {
                    square)
     }
 
+    // Analyzes the board and decides if it is a legal board.
+    //
+    // There are many chess boards that are impossible to create from
+    // the starting chess position. Here we are interested to detect
+    // and guard against only those of the cases that have a chance of
+    // disturbing some of our explicit and unavoidably, implicit
+    // presumptions about what a chess position is when writing the
+    // code.
+    //
+    // Invalid boards: 1. having more or less than 1 king from each
+    // color; 2. having more than 8 pawns of a color; 3. having more
+    // than 16 pieces (and pawns) of one color; 4. having the side not
+    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
+    // castling rights when the king or the corresponding rook is not
+    // on its initial square; 7. having an en-passant square that is
+    // not on 3/6-th rank, or not having a pawn of corresponding color
+    // before, and an empty square behind it; 8. having an en-passant
+    // square while the wrong side is to move; 9. having an en-passant
+    // square while the king is in check not from the passing pawn and
+    // not from a checker that was discovered by the passing pawn.
+    pub fn is_legal(&self,
+                    us: Color, // the color to move
+                    castling: CastlingRights,
+                    en_passant_square: Option<Square>)
+                    -> bool {
+        true
+    }
 
     // Generate pseudo-legal moves in the current board position.
     //
@@ -190,7 +217,7 @@ impl Board {
                 let pawn_bb = ls1b(pinned_pawns);
                 pinned_pawns ^= pawn_bb;
                 let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
-                
+
                 // TODO: When working with a single pawn (pawn_bb),
                 // this procedure probably could be optimized. Not
                 // clear if it worth it, though.
