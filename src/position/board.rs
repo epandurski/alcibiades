@@ -55,8 +55,8 @@ impl Board {
                    &self.piece_type,
                    &self.color,
                    self.occupied,
-                   square,
-                   us)
+                   us,
+                   square)
     }
 
 
@@ -275,14 +275,14 @@ impl Board {
                                                      piece_type_array,
                                                      color_array,
                                                      occupied,
-                                                     to_square,
-                                                     WHITE) |
+                                                     WHITE,
+                                                     to_square) |
                                           attacks_to(geometry,
                                                      piece_type_array,
                                                      color_array,
                                                      occupied,
-                                                     to_square,
-                                                     BLACK);
+                                                     BLACK,
+                                                     to_square);
         let mut from_square_bb = 1 << from_square;
 
         // "may_xray" pieces may block x-ray attacks from other
@@ -353,8 +353,8 @@ fn attacks_to(geometry: &BoardGeometry,
               piece_type_array: &[u64; 6],
               color_array: &[u64; 2],
               occupied: u64,
-              square: Square,
-              us: Color)
+              us: Color,
+              square: Square)
               -> u64 {
     assert!(us <= 1);
 
@@ -669,8 +669,9 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                               piece_type_array,
                               color_array,
                               occupied,
-                              unsafe { *PASSING_SQUARES[side].get_unchecked(us) },
-                              them) == 0 {
+                              them,
+                              unsafe { *PASSING_SQUARES[side].get_unchecked(us) }) ==
+                   0 {
 
                     // it seems castling is legal unless king's final
                     // square is attacked, but we do not care about
