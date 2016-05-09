@@ -366,13 +366,13 @@ fn attacks_to(geometry: &BoardGeometry,
         let square_bb = 1 << square;
         let pawns = piece_type_array[PAWN];
         let queens = piece_type_array[QUEEN];
-        (piece_attacks_from(geometry, occupied, square, ROOK) & occupied_by_us &
+        (piece_attacks_from(geometry, occupied, ROOK, square) & occupied_by_us &
          (piece_type_array[ROOK] | queens)) |
-        (piece_attacks_from(geometry, occupied, square, BISHOP) & occupied_by_us &
+        (piece_attacks_from(geometry, occupied, BISHOP, square) & occupied_by_us &
          (piece_type_array[BISHOP] | queens)) |
-        (piece_attacks_from(geometry, occupied, square, KNIGHT) & occupied_by_us &
+        (piece_attacks_from(geometry, occupied, KNIGHT, square) & occupied_by_us &
          piece_type_array[KNIGHT]) |
-        (piece_attacks_from(geometry, occupied, square, KING) & occupied_by_us &
+        (piece_attacks_from(geometry, occupied, KING, square) & occupied_by_us &
          piece_type_array[KING]) |
         (gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us & pawns &
          !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
@@ -390,8 +390,8 @@ fn attacks_to(geometry: &BoardGeometry,
 #[inline(always)]
 pub fn piece_attacks_from(geometry: &BoardGeometry,
                           occupied: u64,
-                          square: Square,
-                          piece: PieceType)
+                          piece: PieceType,
+                          square: Square)
                           -> u64 {
     assert!(piece < PAWN);
     assert!(square <= 63);
@@ -428,7 +428,7 @@ fn write_piece_moves_to_stack(geometry: &BoardGeometry,
                               move_stack: &mut MoveStack)
                               -> usize {
     let mut counter = 0;
-    let mut dest_set = piece_attacks_from(geometry, occupied, from_square, piece) & legal_dests;
+    let mut dest_set = piece_attacks_from(geometry, occupied, piece, from_square) & legal_dests;
     while dest_set != EMPTY_SET {
         let dest_bb = ls1b(dest_set);
         dest_set ^= dest_bb;
@@ -623,7 +623,7 @@ fn en_passant_special_check_ok(geometry: &BoardGeometry,
                         gen_shift(1, dest_square as isize - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
     let occupied = occupied & !the_two_pawns;
     let occupied_by_them = occupied_by_them & !the_two_pawns;
-    let checkers = piece_attacks_from(geometry, occupied, king_square, ROOK) & occupied_by_them &
+    let checkers = piece_attacks_from(geometry, occupied, ROOK, king_square) & occupied_by_them &
                    (piece_type_array[ROOK] | piece_type_array[QUEEN]);
     checkers == EMPTY_SET
 }
@@ -702,9 +702,9 @@ fn consider_xrays(geometry: &BoardGeometry,
                   xrayed_square: Square)
                   -> u64 {
     let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
-    let diag_attackers = piece_attacks_from(geometry, candidates, target_square, BISHOP) &
+    let diag_attackers = piece_attacks_from(geometry, candidates, BISHOP, target_square) &
                          (piece_type_array[QUEEN] | piece_type_array[BISHOP]);
-    let line_attackers = piece_attacks_from(geometry, candidates, target_square, ROOK) &
+    let line_attackers = piece_attacks_from(geometry, candidates, ROOK, target_square) &
                          (piece_type_array[QUEEN] | piece_type_array[ROOK]);
     assert_eq!(diag_attackers & line_attackers, EMPTY_SET);
     assert_eq!(ls1b(candidates & diag_attackers),
@@ -764,11 +764,11 @@ mod tests {
         color[WHITE] = piece_type[PAWN];
         let b = Board::new(&piece_type, &color);
         let g = board_geometry();
-        assert_eq!(piece_attacks_from(g, b.occupied, A1, BISHOP),
+        assert_eq!(piece_attacks_from(g, b.occupied, BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(piece_attacks_from(g, b.occupied, A1, BISHOP),
+        assert_eq!(piece_attacks_from(g, b.occupied, BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(piece_attacks_from(g, b.occupied, A1, KNIGHT),
+        assert_eq!(piece_attacks_from(g, b.occupied, KNIGHT, A1),
                    1 << B3 | 1 << C2);
     }
 
