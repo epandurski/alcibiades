@@ -680,7 +680,7 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                     move_stack.push(Move::new(MOVE_CASTLING,
                                               king_square,
                                               unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
-                                              side),
+                                              0),
                                     MoveScore::new(KING, NO_PIECE));
                 }
             }

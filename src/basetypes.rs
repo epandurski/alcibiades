@@ -31,6 +31,8 @@ pub const CASTLE_WHITE_QUEENSIDE: u8 = 1 << 0;
 pub const CASTLE_WHITE_KINGSIDE: u8 = 1 << 1;
 pub const CASTLE_BLACK_QUEENSIDE: u8 = 1 << 2;
 pub const CASTLE_BLACK_KINGSIDE: u8 = 1 << 3;
+pub const CASTLE_BOTH: [u8; 2] = [CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE,
+                                  CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE];
 
 // Ranks
 pub const RANK_1: Rank = 0;
@@ -129,7 +131,7 @@ pub const H8: Square = 7 + 7 * 8;
 // squares on the board. Here are some useful square-sets.
 pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 pub const EMPTY_SET: u64 = 0;
-                                           
+
 pub const BB_RANK_1: u64 = 0b11111111;
 pub const BB_RANK_2: u64 = BB_RANK_1 << 8;
 pub const BB_RANK_3: u64 = BB_RANK_2 << 8;
@@ -138,7 +140,7 @@ pub const BB_RANK_5: u64 = BB_RANK_4 << 8;
 pub const BB_RANK_6: u64 = BB_RANK_5 << 8;
 pub const BB_RANK_7: u64 = BB_RANK_6 << 8;
 pub const BB_RANK_8: u64 = BB_RANK_7 << 8;
-                                           
+
 pub const BB_FILE_A: u64 = 1 << A1 | 1 << A2 | 1 << A3 | 1 << A4 | 1 << A5 | 1 << A6 | 1 << A7 |
                            1 << A8;
 pub const BB_FILE_B: u64 = BB_FILE_A << 1;
