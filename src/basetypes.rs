@@ -5,6 +5,7 @@ pub type Rank = usize;  // from 0 to 7
 pub type Square = usize;  // from 0 to 63
 pub type PieceType = usize;  // from 0 to 5
 pub type MoveType = usize;  // from 0 to 3
+pub type CastlingSide = usize;  // 0 or 1
 pub type Value = i16;
 
 // Color
@@ -25,6 +26,10 @@ pub const MOVE_NORMAL: MoveType = 0;
 pub const MOVE_ENPASSANT: MoveType = 1;
 pub const MOVE_PROMOTION: MoveType = 2;
 pub const MOVE_CASTLING: MoveType = 3;
+
+// Castling sides
+pub const QUEENSIDE: CastlingSide = 0;
+pub const KINGSIDE: CastlingSide = 1;
 
 // Castling rights
 pub const CASTLE_WHITE_QUEENSIDE: u8 = 1 << 0;
@@ -164,6 +169,10 @@ impl CastlingRights {
         CastlingRights(0)
     }
 
+    pub fn can_castle(&self, color: Color, side: CastlingSide) -> bool {
+        self.obstacles(color, side) != UNIVERSAL_SET
+    }
+
     pub fn set(&mut self, mask: u8) -> bool {
         let before = self.0;
         self.0 |= mask;
@@ -174,9 +183,9 @@ impl CastlingRights {
     pub fn clear(&mut self, mask: u8) {
         self.0 &= !mask;
     }
-
+    
     #[inline(always)]
-    pub fn obstacles(&self, color: Color, side: usize) -> u64 {
+    pub fn obstacles(&self, color: Color, side: CastlingSide) -> u64 {
         assert!(color <= 1);
         assert!(side <= 1);
         if (1 << (color << 1) << side) & self.0 == 0 {
@@ -195,7 +204,7 @@ impl CastlingRights {
     }
 
     #[inline]
-    pub fn rook_mask(&self, color: Color, side: usize) -> u64 {
+    pub fn rook_mask(&self, color: Color, side: CastlingSide) -> u64 {
         let mask = match side {
             0 => 1 << A1 | 1 << D1,
             1 => 1 << H1 | 1 << G1,
