@@ -34,6 +34,7 @@ impl Board {
     pub fn new(piece_type_array: &[u64; 6], color_array: &[u64; 2]) -> Board {
         // TODO: Make sure the position is valid. Or rather this is
         // responsibility for the "Position" type?!
+        assert_eq!(color_array[WHITE] & color_array[BLACK], 0);
         assert!(piece_type_array.into_iter().fold(0, |acc, x| acc | x) ==
                 color_array[WHITE] | color_array[BLACK]);
         assert!(piece_type_array[PAWN] & PAWN_PROMOTION_RANKS == 0);
@@ -61,9 +62,11 @@ impl Board {
 
     // Analyzes the board and decides if it is a legal board.
     //
-    // There are many chess boards that are impossible to create from
-    // the starting chess position. Here we are interested to detect
-    // and guard against only those of the cases that have a chance of
+    // In addition to the obviously wrong boards (that for example
+    // declare some pieces having no or more than one color), there
+    // are many chess boards that are impossible to create from the
+    // starting chess position. Here we are interested to detect and
+    // guard against only those of the cases that have a chance of
     // disturbing some of our explicit and unavoidably, implicit
     // presumptions about what a chess position is when writing the
     // code.
@@ -75,16 +78,72 @@ impl Board {
     // castling rights when the king or the corresponding rook is not
     // on its initial square; 7. having an en-passant square that is
     // not on 3/6-th rank, or not having a pawn of corresponding color
-    // before, and an empty square behind it; 8. having an en-passant
-    // square while the wrong side is to move; 9. having an en-passant
-    // square while the king is in check not from the passing pawn and
-    // not from a checker that was discovered by the passing pawn.
+    // before, and an empty square on it and behind it; 8. having an
+    // en-passant square while the wrong side is to move; 9. having an
+    // en-passant square while the king is in check not from the
+    // passing pawn and not from a checker that was discovered by the
+    // passing pawn.
     pub fn is_legal(&self,
-                    us: Color, // the color to move
+                    us: Color, // the side to move
                     castling: CastlingRights,
                     en_passant_square: Option<Square>)
                     -> bool {
-        true
+        assert!(us <= 1);
+
+        let occupied = self.piece_type.into_iter().fold(0, |acc, x| {
+            if acc & x == 0 {
+                acc | x
+            } else {
+                UNIVERSAL_SET
+            }
+        });  // returns "UNIVERSAL_SET" if "self.piece_type" is messed up
+
+        let them = 1 ^ us;
+        let o_us = self.color[us];
+        let o_them = self.color[them];
+        let our_king_bb = self.piece_type[KING] & o_us;
+        let their_king_bb = self.piece_type[KING] & o_them;
+        let pawns = self.piece_type[PAWN];
+        let shifts = &PAWN_MOVE_SHIFTS[them];
+        let en_passant_bb = match en_passant_square {
+            None => EMPTY_SET,
+            Some(x) if x <= 63 => 1 << x,
+            _ => panic!("invalid en-passant square"),
+        };
+
+        occupied != UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
+        occupied == self.occupied && pop_count(our_king_bb) == 1 &&
+        pop_count(their_king_bb) == 1 && pop_count(self.piece_type[PAWN] & o_us) <= 8 &&
+        pop_count(self.piece_type[PAWN] & o_them) <= 8 && pop_count(o_us) <= 16 &&
+        pop_count(o_them) <= 16 &&
+        self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
+        self.piece_type[PAWN] & PAWN_PROMOTION_RANKS == 0 &&
+        (!castling.can_castle(WHITE, QUEENSIDE) ||
+         (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
+         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
+        (!castling.can_castle(WHITE, KINGSIDE) ||
+         (self.piece_type[ROOK] & self.color[WHITE] & 1 << H1 != 0) &&
+         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
+        (!castling.can_castle(BLACK, QUEENSIDE) ||
+         (self.piece_type[ROOK] & self.color[BLACK] & 1 << A8 != 0) &&
+         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
+        (!castling.can_castle(BLACK, KINGSIDE) ||
+         (self.piece_type[ROOK] & self.color[BLACK] & 1 << H8 != 0) &&
+         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
+        (en_passant_bb == EMPTY_SET ||
+         {
+            let dest_square_bb = gen_shift(en_passant_bb, shifts[PAWN_PUSH]);
+            let orig_square_bb = gen_shift(en_passant_bb, -shifts[PAWN_PUSH]);
+            let our_king_square = bitscan_forward(our_king_bb);
+            let checkers = self.attacks_to(them, our_king_square);
+            ([BB_RANK_6, BB_RANK_3][us] & en_passant_bb != 0) &&
+            (dest_square_bb & pawns & o_them != 0) &&
+            (en_passant_bb & !occupied != 0) && (orig_square_bb & !occupied != 0) &&
+            (checkers == EMPTY_SET || checkers == dest_square_bb ||
+             (pop_count(checkers) == 1 &&
+              self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
+              orig_square_bb != 0))
+        })
     }
 
     // Generate pseudo-legal moves in the current board position.
