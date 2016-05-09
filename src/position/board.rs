@@ -146,13 +146,12 @@ impl Board {
                         0 => legal_dests,
                         _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
                     };
-                    let dest_set = piece_attacks_from(geometry, occupied, from_square, piece) &
-                                   piece_legal_dests;
-                    counter += write_piece_moves_to_stack(piece_type_array,
+                    counter += write_piece_moves_to_stack(geometry,
+                                                          piece_type_array,
                                                           occupied,
                                                           piece,
                                                           from_square,
-                                                          dest_set,
+                                                          piece_legal_dests,
                                                           move_stack);
                 }
             }
@@ -217,13 +216,12 @@ impl Board {
                                                  checkers,
                                                  castling,
                                                  move_stack);
-        let king_dest_set = piece_attacks_from(geometry, occupied, king_square, KING) &
-                            not_occupied_by_us;
-        counter += write_piece_moves_to_stack(piece_type_array,
+        counter += write_piece_moves_to_stack(geometry,
+                                              piece_type_array,
                                               occupied,
                                               KING,
                                               king_square,
-                                              king_dest_set,
+                                              not_occupied_by_us,
                                               move_stack);
         counter
     }
@@ -421,20 +419,22 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 // destination it figures out what piece is captured (if any), and
 // writes a new move and its score to the move stack.
 #[inline(always)]
-fn write_piece_moves_to_stack(piece_type_array: &[u64; 6],
+fn write_piece_moves_to_stack(geometry: &BoardGeometry,
+                              piece_type_array: &[u64; 6],
                               occupied: u64,
                               piece: PieceType,
-                              orig_square: Square,
-                              mut dest_set: u64,
+                              from_square: Square,
+                              legal_dests: u64,
                               move_stack: &mut MoveStack)
                               -> usize {
     let mut counter = 0;
+    let mut dest_set = piece_attacks_from(geometry, occupied, from_square, piece) & legal_dests;
     while dest_set != EMPTY_SET {
         let dest_bb = ls1b(dest_set);
         dest_set ^= dest_bb;
         let dest_square = bitscan_1bit(dest_bb);
         let captured_piece = get_piece_type_at(piece_type_array, occupied, dest_bb);
-        move_stack.push(Move::new(MOVE_NORMAL, orig_square, dest_square, 0),
+        move_stack.push(Move::new(MOVE_NORMAL, from_square, dest_square, 0),
                         MoveScore::new(piece, captured_piece));
         counter += 1;
     }
