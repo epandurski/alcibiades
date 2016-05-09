@@ -125,6 +125,30 @@ pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
 
+// We use "u64" bit-sets called bitboards (BB) to represent a set of
+// squares on the board. Here are some useful square-sets.
+pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
+pub const EMPTY_SET: u64 = 0;
+                                           
+pub const BB_RANK_1: u64 = 0b11111111;
+pub const BB_RANK_2: u64 = BB_RANK_1 << 8;
+pub const BB_RANK_3: u64 = BB_RANK_2 << 8;
+pub const BB_RANK_4: u64 = BB_RANK_3 << 8;
+pub const BB_RANK_5: u64 = BB_RANK_4 << 8;
+pub const BB_RANK_6: u64 = BB_RANK_5 << 8;
+pub const BB_RANK_7: u64 = BB_RANK_6 << 8;
+pub const BB_RANK_8: u64 = BB_RANK_7 << 8;
+                                           
+pub const BB_FILE_A: u64 = 1 << A1 | 1 << A2 | 1 << A3 | 1 << A4 | 1 << A5 | 1 << A6 | 1 << A7 |
+                           1 << A8;
+pub const BB_FILE_B: u64 = BB_FILE_A << 1;
+pub const BB_FILE_C: u64 = BB_FILE_B << 1;
+pub const BB_FILE_D: u64 = BB_FILE_C << 1;
+pub const BB_FILE_E: u64 = BB_FILE_D << 1;
+pub const BB_FILE_F: u64 = BB_FILE_E << 1;
+pub const BB_FILE_G: u64 = BB_FILE_F << 1;
+pub const BB_FILE_H: u64 = BB_FILE_G << 1;
+
 // The maximum number of moves in the move stack. It should be large
 // enough so we that never overrun it.
 pub const MOVE_STACK_SIZE: usize = 32 * 256;
@@ -158,18 +182,18 @@ impl CastlingRights {
         if (1 << (color << 1) << side) & self.0 == 0 {
             // castling is not allowed, therefore every piece on every
             // square on the board is an obstacle
-            return 0xffffffffffffffff;
+            return UNIVERSAL_SET;
         }
         let obstacles = match side {
             0 => 1 << B1 | 1 << C1 | 1 << D1,
-            _ => 1 << F1 | 1 << G1
+            _ => 1 << F1 | 1 << G1,
         };
         match color {
             WHITE => obstacles,
-            _ => obstacles << 56
+            _ => obstacles << 56,
         }
     }
-    
+
     #[inline]
     pub fn rook_mask(&self, color: Color, side: usize) -> u64 {
         let mask = match side {

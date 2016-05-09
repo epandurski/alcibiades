@@ -1,30 +1,6 @@
 use std::num::Wrapping;
 use basetypes::*;
 
-// Useful square-sets
-pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
-pub const EMPTY_SET: u64 = 0;
-
-pub const BB_RANK_1: u64 = 0b11111111;
-pub const BB_RANK_2: u64 = BB_RANK_1 << 8;
-pub const BB_RANK_3: u64 = BB_RANK_2 << 8;
-pub const BB_RANK_4: u64 = BB_RANK_3 << 8;
-pub const BB_RANK_5: u64 = BB_RANK_4 << 8;
-pub const BB_RANK_6: u64 = BB_RANK_5 << 8;
-pub const BB_RANK_7: u64 = BB_RANK_6 << 8;
-pub const BB_RANK_8: u64 = BB_RANK_7 << 8;
-
-pub const BB_FILE_A: u64 = 1 << A1 | 1 << A2 | 1 << A3 | 1 << A4 | 1 << A5 | 1 << A6 | 1 << A7 |
-                           1 << A8;
-pub const BB_FILE_B: u64 = BB_FILE_A << 1;
-pub const BB_FILE_C: u64 = BB_FILE_B << 1;
-pub const BB_FILE_D: u64 = BB_FILE_C << 1;
-pub const BB_FILE_E: u64 = BB_FILE_D << 1;
-pub const BB_FILE_F: u64 = BB_FILE_E << 1;
-pub const BB_FILE_G: u64 = BB_FILE_F << 1;
-pub const BB_FILE_H: u64 = BB_FILE_G << 1;
-
-
 #[inline(always)]
 pub fn ls1b(x: u64) -> u64 {
     (x as i64 & (Wrapping(0) - Wrapping(x as i64)).0) as u64
