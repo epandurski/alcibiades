@@ -190,6 +190,10 @@ impl Board {
                 let pawn_bb = ls1b(pinned_pawns);
                 pinned_pawns ^= pawn_bb;
                 let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
+                
+                // TODO: When working with a single pawn (pawn_bb),
+                // this procedure probably could be optimized. Not
+                // clear if it worth it, though.
                 counter += write_pawn_moves_to_stack(geometry,
                                                      piece_type_array,
                                                      occupied,
