@@ -8,6 +8,7 @@ pub mod notation;
 fn main() {
     // use regex::Regex;
     // let c = [(true, true); 2];
-    use position::board::Board;
-    println!("Board -> {}", std::mem::size_of::<Board>());
+    use position::Position;
+    Position::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_ok();
+    println!("Board -> {}", 1);
 }
