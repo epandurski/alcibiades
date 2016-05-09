@@ -31,8 +31,6 @@ pub const CASTLE_WHITE_QUEENSIDE: u8 = 1 << 0;
 pub const CASTLE_WHITE_KINGSIDE: u8 = 1 << 1;
 pub const CASTLE_BLACK_QUEENSIDE: u8 = 1 << 2;
 pub const CASTLE_BLACK_KINGSIDE: u8 = 1 << 3;
-pub const CASTLE_BOTH: [u8; 2] = [CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE,
-                                  CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE];
 
 // Ranks
 pub const RANK_1: Rank = 0;
