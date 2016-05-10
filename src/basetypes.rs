@@ -227,13 +227,13 @@ impl CastlingRights {
 #[derive(Clone, Copy)]
 pub struct MoveExt(u32);
 
-const M_SHIFT_SCORE: usize = 22;
-const M_SHIFT_ORIG_PIECE: usize = 19;
-const M_SHIFT_DEST_PIECE: usize = 16;
-const M_SHIFT_MOVE_TYPE: usize = 14;
-const M_SHIFT_ORIG_SQUARE: usize = 8;
-const M_SHIFT_DEST_SQUARE: usize = 2;
-const M_SHIFT_AUX_DATA: usize = 0;
+const M_SHIFT_SCORE: u32 = 22;
+const M_SHIFT_ORIG_PIECE: u32 = 19;
+const M_SHIFT_DEST_PIECE: u32 = 16;
+const M_SHIFT_MOVE_TYPE: u32 = 14;
+const M_SHIFT_ORIG_SQUARE: u32 = 8;
+const M_SHIFT_DEST_SQUARE: u32 = 2;
+const M_SHIFT_AUX_DATA: u32 = 0;
 
 const M_MASK_SCORE: u32 = 0b1111111111 << M_SHIFT_SCORE;
 const M_MASK_ORIG_PIECE: u32 = 0b111 << M_SHIFT_ORIG_PIECE;
@@ -274,6 +274,24 @@ impl MoveExt {
     }
 
     #[inline(always)]
+    pub fn set_score(&mut self, score: usize) {
+        assert!(score <= 0b1111111111);
+        self.0 = (score << M_SHIFT_SCORE) as u32;
+    }
+
+    #[inline(always)]
+    pub fn set_score_bit(&mut self, b: usize) {
+        assert!(b <= 9);
+        self.0 |= 1 << b << M_SHIFT_SCORE;
+    }
+
+    #[inline(always)]
+    pub fn clear_score_bit(&mut self, b: usize) {
+        assert!(b <= 9);
+        self.0 &= !(1 << b << M_SHIFT_SCORE);
+    }
+
+    #[inline(always)]
     pub fn move_type(&self) -> MoveType {
         (self.0 & M_MASK_MOVE_TYPE >> M_SHIFT_MOVE_TYPE) as MoveType
     }
@@ -299,8 +317,8 @@ impl MoveExt {
     }
 
     #[inline(always)]
-    pub fn aux_data(&self) -> u32 {
-        (self.0 & M_MASK_AUX_DATA >> M_SHIFT_AUX_DATA) as u32
+    pub fn aux_data(&self) -> usize {
+        (self.0 & M_MASK_AUX_DATA >> M_SHIFT_AUX_DATA) as usize
     }
 }
 
