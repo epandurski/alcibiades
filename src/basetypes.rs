@@ -183,7 +183,7 @@ impl CastlingRights {
     pub fn clear(&mut self, mask: u8) {
         self.0 &= !mask;
     }
-    
+
     #[inline(always)]
     pub fn obstacles(&self, color: Color, side: CastlingSide) -> u64 {
         assert!(color <= 1);
@@ -217,6 +217,94 @@ impl CastlingRights {
         }
     }
 }
+
+
+
+
+
+
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+pub struct MoveExt(u32);
+
+const M_SHIFT_SCORE: usize = 22;
+const M_SHIFT_ORIG_PIECE: usize = 19;
+const M_SHIFT_DEST_PIECE: usize = 16;
+const M_SHIFT_MOVE_TYPE: usize = 14;
+const M_SHIFT_ORIG_SQUARE: usize = 8;
+const M_SHIFT_DEST_SQUARE: usize = 2;
+const M_SHIFT_AUX_DATA: usize = 0;
+
+const M_MASK_SCORE: u32 = 0b1111111111 << M_SHIFT_SCORE;
+const M_MASK_ORIG_PIECE: u32 = 0b111 << M_SHIFT_ORIG_PIECE;
+const M_MASK_DEST_PIECE: u32 = 0b111 << M_SHIFT_DEST_PIECE;
+const M_MASK_MOVE_TYPE: u32 = 0b11 << M_SHIFT_MOVE_TYPE;
+const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
+const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
+const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
+
+impl MoveExt {
+    #[inline(always)]
+    pub fn new(score: usize,
+               move_type: MoveType,
+               orig_piece: PieceType,
+               orig_square: Square,
+               dest_piece: PieceType,
+               dest_square: Square,
+               aux_data: usize)
+               -> MoveExt {
+        assert!(score <= 0b1111111111);
+        assert!(move_type <= 0x11);
+        assert!(orig_piece < NO_PIECE);
+        assert!(orig_square <= 63);
+        assert!(dest_piece != KING && orig_piece <= NO_PIECE);
+        assert!(dest_square <= 63);
+        assert!(aux_data <= 0b11);
+        MoveExt((score << M_SHIFT_SCORE | orig_piece << M_SHIFT_ORIG_PIECE |
+                 dest_piece << M_SHIFT_DEST_PIECE |
+                 move_type << M_SHIFT_MOVE_TYPE |
+                 orig_square << M_SHIFT_ORIG_SQUARE |
+                 dest_square << M_SHIFT_DEST_SQUARE |
+                 aux_data << M_SHIFT_AUX_DATA) as u32)
+    }
+
+    #[inline(always)]
+    pub fn get_score(&self) -> usize {
+        (self.0 & M_MASK_SCORE >> M_SHIFT_SCORE) as usize
+    }
+
+    #[inline(always)]
+    pub fn move_type(&self) -> MoveType {
+        (self.0 & M_MASK_MOVE_TYPE >> M_SHIFT_MOVE_TYPE) as MoveType
+    }
+
+    #[inline(always)]
+    pub fn orig_piece(&self) -> PieceType {
+        (self.0 & M_MASK_ORIG_PIECE >> M_SHIFT_ORIG_PIECE) as PieceType
+    }
+
+    #[inline(always)]
+    pub fn orig_square(&self) -> Square {
+        (self.0 & M_MASK_ORIG_SQUARE >> M_SHIFT_ORIG_SQUARE) as Square
+    }
+
+    #[inline(always)]
+    pub fn dest_piece(&self) -> PieceType {
+        (self.0 & M_MASK_DEST_PIECE >> M_SHIFT_DEST_PIECE) as PieceType
+    }
+
+    #[inline(always)]
+    pub fn dest_square(&self) -> Square {
+        (self.0 & M_MASK_DEST_SQUARE >> M_SHIFT_DEST_SQUARE) as Square
+    }
+
+    #[inline(always)]
+    pub fn aux_data(&self) -> u32 {
+        (self.0 & M_MASK_AUX_DATA >> M_SHIFT_AUX_DATA) as u32
+    }
+}
+
+
 
 
 #[derive(Debug)]
