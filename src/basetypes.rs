@@ -225,7 +225,8 @@ impl CastlingRights {
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]
-pub struct MoveExt(u32);
+#[derive(PartialOrd, Ord, PartialEq, Eq)]
+pub struct Move(u32);
 
 const M_SHIFT_SCORE: u32 = 22;
 const M_SHIFT_ORIG_PIECE: u32 = 19;
@@ -243,7 +244,7 @@ const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
 const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
 const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
 
-impl MoveExt {
+impl Move {
     #[inline(always)]
     pub fn new(score: usize,
                move_type: MoveType,
@@ -252,7 +253,7 @@ impl MoveExt {
                dest_piece: PieceType,
                dest_square: Square,
                aux_data: usize)
-               -> MoveExt {
+               -> Move {
         assert!(score <= 0b1111111111);
         assert!(move_type <= 0x11);
         assert!(orig_piece < NO_PIECE);
@@ -260,23 +261,22 @@ impl MoveExt {
         assert!(dest_piece != KING && orig_piece <= NO_PIECE);
         assert!(dest_square <= 63);
         assert!(aux_data <= 0b11);
-        MoveExt((score << M_SHIFT_SCORE | orig_piece << M_SHIFT_ORIG_PIECE |
-                 dest_piece << M_SHIFT_DEST_PIECE |
-                 move_type << M_SHIFT_MOVE_TYPE |
-                 orig_square << M_SHIFT_ORIG_SQUARE |
-                 dest_square << M_SHIFT_DEST_SQUARE |
-                 aux_data << M_SHIFT_AUX_DATA) as u32)
+        Move((score << M_SHIFT_SCORE | orig_piece << M_SHIFT_ORIG_PIECE |
+              dest_piece << M_SHIFT_DEST_PIECE | move_type << M_SHIFT_MOVE_TYPE |
+              orig_square << M_SHIFT_ORIG_SQUARE |
+              dest_square << M_SHIFT_DEST_SQUARE |
+              aux_data << M_SHIFT_AUX_DATA) as u32)
     }
 
     #[inline(always)]
     pub fn get_score(&self) -> usize {
-        (self.0 & M_MASK_SCORE >> M_SHIFT_SCORE) as usize
+        ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
     }
 
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= 0b1111111111);
-        self.0 = (score << M_SHIFT_SCORE) as u32;
+        self.0 |= (score << M_SHIFT_SCORE) as u32;
     }
 
     #[inline(always)]
@@ -293,75 +293,42 @@ impl MoveExt {
 
     #[inline(always)]
     pub fn move_type(&self) -> MoveType {
-        (self.0 & M_MASK_MOVE_TYPE >> M_SHIFT_MOVE_TYPE) as MoveType
+        ((self.0 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE) as MoveType
     }
 
     #[inline(always)]
     pub fn orig_piece(&self) -> PieceType {
-        (self.0 & M_MASK_ORIG_PIECE >> M_SHIFT_ORIG_PIECE) as PieceType
+        ((self.0 & M_MASK_ORIG_PIECE) >> M_SHIFT_ORIG_PIECE) as PieceType
     }
 
     #[inline(always)]
     pub fn orig_square(&self) -> Square {
-        (self.0 & M_MASK_ORIG_SQUARE >> M_SHIFT_ORIG_SQUARE) as Square
+        ((self.0 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE) as Square
     }
 
     #[inline(always)]
     pub fn dest_piece(&self) -> PieceType {
-        (self.0 & M_MASK_DEST_PIECE >> M_SHIFT_DEST_PIECE) as PieceType
+        ((self.0 & M_MASK_DEST_PIECE) >> M_SHIFT_DEST_PIECE) as PieceType
     }
 
     #[inline(always)]
     pub fn dest_square(&self) -> Square {
-        (self.0 & M_MASK_DEST_SQUARE >> M_SHIFT_DEST_SQUARE) as Square
+        ((self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square
     }
 
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
-        (self.0 & M_MASK_AUX_DATA >> M_SHIFT_AUX_DATA) as usize
+        ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
-}
 
-
-
-
-#[derive(Debug)]
-#[derive(Clone, Copy)]
-pub struct Move(u16);
-
-impl Move {
     #[inline(always)]
-    pub fn new(move_type: MoveType, orig: Square, dest: Square, pp_code: usize) -> Move {
-        assert!(move_type <= 3);
-        assert!(orig <= 63);
-        assert!(dest <= 63);
-        assert!(pp_code <= 3);
-        Move(((move_type << 14) | (pp_code << 12) | (orig << 6) | dest) as u16)
-    }
-
-    #[inline]
-    pub fn move_type(&self) -> MoveType {
-        ((self.0 & (0b11 << 14)) >> 14) as MoveType
-    }
-
-    #[inline]
-    pub fn orig_square(&self) -> Square {
-        ((self.0 & (0b111111 << 6)) >> 6) as Square
-    }
-
-    #[inline]
-    pub fn dest_square(&self) -> Square {
-        (self.0 & 0b111111) as Square
-    }
-
-    #[inline]
     pub fn promoted_piece(&self) -> PieceType {
-        Move::piece_type_from_pp_code(((self.0 & (0b11 << 12)) >> 12) as usize)
+        Move::piece_type_from_aux_data(self.aux_data())
     }
 
     #[inline(always)]
-    pub fn piece_type_from_pp_code(piece_code: usize) -> PieceType {
-        match piece_code {
+    fn piece_type_from_aux_data(pp_code: usize) -> PieceType {
+        match pp_code {
             0 => QUEEN,
             1 => ROOK,
             2 => BISHOP,
@@ -372,51 +339,8 @@ impl Move {
 }
 
 
-#[derive(Debug)]
-#[derive(Clone, Copy)]
-#[derive(PartialOrd, Ord, PartialEq, Eq)]
-pub struct MoveScore(u16);
-
-impl MoveScore {
-    #[inline(always)]
-    pub fn new(attacking_piece: PieceType, target_piece: PieceType) -> MoveScore {
-        assert!(attacking_piece < NO_PIECE);
-        assert!(target_piece != KING && target_piece <= NO_PIECE);
-        MoveScore((((!target_piece & 0b111) << 3) | attacking_piece) as u16)
-    }
-
-    #[inline]
-    pub fn target_piece(&self) -> PieceType {
-        ((!self.0 & (0b111 << 3)) >> 3) as PieceType
-    }
-
-    #[inline]
-    pub fn attacking_piece(&self) -> PieceType {
-        (self.0 & 0b111) as PieceType
-    }
-
-    #[inline]
-    pub fn set_bit(&mut self, i: u16) {
-        assert!(i >= 6);
-        self.0 |= 1 << i;
-    }
-
-    #[inline]
-    pub fn clear_bit(&mut self, i: u16) {
-        assert!(i >= 6);
-        self.0 &= !(1 << i);
-    }
-}
-
-
-pub struct MoveAndMoveScore {
-    pub m: Move,
-    pub score: MoveScore,
-}
-
-
 pub struct MoveStack {
-    stack: [MoveAndMoveScore; MOVE_STACK_SIZE],
+    stack: [Move; MOVE_STACK_SIZE],
     top_index: usize,
 }
 
@@ -432,11 +356,8 @@ impl MoveStack {
     }
 
     #[inline(always)]
-    pub fn push(&mut self, m: Move, score: MoveScore) {
-        self.stack[self.top_index] = MoveAndMoveScore {
-            m: m,
-            score: score,
-        };
+    pub fn push(&mut self, m: Move) {
+        self.stack[self.top_index] = m;
         self.top_index += 1;
     }
 }
