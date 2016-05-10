@@ -120,22 +120,22 @@ pub fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights> {
         for c in s.chars() {
             match c {
                 'K' => {
-                    if !rights.set(CASTLE_WHITE_KINGSIDE) {
+                    if !rights.set_with_mask(CASTLE_WHITE_KINGSIDE) {
                         return Err(ParseError);
                     }
                 }
                 'Q' => {
-                    if !rights.set(CASTLE_WHITE_QUEENSIDE) {
+                    if !rights.set_with_mask(CASTLE_WHITE_QUEENSIDE) {
                         return Err(ParseError);
                     }
                 }
                 'k' => {
-                    if !rights.set(CASTLE_BLACK_KINGSIDE) {
+                    if !rights.set_with_mask(CASTLE_BLACK_KINGSIDE) {
                         return Err(ParseError);
                     }
                 }
                 'q' => {
-                    if !rights.set(CASTLE_BLACK_QUEENSIDE) {
+                    if !rights.set_with_mask(CASTLE_BLACK_QUEENSIDE) {
                         return Err(ParseError);
                     }
                 }

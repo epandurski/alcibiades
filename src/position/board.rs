@@ -236,6 +236,8 @@ impl Board {
                                                           piece_type_array,
                                                           occupied,
                                                           en_passant_file,
+                                                          castling,
+                                                          us,
                                                           piece,
                                                           from_square,
                                                           piece_legal_dests,
@@ -266,6 +268,7 @@ impl Board {
                                                      occupied_by_us,
                                                      occupied_by_them,
                                                      en_passant_file,
+                                                     castling,
                                                      us,
                                                      free_pawns,
                                                      en_passant_bb,
@@ -288,6 +291,7 @@ impl Board {
                                                      occupied_by_us,
                                                      occupied_by_them,
                                                      en_passant_file,
+                                                     castling,
                                                      us,
                                                      pawn_bb,
                                                      en_passant_bb,
@@ -305,15 +309,17 @@ impl Board {
                                                  color_array,
                                                  occupied,
                                                  en_passant_file,
+                                                 castling,
                                                  us,
                                                  king_square,
                                                  checkers,
-                                                 castling,
                                                  move_stack);
         counter += write_piece_moves_to_stack(geometry,
                                               piece_type_array,
                                               occupied,
                                               en_passant_file,
+                                              castling,
+                                              us,
                                               KING,
                                               king_square,
                                               not_occupied_by_us,
@@ -522,6 +528,8 @@ fn write_piece_moves_to_stack(geometry: &BoardGeometry,
                               piece_type_array: &[u64; 6],
                               occupied: u64,
                               en_passant_file: File,
+                              castling: CastlingRights,
+                              us: Color,
                               piece: PieceType,
                               from_square: Square,
                               legal_dests: u64,
@@ -541,7 +549,7 @@ fn write_piece_moves_to_stack(geometry: &BoardGeometry,
                                   dest_square,
                                   captured_piece,
                                   en_passant_file,
-                                  0));
+                                  castling.get(us)));
         counter += 1;
     }
     counter
@@ -585,6 +593,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                              occupied_by_us: u64,
                              occupied_by_them: u64,
                              en_passant_file: File,
+                             castling: CastlingRights,
                              us: Color,
                              pawns: u64,
                              en_passant_bb: u64,
@@ -641,7 +650,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                   dest_square,
                                                   PAWN,
                                                   en_passant_file,
-                                                  0));
+                                                  castling.get(us)));
                     }
                 }
                 // pawn promotion
@@ -672,7 +681,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                               dest_square,
                                               captured_piece,
                                               en_passant_file,
-                                              0));
+                                              castling.get(us)));
                 }
             }
         }
@@ -758,10 +767,10 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                  color_array: &[u64; 2],
                                  occupied: u64,
                                  en_passant_file: File,
+                                 castling: CastlingRights,
                                  us: Color,
                                  king_square: Square,
                                  checkers: u64,
-                                 castling: CastlingRights,
                                  move_stack: &mut MoveStack)
                                  -> usize {
     const FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
@@ -804,7 +813,7 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                               unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
                                               NO_PIECE,
                                               en_passant_file,
-                                              0));
+                                              castling.get(us)));
                 }
             }
         }
@@ -1278,15 +1287,15 @@ mod tests {
         let mut cr = CastlingRights::new();
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    5);
-        cr.set(CASTLE_WHITE_KINGSIDE);
+        cr.set_with_mask(CASTLE_WHITE_KINGSIDE);
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    6);
-        cr.set(CASTLE_WHITE_QUEENSIDE);
+        cr.set_with_mask(CASTLE_WHITE_QUEENSIDE);
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
                    7);
         assert_eq!(b.generate_pseudolegal_moves(BLACK, E8, 0, 0, 0, cr, &mut MoveStack::new()),
                    8);
-        cr.set(CASTLE_BLACK_KINGSIDE);
+        cr.set_with_mask(CASTLE_BLACK_KINGSIDE);
         assert_eq!(b.generate_pseudolegal_moves(BLACK, E8, 0, 0, 0, cr, &mut MoveStack::new()),
                    9);
         let mut piece_type = [0u64; 6];

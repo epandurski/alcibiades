@@ -174,15 +174,34 @@ impl CastlingRights {
         self.obstacles(color, side) != UNIVERSAL_SET
     }
 
-    pub fn set(&mut self, mask: u8) -> bool {
+    pub fn set_with_mask(&mut self, mask: u8) -> bool {
         let before = self.0;
         self.0 |= mask;
         self.0 != before
     }
 
     #[inline(always)]
-    pub fn clear(&mut self, mask: u8) {
+    pub fn clear_with_mask(&mut self, mask: u8) {
         self.0 &= !mask;
+    }
+
+    #[inline(always)]
+    pub fn get(&self, color: Color) -> usize {
+        assert!(color <= 1);
+        (if color == WHITE {
+            self.0 & 0b0011
+        } else {
+            (self.0 & 0b1100) >> 2
+        }) as usize
+    }
+
+    pub fn set(&mut self, color: Color, rights: usize) {
+        assert!(rights <= 0b11);
+        self.0 = match color {
+            WHITE => self.0 & 0b1100 | rights as u8,
+            BLACK => self.0 & 0b0011 | (rights << 2) as u8,
+            _ => panic!("invalid color")
+        }
     }
 
     #[inline(always)]
@@ -264,7 +283,7 @@ impl Move {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
         assert!(captured_piece != KING && captured_piece <= NO_PIECE);
-        assert!(en_passant_file <= 0b1000); 
+        assert!(en_passant_file <= 0b1000);
         assert!(aux_data <= 0b11);
         Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_INV_CAPTURED_PIECE |
               piece << M_SHIFT_PIECE | en_passant_file << M_SHIFT_ENPASSANT_FILE |
