@@ -181,6 +181,10 @@ impl Board {
         let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
         let occupied_by_them = unsafe { *color_array.get_unchecked(1 ^ us) };
         let not_occupied_by_us = !occupied_by_us;
+        let en_passant_file = match ls1b(en_passant_bb) {
+            0 => NO_ENPASSANT_FILE,
+            x => file(bitscan_1bit(x)),   
+        };
         let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
 
         // When in check, for every move except king's moves, the only
@@ -231,6 +235,7 @@ impl Board {
                     counter += write_piece_moves_to_stack(geometry,
                                                           piece_type_array,
                                                           occupied,
+                                                          en_passant_file,
                                                           piece,
                                                           from_square,
                                                           piece_legal_dests,
@@ -260,6 +265,7 @@ impl Board {
                                                      occupied,
                                                      occupied_by_us,
                                                      occupied_by_them,
+                                                     en_passant_file,
                                                      us,
                                                      free_pawns,
                                                      en_passant_bb,
@@ -281,6 +287,7 @@ impl Board {
                                                      occupied,
                                                      occupied_by_us,
                                                      occupied_by_them,
+                                                     en_passant_file,
                                                      us,
                                                      pawn_bb,
                                                      en_passant_bb,
@@ -297,6 +304,7 @@ impl Board {
                                                  piece_type_array,
                                                  color_array,
                                                  occupied,
+                                                 en_passant_file,
                                                  us,
                                                  king_square,
                                                  checkers,
@@ -305,6 +313,7 @@ impl Board {
         counter += write_piece_moves_to_stack(geometry,
                                               piece_type_array,
                                               occupied,
+                                              en_passant_file,
                                               KING,
                                               king_square,
                                               not_occupied_by_us,
@@ -512,6 +521,7 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 fn write_piece_moves_to_stack(geometry: &BoardGeometry,
                               piece_type_array: &[u64; 6],
                               occupied: u64,
+                              en_passant_file: File,
                               piece: PieceType,
                               from_square: Square,
                               legal_dests: u64,
@@ -524,12 +534,13 @@ fn write_piece_moves_to_stack(geometry: &BoardGeometry,
         dest_set ^= dest_bb;
         let dest_square = bitscan_1bit(dest_bb);
         let captured_piece = get_piece_type_at(piece_type_array, occupied, dest_bb);
-        move_stack.push(Move::new(!captured_piece & 0b111,
+        move_stack.push(Move::new(0,
                                   MOVE_NORMAL,
                                   piece,
                                   from_square,
                                   dest_square,
                                   captured_piece,
+                                  en_passant_file,
                                   0));
         counter += 1;
     }
@@ -573,6 +584,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                              occupied: u64,
                              occupied_by_us: u64,
                              occupied_by_them: u64,
+                             en_passant_file: File,
                              us: Color,
                              pawns: u64,
                              en_passant_bb: u64,
@@ -622,12 +634,13 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                    orig_square,
                                                    dest_square) {
                         counter += 1;
-                        move_stack.push(Move::new(!PAWN & 0b111,
+                        move_stack.push(Move::new(0,
                                                   MOVE_ENPASSANT,
                                                   PAWN,
                                                   orig_square,
                                                   dest_square,
                                                   PAWN,
+                                                  en_passant_file,
                                                   0));
                     }
                 }
@@ -635,24 +648,30 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                 x if x & PAWN_PROMOTION_RANKS != 0 => {
                     for p in 0..4 {
                         counter += 1;
-                        move_stack.push(Move::new(!Move::piece_from_aux_data(p) & 0b111,
+                        move_stack.push(Move::new(if Move::piece_from_aux_data(p) == QUEEN {
+                                                      1
+                                                  } else {
+                                                      0
+                                                  },
                                                   MOVE_PROMOTION,
                                                   PAWN,
                                                   orig_square,
                                                   dest_square,
                                                   captured_piece,
+                                                  en_passant_file,
                                                   p));
                     }
                 }
                 // normal pawn move (push or plain capture)
                 _ => {
                     counter += 1;
-                    move_stack.push(Move::new(!captured_piece & 0b111,
+                    move_stack.push(Move::new(0,
                                               MOVE_NORMAL,
                                               PAWN,
                                               orig_square,
                                               dest_square,
                                               captured_piece,
+                                              en_passant_file,
                                               0));
                 }
             }
@@ -738,6 +757,7 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                  piece_type_array: &[u64; 6],
                                  color_array: &[u64; 2],
                                  occupied: u64,
+                                 en_passant_file: File,
                                  us: Color,
                                  king_square: Square,
                                  checkers: u64,
@@ -777,12 +797,13 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                     // square is attacked, but we do not care about
                     // that, because this will be verified later.
                     counter += 1;
-                    move_stack.push(Move::new(!NO_PIECE & 0b111,
+                    move_stack.push(Move::new(0,
                                               MOVE_CASTLING,
                                               KING,
                                               king_square,
                                               unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
                                               NO_PIECE,
+                                              en_passant_file,
                                               0));
                 }
             }
@@ -970,12 +991,17 @@ mod tests {
     #[test]
     fn test_move() {
         use basetypes::*;
-        let mut m = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, NO_PIECE, 0);
+        let mut m = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, NO_PIECE, 8, 0);
+        let n1 = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, KNIGHT, 8, 0);
+        let n2 = Move::new(42, MOVE_NORMAL, KING, E2, E4, NO_PIECE, 8, 0);
+        assert!(n1 > m);
+        assert!(n2 < m);
         assert_eq!(m.get_score(), 42);
         assert_eq!(m.piece(), PAWN);
         assert_eq!(m.captured_piece(), NO_PIECE);
         assert_eq!(m.orig_square(), E2);
         assert_eq!(m.dest_square(), E4);
+        assert_eq!(m.en_passant_file(), 8);
         assert_eq!(m.aux_data(), 0);
         assert_eq!(m.promoted_piece(), QUEEN);
         let m2 = m;
