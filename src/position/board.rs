@@ -633,9 +633,9 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                 }
                 // pawn promotion
                 x if x & PAWN_PROMOTION_RANKS != 0 => {
-                    for pp_code in 0..4 {
+                    for p in 0..4 {
                         counter += 1;
-                        move_stack.push(Move::new(if pp_code == 0 {
+                        move_stack.push(Move::new(if Move::piece_from_aux_data(p) == QUEEN {
                                                       !QUEEN & 0b111
                                                   } else {
                                                       !ROOK & 0b111
@@ -645,7 +645,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                   orig_square,
                                                   dest_square,
                                                   captured_piece,
-                                                  pp_code));
+                                                  p));
                     }
                 }
                 // normal pawn move (push or plain capture)

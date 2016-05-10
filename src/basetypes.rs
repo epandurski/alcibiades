@@ -323,11 +323,11 @@ impl Move {
 
     #[inline(always)]
     pub fn promoted_piece(&self) -> PieceType {
-        Move::piece_type_from_aux_data(self.aux_data())
+        Move::piece_from_aux_data(self.aux_data())
     }
 
     #[inline(always)]
-    fn piece_type_from_aux_data(pp_code: usize) -> PieceType {
+    pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         match pp_code {
             0 => QUEEN,
             1 => ROOK,
