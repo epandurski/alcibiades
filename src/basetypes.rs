@@ -229,16 +229,16 @@ impl CastlingRights {
 pub struct Move(u32);
 
 const M_SHIFT_SCORE: u32 = 22;
-const M_SHIFT_ORIG_PIECE: u32 = 19;
-const M_SHIFT_DEST_PIECE: u32 = 16;
+const M_SHIFT_PIECE: u32 = 19;
+const M_SHIFT_CAPTURED_PIECE: u32 = 16;
 const M_SHIFT_MOVE_TYPE: u32 = 14;
 const M_SHIFT_ORIG_SQUARE: u32 = 8;
 const M_SHIFT_DEST_SQUARE: u32 = 2;
 const M_SHIFT_AUX_DATA: u32 = 0;
 
 const M_MASK_SCORE: u32 = 0b1111111111 << M_SHIFT_SCORE;
-const M_MASK_ORIG_PIECE: u32 = 0b111 << M_SHIFT_ORIG_PIECE;
-const M_MASK_DEST_PIECE: u32 = 0b111 << M_SHIFT_DEST_PIECE;
+const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
+const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
 const M_MASK_MOVE_TYPE: u32 = 0b11 << M_SHIFT_MOVE_TYPE;
 const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
 const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
@@ -248,22 +248,22 @@ impl Move {
     #[inline(always)]
     pub fn new(score: usize,
                move_type: MoveType,
-               orig_piece: PieceType,
+               piece: PieceType,
                orig_square: Square,
-               dest_piece: PieceType,
                dest_square: Square,
+               captured_piece: PieceType,
                aux_data: usize)
                -> Move {
         assert!(score <= 0b1111111111);
         assert!(move_type <= 0x11);
-        assert!(orig_piece < NO_PIECE);
+        assert!(piece < NO_PIECE);
         assert!(orig_square <= 63);
-        assert!(dest_piece != KING && orig_piece <= NO_PIECE);
+        assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         assert!(dest_square <= 63);
         assert!(aux_data <= 0b11);
-        Move((score << M_SHIFT_SCORE | orig_piece << M_SHIFT_ORIG_PIECE |
-              dest_piece << M_SHIFT_DEST_PIECE | move_type << M_SHIFT_MOVE_TYPE |
-              orig_square << M_SHIFT_ORIG_SQUARE |
+        Move((score << M_SHIFT_SCORE | piece << M_SHIFT_PIECE |
+              captured_piece << M_SHIFT_CAPTURED_PIECE |
+              move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
               dest_square << M_SHIFT_DEST_SQUARE |
               aux_data << M_SHIFT_AUX_DATA) as u32)
     }
@@ -297,8 +297,8 @@ impl Move {
     }
 
     #[inline(always)]
-    pub fn orig_piece(&self) -> PieceType {
-        ((self.0 & M_MASK_ORIG_PIECE) >> M_SHIFT_ORIG_PIECE) as PieceType
+    pub fn piece(&self) -> PieceType {
+        ((self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE) as PieceType
     }
 
     #[inline(always)]
@@ -307,13 +307,13 @@ impl Move {
     }
 
     #[inline(always)]
-    pub fn dest_piece(&self) -> PieceType {
-        ((self.0 & M_MASK_DEST_PIECE) >> M_SHIFT_DEST_PIECE) as PieceType
+    pub fn dest_square(&self) -> Square {
+        ((self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square
     }
 
     #[inline(always)]
-    pub fn dest_square(&self) -> Square {
-        ((self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square
+    pub fn captured_piece(&self) -> PieceType {
+        ((self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE) as PieceType
     }
 
     #[inline(always)]

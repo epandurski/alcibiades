@@ -528,8 +528,8 @@ fn write_piece_moves_to_stack(geometry: &BoardGeometry,
                                   MOVE_NORMAL,
                                   piece,
                                   from_square,
-                                  captured_piece,
                                   dest_square,
+                                  captured_piece,
                                   0));
         counter += 1;
     }
@@ -626,8 +626,8 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                   MOVE_ENPASSANT,
                                                   PAWN,
                                                   orig_square,
-                                                  PAWN,
                                                   dest_square,
+                                                  PAWN,
                                                   0));
                     }
                 }
@@ -643,8 +643,8 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                   MOVE_PROMOTION,
                                                   PAWN,
                                                   orig_square,
-                                                  captured_piece,
                                                   dest_square,
+                                                  captured_piece,
                                                   pp_code));
                     }
                 }
@@ -655,8 +655,8 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                               MOVE_NORMAL,
                                               PAWN,
                                               orig_square,
-                                              captured_piece,
                                               dest_square,
+                                              captured_piece,
                                               0));
                 }
             }
@@ -785,8 +785,8 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                               MOVE_CASTLING,
                                               KING,
                                               king_square,
-                                              NO_PIECE,
                                               unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
+                                              NO_PIECE,
                                               0));
                 }
             }
@@ -974,10 +974,10 @@ mod tests {
     #[test]
     fn test_move() {
         use basetypes::*;
-        let mut m = Move::new(42, MOVE_NORMAL, PAWN, E2, NO_PIECE, E4, 0);
+        let mut m = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, NO_PIECE, 0);
         assert_eq!(m.get_score(), 42);
-        assert_eq!(m.orig_piece(), PAWN);
-        assert_eq!(m.dest_piece(), NO_PIECE);
+        assert_eq!(m.piece(), PAWN);
+        assert_eq!(m.captured_piece(), NO_PIECE);
         assert_eq!(m.orig_square(), E2);
         assert_eq!(m.dest_square(), E4);
         assert_eq!(m.aux_data(), 0);
