@@ -635,11 +635,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                 x if x & PAWN_PROMOTION_RANKS != 0 => {
                     for p in 0..4 {
                         counter += 1;
-                        move_stack.push(Move::new(if Move::piece_from_aux_data(p) == QUEEN {
-                                                      !QUEEN & 0b111
-                                                  } else {
-                                                      !ROOK & 0b111
-                                                  },
+                        move_stack.push(Move::new(!Move::piece_from_aux_data(p) & 0b111,
                                                   MOVE_PROMOTION,
                                                   PAWN,
                                                   orig_square,
