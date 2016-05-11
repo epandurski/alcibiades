@@ -931,7 +931,7 @@ fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (
 mod tests {
     use super::*;
     use super::board_geometry;
-    use position::chess_move::{Move, MoveStack};
+    use position::chess_move::MoveStack;
     use notation::parse_fen_piece_placement as fen;
 
     #[test]
@@ -1000,63 +1000,6 @@ mod tests {
         assert_eq!(b.calc_see(BLACK, E5, QUEEN, D4, PAWN), -875);
         assert_eq!(b.calc_see(WHITE, G3, PAWN, F4, PAWN), 100);
         assert_eq!(b.calc_see(BLACK, A3, KING, A2, PAWN), -9900);
-    }
-
-    #[test]
-    fn test_move() {
-        use basetypes::*;
-
-        let mut m = Move::new(WHITE,
-                              12,
-                              MOVE_NORMAL,
-                              PAWN,
-                              E2,
-                              E4,
-                              NO_PIECE,
-                              8,
-                              CastlingRights::new(),
-                              0);
-        let n1 = Move::new(WHITE,
-                           12,
-                           MOVE_NORMAL,
-                           PAWN,
-                           E2,
-                           E4,
-                           KNIGHT,
-                           8,
-                           CastlingRights::new(),
-                           0);
-        let n2 = Move::new(WHITE,
-                           12,
-                           MOVE_NORMAL,
-                           KING,
-                           E2,
-                           E4,
-                           NO_PIECE,
-                           8,
-                           CastlingRights::new(),
-                           0);
-        assert!(n1 > m);
-        assert!(n2 < m);
-        assert_eq!(m.score(), 12);
-        assert_eq!(m.piece(), PAWN);
-        assert_eq!(m.captured_piece(), NO_PIECE);
-        assert_eq!(m.orig_square(), E2);
-        assert_eq!(m.dest_square(), E4);
-        assert_eq!(m.en_passant_file(), 8);
-        assert_eq!(m.aux_data(), 0);
-        assert_eq!(m.castling_data(), 0);
-        let m2 = m;
-        assert_eq!(m, m2);
-        m.set_score(13);
-        assert_eq!(m.score(), 13);
-        assert!(m > m2);
-        m.clear_score_bit(0);
-        assert_eq!(m, m2);
-        m.set_score_bit(0);
-        assert_eq!(m.score(), 13);
-        m.set_score(0);
-        assert_eq!(m.score(), 0);
     }
 
     #[test]

@@ -108,7 +108,8 @@ impl Move {
             _ => castling.get_for(us),
         };
         Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-              piece << M_SHIFT_PIECE | castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
+              piece << M_SHIFT_PIECE |
+              castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
               en_passant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
               dest_square << M_SHIFT_DEST_SQUARE |
@@ -213,5 +214,71 @@ impl MoveStack {
     pub fn push(&mut self, m: Move) {
         self.stack[self.top_index] = m;
         self.top_index += 1;
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_move() {
+        use basetypes::*;
+
+        let mut cr = CastlingRights::new();
+        cr.set_for(WHITE, 0b10);
+        cr.set_for(BLACK, 0b11);
+        let mut m = Move::new(WHITE,
+                              12,
+                              MOVE_NORMAL,
+                              PAWN,
+                              E2,
+                              E4,
+                              NO_PIECE,
+                              NO_ENPASSANT_FILE,
+                              cr,
+                              0);
+        let n1 = Move::new(WHITE,
+                           12,
+                           MOVE_NORMAL,
+                           PAWN,
+                           F3,
+                           E4,
+                           KNIGHT,
+                           NO_ENPASSANT_FILE,
+                           CastlingRights::new(),
+                           0);
+        let n2 = Move::new(WHITE,
+                           12,
+                           MOVE_NORMAL,
+                           KING,
+                           F3,
+                           E4,
+                           NO_PIECE,
+                           NO_ENPASSANT_FILE,
+                           CastlingRights::new(),
+                           0);
+        assert!(n1 > m);
+        assert!(n2 < m);
+        assert_eq!(m.score(), 12);
+        assert_eq!(m.piece(), PAWN);
+        assert_eq!(m.captured_piece(), NO_PIECE);
+        assert_eq!(m.orig_square(), E2);
+        assert_eq!(m.dest_square(), E4);
+        assert_eq!(m.en_passant_file(), 8);
+        assert_eq!(m.aux_data(), 0b10);
+        assert_eq!(m.castling_data(), 0b11);
+        let m2 = m;
+        assert_eq!(m, m2);
+        m.set_score(13);
+        assert_eq!(m.score(), 13);
+        assert!(m > m2);
+        m.clear_score_bit(0);
+        assert_eq!(m, m2);
+        m.set_score_bit(0);
+        assert_eq!(m.score(), 13);
+        m.set_score(0);
+        assert_eq!(m.score(), 0);
     }
 }
