@@ -48,7 +48,7 @@ use basetypes::*;
 // "Aux data" field. This is OK, because promoting a pawn never
 // changes the moving player's castling rights. The castling rights
 // for the opposite side are stored in "Castling" field. (A move can
-// change the castling rights of the other side when a rook in the
+// change the castling rights for the other side when a rook in the
 // corner is captured.)
 //
 // When "Captured piece" is stored, its bits are inverted, so that
@@ -92,7 +92,7 @@ impl Move {
                captured_piece: PieceType,
                en_passant_file: File,
                castling: CastlingRights,
-               promoted_piece: usize)
+               promoted_piece_code: usize)
                -> Move {
         assert!(us <= 1);
         assert!(score <= 0b1111);
@@ -102,9 +102,9 @@ impl Move {
         assert!(dest_square <= 63);
         assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         assert!(en_passant_file <= 0b1000);
-        assert!(promoted_piece <= 0b11);
+        assert!(promoted_piece_code <= 0b11);
         let aux_data = match move_type {
-            MOVE_PROMOTION => promoted_piece,
+            MOVE_PROMOTION => promoted_piece_code,
             _ => castling.get_for(us),
         };
         Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
