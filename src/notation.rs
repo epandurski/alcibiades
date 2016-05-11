@@ -1,5 +1,5 @@
 use basetypes::*;
-use position::board::Board;
+use position::board::PiecesPlacement;
 
 
 pub struct ParseError;
@@ -25,7 +25,7 @@ pub fn parse_square(s: &str) -> Result<Square> {
 
 
 // Parse FEN piece placement field.
-pub fn parse_fen_piece_placement(s: &str) -> Result<Board> {
+pub fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement> {
 
     // We start with an empty board. FEN describes the board
     // starting at A8 and going toward H1.
@@ -92,7 +92,7 @@ pub fn parse_fen_piece_placement(s: &str) -> Result<Board> {
 
     // Ensure the piece placement field had the right length.
     if file == 8 && rank == 0 {
-        Ok(Board::new(&piece_type, &color))
+        Ok(PiecesPlacement { piece_type: piece_type, color: color })
     } else {
         Err(ParseError)
     }

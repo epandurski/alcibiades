@@ -11,9 +11,6 @@ use self::board::Board;
 
 pub struct Position {
     board: Board,
-    to_move: Color,
-    castling_rights: CastlingRights,
-    en_passant_square: Option<Square>,
     halfmove_clock: u32,
     fullmove_number: u32, /* move_stack
                            * move_history (including fullmove_number?)
@@ -63,17 +60,15 @@ impl Position {
 
         if parts.len() == 6 {
             let p = Position {
-                board: try!(notation::parse_fen_piece_placement(parts[0])),
-                to_move: try!(notation::parse_fen_active_color(parts[1])),
-                castling_rights: try!(notation::parse_fen_castling_rights(parts[2])),
-                en_passant_square: try!(notation::parse_fen_enpassant_square(parts[3])),
+                board: try!(Board::create(&try!(notation::parse_fen_piece_placement(parts[0])),
+                                          try!(notation::parse_fen_enpassant_square(parts[3])),
+                                          try!(notation::parse_fen_castling_rights(parts[2])),
+                                          try!(notation::parse_fen_active_color(parts[1])))
+                                .map_err(|e| notation::ParseError)), /* TODO: Should it be other error? */
                 halfmove_clock: try!(parts[4].parse::<u32>().map_err(|e| notation::ParseError)),
                 fullmove_number: try!(parts[5].parse::<u32>().map_err(|e| notation::ParseError)),
             };
-            match p.board.is_legal(p.to_move, p.castling_rights, p.en_passant_square) {
-                true => Ok(p),
-                false => Err(notation::ParseError) // TODO: Should be other error.
-            }
+            Ok(p)
         } else {
             Err(notation::ParseError)
         }

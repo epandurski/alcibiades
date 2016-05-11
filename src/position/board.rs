@@ -22,25 +22,57 @@ const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
 const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
+pub struct PiecesPlacement {
+    pub piece_type: [u64; 6],
+    pub color: [u64; 2],
+}
+
+
+pub struct IllegalBoard;
+
+
 pub struct Board {
-    geometry: &'static BoardGeometry,
+    pub geometry: &'static BoardGeometry,
     pub piece_type: [u64; 6],
     pub color: [u64; 2],
     pub occupied: u64,
+    pub en_passant_file: File,
+    pub castling: CastlingRights,
+    pub to_move: Color,
 }
 
 impl Board {
     // Create a new board instance.
-    pub fn new(piece_type_array: &[u64; 6], color_array: &[u64; 2]) -> Board {
-        assert_eq!(color_array[WHITE] & color_array[BLACK], 0);
-        assert!(piece_type_array.into_iter().fold(0, |acc, x| acc | x) ==
-                color_array[WHITE] | color_array[BLACK]);
-        Board {
+    pub fn create(placement: &PiecesPlacement,
+                  en_passant_square: Option<Square>,
+                  castling: CastlingRights,
+                  to_move: Color)
+                  -> Result<Board, IllegalBoard> {
+        let en_passant_rank = match to_move {
+            WHITE => RANK_6,
+            BLACK => RANK_3,
+            _ => return Err(IllegalBoard),
+        };
+        let en_passant_file = match en_passant_square {
+            None => NO_ENPASSANT_FILE,
+            Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
+            _ => return Err(IllegalBoard),
+        };
+        let b = Board {
             geometry: board_geometry(),
-            piece_type: *piece_type_array,
-            color: *color_array,
-            occupied: color_array[WHITE] | color_array[BLACK],
+            piece_type: placement.piece_type,
+            color: placement.color,
+            occupied: placement.color[WHITE] | placement.color[BLACK],
+            en_passant_file: en_passant_file,
+            castling: castling,
+            to_move: to_move,
+        };
+        if b.is_legal() {
+            Ok(b)
+        } else {
+            Err(IllegalBoard)
         }
+
     }
 
 
@@ -79,13 +111,22 @@ impl Board {
     // en-passant square while the king is in check not from the
     // passing pawn and not from a checker that was discovered by the
     // passing pawn.
-    pub fn is_legal(&self,
-                    us: Color, // the side to move
-                    castling: CastlingRights,
-                    en_passant_square: Option<Square>)
-                    -> bool {
-        assert!(us <= 1);
-
+    pub fn is_legal(&self) -> bool {
+        if self.to_move > 1 {
+            return false;
+        }
+        let us = self.to_move;
+        let en_passant_bb = match self.en_passant_file {
+            NO_ENPASSANT_FILE => EMPTY_SET,
+            x if x <= 7 => {
+                match us {
+                    WHITE => 1 << x << 40,
+                    BLACK => 1 << x << 16,
+                    _ => panic!("invalid color to move"),
+                }
+            }
+            _ => return false,
+        };
         let occupied = self.piece_type.into_iter().fold(0, |acc, x| {
             if acc & x == 0 {
                 acc | x
@@ -101,11 +142,6 @@ impl Board {
         let their_king_bb = self.piece_type[KING] & o_them;
         let pawns = self.piece_type[PAWN];
         let shifts = &PAWN_MOVE_SHIFTS[them];
-        let en_passant_bb = match en_passant_square {
-            None => EMPTY_SET,
-            Some(x) if x <= 63 => 1 << x,
-            _ => panic!("invalid en-passant square"),
-        };
 
         occupied != UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
         occupied == self.occupied && pop_count(our_king_bb) == 1 &&
@@ -114,16 +150,16 @@ impl Board {
         pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
         self.piece_type[PAWN] & PAWN_PROMOTION_RANKS == 0 &&
-        (!castling.can_castle(WHITE, QUEENSIDE) ||
+        (!self.castling.can_castle(WHITE, QUEENSIDE) ||
          (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
          (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
-        (!castling.can_castle(WHITE, KINGSIDE) ||
+        (!self.castling.can_castle(WHITE, KINGSIDE) ||
          (self.piece_type[ROOK] & self.color[WHITE] & 1 << H1 != 0) &&
          (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
-        (!castling.can_castle(BLACK, QUEENSIDE) ||
+        (!self.castling.can_castle(BLACK, QUEENSIDE) ||
          (self.piece_type[ROOK] & self.color[BLACK] & 1 << A8 != 0) &&
          (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
-        (!castling.can_castle(BLACK, KINGSIDE) ||
+        (!self.castling.can_castle(BLACK, KINGSIDE) ||
          (self.piece_type[ROOK] & self.color[BLACK] & 1 << H8 != 0) &&
          (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
         (en_passant_bb == EMPTY_SET ||
@@ -887,15 +923,17 @@ fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (
 mod tests {
     use super::*;
     use super::board_geometry;
+    use notation::parse_fen_piece_placement as fen;
+
     #[test]
     fn test_attacks_from() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << D4;
-        piece_type[PAWN] |= 1 << G7;
-        color[WHITE] = piece_type[PAWN];
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("k7/8/8/8/3P4/8/8/7K").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         let g = board_geometry();
         assert_eq!(piece_attacks_from(g, b.occupied, BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
@@ -908,31 +946,12 @@ mod tests {
     #[test]
     fn test_attacks_to() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << D3;
-        color[WHITE] |= 1 << D3;
-        piece_type[PAWN] |= 1 << H5;
-        color[WHITE] |= 1 << H5;
-        piece_type[KNIGHT] |= 1 << G3;
-        color[WHITE] |= 1 << G3;
-        piece_type[BISHOP] |= 1 << B1;
-        color[WHITE] |= 1 << B1;
-        piece_type[QUEEN] |= 1 << H1;
-        color[WHITE] |= 1 << H1;
-        piece_type[KING] |= 1 << D5;
-        color[WHITE] |= 1 << D5;
-        piece_type[PAWN] |= 1 << H2;
-        color[BLACK] |= 1 << H2;
-        piece_type[PAWN] |= 1 << F5;
-        color[BLACK] |= 1 << F5;
-        piece_type[ROOK] |= 1 << A4;
-        color[BLACK] |= 1 << A4;
-        piece_type[QUEEN] |= 1 << E3;
-        color[BLACK] |= 1 << E3;
-        piece_type[KING] |= 1 << F4;
-        color[BLACK] |= 1 << F4;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.attacks_to(WHITE, E4),
                    1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
         assert_eq!(b.attacks_to(BLACK, E4),
@@ -962,35 +981,12 @@ mod tests {
     #[test]
     fn test_static_exchange_evaluation() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[KING] |= 1 << A3;
-        color[BLACK] |= 1 << A3;
-        piece_type[QUEEN] |= 1 << E5;
-        color[BLACK] |= 1 << E5;
-        piece_type[ROOK] |= 1 << F8;
-        color[BLACK] |= 1 << F8;
-        piece_type[BISHOP] |= 1 << D2;
-        color[BLACK] |= 1 << D2;
-        piece_type[PAWN] |= 1 << G5;
-        color[BLACK] |= 1 << G5;
-        piece_type[KING] |= 1 << A1;
-        color[WHITE] |= 1 << A1;
-        piece_type[PAWN] |= 1 << A2;
-        color[WHITE] |= 1 << A2;
-        piece_type[PAWN] |= 1 << E3;
-        color[WHITE] |= 1 << E3;
-        piece_type[PAWN] |= 1 << G3;
-        color[WHITE] |= 1 << G3;
-        piece_type[PAWN] |= 1 << D4;
-        color[WHITE] |= 1 << D4;
-        piece_type[BISHOP] |= 1 << H2;
-        color[WHITE] |= 1 << H2;
-        piece_type[ROOK] |= 1 << F1;
-        color[WHITE] |= 1 << F1;
-        piece_type[ROOK] |= 1 << F2;
-        color[WHITE] |= 1 << F2;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.calc_see(BLACK, E5, QUEEN, E3, PAWN), 100);
         assert_eq!(b.calc_see(BLACK, E5, QUEEN, D4, PAWN), -875);
         assert_eq!(b.calc_see(WHITE, G3, PAWN, F4, PAWN), 100);
@@ -1029,29 +1025,14 @@ mod tests {
         use basetypes::*;
         use super::pawn_dest_sets;
         use super::PAWN_MOVE_SHIFTS;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << E7;
-        color[WHITE] |= 1 << E7;
-        piece_type[PAWN] |= 1 << H2;
-        color[WHITE] |= 1 << H2;
-        piece_type[PAWN] |= 1 << G4;
-        color[WHITE] |= 1 << G4;
-        piece_type[PAWN] |= 1 << G5;
-        color[WHITE] |= 1 << G5;
-        piece_type[PAWN] |= 1 << F6;
-        color[WHITE] |= 1 << F6;
-        piece_type[PAWN] |= 1 << F7;
-        color[BLACK] |= 1 << F7;
-        piece_type[PAWN] |= 1 << G7;
-        color[BLACK] |= 1 << G7;
-        piece_type[PAWN] |= 1 << H5;
-        color[BLACK] |= 1 << H5;
-        piece_type[QUEEN] |= 1 << D8;
-        color[BLACK] |= 1 << D8;
-        let b = Board::new(&piece_type, &color);
-        let ds = pawn_dest_sets(color[WHITE],
-                                color[BLACK],
+        let b = Board::create(&fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
+        let ds = pawn_dest_sets(b.color[WHITE],
+                                b.color[BLACK],
                                 &PAWN_MOVE_SHIFTS[WHITE],
                                 b.piece_type[PAWN] & b.color[WHITE],
                                 1 << H6);
@@ -1059,8 +1040,8 @@ mod tests {
         assert_eq!(ds[1], 1 << H4);
         assert_eq!(ds[3], 1 << H5 | 1 << G7 | 1 << H6);
         assert_eq!(ds[2], 1 << D8);
-        let ds = pawn_dest_sets(color[BLACK],
-                                color[WHITE],
+        let ds = pawn_dest_sets(b.color[BLACK],
+                                b.color[WHITE],
                                 &PAWN_MOVE_SHIFTS[BLACK],
                                 b.piece_type[PAWN] & b.color[BLACK],
                                 0);
@@ -1073,27 +1054,13 @@ mod tests {
     #[test]
     fn test_move_generation_1() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << D5;
-        color[WHITE] |= 1 << D5;
-        piece_type[PAWN] |= 1 << D2;
-        color[WHITE] |= 1 << D2;
-        piece_type[PAWN] |= 1 << D4;
-        color[WHITE] |= 1 << D4;
-        piece_type[ROOK] |= 1 << E4;
-        color[WHITE] |= 1 << E4;
-        piece_type[PAWN] |= 1 << C5;
-        color[BLACK] |= 1 << C5;
-        piece_type[KNIGHT] |= 1 << G6;
-        color[WHITE] |= 1 << G6;
-        piece_type[BISHOP] |= 1 << C3;
-        color[BLACK] |= 1 << C3;
-        piece_type[QUEEN] |= 1 << E3;
-        color[BLACK] |= 1 << E3;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
 
-        // White to move, king on E1:
         assert_eq!(b.generate_pseudolegal_moves(WHITE,
                                                 E1,
                                                 1 << E3,
@@ -1102,7 +1069,12 @@ mod tests {
                                                 CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    5);
-        // White to move, king on G1:
+        let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE,
                                                 G1,
                                                 1 << E3,
@@ -1111,7 +1083,12 @@ mod tests {
                                                 CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    7);
-        // White to move, king on H6:
+        let b = Board::create(&fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE,
                                                 H6,
                                                 1 << E3,
@@ -1120,7 +1097,12 @@ mod tests {
                                                 CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    8);
-        // White to move, king on H1 (no check):
+        let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE,
                                                 H1,
                                                 0,
@@ -1129,7 +1111,12 @@ mod tests {
                                                 CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    22);
-        // White to move, king on H1 (no check), en-passant on C6:
+        let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
+                              Some(C6),
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE,
                                                 H1,
                                                 0,
@@ -1138,7 +1125,12 @@ mod tests {
                                                 CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    23);
-        // Black to move, king on H1 (no check):
+        let b = Board::create(&fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 H1,
                                                 0,
@@ -1147,7 +1139,12 @@ mod tests {
                                                 CastlingRights::new(),
                                                 &mut MoveStack::new()),
                    25);
-        // Black to move, king on H4:
+        let b = Board::create(&fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 H4,
                                                 1 << E4 | 1 << G6,
@@ -1161,17 +1158,12 @@ mod tests {
     #[test]
     fn test_move_generation_2() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << G4;
-        color[WHITE] |= 1 << G4;
-        piece_type[ROOK] |= 1 << F1;
-        color[WHITE] |= 1 << F1;
-        piece_type[PAWN] |= 1 << F4;
-        color[BLACK] |= 1 << F4;
-        piece_type[KING] |= 1 << H5;
-        color[BLACK] |= 1 << H5;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("8/8/8/7k/5pP1/8/8/5R1K").ok().unwrap(),
+                              Some(G3),
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 H5,
                                                 1 << G4,
@@ -1181,17 +1173,12 @@ mod tests {
                                                 &mut MoveStack::new()),
                    6);
 
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << G4;
-        color[WHITE] |= 1 << G4;
-        piece_type[ROOK] |= 1 << F1;
-        color[WHITE] |= 1 << F1;
-        piece_type[PAWN] |= 1 << F4;
-        color[BLACK] |= 1 << F4;
-        piece_type[KING] |= 1 << F5;
-        color[BLACK] |= 1 << F5;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("8/8/8/5k2/5pP1/8/8/5R1K").ok().unwrap(),
+                              Some(G3),
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 F5,
                                                 1 << G4,
@@ -1201,17 +1188,12 @@ mod tests {
                                                 &mut MoveStack::new()),
                    7);
 
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[PAWN] |= 1 << G4;
-        color[WHITE] |= 1 << G4;
-        piece_type[BISHOP] |= 1 << F1;
-        color[WHITE] |= 1 << F1;
-        piece_type[PAWN] |= 1 << F4;
-        color[BLACK] |= 1 << F4;
-        piece_type[KING] |= 1 << H3;
-        color[BLACK] |= 1 << H3;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("8/8/8/8/5pP1/7k/8/5B1K").ok().unwrap(),
+                              Some(G3),
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 H3,
                                                 1 << F1,
@@ -1225,19 +1207,12 @@ mod tests {
     #[test]
     fn test_move_generation_3() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[KING] |= 1 << H1;
-        color[WHITE] |= 1 << H1;
-        piece_type[PAWN] |= 1 << G4;
-        color[WHITE] |= 1 << G4;
-        piece_type[ROOK] |= 1 << E4;
-        color[WHITE] |= 1 << E4;
-        piece_type[KING] |= 1 << H4;
-        color[BLACK] |= 1 << H4;
-        piece_type[PAWN] |= 1 << F4;
-        color[BLACK] |= 1 << F4;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("8/8/8/8/4RpPk/8/8/7K").ok().unwrap(),
+                              Some(G3),
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 H4,
                                                 0,
@@ -1251,21 +1226,12 @@ mod tests {
     #[test]
     fn test_move_generation_4() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[KING] |= 1 << H1;
-        color[WHITE] |= 1 << H1;
-        piece_type[PAWN] |= 1 << G4;
-        color[WHITE] |= 1 << G4;
-        piece_type[PAWN] |= 1 << E4;
-        color[WHITE] |= 1 << E4;
-        piece_type[QUEEN] |= 1 << D4;
-        color[WHITE] |= 1 << D4;
-        piece_type[KING] |= 1 << H4;
-        color[BLACK] |= 1 << H4;
-        piece_type[PAWN] |= 1 << F4;
-        color[BLACK] |= 1 << F4;
-        let b = Board::new(&piece_type, &color);
+        let b = Board::create(&fen("8/8/8/8/3QPpPk/8/8/7K").ok().unwrap(),
+                              Some(G3),
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(BLACK,
                                                 H4,
                                                 0,
@@ -1279,30 +1245,34 @@ mod tests {
     #[test]
     fn test_move_generation_5() {
         use basetypes::*;
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[KNIGHT] |= 1 << B8;
-        color[BLACK] |= 1 << B8;
-        let b = Board::new(&piece_type, &color);
+
+        let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         let mut cr = CastlingRights::new();
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
-                   5);
+                   19 + 5);
         cr.set_with_mask(CASTLE_WHITE_KINGSIDE);
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
-                   6);
+                   19 + 6);
         cr.set_with_mask(CASTLE_WHITE_QUEENSIDE);
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
-                   7);
+                   19 + 7);
         assert_eq!(b.generate_pseudolegal_moves(BLACK, E8, 0, 0, 0, cr, &mut MoveStack::new()),
-                   8);
+                   19 + 5);
         cr.set_with_mask(CASTLE_BLACK_KINGSIDE);
         assert_eq!(b.generate_pseudolegal_moves(BLACK, E8, 0, 0, 0, cr, &mut MoveStack::new()),
-                   9);
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[KNIGHT] |= 1 << G3;
-        color[BLACK] |= 1 << G3;
-        let b = Board::new(&piece_type, &color);
+                   19 + 6);
+
+        let b = Board::create(&fen("4k3/8/8/8/8/5n2/8/R3K2R").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE,
                                                 E1,
                                                 1 << F3,
@@ -1311,21 +1281,31 @@ mod tests {
                                                 cr,
                                                 &mut MoveStack::new()),
                    5);
+
+        let b = Board::create(&fen("4k3/8/8/8/8/6n1/8/R3K2R").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
-                   6);
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[KNIGHT] |= 1 << E3;
-        color[BLACK] |= 1 << E3;
-        let b = Board::new(&piece_type, &color);
+                   19 + 6);
+        let b = Board::create(&fen("4k3/8/8/8/8/4n3/8/R3K2R").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
-                   5);
-        let mut piece_type = [0u64; 6];
-        let mut color = [0u64; 2];
-        piece_type[KNIGHT] |= 1 << H3;
-        color[BLACK] |= 1 << H3;
-        let b = Board::new(&piece_type, &color);
+                   19 + 5);
+
+        let b = Board::create(&fen("4k3/8/1b6/8/8/8/8/R3K2R").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
         assert_eq!(b.generate_pseudolegal_moves(WHITE, E1, 0, 0, 0, cr, &mut MoveStack::new()),
-                   7);
+                   19 + 7);
     }
 }
