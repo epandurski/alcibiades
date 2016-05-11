@@ -259,6 +259,16 @@ mod tests {
                            NO_ENPASSANT_FILE,
                            CastlingRights::new(),
                            0);
+        let n3 = Move::new(BLACK,
+                           0,
+                           MOVE_PROMOTION,
+                           PAWN,
+                           F2,
+                           F1,
+                           NO_PIECE,
+                           NO_ENPASSANT_FILE,
+                           CastlingRights::new(),
+                           1);
         assert!(n1 > m);
         assert!(n2 < m);
         assert_eq!(m.score(), 12);
@@ -280,5 +290,6 @@ mod tests {
         assert_eq!(m.score(), 13);
         m.set_score(0);
         assert_eq!(m.score(), 0);
+        assert_eq!(n3.aux_data(), 1);
     }
 }
