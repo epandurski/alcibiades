@@ -34,9 +34,9 @@ use basetypes::*;
 //   31                                                          16
 //  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 //  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-//  |  Move score   | Captured  |  Played   | Cast- |   En-passant  |
-//  |    4 bits     | piece     |  piece    | ling  |      file     |
-//  |   |   |   |   | 3 bits|   |  3 bits   | 2 bits|     4 bits    |
+//  |  Move score   |  Captured |  Played   | Cast- |   En-passant  |
+//  |    4 bits     |  piece    |  piece    | ling  |      file     |
+//  |   |   |   |   |  3 bits   |  3 bits   | 2 bits|     4 bits    |
 //  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
 //  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 //
