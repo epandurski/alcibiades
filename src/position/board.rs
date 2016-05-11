@@ -582,7 +582,7 @@ fn write_piece_moves_to_stack(geometry: &BoardGeometry,
                                   dest_square,
                                   captured_piece,
                                   en_passant_file,
-                                  castling.get(us)));
+                                  castling.get_for(us)));
         counter += 1;
     }
     counter
@@ -683,7 +683,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                   dest_square,
                                                   PAWN,
                                                   en_passant_file,
-                                                  castling.get(us)));
+                                                  castling.get_for(us)));
                     }
                 }
                 // pawn promotion
@@ -714,7 +714,7 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                               dest_square,
                                               captured_piece,
                                               en_passant_file,
-                                              castling.get(us)));
+                                              castling.get_for(us)));
                 }
             }
         }
@@ -846,7 +846,7 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                               unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
                                               NO_PIECE,
                                               en_passant_file,
-                                              castling.get(us)));
+                                              castling.get_for(us)));
                 }
             }
         }

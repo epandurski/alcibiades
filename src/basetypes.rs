@@ -162,7 +162,7 @@ pub const MOVE_STACK_SIZE: usize = 32 * 256;
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]
-pub struct CastlingRights(u8);
+pub struct CastlingRights(pub usize);
 
 impl CastlingRights {
     #[inline(always)]
@@ -176,31 +176,28 @@ impl CastlingRights {
 
     pub fn set_with_mask(&mut self, mask: u8) -> bool {
         let before = self.0;
-        self.0 |= mask;
+        self.0 |= mask as usize;
         self.0 != before
     }
 
     #[inline(always)]
-    pub fn clear_with_mask(&mut self, mask: u8) {
-        self.0 &= !mask;
-    }
-
-    #[inline(always)]
-    pub fn get(&self, color: Color) -> usize {
+    pub fn get_for(&self, color: Color) -> usize {
         assert!(color <= 1);
-        (if color == WHITE {
+        if color == WHITE {
             self.0 & 0b0011
         } else {
             (self.0 & 0b1100) >> 2
-        }) as usize
+        }
     }
 
-    pub fn set(&mut self, color: Color, rights: usize) {
+    #[inline(always)]
+    pub fn set_for(&mut self, color: Color, rights: usize) {
+        assert!(color <= 1);
         assert!(rights <= 0b11);
-        self.0 = match color {
-            WHITE => self.0 & 0b1100 | rights as u8,
-            BLACK => self.0 & 0b0011 | (rights << 2) as u8,
-            _ => panic!("invalid color")
+        self.0 = if color == WHITE {
+            self.0 & 0b1100 | rights
+        } else {
+            self.0 & 0b0011 | rights << 2
         }
     }
 
@@ -213,21 +210,23 @@ impl CastlingRights {
             // square on the board is an obstacle
             return UNIVERSAL_SET;
         }
-        let obstacles = match side {
-            0 => 1 << B1 | 1 << C1 | 1 << D1,
-            _ => 1 << F1 | 1 << G1,
+        let obstacles = if side == QUEENSIDE {
+            1 << B1 | 1 << C1 | 1 << D1
+        } else {
+            1 << F1 | 1 << G1
         };
-        match color {
-            WHITE => obstacles,
-            _ => obstacles << 56,
+        if color == WHITE {
+            obstacles
+        } else {
+            obstacles << 56
         }
     }
 
     #[inline]
-    pub fn rook_mask(&self, color: Color, side: CastlingSide) -> u64 {
+    pub fn rook_xor_mask(&self, color: Color, side: CastlingSide) -> u64 {
         let mask = match side {
-            0 => 1 << A1 | 1 << D1,
-            1 => 1 << H1 | 1 << G1,
+            QUEENSIDE => 1 << A1 | 1 << D1,
+            KINGSIDE => 1 << H1 | 1 << F1,
             _ => panic!("invalid castling side"),
         };
         match color {
