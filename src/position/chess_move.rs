@@ -1,5 +1,59 @@
 use basetypes::*;
 
+
+// "Move" represents a move on the chessboard. It contains 3 types of
+// information:
+// 
+// 1. Information about the played move itself.
+//
+// 2. Information needed so as to be able to undo the move and restore
+// the board into the exact same state as before.
+//
+// 3. The move score -- moves with higher score are tried
+// first. Ideally the best move should have the highest score.
+//
+// "Move" is a 32-bit unsigned number. The lowest 16 bits contain the
+// whole needed information about the move itself (type 1). And is
+// laid out the following way:
+//
+//   15                                                           0
+//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+//  | Move  |    Origin square      |   Destination square  | Promo-|
+//  | type  |       6 bits          |        6 bits         | ted   |
+//  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | piece |
+//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
+//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+//
+// There are 4 "move type"s: 0) normal move; 1) en-passant capture; 2)
+// pawn promotion; 3) castling.
+//
+// The highest 16 bits contain the rest ot the info:
+//
+//   31                                                          16
+//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+//  |  Move score   | Captured  |  Played   | Cast- |   En-passant  |
+//  |    4 bits     | piece     |  piece    | ling  |      file     |
+//  |   |   |   |   | 3 bits|   |  3 bits   | rigths|     4 bits    |
+//  |   |   |   |   |   |   |   |   |   |   | 2 bits|   |   |   |   |
+//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+//
+// "En-passant file" tells on what vertical line (if any) on the board
+// there was a passing pawn before the move was played.
+//
+// Castling rights are a bit complex. The castling rights for the side
+// that makes the move, before the move was made, are stored in the
+// "Promoted piece" field. This is OK, because promoting a pawn never
+// changes the moving player's castling rights. The castling rights
+// for the opposite side are stored in "Castling rights" field. (A
+// move can change the castling rights of the other side when a rook
+// in the corner is captured.)
+//
+// When "Captured piece" is stored, its bits are inverted, so that
+// MVV-LVA (Most valuable victim -- least valuable aggressor) ordering
+// of the moves is preserved, even when the "Move score" field stays
+// the same.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
