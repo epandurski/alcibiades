@@ -3,6 +3,7 @@
 
 pub mod board_geometry;
 pub mod board;
+pub mod chess_move;
 
 use basetypes::*;
 use notation;

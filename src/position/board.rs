@@ -1,6 +1,7 @@
 use basetypes::*;
 use bitsets::*;
 use super::board_geometry::BoardGeometry;
+use super::chess_move::{Move, MoveStack};
 
 type PawnMoveType = usize;
 
@@ -920,8 +921,9 @@ fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (
 mod tests {
     use super::*;
     use super::board_geometry;
+    use position::chess_move::{Move, MoveStack};
     use notation::parse_fen_piece_placement as fen;
-
+    
     #[test]
     fn test_attacks_from() {
         use basetypes::*;
@@ -993,6 +995,7 @@ mod tests {
     #[test]
     fn test_move() {
         use basetypes::*;
+        
         let mut m = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, NO_PIECE, 8, 0);
         let n1 = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, KNIGHT, 8, 0);
         let n2 = Move::new(42, MOVE_NORMAL, KING, E2, E4, NO_PIECE, 8, 0);
@@ -1051,6 +1054,7 @@ mod tests {
     #[test]
     fn test_move_generation_1() {
         use basetypes::*;
+        
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3").ok().unwrap(),
                               None,
                               CastlingRights::new(),
