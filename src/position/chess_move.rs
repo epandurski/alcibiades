@@ -1,9 +1,8 @@
 use basetypes::*;
 
-
 // "Move" represents a move on the chessboard. It contains 3 types of
 // information:
-// 
+//
 // 1. Information about the played move itself.
 //
 // 2. Information needed so as to be able to undo the move and restore
@@ -19,14 +18,16 @@ use basetypes::*;
 //   15                                                           0
 //  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 //  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-//  | Move  |    Origin square      |   Destination square  | Promo-|
-//  | type  |       6 bits          |        6 bits         | ted   |
-//  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | piece |
-//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
+//  | Move  |    Origin square      |   Destination square  | Aux   |
+//  | type  |       6 bits          |        6 bits         | data  |
+//  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
+//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |       |
 //  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 //
 // There are 4 "move type"s: 0) normal move; 1) en-passant capture; 2)
-// pawn promotion; 3) castling.
+// pawn promotion; 3) castling. "Aux data" encodes the type of the
+// promoted piece if the move type is pawn promotion, otherwise it
+// encodes castling rights (see below).
 //
 // The highest 16 bits contain the rest ot the info:
 //
@@ -35,8 +36,8 @@ use basetypes::*;
 //  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 //  |  Move score   | Captured  |  Played   | Cast- |   En-passant  |
 //  |    4 bits     | piece     |  piece    | ling  |      file     |
-//  |   |   |   |   | 3 bits|   |  3 bits   | rigths|     4 bits    |
-//  |   |   |   |   |   |   |   |   |   |   | 2 bits|   |   |   |   |
+//  |   |   |   |   | 3 bits|   |  3 bits   | 2 bits|     4 bits    |
+//  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
 //  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 //
 // "En-passant file" tells on what vertical line (if any) on the board
@@ -44,86 +45,98 @@ use basetypes::*;
 //
 // Castling rights are a bit complex. The castling rights for the side
 // that makes the move, before the move was made, are stored in the
-// "Promoted piece" field. This is OK, because promoting a pawn never
+// "Aux data" field. This is OK, because promoting a pawn never
 // changes the moving player's castling rights. The castling rights
-// for the opposite side are stored in "Castling rights" field. (A
-// move can change the castling rights of the other side when a rook
-// in the corner is captured.)
+// for the opposite side are stored in "Castling" field. (A move can
+// change the castling rights of the other side when a rook in the
+// corner is captured.)
 //
 // When "Captured piece" is stored, its bits are inverted, so that
 // MVV-LVA (Most valuable victim -- least valuable aggressor) ordering
 // of the moves is preserved, even when the "Move score" field stays
 // the same.
-#[derive(Debug)]
-#[derive(Clone, Copy)]
-#[derive(PartialOrd, Ord, PartialEq, Eq)]
-pub struct Move(u32);
 
-const M_SHIFT_SCORE: u32 = 26;
-const M_SHIFT_INV_CAPTURED_PIECE: u32 = 23;
-const M_SHIFT_PIECE: u32 = 20;
+const M_SHIFT_SCORE: u32 = 28;
+const M_SHIFT_CAPTURED_PIECE: u32 = 25;
+const M_SHIFT_PIECE: u32 = 22;
+const M_SHIFT_CASTLING_DATA: u32 = 20;
 const M_SHIFT_ENPASSANT_FILE: u32 = 16;
 const M_SHIFT_MOVE_TYPE: u32 = 14;
 const M_SHIFT_ORIG_SQUARE: u32 = 8;
 const M_SHIFT_DEST_SQUARE: u32 = 2;
 const M_SHIFT_AUX_DATA: u32 = 0;
 
-const M_MASK_SCORE: u32 = 0b111111 << M_SHIFT_SCORE;
-const M_MASK_INV_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_INV_CAPTURED_PIECE;
+const M_MASK_SCORE: u32 = 0b1111 << M_SHIFT_SCORE;
+const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
 const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
+const M_MASK_CASTLING_DATA: u32 = 0b11 << M_SHIFT_CASTLING_DATA;
 const M_MASK_ENPASSANT_FILE: u32 = 0b1111 << M_SHIFT_ENPASSANT_FILE;
 const M_MASK_MOVE_TYPE: u32 = 0b11 << M_SHIFT_MOVE_TYPE;
 const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
 const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
 const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
 
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+#[derive(PartialOrd, Ord, PartialEq, Eq)]
+pub struct Move(u32);
+
 impl Move {
     #[inline(always)]
-    pub fn new(score: usize,
+    pub fn new(us: Color,
+               score: usize,
                move_type: MoveType,
                piece: PieceType,
                orig_square: Square,
                dest_square: Square,
                captured_piece: PieceType,
                en_passant_file: File,
-               aux_data: usize)
+               castling: CastlingRights,
+               promoted_piece: usize)
                -> Move {
-        assert!(score <= 0b111111);
+        assert!(us <= 1);
+        assert!(score <= 0b1111);
         assert!(move_type <= 0x11);
         assert!(piece < NO_PIECE);
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
         assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         assert!(en_passant_file <= 0b1000);
-        assert!(aux_data <= 0b11);
-        Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_INV_CAPTURED_PIECE |
-              piece << M_SHIFT_PIECE | en_passant_file << M_SHIFT_ENPASSANT_FILE |
+        assert!(promoted_piece <= 0b11);
+        let aux_data = match move_type {
+            MOVE_PROMOTION => promoted_piece,
+            _ => castling.get_for(us),
+        };
+        Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
+              piece << M_SHIFT_PIECE | castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
+              en_passant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
               dest_square << M_SHIFT_DEST_SQUARE |
               aux_data << M_SHIFT_AUX_DATA) as u32)
     }
 
     #[inline(always)]
-    pub fn get_score(&self) -> usize {
-        ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
-    }
-
-    #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
-        assert!(score <= 0b111111);
+        assert!(score <= 0b1111);
+        self.0 &= !M_MASK_SCORE;
         self.0 |= (score << M_SHIFT_SCORE) as u32;
     }
 
     #[inline(always)]
     pub fn set_score_bit(&mut self, b: usize) {
-        assert!(b <= 5);
+        assert!(b <= 3);
         self.0 |= 1 << b << M_SHIFT_SCORE;
     }
 
     #[inline(always)]
     pub fn clear_score_bit(&mut self, b: usize) {
-        assert!(b <= 5);
+        assert!(b <= 3);
         self.0 &= !(1 << b << M_SHIFT_SCORE);
+    }
+
+    #[inline(always)]
+    pub fn score(&self) -> usize {
+        ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
     }
 
     #[inline(always)]
@@ -148,7 +161,7 @@ impl Move {
 
     #[inline(always)]
     pub fn captured_piece(&self) -> PieceType {
-        ((!self.0 & M_MASK_INV_CAPTURED_PIECE) >> M_SHIFT_INV_CAPTURED_PIECE) as PieceType
+        ((!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE) as PieceType
     }
 
     #[inline(always)]
@@ -157,13 +170,13 @@ impl Move {
     }
 
     #[inline(always)]
-    pub fn aux_data(&self) -> usize {
-        ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
+    pub fn castling_data(&self) -> usize {
+        ((self.0 & M_MASK_CASTLING_DATA) >> M_SHIFT_CASTLING_DATA) as usize
     }
 
     #[inline(always)]
-    pub fn promoted_piece(&self) -> PieceType {
-        Move::piece_from_aux_data(self.aux_data())
+    pub fn aux_data(&self) -> usize {
+        ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
 
     #[inline(always)]
@@ -202,5 +215,3 @@ impl MoveStack {
         self.top_index += 1;
     }
 }
-
-

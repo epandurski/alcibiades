@@ -576,14 +576,16 @@ fn write_piece_moves_to_stack(geometry: &BoardGeometry,
         dest_set ^= dest_bb;
         let dest_square = bitscan_1bit(dest_bb);
         let captured_piece = get_piece_type_at(piece_type_array, occupied, dest_bb);
-        move_stack.push(Move::new(0,
+        move_stack.push(Move::new(us,
+                                  0,
                                   MOVE_NORMAL,
                                   piece,
                                   from_square,
                                   dest_square,
                                   captured_piece,
                                   en_passant_file,
-                                  castling.get_for(us)));
+                                  castling,
+                                  0));
         counter += 1;
     }
     counter
@@ -677,21 +679,24 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                    orig_square,
                                                    dest_square) {
                         counter += 1;
-                        move_stack.push(Move::new(0,
+                        move_stack.push(Move::new(us,
+                                                  0,
                                                   MOVE_ENPASSANT,
                                                   PAWN,
                                                   orig_square,
                                                   dest_square,
                                                   PAWN,
                                                   en_passant_file,
-                                                  castling.get_for(us)));
+                                                  castling,
+                                                  0));
                     }
                 }
                 // pawn promotion
                 x if x & PAWN_PROMOTION_RANKS != 0 => {
                     for p in 0..4 {
                         counter += 1;
-                        move_stack.push(Move::new(if Move::piece_from_aux_data(p) == QUEEN {
+                        move_stack.push(Move::new(us,
+                                                  if Move::piece_from_aux_data(p) == QUEEN {
                                                       1
                                                   } else {
                                                       0
@@ -702,20 +707,23 @@ fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
                                                   dest_square,
                                                   captured_piece,
                                                   en_passant_file,
+                                                  castling,
                                                   p));
                     }
                 }
                 // normal pawn move (push or plain capture)
                 _ => {
                     counter += 1;
-                    move_stack.push(Move::new(0,
+                    move_stack.push(Move::new(us,
+                                              0,
                                               MOVE_NORMAL,
                                               PAWN,
                                               orig_square,
                                               dest_square,
                                               captured_piece,
                                               en_passant_file,
-                                              castling.get_for(us)));
+                                              castling,
+                                              0));
                 }
             }
         }
@@ -840,14 +848,16 @@ fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                     // square is attacked, but we do not care about
                     // that, because this will be verified later.
                     counter += 1;
-                    move_stack.push(Move::new(0,
+                    move_stack.push(Move::new(us,
+                                              0,
                                               MOVE_CASTLING,
                                               KING,
                                               king_square,
                                               unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
                                               NO_PIECE,
                                               en_passant_file,
-                                              castling.get_for(us)));
+                                              castling,
+                                              0));
                 }
             }
         }
@@ -923,7 +933,7 @@ mod tests {
     use super::board_geometry;
     use position::chess_move::{Move, MoveStack};
     use notation::parse_fen_piece_placement as fen;
-    
+
     #[test]
     fn test_attacks_from() {
         use basetypes::*;
@@ -995,29 +1005,58 @@ mod tests {
     #[test]
     fn test_move() {
         use basetypes::*;
-        
-        let mut m = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, NO_PIECE, 8, 0);
-        let n1 = Move::new(42, MOVE_NORMAL, PAWN, E2, E4, KNIGHT, 8, 0);
-        let n2 = Move::new(42, MOVE_NORMAL, KING, E2, E4, NO_PIECE, 8, 0);
+
+        let mut m = Move::new(WHITE,
+                              12,
+                              MOVE_NORMAL,
+                              PAWN,
+                              E2,
+                              E4,
+                              NO_PIECE,
+                              8,
+                              CastlingRights::new(),
+                              0);
+        let n1 = Move::new(WHITE,
+                           12,
+                           MOVE_NORMAL,
+                           PAWN,
+                           E2,
+                           E4,
+                           KNIGHT,
+                           8,
+                           CastlingRights::new(),
+                           0);
+        let n2 = Move::new(WHITE,
+                           12,
+                           MOVE_NORMAL,
+                           KING,
+                           E2,
+                           E4,
+                           NO_PIECE,
+                           8,
+                           CastlingRights::new(),
+                           0);
         assert!(n1 > m);
         assert!(n2 < m);
-        assert_eq!(m.get_score(), 42);
+        assert_eq!(m.score(), 12);
         assert_eq!(m.piece(), PAWN);
         assert_eq!(m.captured_piece(), NO_PIECE);
         assert_eq!(m.orig_square(), E2);
         assert_eq!(m.dest_square(), E4);
         assert_eq!(m.en_passant_file(), 8);
         assert_eq!(m.aux_data(), 0);
-        assert_eq!(m.promoted_piece(), QUEEN);
+        assert_eq!(m.castling_data(), 0);
         let m2 = m;
         assert_eq!(m, m2);
-        m.set_score(43);
-        assert_eq!(m.get_score(), 43);
+        m.set_score(13);
+        assert_eq!(m.score(), 13);
         assert!(m > m2);
         m.clear_score_bit(0);
         assert_eq!(m, m2);
         m.set_score_bit(0);
-        assert_eq!(m.get_score(), 43);
+        assert_eq!(m.score(), 13);
+        m.set_score(0);
+        assert_eq!(m.score(), 0);
     }
 
     #[test]
@@ -1054,7 +1093,7 @@ mod tests {
     #[test]
     fn test_move_generation_1() {
         use basetypes::*;
-        
+
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3").ok().unwrap(),
                               None,
                               CastlingRights::new(),
