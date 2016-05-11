@@ -35,7 +35,6 @@ pub struct Board {
     pub geometry: &'static BoardGeometry,
     pub piece_type: [u64; 6],
     pub color: [u64; 2],
-    pub occupied: u64,
     pub en_passant_file: File,
     pub castling: CastlingRights,
     pub to_move: Color,
@@ -62,7 +61,6 @@ impl Board {
             geometry: board_geometry(),
             piece_type: placement.piece_type,
             color: placement.color,
-            occupied: placement.color[WHITE] | placement.color[BLACK],
             en_passant_file: en_passant_file,
             castling: castling,
             to_move: to_move,
@@ -83,7 +81,7 @@ impl Board {
         attacks_to(self.geometry,
                    &self.piece_type,
                    &self.color,
-                   self.occupied,
+                   self.color[WHITE] | self.color[BLACK],
                    us,
                    square)
     }
@@ -144,8 +142,8 @@ impl Board {
         let shifts = &PAWN_MOVE_SHIFTS[them];
 
         occupied != UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
-        occupied == self.occupied && pop_count(our_king_bb) == 1 &&
-        pop_count(their_king_bb) == 1 && pop_count(self.piece_type[PAWN] & o_us) <= 8 &&
+        pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
+        pop_count(self.piece_type[PAWN] & o_us) <= 8 &&
         pop_count(self.piece_type[PAWN] & o_them) <= 8 && pop_count(o_us) <= 16 &&
         pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
@@ -213,7 +211,7 @@ impl Board {
         let geometry = self.geometry;
         let piece_type_array = &self.piece_type;
         let color_array = &self.color;
-        let occupied = self.occupied;
+        let occupied = color_array[WHITE] | color_array[BLACK];
         let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
         let occupied_by_them = unsafe { *color_array.get_unchecked(1 ^ us) };
         let not_occupied_by_us = !occupied_by_us;
@@ -406,7 +404,7 @@ impl Board {
         let geometry = self.geometry;
         let piece_type_array = &self.piece_type;
         let color_array = &self.color;
-        let mut occupied = self.occupied;
+        let mut occupied = color_array[WHITE] | color_array[BLACK];
         let mut depth = 0;
         let mut attackers_and_defenders = attacks_to(geometry,
                                                      piece_type_array,
@@ -935,11 +933,11 @@ mod tests {
                     .ok()
                     .unwrap();
         let g = board_geometry();
-        assert_eq!(piece_attacks_from(g, b.occupied, BISHOP, A1),
+        assert_eq!(piece_attacks_from(g, b.color[WHITE] | b.color[BLACK], BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(piece_attacks_from(g, b.occupied, BISHOP, A1),
+        assert_eq!(piece_attacks_from(g, b.color[WHITE] | b.color[BLACK], BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(piece_attacks_from(g, b.occupied, KNIGHT, A1),
+        assert_eq!(piece_attacks_from(g, b.color[WHITE] | b.color[BLACK], KNIGHT, A1),
                    1 << B3 | 1 << C2);
     }
 
