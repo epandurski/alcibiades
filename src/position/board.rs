@@ -139,15 +139,14 @@ impl Board {
         let our_king_bb = self.piece_type[KING] & o_us;
         let their_king_bb = self.piece_type[KING] & o_them;
         let pawns = self.piece_type[PAWN];
-        let shifts = &PAWN_MOVE_SHIFTS[them];
 
         occupied != UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
         pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
-        pop_count(self.piece_type[PAWN] & o_us) <= 8 &&
-        pop_count(self.piece_type[PAWN] & o_them) <= 8 && pop_count(o_us) <= 16 &&
+        pop_count(pawns & o_us) <= 8 &&
+        pop_count(pawns & o_them) <= 8 && pop_count(o_us) <= 16 &&
         pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
-        self.piece_type[PAWN] & PAWN_PROMOTION_RANKS == 0 &&
+        pawns & PAWN_PROMOTION_RANKS == 0 &&
         (!self.castling.can_castle(WHITE, QUEENSIDE) ||
          (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
          (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
@@ -162,8 +161,8 @@ impl Board {
          (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
         (en_passant_bb == EMPTY_SET ||
          {
-            let dest_square_bb = gen_shift(en_passant_bb, shifts[PAWN_PUSH]);
-            let orig_square_bb = gen_shift(en_passant_bb, -shifts[PAWN_PUSH]);
+            let dest_square_bb = gen_shift(en_passant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
             let our_king_square = bitscan_forward(our_king_bb);
             let checkers = self.attacks_to(them, our_king_square);
             ([BB_RANK_6, BB_RANK_3][us] & en_passant_bb != 0) &&
