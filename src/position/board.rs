@@ -136,7 +136,7 @@ impl Board {
             *self.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
             *self.color.get_unchecked_mut(us) |= dest_bb;
         }
-        
+
         // update castling rights
         self.castling.0 &= unsafe {
             *self.geometry.castling_relation.get_unchecked(orig_square) &
@@ -190,7 +190,7 @@ impl Board {
         if move_type != MOVE_PROMOTION {
             self.castling.set_for(us, aux_data);
         }
-        
+
         // empty the destination square
         let dest_piece = if move_type == MOVE_PROMOTION {
             Move::piece_from_aux_data(aux_data)
@@ -347,11 +347,7 @@ impl Board {
     // moves stack.
     //
     // Returns the number of moves that have been generated.
-    pub fn generate_pseudolegal_moves(&self,
-                                      checkers: u64,
-                                      pinned: u64,
-                                      move_stack: &mut MoveStack)
-                                      -> usize {
+    pub fn generate_moves(&self, checkers: u64, pinned: u64, move_stack: &mut MoveStack) -> usize {
         assert!(self.is_legal());
 
         let mut counter = 0;
@@ -739,11 +735,10 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 }
 
 
-// This is a helper function for
-// Board::generate_pseudolegal_moves(). It really does not do anything
-// other than scanning the destination set, and for each move
-// destination it figures out what piece is captured (if any), and
-// writes a new move and its score to the move stack.
+// This is a helper function for Board::generate_moves(). It really
+// does not do anything other than scanning the destination set, and
+// for each move destination it figures out what piece is captured (if
+// any), and writes a new move and its score to the move stack.
 #[inline(always)]
 fn write_piece_moves_to_stack(geometry: &BoardGeometry,
                               piece_type_array: &[u64; 6],
@@ -800,7 +795,7 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
 }
 
 
-// This is a helper function for Board::generate_pseudolegal_moves().
+// This is a helper function for Board::generate_moves().
 //
 // It generates candidate pawn destination sets, then performs an
 // intersection between those sets and the set of legal
@@ -986,10 +981,9 @@ fn en_passant_special_check_ok(geometry: &BoardGeometry,
 }
 
 
-// This is a helper function for
-// Board::generate_pseudolegal_moves(). It figures out if castling on
-// each side is pseudo-legal and if it is, writes a new move and its
-// score to the move stack.
+// This is a helper function for Board::generate_moves(). It figures
+// out if castling on each side is pseudo-legal and if it is, writes a
+// new move and its score to the move stack.
 #[inline(always)]
 fn write_castling_moves_to_stack(geometry: &BoardGeometry,
                                  piece_type_array: &[u64; 6],
@@ -1231,55 +1225,49 @@ mod tests {
                     .ok()
                     .unwrap();
 
-        assert_eq!(b.generate_pseudolegal_moves(1 << E3, 1 << D2, &mut MoveStack::new()),
-                   5);
+        assert_eq!(b.generate_moves(1 << E3, 1 << D2, &mut MoveStack::new()), 5);
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(1 << E3, 0, &mut MoveStack::new()),
-                   7);
+        assert_eq!(b.generate_moves(1 << E3, 0, &mut MoveStack::new()), 7);
         let b = Board::create(&fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(1 << E3, 0, &mut MoveStack::new()),
-                   8);
+        assert_eq!(b.generate_moves(1 << E3, 0, &mut MoveStack::new()), 8);
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   22);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 22);
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
                               Some(C6),
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   23);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 23);
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   25);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 25);
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(1 << E4 | 1 << G6, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_moves(1 << E4 | 1 << G6, 0, &mut MoveStack::new()),
                    5);
     }
 
@@ -1292,8 +1280,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(1 << G4, 0, &mut MoveStack::new()),
-                   6);
+        assert_eq!(b.generate_moves(1 << G4, 0, &mut MoveStack::new()), 6);
 
         let b = Board::create(&fen("8/8/8/5k2/5pP1/8/8/5R1K").ok().unwrap(),
                               Some(G3),
@@ -1301,8 +1288,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(1 << G4, 1 << F4, &mut MoveStack::new()),
-                   7);
+        assert_eq!(b.generate_moves(1 << G4, 1 << F4, &mut MoveStack::new()), 7);
 
         let b = Board::create(&fen("8/8/8/8/5pP1/7k/8/5B1K").ok().unwrap(),
                               Some(G3),
@@ -1310,8 +1296,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(1 << F1, 0, &mut MoveStack::new()),
-                   5);
+        assert_eq!(b.generate_moves(1 << F1, 0, &mut MoveStack::new()), 5);
     }
 
     #[test]
@@ -1323,7 +1308,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()), 6);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 6);
     }
 
     #[test]
@@ -1335,7 +1320,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()), 7);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 7);
     }
 
     #[test]
@@ -1349,8 +1334,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 5);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 5);
         cr.set_with_mask(CASTLE_WHITE_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1358,8 +1342,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 6);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 6);
         cr.set_with_mask(CASTLE_WHITE_QUEENSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1367,16 +1350,14 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 7);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 7);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
                               cr,
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 5);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 5);
         cr.set_with_mask(CASTLE_BLACK_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1384,8 +1365,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 6);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 6);
 
         cr.set_for(BLACK, 0);
         let b = Board::create(&fen("4k3/8/8/8/8/5n2/8/R3K2R").ok().unwrap(),
@@ -1394,8 +1374,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(1 << F3, 0, &mut MoveStack::new()),
-                   5);
+        assert_eq!(b.generate_moves(1 << F3, 0, &mut MoveStack::new()), 5);
 
         let b = Board::create(&fen("4k3/8/8/8/8/6n1/8/R3K2R").ok().unwrap(),
                               None,
@@ -1403,16 +1382,14 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 6);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 6);
         let b = Board::create(&fen("4k3/8/8/8/8/4n3/8/R3K2R").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 5);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 5);
 
         let b = Board::create(&fen("4k3/8/1b6/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1420,8 +1397,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()),
-                   19 + 7);
+        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 7);
     }
 
     #[test]
@@ -1436,11 +1412,11 @@ mod tests {
                                   WHITE)
                         .ok()
                         .unwrap();
-        let count = b.generate_pseudolegal_moves(0, 0, &mut stack);
+        let count = b.generate_moves(0, 0, &mut stack);
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                assert!(count == b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()));
+                assert!(count == b.generate_moves(0, 0, &mut MoveStack::new()));
             }
         }
         let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
@@ -1449,11 +1425,11 @@ mod tests {
                                   BLACK)
                         .ok()
                         .unwrap();
-        let count = b.generate_pseudolegal_moves(0, 0, &mut stack);
+        let count = b.generate_moves(0, 0, &mut stack);
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                assert!(count == b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()));
+                assert!(count == b.generate_moves(0, 0, &mut MoveStack::new()));
             }
         }
     }
