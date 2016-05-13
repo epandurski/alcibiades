@@ -98,11 +98,9 @@ impl Board {
             *self.color.get_unchecked_mut(us) &= not_orig_bb;
         }
 
-        // remove the captured piece (and update the en-passant file)
-        self.en_passant_file = NO_ENPASSANT_FILE;
+        // remove the captured piece
         if captured_piece < NO_PIECE {
             let not_captured_bb = if move_type == MOVE_ENPASSANT {
-                self.en_passant_file = file(dest_square);
                 !gen_shift(dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
             } else {
                 !dest_bb
@@ -133,6 +131,16 @@ impl Board {
             self.piece_type[ROOK] ^= mask;
             self.color[us] ^= mask;
         }
+
+        // update the en-passant file
+        self.en_passant_file = if piece == PAWN {
+            match dest_square as isize - orig_square as isize {
+                16 | -16 => file(dest_square),
+                _ => NO_ENPASSANT_FILE,
+            }
+        } else {
+            NO_ENPASSANT_FILE
+        };
 
         // update castling rights
         self.castling.0 &= unsafe {
@@ -166,8 +174,13 @@ impl Board {
         self.to_move = us;
 
         // restore castling rights
-        self.castling.set_for(us, aux_data);
+        if move_type != MOVE_PROMOTION {
+            self.castling.set_for(us, aux_data);
+        }
         self.castling.set_for(them, m.castling_data());
+
+        // restore the en-passant file
+        self.en_passant_file = m.en_passant_file();
 
         // empty the destination square (and shift back the rook if
         // the move is castling)
@@ -191,10 +204,10 @@ impl Board {
             self.color[us] ^= mask;
         }
 
-        // put back the captured piece (and restore the en-passant file)
+        // put back the captured piece
         if captured_piece < NO_PIECE {
             let captured_bb = if move_type == MOVE_ENPASSANT {
-                !gen_shift(not_dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
+                gen_shift(!not_dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
             } else {
                 !not_dest_bb
             };
@@ -203,7 +216,6 @@ impl Board {
                 *self.color.get_unchecked_mut(them) |= captured_bb;
             }
         }
-        self.en_passant_file = m.en_passant_file();
 
         // restore the piece on the origin square
         unsafe {
@@ -599,6 +611,32 @@ impl Board {
                 }
             }
         }
+    }
+
+    fn pretty_string(&self) -> String {
+        let mut s = String::new();
+        for rank in (0..8).rev() {
+            for file in 0..8 {
+                let square = square(file, rank);
+                let bb = 1 << square;
+                let piece = match bb {
+                    x if x & self.piece_type[KING] != 0 => 'k',
+                    x if x & self.piece_type[QUEEN] != 0 => 'q',
+                    x if x & self.piece_type[ROOK] != 0 => 'r',
+                    x if x & self.piece_type[BISHOP] != 0 => 'b',
+                    x if x & self.piece_type[KNIGHT] != 0 => 'n',
+                    x if x & self.piece_type[PAWN] != 0 => 'p',
+                    _ => '.',
+                };
+                if bb & self.color[WHITE] != 0 {
+                    s.push(piece.to_uppercase().next().unwrap());
+                } else {
+                    s.push(piece);
+                }
+            }
+            s.push('\n');
+        }
+        s
     }
 }
 
@@ -1376,19 +1414,37 @@ mod tests {
                    19 + 7);
     }
 
-    // #[test]
-    // fn test_do_undo_move() {
-    //     use basetypes::*;
-    //     let mut stack = MoveStack::new();
-    //     let mut cr = CastlingRights::new();
-    //     cr.set_with_mask(0b1011);
-    //     let b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
-    //                           Some(F6),
-    //                           cr,
-    //                           WHITE)
-    //                 .ok()
-    //                 .unwrap();
-    //     assert_eq!(b.generate_pseudolegal_moves(0, 0, &mut stack), 7);
-    // }
-
+    #[test]
+    fn test_do_undo_move() {
+        use basetypes::*;
+        let mut stack = MoveStack::new();
+        let mut cr = CastlingRights::new();
+        cr.set_with_mask(0b1011);
+        let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
+                                  Some(F6),
+                                  cr,
+                                  WHITE)
+                        .ok()
+                        .unwrap();
+        let count = b.generate_pseudolegal_moves(0, 0, &mut stack);
+        while let Some(m) = stack.pop() {
+            if b.do_move(m) {
+                b.undo_move(m);
+                assert!(count == b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()));
+            }
+        }
+        let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
+                                  None,
+                                  cr,
+                                  BLACK)
+                        .ok()
+                        .unwrap();
+        let count = b.generate_pseudolegal_moves(0, 0, &mut stack);
+        while let Some(m) = stack.pop() {
+            if b.do_move(m) {
+                b.undo_move(m);
+                assert!(count == b.generate_pseudolegal_moves(0, 0, &mut MoveStack::new()));
+            }
+        }
+    }
 }

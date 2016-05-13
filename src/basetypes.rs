@@ -247,7 +247,7 @@ pub fn square(file: File, rank: Rank) -> Square {
 
 #[inline]
 pub fn rank(square: Square) -> Rank {
-    square / 8
+    square >> 3
 }
 
 #[inline]

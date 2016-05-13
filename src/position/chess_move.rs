@@ -196,7 +196,7 @@ impl Move {
 
 pub struct MoveStack {
     stack: [Move; MOVE_STACK_SIZE],
-    top_index: usize,
+    next_index: usize,
 }
 
 impl MoveStack {
@@ -205,15 +205,25 @@ impl MoveStack {
         unsafe {
             MoveStack {
                 stack: uninitialized(),
-                top_index: 0,
+                next_index: 0,
             }
         }
     }
 
     #[inline(always)]
     pub fn push(&mut self, m: Move) {
-        self.stack[self.top_index] = m;
-        self.top_index += 1;
+        self.stack[self.next_index] = m;
+        self.next_index += 1;
+    }
+
+    #[inline(always)]
+    pub fn pop(&mut self) -> Option<Move> {
+        if self.next_index == 0 {
+            None
+        } else {
+            self.next_index -= 1;
+            Some(self.stack[self.next_index])
+        }
     }
 }
 
