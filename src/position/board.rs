@@ -91,13 +91,11 @@ impl Board {
 
         let not_orig_bb = !(1 << orig_square);
         let dest_bb = 1 << dest_square;
-        let piece_type_array = &mut self.piece_type;
-        let color_array = &mut self.color;
 
         // empty the origin square
         unsafe {
-            *piece_type_array.get_unchecked_mut(piece) &= not_orig_bb;
-            *color_array.get_unchecked_mut(us) &= not_orig_bb;
+            *self.piece_type.get_unchecked_mut(piece) &= not_orig_bb;
+            *self.color.get_unchecked_mut(us) &= not_orig_bb;
         }
 
         // remove the captured piece (and update the en-passant file)
@@ -110,8 +108,8 @@ impl Board {
                 !dest_bb
             };
             unsafe {
-                *piece_type_array.get_unchecked_mut(captured_piece) &= not_captured_bb;
-                *color_array.get_unchecked_mut(them) &= not_captured_bb;
+                *self.piece_type.get_unchecked_mut(captured_piece) &= not_captured_bb;
+                *self.color.get_unchecked_mut(them) &= not_captured_bb;
             }
         }
 
@@ -122,8 +120,8 @@ impl Board {
             piece
         };
         unsafe {
-            *piece_type_array.get_unchecked_mut(dest_piece) |= dest_bb;
-            *color_array.get_unchecked_mut(us) |= dest_bb;
+            *self.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
+            *self.color.get_unchecked_mut(us) |= dest_bb;
         }
         if move_type == MOVE_CASTLING {
             let side = if dest_square > orig_square {
@@ -132,8 +130,8 @@ impl Board {
                 QUEENSIDE
             };
             let mask = self.castling.rook_xor_mask(us, side);
-            piece_type_array[ROOK] ^= mask;
-            color_array[us] ^= mask;
+            self.piece_type[ROOK] ^= mask;
+            self.color[us] ^= mask;
         }
 
         // update castling rights
@@ -144,6 +142,8 @@ impl Board {
 
         // change the side to move
         self.to_move = them;
+
+        assert!(self.is_legal());
         true
     }
 
@@ -158,15 +158,13 @@ impl Board {
         let captured_piece = m.captured_piece();
         assert!(them <= 1);
         assert!(piece < NO_PIECE);
-  
+
         let orig_bb = 1 << orig_square;
         let not_dest_bb = !(1 << dest_square);
-        let piece_type_array = &mut self.piece_type;
-        let color_array = &mut self.color;
 
         // change the side to move
         self.to_move = us;
-        
+
         // restore castling rights
         self.castling.set_for(us, aux_data);
         self.castling.set_for(them, m.castling_data());
@@ -179,8 +177,8 @@ impl Board {
             piece
         };
         unsafe {
-            *piece_type_array.get_unchecked_mut(dest_piece) &= not_dest_bb;
-            *color_array.get_unchecked_mut(us) &= not_dest_bb;
+            *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
+            *self.color.get_unchecked_mut(us) &= not_dest_bb;
         }
         if move_type == MOVE_CASTLING {
             let side = if dest_square > orig_square {
@@ -189,8 +187,8 @@ impl Board {
                 QUEENSIDE
             };
             let mask = self.castling.rook_xor_mask(us, side);
-            piece_type_array[ROOK] ^= mask;
-            color_array[us] ^= mask;
+            self.piece_type[ROOK] ^= mask;
+            self.color[us] ^= mask;
         }
 
         // put back the captured piece (and restore the en-passant file)
@@ -201,17 +199,19 @@ impl Board {
                 !not_dest_bb
             };
             unsafe {
-                *piece_type_array.get_unchecked_mut(captured_piece) |= captured_bb;
-                *color_array.get_unchecked_mut(them) |= captured_bb;
+                *self.piece_type.get_unchecked_mut(captured_piece) |= captured_bb;
+                *self.color.get_unchecked_mut(them) |= captured_bb;
             }
         }
         self.en_passant_file = m.en_passant_file();
-        
+
         // restore the piece on the origin square
         unsafe {
-            *piece_type_array.get_unchecked_mut(piece) |= orig_bb;
-            *color_array.get_unchecked_mut(us) |= orig_bb;
+            *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
+            *self.color.get_unchecked_mut(us) |= orig_bb;
         }
+
+        assert!(self.is_legal());
     }
 
     // Return the set of squares that have on them pieces (or pawns)
