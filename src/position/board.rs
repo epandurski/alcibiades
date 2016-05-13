@@ -74,6 +74,83 @@ impl Board {
 
     }
 
+    pub fn do_move(&mut self, m: Move) -> bool {
+        let us = self.to_move;
+        let them = 1 ^ us;
+        let move_type = m.move_type();
+        let orig_square = m.orig_square();
+        let dest_square = m.dest_square();
+        let aux_data = m.aux_data();
+        let castling_data = m.castling_data();
+        let piece = m.piece();
+        let captured_piece = m.captured_piece();
+        assert!(us <= 1);
+        assert!(piece < NO_PIECE);
+        assert!(captured_piece <= NO_PIECE);
+
+        if piece == KING && self.attacks_to(them, dest_square) != EMPTY_SET {
+            return false;  // the king is in check -- illegal move
+        }
+
+        let not_orig_bb = !(1 << orig_square);
+        let dest_bb = 1 << dest_square;
+        let piece_type_array = &mut self.piece_type;
+        let color_array = &mut self.color;
+
+        // empty the origin square
+        unsafe {
+            *piece_type_array.get_unchecked_mut(piece) &= not_orig_bb;
+            *color_array.get_unchecked_mut(us) &= not_orig_bb;
+        }
+
+        // remove the captured piece (and update the en-passant file)
+        self.en_passant_file = NO_ENPASSANT_FILE;
+        if captured_piece < NO_PIECE {
+            let not_captured_bb = if move_type == MOVE_ENPASSANT {
+                self.en_passant_file = file(dest_square);
+                !gen_shift(dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
+            } else {
+                !dest_bb
+            };
+            unsafe {
+                *piece_type_array.get_unchecked_mut(captured_piece) &= not_captured_bb;
+                *color_array.get_unchecked_mut(them) &= not_captured_bb;
+            }
+        }
+
+        // occupy the destination square (and shift the rook if the move is castling)
+        let dest_piece = if move_type == MOVE_PROMOTION {
+            Move::piece_from_aux_data(aux_data)
+        } else {
+            piece
+        };
+        unsafe {
+            *piece_type_array.get_unchecked_mut(dest_piece) |= dest_bb;
+            *color_array.get_unchecked_mut(us) |= dest_bb;
+        }
+        if move_type == MOVE_CASTLING {
+            let side = if dest_square > orig_square {
+                KINGSIDE
+            } else {
+                QUEENSIDE
+            };
+            let mask = self.castling.rook_xor_mask(us, side);
+            unsafe {
+                *piece_type_array.get_unchecked_mut(ROOK) ^= mask;
+                *color_array.get_unchecked_mut(us) ^= mask;
+            }
+        }
+
+        // update castling rights
+        self.castling.0 &= unsafe {
+            *self.geometry.castling_relation.get_unchecked(orig_square) &
+            *self.geometry.castling_relation.get_unchecked(dest_square)
+        };
+
+        // change the side to move
+        self.to_move = them;
+        true
+    }
 
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no

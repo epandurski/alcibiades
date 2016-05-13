@@ -32,10 +32,10 @@ pub const QUEENSIDE: CastlingSide = 0;
 pub const KINGSIDE: CastlingSide = 1;
 
 // Castling rights
-pub const CASTLE_WHITE_QUEENSIDE: u8 = 1 << 0;
-pub const CASTLE_WHITE_KINGSIDE: u8 = 1 << 1;
-pub const CASTLE_BLACK_QUEENSIDE: u8 = 1 << 2;
-pub const CASTLE_BLACK_KINGSIDE: u8 = 1 << 3;
+pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
+pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
+pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
+pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
 
 // Ranks
 pub const RANK_1: Rank = 0;
@@ -174,7 +174,7 @@ impl CastlingRights {
         self.obstacles(color, side) != UNIVERSAL_SET
     }
 
-    pub fn set_with_mask(&mut self, mask: u8) -> bool {
+    pub fn set_with_mask(&mut self, mask: usize) -> bool {
         let before = self.0;
         self.0 |= mask as usize;
         self.0 != before

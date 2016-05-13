@@ -12,6 +12,7 @@ pub struct BoardGeometry {
     pub squares_at_line: [[u64; 64]; 64],
     pub squares_between_including: [[u64; 64]; 64],
     pub squares_behind_blocker: [[u64; 64]; 64],
+    pub castling_relation: [usize; 64],
 }
 
 impl BoardGeometry {
@@ -46,11 +47,12 @@ impl BoardGeometry {
             grid: grid,
             piece_grid_deltas: piece_grid_deltas,
             piece_longrange: piece_longrange,
-            attacks: [[0u64; 64]; 5],
-            blockers_and_beyond: [[0u64; 64]; 5],
-            squares_at_line: [[0u64; 64]; 64],
-            squares_between_including: [[0u64; 64]; 64],
-            squares_behind_blocker: [[0u64; 64]; 64],
+            attacks: [[0; 64]; 5],
+            blockers_and_beyond: [[0; 64]; 5],
+            squares_at_line: [[0; 64]; 64],
+            squares_between_including: [[0; 64]; 64],
+            squares_behind_blocker: [[0; 64]; 64],
+            castling_relation: [!0; 64],
         };
 
         // "attacks" and "blockers_and_beyond" fields hold attack and
@@ -122,6 +124,13 @@ impl BoardGeometry {
         // . 1 . . . . . .
         // 1 . . . . . . .
         bg.fill_squares_at_line_array();
+
+        // The "castling_relation" field holds bit-masks that describe
+        // how each square on the board is affiliated to castling. On
+        // each move, the value of "castling_relation" for the
+        // destination square is &-ed with the castling rights, to
+        // derive the updated castling rights.
+        bg.fill_castling_relation();
 
         bg
     }
@@ -225,6 +234,16 @@ impl BoardGeometry {
                                              self.squares_behind_blocker[b][a];
             }
         }
+    }
+
+    fn fill_castling_relation(&mut self) {
+        self.castling_relation[A1] = !CASTLE_WHITE_QUEENSIDE;
+        self.castling_relation[H1] = !CASTLE_WHITE_KINGSIDE;
+        self.castling_relation[E1] = !(CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE);
+        
+        self.castling_relation[A8] = !CASTLE_BLACK_QUEENSIDE;
+        self.castling_relation[H8] = !CASTLE_BLACK_KINGSIDE;
+        self.castling_relation[E8] = !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE);
     }
 }
 
