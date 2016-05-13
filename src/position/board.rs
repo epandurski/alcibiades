@@ -305,7 +305,7 @@ impl Board {
             let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
             let our_king_square = bitscan_forward(our_king_bb);
             let checkers = self.attacks_to(them, our_king_square);
-            ([BB_RANK_6, BB_RANK_3][us] & en_passant_bb != 0) &&
+            ([BB_RANK_6, BB_RANK_3][us] & en_passant_bb != 0) && // TODO: This is always true
             (dest_square_bb & pawns & o_them != 0) &&
             (en_passant_bb & !occupied != 0) && (orig_square_bb & !occupied != 0) &&
             (checkers == EMPTY_SET || checkers == dest_square_bb ||
