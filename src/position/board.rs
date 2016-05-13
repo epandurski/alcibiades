@@ -80,13 +80,10 @@ impl Board {
         let move_type = m.move_type();
         let orig_square = m.orig_square();
         let dest_square = m.dest_square();
-        let aux_data = m.aux_data();
-        let castling_data = m.castling_data();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
         assert!(us <= 1);
         assert!(piece < NO_PIECE);
-        assert!(captured_piece <= NO_PIECE);
 
         if piece == KING && self.attacks_to(them, dest_square) != EMPTY_SET {
             return false;  // the king is in check -- illegal move
@@ -120,7 +117,7 @@ impl Board {
 
         // occupy the destination square (and shift the rook if the move is castling)
         let dest_piece = if move_type == MOVE_PROMOTION {
-            Move::piece_from_aux_data(aux_data)
+            Move::piece_from_aux_data(m.aux_data())
         } else {
             piece
         };
@@ -135,10 +132,8 @@ impl Board {
                 QUEENSIDE
             };
             let mask = self.castling.rook_xor_mask(us, side);
-            unsafe {
-                *piece_type_array.get_unchecked_mut(ROOK) ^= mask;
-                *color_array.get_unchecked_mut(us) ^= mask;
-            }
+            piece_type_array[ROOK] ^= mask;
+            color_array[us] ^= mask;
         }
 
         // update castling rights
@@ -150,6 +145,73 @@ impl Board {
         // change the side to move
         self.to_move = them;
         true
+    }
+
+    pub fn undo_move(&mut self, m: Move) {
+        let them = self.to_move;
+        let us = 1 ^ them;
+        let move_type = m.move_type();
+        let orig_square = m.orig_square();
+        let dest_square = m.dest_square();
+        let aux_data = m.aux_data();
+        let piece = m.piece();
+        let captured_piece = m.captured_piece();
+        assert!(them <= 1);
+        assert!(piece < NO_PIECE);
+  
+        let orig_bb = 1 << orig_square;
+        let not_dest_bb = !(1 << dest_square);
+        let piece_type_array = &mut self.piece_type;
+        let color_array = &mut self.color;
+
+        // change the side to move
+        self.to_move = us;
+        
+        // restore castling rights
+        self.castling.set_for(us, aux_data);
+        self.castling.set_for(them, m.castling_data());
+
+        // empty the destination square (and shift back the rook if
+        // the move is castling)
+        let dest_piece = if move_type == MOVE_PROMOTION {
+            Move::piece_from_aux_data(aux_data)
+        } else {
+            piece
+        };
+        unsafe {
+            *piece_type_array.get_unchecked_mut(dest_piece) &= not_dest_bb;
+            *color_array.get_unchecked_mut(us) &= not_dest_bb;
+        }
+        if move_type == MOVE_CASTLING {
+            let side = if dest_square > orig_square {
+                KINGSIDE
+            } else {
+                QUEENSIDE
+            };
+            let mask = self.castling.rook_xor_mask(us, side);
+            piece_type_array[ROOK] ^= mask;
+            color_array[us] ^= mask;
+        }
+
+        // put back the captured piece (and restore the en-passant file)
+        if captured_piece < NO_PIECE {
+            let captured_bb = if move_type == MOVE_ENPASSANT {
+                !gen_shift(not_dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
+            } else {
+                !not_dest_bb
+            };
+            unsafe {
+                *piece_type_array.get_unchecked_mut(captured_piece) |= captured_bb;
+                *color_array.get_unchecked_mut(them) |= captured_bb;
+            }
+        }
+        self.en_passant_file = m.en_passant_file();
+        
+        // restore the piece on the origin square
+        unsafe {
+            *piece_type_array.get_unchecked_mut(piece) |= orig_bb;
+            *color_array.get_unchecked_mut(us) |= orig_bb;
+        }
     }
 
     // Return the set of squares that have on them pieces (or pawns)
