@@ -84,6 +84,9 @@ impl Board {
         let captured_piece = m.captured_piece();
         assert!(us <= 1);
         assert!(piece < NO_PIECE);
+        assert!(move_type <= 3);
+        assert!(orig_square <= 63);
+        assert!(dest_square <= 63);
 
         if piece == KING && self.attacks_to(them, dest_square) != EMPTY_SET {
             return false;  // the king is in check -- illegal move
@@ -111,16 +114,7 @@ impl Board {
             }
         }
 
-        // occupy the destination square (and shift the rook if the move is castling)
-        let dest_piece = if move_type == MOVE_PROMOTION {
-            Move::piece_from_aux_data(m.aux_data())
-        } else {
-            piece
-        };
-        unsafe {
-            *self.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
-            *self.color.get_unchecked_mut(us) |= dest_bb;
-        }
+        // shift the rook if the move is castling
         if move_type == MOVE_CASTLING {
             let side = if dest_square > orig_square {
                 KINGSIDE
@@ -132,6 +126,23 @@ impl Board {
             self.color[us] ^= mask;
         }
 
+        // occupy the destination square
+        let dest_piece = if move_type == MOVE_PROMOTION {
+            Move::piece_from_aux_data(m.aux_data())
+        } else {
+            piece
+        };
+        unsafe {
+            *self.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
+            *self.color.get_unchecked_mut(us) |= dest_bb;
+        }
+        
+        // update castling rights
+        self.castling.0 &= unsafe {
+            *self.geometry.castling_relation.get_unchecked(orig_square) &
+            *self.geometry.castling_relation.get_unchecked(dest_square)
+        };
+
         // update the en-passant file
         self.en_passant_file = if piece == PAWN {
             match dest_square as isize - orig_square as isize {
@@ -140,12 +151,6 @@ impl Board {
             }
         } else {
             NO_ENPASSANT_FILE
-        };
-
-        // update castling rights
-        self.castling.0 &= unsafe {
-            *self.geometry.castling_relation.get_unchecked(orig_square) &
-            *self.geometry.castling_relation.get_unchecked(dest_square)
         };
 
         // change the side to move
@@ -166,6 +171,9 @@ impl Board {
         let captured_piece = m.captured_piece();
         assert!(them <= 1);
         assert!(piece < NO_PIECE);
+        assert!(move_type <= 3);
+        assert!(orig_square <= 63);
+        assert!(dest_square <= 63);
 
         let orig_bb = 1 << orig_square;
         let not_dest_bb = !(1 << dest_square);
@@ -173,17 +181,16 @@ impl Board {
         // change the side to move
         self.to_move = us;
 
-        // restore castling rights
-        if move_type != MOVE_PROMOTION {
-            self.castling.set_for(us, aux_data);
-        }
-        self.castling.set_for(them, m.castling_data());
-
         // restore the en-passant file
         self.en_passant_file = m.en_passant_file();
 
-        // empty the destination square (and shift back the rook if
-        // the move is castling)
+        // restore castling rights
+        self.castling.set_for(them, m.castling_data());
+        if move_type != MOVE_PROMOTION {
+            self.castling.set_for(us, aux_data);
+        }
+        
+        // empty the destination square
         let dest_piece = if move_type == MOVE_PROMOTION {
             Move::piece_from_aux_data(aux_data)
         } else {
@@ -193,6 +200,8 @@ impl Board {
             *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
             *self.color.get_unchecked_mut(us) &= not_dest_bb;
         }
+
+        // shift the rook back if the move is castling
         if move_type == MOVE_CASTLING {
             let side = if dest_square > orig_square {
                 KINGSIDE

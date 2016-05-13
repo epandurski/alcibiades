@@ -240,7 +240,6 @@ impl BoardGeometry {
         self.castling_relation[A1] = !CASTLE_WHITE_QUEENSIDE;
         self.castling_relation[H1] = !CASTLE_WHITE_KINGSIDE;
         self.castling_relation[E1] = !(CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE);
-        
         self.castling_relation[A8] = !CASTLE_BLACK_QUEENSIDE;
         self.castling_relation[H8] = !CASTLE_BLACK_KINGSIDE;
         self.castling_relation[E8] = !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE);
