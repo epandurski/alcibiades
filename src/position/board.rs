@@ -174,6 +174,7 @@ impl Board {
         assert!(move_type <= 3);
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
+        assert!(aux_data <= 3);
 
         let orig_bb = 1 << orig_square;
         let not_dest_bb = !(1 << dest_square);
