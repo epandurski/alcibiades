@@ -114,7 +114,7 @@ impl Board {
             }
         }
 
-        // shift the rook if the move is castling
+        // move the rook if the move is castling
         if move_type == MOVE_CASTLING {
             let side = if dest_square > orig_square {
                 KINGSIDE
@@ -202,7 +202,7 @@ impl Board {
             *self.color.get_unchecked_mut(us) &= not_dest_bb;
         }
 
-        // shift the rook back if the move is castling
+        // move the rook back if the move is castling
         if move_type == MOVE_CASTLING {
             let side = if dest_square > orig_square {
                 KINGSIDE
