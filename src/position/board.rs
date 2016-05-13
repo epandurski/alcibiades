@@ -101,7 +101,7 @@ impl Board {
             *self.color.get_unchecked_mut(us) &= not_orig_bb;
         }
 
-        // remove the captured piece
+        // remove the captured piece (if any)
         if captured_piece < NO_PIECE {
             let not_captured_bb = if move_type == MOVE_ENPASSANT {
                 !gen_shift(dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
@@ -214,7 +214,7 @@ impl Board {
             self.color[us] ^= mask;
         }
 
-        // put back the captured piece
+        // put back the captured piece (if any)
         if captured_piece < NO_PIECE {
             let captured_bb = if move_type == MOVE_ENPASSANT {
                 gen_shift(!not_dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
