@@ -620,6 +620,7 @@ impl Board {
         }
     }
 
+    #[inline(always)]
     fn find_pinned(&self) -> u64 {
         let us = self.to_move;
         assert!(us <= 1);
@@ -1486,5 +1487,17 @@ mod tests {
                 assert!(count == b.generate_moves(0, &mut MoveStack::new()));
             }
         }
+    }
+
+    #[test]
+    fn test_find_pinned() {
+        use basetypes::*;
+        let b = Board::create(&fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/5R2/6b1").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
+        assert_eq!(b.find_pinned(), 1 << F2 | 1 << D6 | 1 << G4);
     }
 }
