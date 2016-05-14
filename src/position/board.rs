@@ -636,9 +636,7 @@ impl Board {
                 match pawn_bb {
                     // en-passant capture
                     x if x == en_passant_bb => {
-                        let king_bb = self.piece_type[KING] & occupied_by_us;
-                        if king_bb & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 ||
-                           self.en_passant_special_check_ok(orig_square, dest_square) {
+                        if self.en_passant_special_check_ok(orig_square, dest_square) {
                             counter += 1;
                             move_stack.push(Move::new(self.to_move,
                                                       0,
@@ -851,17 +849,23 @@ impl Board {
     // square and the destination square of the capturing pawn.
     #[inline]
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
-        let the_two_pawns = 1 << orig_square |
-                            gen_shift(1,
-                                      dest_square as isize -
-                                      PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
         let king_square = self.king_square(self.to_move);
-        let occupied = self.occupied & !the_two_pawns;
-        let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
-        let checkers = piece_attacks_from(self.geometry, occupied, ROOK, king_square) &
-                       occupied_by_them &
-                       (self.piece_type[ROOK] | self.piece_type[QUEEN]);
-        checkers == EMPTY_SET
+        if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
+            // the king is not on the 4/5-th rank -- we are done
+            true
+        } else {
+            // the king is on the 4/5-th rank -- we have more work to do
+            let the_two_pawns = 1 << orig_square |
+                                gen_shift(1,
+                                          dest_square as isize -
+                                          PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
+            let occupied = self.occupied & !the_two_pawns;
+            let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
+            let checkers = piece_attacks_from(self.geometry, occupied, ROOK, king_square) &
+                           occupied_by_them &
+                           (self.piece_type[ROOK] | self.piece_type[QUEEN]);
+            checkers == EMPTY_SET
+        }
     }
 
     fn pretty_string(&self) -> String {
