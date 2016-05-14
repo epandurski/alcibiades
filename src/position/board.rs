@@ -90,8 +90,26 @@ impl Board {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
 
+        // TODO: This (and the castling passing square check) can be
+        // done more efficeient.
         if piece == KING && self.attacks_to(them, dest_square) != EMPTY_SET {
             return false;  // the king is in check -- illegal move
+        }
+
+        // move the rook if the move is castling
+        if move_type == MOVE_CASTLING {
+            if self.attacks_to(them, (orig_square + dest_square) / 2) != EMPTY_SET {
+                return false;  // king's passing square is attacked -- illegal move
+            }
+
+            let side = if dest_square > orig_square {
+                KINGSIDE
+            } else {
+                QUEENSIDE
+            };
+            let mask = self.castling.rook_xor_mask(us, side);
+            self.piece_type[ROOK] ^= mask;
+            self.color[us] ^= mask;
         }
 
         let not_orig_bb = !(1 << orig_square);
@@ -114,18 +132,6 @@ impl Board {
                 *self.piece_type.get_unchecked_mut(captured_piece) &= not_captured_bb;
                 *self.color.get_unchecked_mut(them) &= not_captured_bb;
             }
-        }
-
-        // move the rook if the move is castling
-        if move_type == MOVE_CASTLING {
-            let side = if dest_square > orig_square {
-                KINGSIDE
-            } else {
-                QUEENSIDE
-            };
-            let mask = self.castling.rook_xor_mask(us, side);
-            self.piece_type[ROOK] ^= mask;
-            self.color[us] ^= mask;
         }
 
         // occupy the destination square
@@ -209,18 +215,6 @@ impl Board {
             *self.color.get_unchecked_mut(us) &= not_dest_bb;
         }
 
-        // move the rook back if the move is castling
-        if move_type == MOVE_CASTLING {
-            let side = if dest_square > orig_square {
-                KINGSIDE
-            } else {
-                QUEENSIDE
-            };
-            let mask = self.castling.rook_xor_mask(us, side);
-            self.piece_type[ROOK] ^= mask;
-            self.color[us] ^= mask;
-        }
-
         // put back the captured piece (if any)
         if captured_piece < NO_PIECE {
             let captured_bb = if move_type == MOVE_ENPASSANT {
@@ -238,6 +232,18 @@ impl Board {
         unsafe {
             *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
             *self.color.get_unchecked_mut(us) |= orig_bb;
+        }
+
+        // move the rook back if the move is castling
+        if move_type == MOVE_CASTLING {
+            let side = if dest_square > orig_square {
+                KINGSIDE
+            } else {
+                QUEENSIDE
+            };
+            let mask = self.castling.rook_xor_mask(us, side);
+            self.piece_type[ROOK] ^= mask;
+            self.color[us] ^= mask;
         }
 
         // update the occupation bitboard
@@ -331,12 +337,13 @@ impl Board {
     //
     // It is guaranteed that all legal moves will be found. It is also
     // guaranteed, that all generated moves with pieces other than the
-    // king are legal. *It is possible that some of the king's moves
-    // are illegal because the destination square is under
-    // check*. This is because verifying that all king destination
-    // squares are not under attack is quite expensive, and therefore
-    // we hope that the alpha-beta pruning will eliminate the need for
-    // this verification at all.
+    // king are legal. It is possible that some of the king's moves
+    // are illegal because the destination square is under check, or
+    // when castling, king's passing square is attacked. This is
+    // because verifying that all king destination squares are not
+    // under attack is quite expensive, and therefore we hope that the
+    // alpha-beta pruning will eliminate the need for this
+    // verification at all.
     //
     // "us" is the side to move. "king_square" should be the moving
     // side king's square. "checkers" should represent all pieces that
@@ -692,7 +699,6 @@ impl Board {
                                      move_stack: &mut MoveStack) {
         assert!(king_square <= 63);
         const FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
-        const PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
 
         // can not castle if in check
         if checkers == EMPTY_SET {
@@ -703,33 +709,22 @@ impl Board {
                 // ensure squares between the king and the rook are empty
                 if self.castling.obstacles(self.to_move, side) & self.occupied == 0 {
 
-                    // ensure king's passing square is not attacked (this
-                    // is a quite expensive check).
-                    //
-                    // TODO: This check is probably too expensive to do
-                    // here. We probably have to move this check in the
-                    // "do_move()" method of "Position" class.
-                    if self.attacks_to(1 ^ self.to_move, unsafe {
-                        *PASSING_SQUARES[side].get_unchecked(self.to_move)
-                    }) == 0 {
-
-                        // it seems castling is legal unless king's final
-                        // square is attacked, but we do not care about
-                        // that, because this will be verified later.
-                        move_stack.push(Move::new(self.to_move,
-                                                  0,
-                                                  MOVE_CASTLING,
-                                                  KING,
-                                                  king_square,
-                                                  unsafe {
-                                                      *FINAL_SQUARES[side]
-                                                           .get_unchecked(self.to_move)
-                                                  },
-                                                  NO_PIECE,
-                                                  self.en_passant_file,
-                                                  self.castling,
-                                                  0));
-                    }
+                    // it seems castling is legal unless king's
+                    // passing or final squares are attacked, but
+                    // we do not care about that, because this
+                    // will be verified in "do_move()".
+                    move_stack.push(Move::new(self.to_move,
+                                              0,
+                                              MOVE_CASTLING,
+                                              KING,
+                                              king_square,
+                                              unsafe {
+                                                  *FINAL_SQUARES[side].get_unchecked(self.to_move)
+                                              },
+                                              NO_PIECE,
+                                              self.en_passant_file,
+                                              self.castling,
+                                              0));
                 }
             }
         }
@@ -1358,14 +1353,30 @@ mod tests {
         b.generate_moves(&mut stack);
         assert_eq!(stack.remove_all(), 5);
 
-        let b = Board::create(&fen("4k3/8/8/8/8/6n1/8/R3K2R").ok().unwrap(),
+        let mut b = Board::create(&fen("4k3/8/8/8/8/6n1/8/R3K2R").ok().unwrap(),
+                                  None,
+                                  cr,
+                                  WHITE)
+                        .ok()
+                        .unwrap();
+        b.generate_moves(&mut stack);
+        let mut count = 0;
+        while let Some(m) = stack.pop() {
+            if b.do_move(m) {
+                count += 1;
+                b.undo_move(m);
+            }
+        }
+        assert_eq!(count, 19 + 4);
+
+        let b = Board::create(&fen("4k3/8/8/8/8/4n3/8/R3K2R").ok().unwrap(),
                               None,
                               cr,
                               WHITE)
                     .ok()
                     .unwrap();
         b.generate_moves(&mut stack);
-        assert_eq!(stack.remove_all(), 19 + 6);
+        assert_eq!(stack.remove_all(), 19 + 7);
 
         let b = Board::create(&fen("4k3/8/8/8/8/4n3/8/R3K2R").ok().unwrap(),
                               None,
