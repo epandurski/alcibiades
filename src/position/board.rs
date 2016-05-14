@@ -453,9 +453,8 @@ impl Board {
         }
 
         // Find all king moves (pseudo-legal, possibly moving into
-        // check).
-        //
-        // This is executed even when the king is in double check.
+        // check). This is executed even when the king is in double
+        // check.
         counter += self.write_castling_moves_to_stack(king_square, checkers, move_stack);
         counter += self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
         counter
@@ -639,14 +638,7 @@ impl Board {
                     x if x == en_passant_bb => {
                         let king_bb = self.piece_type[KING] & occupied_by_us;
                         if king_bb & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 ||
-                           en_passant_special_check_ok(self.geometry,
-                                                       &self.piece_type,
-                                                       self.occupied,
-                                                       occupied_by_them,
-                                                       self.to_move,
-                                                       bitscan_1bit(king_bb),
-                                                       orig_square,
-                                                       dest_square) {
+                           self.en_passant_special_check_ok(orig_square, dest_square) {
                             counter += 1;
                             move_stack.push(Move::new(self.to_move,
                                                       0,
@@ -850,6 +842,28 @@ impl Board {
         bitscan_1bit(self.piece_type[KING] & unsafe { self.color.get_unchecked(us) })
     }
 
+    // This is a helper method for "write_pawn_moves_to_stack()". It
+    // tests for the special case when an en-passant capture discovers
+    // check on 4/5-th rank. This is the very rare occasion when the
+    // two pawns participating in en-passant capture, disappearing in
+    // one move, discover an unexpected check along the horizontal
+    // (rank 4 of 5). "orig_square" and "dist_square" are the origin
+    // square and the destination square of the capturing pawn.
+    #[inline]
+    fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
+        let the_two_pawns = 1 << orig_square |
+                            gen_shift(1,
+                                      dest_square as isize -
+                                      PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
+        let king_square = self.king_square(self.to_move);
+        let occupied = self.occupied & !the_two_pawns;
+        let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
+        let checkers = piece_attacks_from(self.geometry, occupied, ROOK, king_square) &
+                       occupied_by_them &
+                       (self.piece_type[ROOK] | self.piece_type[QUEEN]);
+        checkers == EMPTY_SET
+    }
+
     fn pretty_string(&self) -> String {
         let mut s = String::new();
         for rank in (0..8).rev() {
@@ -987,33 +1001,6 @@ fn pawn_dest_sets(occupied_by_us: u64,
         dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
         dest_sets
     }
-}
-
-
-// This is a helper function for "write_pawn_moves_to_stack()".
-//
-// It tests for the special case when an en-passant capture discovers
-// check on 4/5-th rank. This is the very rare occasion when the two
-// pawns participating in en-passant capture, disappearing in one
-// move, discover an unexpected check along the horizontal (rank 4 of
-// 5).
-#[inline]
-fn en_passant_special_check_ok(geometry: &BoardGeometry,
-                               piece_type_array: &[u64; 6],
-                               occupied: u64,
-                               occupied_by_them: u64,
-                               us: Color,
-                               king_square: Square,
-                               orig_square: Square,
-                               dest_square: Square)
-                               -> bool {
-    let the_two_pawns = 1 << orig_square |
-                        gen_shift(1, dest_square as isize - PAWN_MOVE_SHIFTS[us][PAWN_PUSH]);
-    let occupied = occupied & !the_two_pawns;
-    let occupied_by_them = occupied_by_them & !the_two_pawns;
-    let checkers = piece_attacks_from(geometry, occupied, ROOK, king_square) & occupied_by_them &
-                   (piece_type_array[ROOK] | piece_type_array[QUEEN]);
-    checkers == EMPTY_SET
 }
 
 
