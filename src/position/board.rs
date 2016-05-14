@@ -248,31 +248,6 @@ impl Board {
         assert!(self.is_legal());
     }
 
-    // Return the set of squares that have on them pieces (or pawns)
-    // of color "us" that attack the square "square" directly (no
-    // x-rays).
-    #[inline]
-    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
-        assert!(us <= 1);
-        assert!(square <= 63);
-        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
-        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
-        let square_bb = 1 << square;
-
-        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
-         (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
-         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
-         self.piece_type[KNIGHT]) |
-        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
-         self.piece_type[KING]) |
-        (gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
-         self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
-        (gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
-         self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
-    }
-
     // Analyzes the board and decides if it is a legal board.
     //
     // In addition to the obviously wrong boards (that for example
@@ -781,6 +756,31 @@ impl Board {
             }
         }
         counter
+    }
+
+    // Return the set of squares that have on them pieces (or pawns)
+    // of color "us" that attack the square "square" directly (no
+    // x-rays).
+    #[inline]
+    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
+        assert!(us <= 1);
+        assert!(square <= 63);
+        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+        let square_bb = 1 << square;
+
+        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
+         (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
+        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
+         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
+        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
+         self.piece_type[KNIGHT]) |
+        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
+         self.piece_type[KING]) |
+        (gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
+        (gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
     #[inline(always)]
