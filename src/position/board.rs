@@ -36,6 +36,7 @@ pub struct Board {
     pub geometry: &'static BoardGeometry,
     pub piece_type: [u64; 6],
     pub color: [u64; 2],
+    pub occupied: u64, // this should always be equal to self.color[0] | self.color[1]
     pub en_passant_file: File,
     pub castling: CastlingRights,
     pub to_move: Color,
@@ -65,6 +66,7 @@ impl Board {
             en_passant_file: en_passant_file,
             castling: castling,
             to_move: to_move,
+            occupied: placement.color[WHITE] | placement.color[BLACK],
         };
         if b.is_legal() {
             Ok(b)
@@ -156,6 +158,11 @@ impl Board {
         // change the side to move
         self.to_move = them;
 
+        // update the occupation bitboard
+        self.occupied = unsafe {
+            *self.color.get_unchecked(WHITE) | *self.color.get_unchecked(BLACK)
+        };
+
         assert!(self.is_legal());
         true
     }
@@ -233,19 +240,37 @@ impl Board {
             *self.color.get_unchecked_mut(us) |= orig_bb;
         }
 
+        // update the occupation bitboard
+        self.occupied = unsafe {
+            *self.color.get_unchecked(WHITE) | *self.color.get_unchecked(BLACK)
+        };
+
         assert!(self.is_legal());
     }
 
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no
     // x-rays).
+    #[inline]
     pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
-        attacks_to(self.geometry,
-                   &self.piece_type,
-                   &self.color,
-                   self.color[WHITE] | self.color[BLACK],
-                   us,
-                   square)
+        assert!(us <= 1);
+        assert!(square <= 63);
+        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+        let square_bb = 1 << square;
+
+        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
+         (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
+        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
+         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
+        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
+         self.piece_type[KNIGHT]) |
+        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
+         self.piece_type[KING]) |
+        (gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
+        (gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
     // Analyzes the board and decides if it is a legal board.
@@ -292,11 +317,11 @@ impl Board {
         let their_king_bb = self.piece_type[KING] & o_them;
         let pawns = self.piece_type[PAWN];
 
-        occupied != UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
-        pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
-        pop_count(pawns & o_us) <= 8 &&
-        pop_count(pawns & o_them) <= 8 && pop_count(o_us) <= 16 &&
-        pop_count(o_them) <= 16 &&
+        self.occupied == occupied && occupied != UNIVERSAL_SET && occupied == o_us | o_them &&
+        o_us & o_them == 0 && pop_count(our_king_bb) == 1 &&
+        pop_count(their_king_bb) == 1 &&
+        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
+        pop_count(o_us) <= 16 && pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
         pawns & PAWN_PROMOTION_RANKS == 0 &&
         (!self.castling.can_castle(WHITE, QUEENSIDE) ||
@@ -351,26 +376,19 @@ impl Board {
         assert!(self.is_legal());
 
         let mut counter = 0;
-        let geometry = self.geometry;
-        let piece_type_array = &self.piece_type;
-        let color_array = &self.color;
-        let us = self.to_move;
-        let occupied = color_array[WHITE] | color_array[BLACK];
-        let occupied_by_us = unsafe { *color_array.get_unchecked(us) };
-        let occupied_by_them = unsafe { *color_array.get_unchecked(1 ^ us) };
-        let not_occupied_by_us = !occupied_by_us;
+        let king_square = self.king_square(self.to_move);
+        let checkers = self.attacks_to(1 ^ self.to_move, king_square);
         let en_passant_bb = self.en_passant_bb();
-        let en_passant_file = self.en_passant_file;
-        let castling = self.castling;
-        let king_square = bitscan_1bit(piece_type_array[KING] & occupied_by_us);
-        let pin_lines: &[u64; 64] = unsafe { geometry.squares_at_line.get_unchecked(king_square) };
-        let checkers = self.attacks_to(1 ^ us, king_square);
+        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
+        let pin_lines: &[u64; 64] = unsafe {
+            self.geometry.squares_at_line.get_unchecked(king_square)
+        };
 
         // When in check, for every move except king's moves, the only
         // legal destination squares are those lying on the line
         // between the checker and the king. Also, no piece can move
         // to a square that is occupied by a friendly piece.
-        let legal_dests = not_occupied_by_us &
+        let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
             0 => {
                 // Not in check -- every move destination may be
@@ -385,9 +403,10 @@ impl Board {
                 // line with the king.
                 x |
                 unsafe {
-                    *geometry.squares_between_including
-                             .get_unchecked(king_square)
-                             .get_unchecked(bitscan_1bit(x))
+                    *self.geometry
+                         .squares_between_including
+                         .get_unchecked(king_square)
+                         .get_unchecked(bitscan_1bit(x))
                 }
             }
             _ => {
@@ -403,7 +422,7 @@ impl Board {
 
             // Find all queen, rook, bishop, and knight moves.
             for piece in QUEEN..PAWN {
-                let mut bb = piece_type_array[piece] & occupied_by_us;
+                let mut bb = self.piece_type[piece] & occupied_by_us;
                 while bb != EMPTY_SET {
                     let piece_bb = ls1b(bb);
                     bb ^= piece_bb;
@@ -412,16 +431,10 @@ impl Board {
                         0 => legal_dests,
                         _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
                     };
-                    counter += write_piece_moves_to_stack(geometry,
-                                                          piece_type_array,
-                                                          occupied,
-                                                          en_passant_file,
-                                                          castling,
-                                                          us,
-                                                          piece,
-                                                          from_square,
-                                                          piece_legal_dests,
-                                                          move_stack);
+                    counter += self.write_piece_moves_to_stack(piece,
+                                                               from_square,
+                                                               piece_legal_dests,
+                                                               move_stack);
                 }
             }
 
@@ -438,22 +451,14 @@ impl Board {
             };
 
             // Find all free pawn moves at once.
-            let all_pawns = piece_type_array[PAWN] & occupied_by_us;
+            let all_pawns = self.piece_type[PAWN] & occupied_by_us;
             let mut pinned_pawns = all_pawns & pinned;
             let free_pawns = all_pawns ^ pinned_pawns;
             if free_pawns != EMPTY_SET {
-                counter += write_pawn_moves_to_stack(geometry,
-                                                     piece_type_array,
-                                                     occupied,
-                                                     occupied_by_us,
-                                                     occupied_by_them,
-                                                     en_passant_file,
-                                                     castling,
-                                                     us,
-                                                     free_pawns,
-                                                     en_passant_bb,
-                                                     pawn_legal_dests,
-                                                     move_stack);
+                counter += self.write_pawn_moves_to_stack(free_pawns,
+                                                          en_passant_bb,
+                                                          pawn_legal_dests,
+                                                          move_stack);
             }
 
             // Find pinned pawn moves pawn by pawn.
@@ -465,18 +470,10 @@ impl Board {
                 // TODO: When working with a single pawn (pawn_bb),
                 // this procedure probably could be optimized. Not
                 // clear if it worth it, though.
-                counter += write_pawn_moves_to_stack(geometry,
-                                                     piece_type_array,
-                                                     occupied,
-                                                     occupied_by_us,
-                                                     occupied_by_them,
-                                                     en_passant_file,
-                                                     castling,
-                                                     us,
-                                                     pawn_bb,
-                                                     en_passant_bb,
-                                                     pin_line & pawn_legal_dests,
-                                                     move_stack);
+                counter += self.write_pawn_moves_to_stack(pawn_bb,
+                                                          en_passant_bb,
+                                                          pin_line & pawn_legal_dests,
+                                                          move_stack);
             }
         }
 
@@ -484,29 +481,10 @@ impl Board {
         // check).
         //
         // This is executed even when the king is in double check.
-        counter += write_castling_moves_to_stack(geometry,
-                                                 piece_type_array,
-                                                 color_array,
-                                                 occupied,
-                                                 en_passant_file,
-                                                 castling,
-                                                 us,
-                                                 king_square,
-                                                 checkers,
-                                                 move_stack);
-        counter += write_piece_moves_to_stack(geometry,
-                                              piece_type_array,
-                                              occupied,
-                                              en_passant_file,
-                                              castling,
-                                              us,
-                                              KING,
-                                              king_square,
-                                              not_occupied_by_us,
-                                              move_stack);
+        counter += self.write_castling_moves_to_stack(king_square, checkers, move_stack);
+        counter += self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
         counter
     }
-
 
     // A Static Exchange Evaluation (SEE) examines the consequence of
     // a series of exchanges on a single square after a given move,
@@ -552,18 +530,8 @@ impl Board {
         let color_array = &self.color;
         let mut occupied = color_array[WHITE] | color_array[BLACK];
         let mut depth = 0;
-        let mut attackers_and_defenders = attacks_to(geometry,
-                                                     piece_type_array,
-                                                     color_array,
-                                                     occupied,
-                                                     WHITE,
-                                                     to_square) |
-                                          attacks_to(geometry,
-                                                     piece_type_array,
-                                                     color_array,
-                                                     occupied,
-                                                     BLACK,
-                                                     to_square);
+        let mut attackers_and_defenders = self.attacks_to(WHITE, to_square) |
+                                          self.attacks_to(BLACK, to_square);
         let mut from_square_bb = 1 << from_square;
 
         // "may_xray" pieces may block x-ray attacks from other
@@ -606,6 +574,213 @@ impl Board {
             }
             gain[0]
         }
+    }
+
+    // This is a helper method for Board::generate_moves(). It finds
+    // all squares attacked by "piece" from square "from_square", and
+    // for each square that is within the "legal_dests" set writes a
+    // new move to "move_stack". "piece" can not be a pawn.
+    #[inline(always)]
+    fn write_piece_moves_to_stack(&self,
+                                  piece: PieceType,
+                                  from_square: Square,
+                                  legal_dests: u64,
+                                  move_stack: &mut MoveStack)
+                                  -> usize {
+        assert!(piece < PAWN);
+        assert!(from_square <= 63);
+        let mut counter = 0;
+        let mut dest_set = piece_attacks_from(self.geometry, self.occupied, piece, from_square) &
+                           legal_dests;
+        while dest_set != EMPTY_SET {
+            let dest_bb = ls1b(dest_set);
+            dest_set ^= dest_bb;
+            let dest_square = bitscan_1bit(dest_bb);
+            let captured_piece = get_piece_type_at(&self.piece_type, self.occupied, dest_bb);
+            move_stack.push(Move::new(self.to_move,
+                                      0,
+                                      MOVE_NORMAL,
+                                      piece,
+                                      from_square,
+                                      dest_square,
+                                      captured_piece,
+                                      self.en_passant_file,
+                                      self.castling,
+                                      0));
+            counter += 1;
+        }
+        counter
+    }
+
+    // This is a helper method for Board::generate_moves(). It finds
+    // all all possible moves by the set of pawns given by "pawns",
+    // making sure all pawn move destinations are within the
+    // "legal_dests" set. Then it writes the resulting moves to
+    // "move_stack". "en_passant_bb" represents the en-passant passing
+    // square, if there is one.
+    //
+    // This function also recognizes and discards the very rare case
+    // of pseudo-legal en-passant capture that leaves discovered check
+    // on the 4/5-th rank.
+    #[inline(always)]
+    fn write_pawn_moves_to_stack(&self,
+                                 pawns: u64,
+                                 en_passant_bb: u64,
+                                 legal_dests: u64,
+                                 move_stack: &mut MoveStack)
+                                 -> usize {
+        let mut counter = 0;
+        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
+        let occupied_by_them = unsafe { *self.color.get_unchecked(1 ^ self.to_move) };
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
+
+        // Generate candidate pawn destination sets.
+        let mut dest_sets = pawn_dest_sets(occupied_by_us,
+                                           occupied_by_them,
+                                           shifts,
+                                           pawns,
+                                           en_passant_bb);
+
+        // Make sure all destination squares in all sets are legal.
+        dest_sets[PAWN_PUSH] &= legal_dests;
+        dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
+        dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
+        dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
+
+        // Scan each destination set (push, double-push, queen-side
+        // capture, king-side capture). For each move calculate the "to"
+        // and "from" sqares, and determinne the move type (en-passant
+        // capture, pawn promotion, or a normal move).
+        for move_type in 0..4 {
+            let s = &mut dest_sets[move_type];
+            while *s != EMPTY_SET {
+                let pawn_bb = ls1b(*s);
+                *s ^= pawn_bb;
+                let dest_square = bitscan_1bit(pawn_bb);
+                let orig_square = (dest_square as isize - shifts[move_type]) as Square;
+                let captured_piece = get_piece_type_at(&self.piece_type, self.occupied, pawn_bb);
+                match pawn_bb {
+                    // en-passant capture
+                    x if x == en_passant_bb => {
+                        let king_bb = self.piece_type[KING] & occupied_by_us;
+                        if king_bb & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 ||
+                           en_passant_special_check_ok(self.geometry,
+                                                       &self.piece_type,
+                                                       self.occupied,
+                                                       occupied_by_them,
+                                                       self.to_move,
+                                                       bitscan_1bit(king_bb),
+                                                       orig_square,
+                                                       dest_square) {
+                            counter += 1;
+                            move_stack.push(Move::new(self.to_move,
+                                                      0,
+                                                      MOVE_ENPASSANT,
+                                                      PAWN,
+                                                      orig_square,
+                                                      dest_square,
+                                                      PAWN,
+                                                      self.en_passant_file,
+                                                      self.castling,
+                                                      0));
+                        }
+                    }
+                    // pawn promotion
+                    x if x & PAWN_PROMOTION_RANKS != 0 => {
+                        for p in 0..4 {
+                            counter += 1;
+                            move_stack.push(Move::new(self.to_move,
+                                                      if Move::piece_from_aux_data(p) == QUEEN {
+                                                          1
+                                                      } else {
+                                                          0
+                                                      },
+                                                      MOVE_PROMOTION,
+                                                      PAWN,
+                                                      orig_square,
+                                                      dest_square,
+                                                      captured_piece,
+                                                      self.en_passant_file,
+                                                      self.castling,
+                                                      p));
+                        }
+                    }
+                    // normal pawn move (push or plain capture)
+                    _ => {
+                        counter += 1;
+                        move_stack.push(Move::new(self.to_move,
+                                                  0,
+                                                  MOVE_NORMAL,
+                                                  PAWN,
+                                                  orig_square,
+                                                  dest_square,
+                                                  captured_piece,
+                                                  self.en_passant_file,
+                                                  self.castling,
+                                                  0));
+                    }
+                }
+            }
+        }
+        counter
+    }
+
+    // This is a helper method for Board::generate_moves(). It figures
+    // out which castling moves are pseudo-legal and writes them to
+    // "move_stack". "king_square" and "checkers" are passed so that
+    // we do not recalculate them.
+    #[inline(always)]
+    fn write_castling_moves_to_stack(&self,
+                                     king_square: Square,
+                                     checkers: u64,
+                                     move_stack: &mut MoveStack)
+                                     -> usize {
+        assert!(king_square <= 63);
+        const FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
+        const PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
+        let mut counter = 0;
+
+        // can not castle if in check
+        if checkers == EMPTY_SET {
+
+            // try queen-side and king-side castling
+            for side in 0..2 {
+
+                // ensure squares between the king and the rook are empty
+                if self.castling.obstacles(self.to_move, side) & self.occupied == 0 {
+
+                    // ensure king's passing square is not attacked (this
+                    // is a quite expensive check).
+                    //
+                    // TODO: This check is probably too expensive to do
+                    // here. We probably have to move this check in the
+                    // "do_move()" method of "Position" class.
+                    if self.attacks_to(1 ^ self.to_move, unsafe {
+                        *PASSING_SQUARES[side].get_unchecked(self.to_move)
+                    }) == 0 {
+
+                        // it seems castling is legal unless king's final
+                        // square is attacked, but we do not care about
+                        // that, because this will be verified later.
+                        counter += 1;
+                        move_stack.push(Move::new(self.to_move,
+                                                  0,
+                                                  MOVE_CASTLING,
+                                                  KING,
+                                                  king_square,
+                                                  unsafe {
+                                                      *FINAL_SQUARES[side]
+                                                           .get_unchecked(self.to_move)
+                                                  },
+                                                  NO_PIECE,
+                                                  self.en_passant_file,
+                                                  self.castling,
+                                                  0));
+                    }
+                }
+            }
+        }
+        counter
     }
 
     #[inline(always)]
@@ -723,43 +898,6 @@ fn board_geometry() -> &'static BoardGeometry {
 }
 
 
-// Return the set of squares that have on them pieces (or pawns)
-// of color "us" that attack the square "square" directly (no
-// x-rays).
-#[inline]
-fn attacks_to(geometry: &BoardGeometry,
-              piece_type_array: &[u64; 6],
-              color_array: &[u64; 2],
-              occupied: u64,
-              us: Color,
-              square: Square)
-              -> u64 {
-    assert!(us <= 1);
-
-    // This code is performance critical, so we do everything without
-    // array boundary checks.
-    unsafe {
-        let occupied_by_us = *color_array.get_unchecked(us);
-        let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
-        let square_bb = 1 << square;
-        let pawns = piece_type_array[PAWN];
-        let queens = piece_type_array[QUEEN];
-        (piece_attacks_from(geometry, occupied, ROOK, square) & occupied_by_us &
-         (piece_type_array[ROOK] | queens)) |
-        (piece_attacks_from(geometry, occupied, BISHOP, square) & occupied_by_us &
-         (piece_type_array[BISHOP] | queens)) |
-        (piece_attacks_from(geometry, occupied, KNIGHT, square) & occupied_by_us &
-         piece_type_array[KNIGHT]) |
-        (piece_attacks_from(geometry, occupied, KING, square) & occupied_by_us &
-         piece_type_array[KING]) |
-        (gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us & pawns &
-         !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
-        (gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us & pawns &
-         !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
-    }
-}
-
-
 // Return the set of squares that are attacked by a piece (not a pawn)
 // of type "piece" from the square "square", on a board which is
 // occupied with other pieces according to the "occupied"
@@ -791,45 +929,6 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 }
 
 
-// This is a helper function for Board::generate_moves(). It really
-// does not do anything other than scanning the destination set, and
-// for each move destination it figures out what piece is captured (if
-// any), and writes a new move and its score to the move stack.
-#[inline(always)]
-fn write_piece_moves_to_stack(geometry: &BoardGeometry,
-                              piece_type_array: &[u64; 6],
-                              occupied: u64,
-                              en_passant_file: File,
-                              castling: CastlingRights,
-                              us: Color,
-                              piece: PieceType,
-                              from_square: Square,
-                              legal_dests: u64,
-                              move_stack: &mut MoveStack)
-                              -> usize {
-    let mut counter = 0;
-    let mut dest_set = piece_attacks_from(geometry, occupied, piece, from_square) & legal_dests;
-    while dest_set != EMPTY_SET {
-        let dest_bb = ls1b(dest_set);
-        dest_set ^= dest_bb;
-        let dest_square = bitscan_1bit(dest_bb);
-        let captured_piece = get_piece_type_at(piece_type_array, occupied, dest_bb);
-        move_stack.push(Move::new(us,
-                                  0,
-                                  MOVE_NORMAL,
-                                  piece,
-                                  from_square,
-                                  dest_square,
-                                  captured_piece,
-                                  en_passant_file,
-                                  castling,
-                                  0));
-        counter += 1;
-    }
-    counter
-}
-
-
 // Return the piece type at the square represented by the bit-set
 // "square_bb", on a board which is occupied with other pieces
 // according to the "piece_type_array" array and "occupied" bit-set
@@ -848,125 +947,6 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
         x if x & piece_type_array[KING] != 0 => KING,
         _ => panic!("invalid board"),
     }
-}
-
-
-// This is a helper function for Board::generate_moves().
-//
-// It generates candidate pawn destination sets, then performs an
-// intersection between those sets and the set of legal
-// destinations. After that it scans the resulting sets, and for each
-// destination figures out what piece is captured (if any), and writes
-// a new move and its score to the move stack. It also recognizes and
-// discards the very rare case of pseudo-legal en-passant capture that
-// leaves discovered check on the 4/5-th rank.
-#[inline(always)]
-fn write_pawn_moves_to_stack(geometry: &BoardGeometry,
-                             piece_type_array: &[u64; 6],
-                             occupied: u64,
-                             occupied_by_us: u64,
-                             occupied_by_them: u64,
-                             en_passant_file: File,
-                             castling: CastlingRights,
-                             us: Color,
-                             pawns: u64,
-                             en_passant_bb: u64,
-                             legal_dests: u64,
-                             move_stack: &mut MoveStack)
-                             -> usize {
-    assert!(us <= 1);
-    let mut counter = 0;
-    let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
-
-    // Generate candidate pawn destination sets.
-    let mut dest_sets = pawn_dest_sets(occupied_by_us,
-                                       occupied_by_them,
-                                       shifts,
-                                       pawns,
-                                       en_passant_bb);
-
-    // Make sure all destination squares in all sets are legal.
-    dest_sets[PAWN_PUSH] &= legal_dests;
-    dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
-    dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
-    dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
-
-    // Scan each destination set (push, double-push, queen-side
-    // capture, king-side capture). For each move calculate the "to"
-    // and "from" sqares, and determinne the move type (en-passant
-    // capture, pawn promotion, or a normal move).
-    for move_type in 0..4 {
-        let s = &mut dest_sets[move_type];
-        while *s != EMPTY_SET {
-            let pawn_bb = ls1b(*s);
-            *s ^= pawn_bb;
-            let dest_square = bitscan_1bit(pawn_bb);
-            let orig_square = (dest_square as isize - shifts[move_type]) as Square;
-            let captured_piece = get_piece_type_at(piece_type_array, occupied, pawn_bb);
-            match pawn_bb {
-                // en-passant capture
-                x if x == en_passant_bb => {
-                    let king_bb = piece_type_array[KING] & occupied_by_us;
-                    if king_bb & [BB_RANK_5, BB_RANK_4][us] == 0 ||
-                       en_passant_special_check_ok(geometry,
-                                                   piece_type_array,
-                                                   occupied,
-                                                   occupied_by_them,
-                                                   us,
-                                                   bitscan_1bit(king_bb),
-                                                   orig_square,
-                                                   dest_square) {
-                        counter += 1;
-                        move_stack.push(Move::new(us,
-                                                  0,
-                                                  MOVE_ENPASSANT,
-                                                  PAWN,
-                                                  orig_square,
-                                                  dest_square,
-                                                  PAWN,
-                                                  en_passant_file,
-                                                  castling,
-                                                  0));
-                    }
-                }
-                // pawn promotion
-                x if x & PAWN_PROMOTION_RANKS != 0 => {
-                    for p in 0..4 {
-                        counter += 1;
-                        move_stack.push(Move::new(us,
-                                                  if Move::piece_from_aux_data(p) == QUEEN {
-                                                      1
-                                                  } else {
-                                                      0
-                                                  },
-                                                  MOVE_PROMOTION,
-                                                  PAWN,
-                                                  orig_square,
-                                                  dest_square,
-                                                  captured_piece,
-                                                  en_passant_file,
-                                                  castling,
-                                                  p));
-                    }
-                }
-                // normal pawn move (push or plain capture)
-                _ => {
-                    counter += 1;
-                    move_stack.push(Move::new(us,
-                                              0,
-                                              MOVE_NORMAL,
-                                              PAWN,
-                                              orig_square,
-                                              dest_square,
-                                              captured_piece,
-                                              en_passant_file,
-                                              castling,
-                                              0));
-                }
-            }
-        }
-    }
-    counter
 }
 
 
@@ -1034,72 +1014,6 @@ fn en_passant_special_check_ok(geometry: &BoardGeometry,
     let checkers = piece_attacks_from(geometry, occupied, ROOK, king_square) & occupied_by_them &
                    (piece_type_array[ROOK] | piece_type_array[QUEEN]);
     checkers == EMPTY_SET
-}
-
-
-// This is a helper function for Board::generate_moves(). It figures
-// out if castling on each side is pseudo-legal and if it is, writes a
-// new move and its score to the move stack.
-#[inline(always)]
-fn write_castling_moves_to_stack(geometry: &BoardGeometry,
-                                 piece_type_array: &[u64; 6],
-                                 color_array: &[u64; 2],
-                                 occupied: u64,
-                                 en_passant_file: File,
-                                 castling: CastlingRights,
-                                 us: Color,
-                                 king_square: Square,
-                                 checkers: u64,
-                                 move_stack: &mut MoveStack)
-                                 -> usize {
-    const FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
-    const PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
-    assert!(us <= 1);
-    let mut counter = 0;
-
-    // can not castle if in check
-    if checkers == EMPTY_SET {
-        let them = 1 ^ us;
-
-        // try queen-side and king-side castling
-        for side in 0..2 {
-
-            // ensure squares between the king and the rook are empty
-            if castling.obstacles(us, side) & occupied == 0 {
-
-                // ensure king's passing square is not attacked (this
-                // is a quite expensive check).
-                //
-                // TODO: This check is probably too expensive to do
-                // here. We probably have to move this check in the
-                // "do_move()" method of "Position" class.
-                if attacks_to(geometry,
-                              piece_type_array,
-                              color_array,
-                              occupied,
-                              them,
-                              unsafe { *PASSING_SQUARES[side].get_unchecked(us) }) ==
-                   0 {
-
-                    // it seems castling is legal unless king's final
-                    // square is attacked, but we do not care about
-                    // that, because this will be verified later.
-                    counter += 1;
-                    move_stack.push(Move::new(us,
-                                              0,
-                                              MOVE_CASTLING,
-                                              KING,
-                                              king_square,
-                                              unsafe { *FINAL_SQUARES[side].get_unchecked(us) },
-                                              NO_PIECE,
-                                              en_passant_file,
-                                              castling,
-                                              0));
-                }
-            }
-        }
-    }
-    counter
 }
 
 
@@ -1323,8 +1237,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()),
-                   5);
+        assert_eq!(b.generate_moves(&mut MoveStack::new()), 5);
     }
 
     #[test]
