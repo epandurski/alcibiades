@@ -347,7 +347,7 @@ impl Board {
     // moves stack.
     //
     // Returns the number of moves that have been generated.
-    pub fn generate_moves(&self, checkers: u64, pinned: u64, move_stack: &mut MoveStack) -> usize {
+    pub fn generate_moves(&self, checkers: u64, move_stack: &mut MoveStack) -> usize {
         assert!(self.is_legal());
 
         let mut counter = 0;
@@ -398,6 +398,7 @@ impl Board {
         if legal_dests != EMPTY_SET {
             // This block is not executed when the king is in double
             // check.
+            let pinned = self.find_pinned();
 
             // Find all queen, rook, bishop, and knight moves.
             for piece in QUEEN..PAWN {
@@ -621,13 +622,9 @@ impl Board {
 
     fn find_pinned(&self) -> u64 {
         let us = self.to_move;
-        assert!(us <= 0);
+        assert!(us <= 1);
         let king_square = self.king_square(us);
-        let our_non_king_pieces = unsafe { self.color.get_unchecked(us) } & !(1 << king_square);
         let occupied_by_them = unsafe { self.color.get_unchecked(1 ^ us) };
-        let between_king_square_and = unsafe {
-            self.geometry.squares_between_including.get_unchecked(king_square)
-        };
 
         // To find all potential pinners, we remove all our pieces
         // from the board, and all enemy pieces that can not slide in
@@ -642,19 +639,32 @@ impl Board {
                           straight_sliders &
                           piece_attacks_from(self.geometry, straight_sliders, ROOK, king_square);
 
-        // Scan all potential pinners and see if there is one and only
-        // one of our pieces between the pinner and our king.
-        let mut pinned = 0;
-        while pinners != EMPTY_SET {
-            let pinner_square = bitscan_forward_and_reset(&mut pinners);
-            let pinned_group = unsafe { between_king_square_and.get_unchecked(pinner_square) } &
-                               our_non_king_pieces;
-            if ls1b(pinned_group) == pinned_group {
-                // a pinned group consisting of only one piece is truly pinned
-                pinned |= pinned_group;
+        if pinners == EMPTY_SET {
+            EMPTY_SET
+        } else {
+            let occupied_by_us = unsafe { self.color.get_unchecked(us) };
+            let between_king_square_and: &[u64; 64] = unsafe {
+                self.geometry.squares_between_including.get_unchecked(king_square)
+            };
+            let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
+            let mut pinned_or_discovered_checkers = EMPTY_SET;
+
+            // Scan all potential pinners and see if there is one and only
+            // one piece between the pinner and our king.
+            while pinners != EMPTY_SET {
+                let pinner_square = bitscan_forward_and_reset(&mut pinners);
+                let blockers_group = unsafe {
+                    between_king_square_and.get_unchecked(pinner_square)
+                } & blockers;
+                if ls1b(blockers_group) == blockers_group {
+                    // A group of blockers consisting of only one
+                    // piece is either a pinned piece of ours or
+                    // enemy's discovered checker.
+                    pinned_or_discovered_checkers |= blockers_group;
+                }
             }
+            pinned_or_discovered_checkers & occupied_by_us
         }
-        pinned
     }
 
     #[inline(always)]
@@ -1269,49 +1279,49 @@ mod tests {
                     .ok()
                     .unwrap();
 
-        assert_eq!(b.generate_moves(1 << E3, 1 << D2, &mut MoveStack::new()), 5);
+        assert_eq!(b.generate_moves(1 << E3, &mut MoveStack::new()), 5);
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(1 << E3, 0, &mut MoveStack::new()), 7);
+        assert_eq!(b.generate_moves(1 << E3, &mut MoveStack::new()), 7);
         let b = Board::create(&fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(1 << E3, 0, &mut MoveStack::new()), 8);
+        assert_eq!(b.generate_moves(1 << E3, &mut MoveStack::new()), 8);
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 22);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 22);
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
                               Some(C6),
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 23);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 23);
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 25);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 25);
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(1 << E4 | 1 << G6, 0, &mut MoveStack::new()),
+        assert_eq!(b.generate_moves(1 << E4 | 1 << G6, &mut MoveStack::new()),
                    5);
     }
 
@@ -1324,7 +1334,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(1 << G4, 0, &mut MoveStack::new()), 6);
+        assert_eq!(b.generate_moves(1 << G4, &mut MoveStack::new()), 6);
 
         let b = Board::create(&fen("8/8/8/5k2/5pP1/8/8/5R1K").ok().unwrap(),
                               Some(G3),
@@ -1332,7 +1342,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(1 << G4, 1 << F4, &mut MoveStack::new()), 7);
+        assert_eq!(b.generate_moves(1 << G4, &mut MoveStack::new()), 7);
 
         let b = Board::create(&fen("8/8/8/8/5pP1/7k/8/5B1K").ok().unwrap(),
                               Some(G3),
@@ -1340,7 +1350,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(1 << F1, 0, &mut MoveStack::new()), 5);
+        assert_eq!(b.generate_moves(1 << F1, &mut MoveStack::new()), 5);
     }
 
     #[test]
@@ -1352,7 +1362,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 6);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 6);
     }
 
     #[test]
@@ -1364,7 +1374,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 7);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 7);
     }
 
     #[test]
@@ -1378,7 +1388,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 5);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 5);
         cr.set_with_mask(CASTLE_WHITE_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1386,7 +1396,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 6);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 6);
         cr.set_with_mask(CASTLE_WHITE_QUEENSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1394,14 +1404,14 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 7);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 7);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
                               cr,
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 5);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 5);
         cr.set_with_mask(CASTLE_BLACK_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1409,7 +1419,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 6);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 6);
 
         cr.set_for(BLACK, 0);
         let b = Board::create(&fen("4k3/8/8/8/8/5n2/8/R3K2R").ok().unwrap(),
@@ -1418,7 +1428,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(1 << F3, 0, &mut MoveStack::new()), 5);
+        assert_eq!(b.generate_moves(1 << F3, &mut MoveStack::new()), 5);
 
         let b = Board::create(&fen("4k3/8/8/8/8/6n1/8/R3K2R").ok().unwrap(),
                               None,
@@ -1426,14 +1436,14 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 6);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 6);
         let b = Board::create(&fen("4k3/8/8/8/8/4n3/8/R3K2R").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 5);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 5);
 
         let b = Board::create(&fen("4k3/8/1b6/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1441,7 +1451,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(0, 0, &mut MoveStack::new()), 19 + 7);
+        assert_eq!(b.generate_moves(0, &mut MoveStack::new()), 19 + 7);
     }
 
     #[test]
@@ -1456,11 +1466,11 @@ mod tests {
                                   WHITE)
                         .ok()
                         .unwrap();
-        let count = b.generate_moves(0, 0, &mut stack);
+        let count = b.generate_moves(0, &mut stack);
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                assert!(count == b.generate_moves(0, 0, &mut MoveStack::new()));
+                assert!(count == b.generate_moves(0, &mut MoveStack::new()));
             }
         }
         let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
@@ -1469,11 +1479,11 @@ mod tests {
                                   BLACK)
                         .ok()
                         .unwrap();
-        let count = b.generate_moves(0, 0, &mut stack);
+        let count = b.generate_moves(0, &mut stack);
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                assert!(count == b.generate_moves(0, 0, &mut MoveStack::new()));
+                assert!(count == b.generate_moves(0, &mut MoveStack::new()));
             }
         }
     }
