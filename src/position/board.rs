@@ -1492,7 +1492,7 @@ mod tests {
     #[test]
     fn test_find_pinned() {
         use basetypes::*;
-        let b = Board::create(&fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/5R2/6b1").ok().unwrap(),
+        let b = Board::create(&fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/6b1").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
