@@ -619,6 +619,50 @@ impl Board {
         }
     }
 
+    fn find_pinned(&self) -> u64 {
+        let us = self.to_move;
+        assert!(us <= 0);
+        let king_square = self.king_square(us);
+        let our_non_king_pieces = unsafe { self.color.get_unchecked(us) } & !(1 << king_square);
+        let occupied_by_them = unsafe { self.color.get_unchecked(1 ^ us) };
+        let between_king_square_and = unsafe {
+            self.geometry.squares_between_including.get_unchecked(king_square)
+        };
+
+        // To find all potential pinners, we remove all our pieces
+        // from the board, and all enemy pieces that can not slide in
+        // the particular manner (diagonally or straight). Then we
+        // calculate what enemy pieces a bishop or a rook placed on
+        // our king's square can attack. The attacked enemy pieces are
+        // the potential pinners.
+        let diag_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
+        let straight_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[ROOK]);
+        let mut pinners = diag_sliders &
+                          piece_attacks_from(self.geometry, diag_sliders, BISHOP, king_square) |
+                          straight_sliders &
+                          piece_attacks_from(self.geometry, straight_sliders, ROOK, king_square);
+
+        // Scan all potential pinners and see if there is one and only
+        // one of our pieces between the pinner and our king.
+        let mut pinned = 0;
+        while pinners != EMPTY_SET {
+            let pinner_square = bitscan_forward_and_reset(&mut pinners);
+            let pinned_group = unsafe { between_king_square_and.get_unchecked(pinner_square) } &
+                               our_non_king_pieces;
+            if ls1b(pinned_group) == pinned_group {
+                // a pinned group consisting of only one piece is truly pinned
+                pinned |= pinned_group;
+            }
+        }
+        pinned
+    }
+
+    #[inline(always)]
+    fn king_square(&self, us: Color) -> Square {
+        assert!(us <= 1);
+        bitscan_1bit(self.piece_type[KING] & unsafe { self.color.get_unchecked(us) })
+    }
+
     fn pretty_string(&self) -> String {
         let mut s = String::new();
         for rank in (0..8).rev() {
