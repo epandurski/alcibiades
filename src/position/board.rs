@@ -504,10 +504,7 @@ impl Board {
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
-        let geometry = self.geometry;
-        let piece_type_array = &self.piece_type;
-        let color_array = &self.color;
-        let mut occupied = color_array[WHITE] | color_array[BLACK];
+        let mut occupied = self.occupied;
         let mut depth = 0;
         let mut attackers_and_defenders = self.attacks_to(WHITE, to_square) |
                                           self.attacks_to(BLACK, to_square);
@@ -516,8 +513,8 @@ impl Board {
         // "may_xray" pieces may block x-ray attacks from other
         // pieces, so we must consider adding new attackers/defenders
         // every time a "may_xray"-piece makes a capture.
-        let may_xray = piece_type_array[PAWN] | piece_type_array[BISHOP] | piece_type_array[ROOK] |
-                       piece_type_array[QUEEN];
+        let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
+                       self.piece_type[QUEEN];
         unsafe {
             let mut gain: [Value; 33] = uninitialized();
             gain[depth] = VALUE[target_piece];
@@ -531,8 +528,8 @@ impl Board {
                 attackers_and_defenders ^= from_square_bb;
                 occupied ^= from_square_bb;
                 if from_square_bb & may_xray != EMPTY_SET {
-                    attackers_and_defenders |= consider_xrays(geometry,
-                                                              piece_type_array,
+                    attackers_and_defenders |= consider_xrays(self.geometry,
+                                                              &self.piece_type,
                                                               occupied,
                                                               to_square,
                                                               bitscan_forward(from_square_bb));
@@ -540,9 +537,9 @@ impl Board {
                 assert_eq!(occupied | attackers_and_defenders, occupied);
 
                 // find the next piece in the exchange
-                let next_attack = get_least_valuable_piece_in_a_set(piece_type_array,
+                let next_attack = get_least_valuable_piece_in_a_set(&self.piece_type,
                                                                     attackers_and_defenders &
-                                                                    color_array[attacking_color]);
+                                                                    self.color[attacking_color]);
                 attacking_piece = next_attack.0;
                 from_square_bb = next_attack.1;
             }
