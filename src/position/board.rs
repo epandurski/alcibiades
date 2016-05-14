@@ -347,10 +347,9 @@ impl Board {
     // moves stack.
     //
     // Returns the number of moves that have been generated.
-    pub fn generate_moves(&self, move_stack: &mut MoveStack) -> usize {
+    pub fn generate_moves(&self, move_stack: &mut MoveStack) {
         assert!(self.is_legal());
 
-        let mut counter = 0;
         let king_square = self.king_square(self.to_move);
         let checkers = self.attacks_to(1 ^ self.to_move, king_square);
         let en_passant_bb = self.en_passant_bb();
@@ -406,10 +405,10 @@ impl Board {
                         0 => legal_dests,
                         _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
                     };
-                    counter += self.write_piece_moves_to_stack(piece,
-                                                               from_square,
-                                                               piece_legal_dests,
-                                                               move_stack);
+                    self.write_piece_moves_to_stack(piece,
+                                                    from_square,
+                                                    piece_legal_dests,
+                                                    move_stack);
                 }
             }
 
@@ -430,10 +429,10 @@ impl Board {
             let mut pinned_pawns = all_pawns & pinned;
             let free_pawns = all_pawns ^ pinned_pawns;
             if free_pawns != EMPTY_SET {
-                counter += self.write_pawn_moves_to_stack(free_pawns,
-                                                          en_passant_bb,
-                                                          pawn_legal_dests,
-                                                          move_stack);
+                self.write_pawn_moves_to_stack(free_pawns,
+                                               en_passant_bb,
+                                               pawn_legal_dests,
+                                               move_stack);
             }
 
             // Find pinned pawn moves pawn by pawn.
@@ -445,19 +444,18 @@ impl Board {
                 // TODO: When working with a single pawn (pawn_bb),
                 // this procedure probably could be optimized. Not
                 // clear if it worth it, though.
-                counter += self.write_pawn_moves_to_stack(pawn_bb,
-                                                          en_passant_bb,
-                                                          pin_line & pawn_legal_dests,
-                                                          move_stack);
+                self.write_pawn_moves_to_stack(pawn_bb,
+                                               en_passant_bb,
+                                               pin_line & pawn_legal_dests,
+                                               move_stack);
             }
         }
 
         // Find all king moves (pseudo-legal, possibly moving into
         // check). This is executed even when the king is in double
         // check.
-        counter += self.write_castling_moves_to_stack(king_square, checkers, move_stack);
-        counter += self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
-        counter
+        self.write_castling_moves_to_stack(king_square, checkers, move_stack);
+        self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
     }
 
     // A Static Exchange Evaluation (SEE) examines the consequence of
@@ -559,11 +557,9 @@ impl Board {
                                   piece: PieceType,
                                   from_square: Square,
                                   legal_dests: u64,
-                                  move_stack: &mut MoveStack)
-                                  -> usize {
+                                  move_stack: &mut MoveStack) {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
-        let mut counter = 0;
         let mut dest_set = piece_attacks_from(self.geometry, self.occupied, piece, from_square) &
                            legal_dests;
         while dest_set != EMPTY_SET {
@@ -581,9 +577,7 @@ impl Board {
                                       self.en_passant_file,
                                       self.castling,
                                       0));
-            counter += 1;
         }
-        counter
     }
 
     // This is a helper method for Board::generate_moves(). It finds
@@ -601,9 +595,7 @@ impl Board {
                                  pawns: u64,
                                  en_passant_bb: u64,
                                  legal_dests: u64,
-                                 move_stack: &mut MoveStack)
-                                 -> usize {
-        let mut counter = 0;
+                                 move_stack: &mut MoveStack) {
         let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
         let occupied_by_them = unsafe { *self.color.get_unchecked(1 ^ self.to_move) };
         let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
@@ -634,10 +626,10 @@ impl Board {
                 let orig_square = (dest_square as isize - shifts[move_type]) as Square;
                 let captured_piece = get_piece_type_at(&self.piece_type, self.occupied, pawn_bb);
                 match pawn_bb {
+
                     // en-passant capture
                     x if x == en_passant_bb => {
                         if self.en_passant_special_check_ok(orig_square, dest_square) {
-                            counter += 1;
                             move_stack.push(Move::new(self.to_move,
                                                       0,
                                                       MOVE_ENPASSANT,
@@ -650,10 +642,10 @@ impl Board {
                                                       0));
                         }
                     }
+
                     // pawn promotion
                     x if x & PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
-                            counter += 1;
                             move_stack.push(Move::new(self.to_move,
                                                       if Move::piece_from_aux_data(p) == QUEEN {
                                                           1
@@ -670,9 +662,9 @@ impl Board {
                                                       p));
                         }
                     }
+
                     // normal pawn move (push or plain capture)
                     _ => {
-                        counter += 1;
                         move_stack.push(Move::new(self.to_move,
                                                   0,
                                                   MOVE_NORMAL,
@@ -687,7 +679,6 @@ impl Board {
                 }
             }
         }
-        counter
     }
 
     // This is a helper method for Board::generate_moves(). It figures
@@ -698,12 +689,10 @@ impl Board {
     fn write_castling_moves_to_stack(&self,
                                      king_square: Square,
                                      checkers: u64,
-                                     move_stack: &mut MoveStack)
-                                     -> usize {
+                                     move_stack: &mut MoveStack) {
         assert!(king_square <= 63);
         const FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
         const PASSING_SQUARES: [[Square; 2]; 2] = [[D1, D8], [F1, F8]];
-        let mut counter = 0;
 
         // can not castle if in check
         if checkers == EMPTY_SET {
@@ -727,7 +716,6 @@ impl Board {
                         // it seems castling is legal unless king's final
                         // square is attacked, but we do not care about
                         // that, because this will be verified later.
-                        counter += 1;
                         move_stack.push(Move::new(self.to_move,
                                                   0,
                                                   MOVE_CASTLING,
@@ -745,7 +733,6 @@ impl Board {
                 }
             }
         }
-        counter
     }
 
     // Return the set of squares that have on them pieces (or pawns)
@@ -1178,6 +1165,7 @@ mod tests {
     #[test]
     fn test_move_generation_1() {
         use basetypes::*;
+        let mut stack = MoveStack::new();
 
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3").ok().unwrap(),
                               None,
@@ -1185,62 +1173,77 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 5);
 
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 5);
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 7);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 7);
+
         let b = Board::create(&fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 8);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 8);
+
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 22);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 22);
+
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
                               Some(C6),
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 23);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 23);
+
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 25);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 25);
+
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 5);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 5);
     }
 
     #[test]
     fn test_move_generation_2() {
         use basetypes::*;
+        let mut stack = MoveStack::new();
+
         let b = Board::create(&fen("8/8/8/7k/5pP1/8/8/5R1K").ok().unwrap(),
                               Some(G3),
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 6);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 6);
 
         let b = Board::create(&fen("8/8/8/5k2/5pP1/8/8/5R1K").ok().unwrap(),
                               Some(G3),
@@ -1248,7 +1251,8 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 7);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 7);
 
         let b = Board::create(&fen("8/8/8/8/5pP1/7k/8/5B1K").ok().unwrap(),
                               Some(G3),
@@ -1256,36 +1260,44 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 5);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 5);
     }
 
     #[test]
     fn test_move_generation_3() {
         use basetypes::*;
+        let mut stack = MoveStack::new();
+
         let b = Board::create(&fen("8/8/8/8/4RpPk/8/8/7K").ok().unwrap(),
                               Some(G3),
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 6);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 6);
     }
 
     #[test]
     fn test_move_generation_4() {
         use basetypes::*;
+        let mut stack = MoveStack::new();
+
         let b = Board::create(&fen("8/8/8/8/3QPpPk/8/8/7K").ok().unwrap(),
                               Some(G3),
                               CastlingRights::new(),
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 7);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 7);
     }
 
     #[test]
     fn test_move_generation_5() {
         use basetypes::*;
+        let mut stack = MoveStack::new();
 
         let mut cr = CastlingRights::new();
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
@@ -1294,7 +1306,9 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 5);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 5);
+
         cr.set_with_mask(CASTLE_WHITE_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1302,7 +1316,9 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 6);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 6);
+
         cr.set_with_mask(CASTLE_WHITE_QUEENSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1310,14 +1326,18 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 7);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 7);
+
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
                               cr,
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 5);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 5);
+
         cr.set_with_mask(CASTLE_BLACK_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1325,7 +1345,8 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 6);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 6);
 
         cr.set_for(BLACK, 0);
         let b = Board::create(&fen("4k3/8/8/8/8/5n2/8/R3K2R").ok().unwrap(),
@@ -1334,7 +1355,8 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 5);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 5);
 
         let b = Board::create(&fen("4k3/8/8/8/8/6n1/8/R3K2R").ok().unwrap(),
                               None,
@@ -1342,14 +1364,17 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 6);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 6);
+
         let b = Board::create(&fen("4k3/8/8/8/8/4n3/8/R3K2R").ok().unwrap(),
                               None,
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 5);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 5);
 
         let b = Board::create(&fen("4k3/8/1b6/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
@@ -1357,13 +1382,15 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        assert_eq!(b.generate_moves(&mut MoveStack::new()), 19 + 7);
+        b.generate_moves(&mut stack);
+        assert_eq!(stack.remove_all(), 19 + 7);
     }
 
     #[test]
     fn test_do_undo_move() {
         use basetypes::*;
         let mut stack = MoveStack::new();
+
         let mut cr = CastlingRights::new();
         cr.set_with_mask(0b1011);
         let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
@@ -1372,24 +1399,31 @@ mod tests {
                                   WHITE)
                         .ok()
                         .unwrap();
-        let count = b.generate_moves(&mut stack);
+        b.generate_moves(&mut stack);
+        let count = stack.count();
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                assert!(count == b.generate_moves(&mut MoveStack::new()));
+                let mut other_stack = MoveStack::new();
+                b.generate_moves(&mut other_stack);
+                assert_eq!(count, other_stack.count());
             }
         }
+        assert_eq!(stack.count(), 0);
         let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
                                   None,
                                   cr,
                                   BLACK)
                         .ok()
                         .unwrap();
-        let count = b.generate_moves(&mut stack);
+        b.generate_moves(&mut stack);
+        let count = stack.count();
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                assert!(count == b.generate_moves(&mut MoveStack::new()));
+                let mut other_stack = MoveStack::new();
+                b.generate_moves(&mut other_stack);
+                assert_eq!(count, other_stack.count());
             }
         }
     }

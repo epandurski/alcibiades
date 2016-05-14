@@ -225,6 +225,20 @@ impl MoveStack {
             Some(self.stack[self.next_index])
         }
     }
+
+    #[inline(always)]
+    pub fn remove_all(&mut self) -> usize {
+        let count = self.count();
+        self.next_index = 0;
+        count
+    }
+    
+    #[inline(always)]
+    pub fn count(&self) -> usize {
+        self.next_index
+    }
+    
+    
 }
 
 
