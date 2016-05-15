@@ -1,5 +1,25 @@
 use basetypes::*;
 
+// Return a reference to a properly initialized BoardGeometry
+// object. The object is created and initialized only during the first
+// call. All next calls will return a reference to the same
+// object. This is done in a thread-safe manner.
+pub fn board_geometry() -> &'static BoardGeometry {
+    use std::sync::{Once, ONCE_INIT};
+    static INIT_GEOMETRY: Once = ONCE_INIT;
+    static mut geometry: Option<BoardGeometry> = None;
+    unsafe {
+        INIT_GEOMETRY.call_once(|| {
+            geometry = Some(BoardGeometry::new());
+        });
+        match geometry {
+            Some(ref x) => x,
+            None => panic!("board geometry not initialized"),
+        }
+    }
+}
+
+
 // "BoardGeometry" is a collection of pre-calculated tables that are
 // needed for implementing move generation and various other
 // board-related problems.

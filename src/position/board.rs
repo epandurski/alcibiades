@@ -1,6 +1,6 @@
 use basetypes::*;
 use bitsets::*;
-use super::board_geometry::BoardGeometry;
+use super::board_geometry::{BoardGeometry, board_geometry};
 use super::chess_move::{Move, MoveStack};
 
 // Pawn move constants
@@ -902,26 +902,6 @@ impl Board {
 }
 
 
-// Return a reference to a properly initialized BoardGeometry
-// object. The object is created and initialized only during the first
-// call. All next calls will return a reference to the same
-// object. This is done in a thread-safe manner.
-fn board_geometry() -> &'static BoardGeometry {
-    use std::sync::{Once, ONCE_INIT};
-    static INIT_GEOMETRY: Once = ONCE_INIT;
-    static mut geometry: Option<BoardGeometry> = None;
-    unsafe {
-        INIT_GEOMETRY.call_once(|| {
-            geometry = Some(BoardGeometry::new());
-        });
-        match geometry {
-            Some(ref x) => x,
-            None => panic!("board geometry not initialized"),
-        }
-    }
-}
-
-
 // Return the set of squares that are attacked by a piece (not a pawn)
 // of type "piece" from the square "square", on a board which is
 // occupied with other pieces according to the "occupied"
@@ -1037,13 +1017,13 @@ fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::board_geometry;
     use position::chess_move::MoveStack;
     use notation::parse_fen_piece_placement as fen;
 
     #[test]
     fn test_attacks_from() {
         use basetypes::*;
+        use position::board_geometry::board_geometry;
         use super::piece_attacks_from;
         let b = Board::create(&fen("k7/8/8/8/3P4/8/8/7K").ok().unwrap(),
                               None,
