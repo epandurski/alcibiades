@@ -3,23 +3,13 @@ use bitsets::*;
 use super::board_geometry::BoardGeometry;
 use super::chess_move::{Move, MoveStack};
 
-type PawnMoveType = usize;
-
-// Pawn move types
-const PAWN_PUSH: PawnMoveType = 0;
-const PAWN_DOUBLE_PUSH: PawnMoveType = 1;
-const PAWN_QUEENSIDE_CAPTURE: PawnMoveType = 2;
-const PAWN_KINGSIDE_CAPTURE: PawnMoveType = 3;
-
-// Pawn move tables
+// Pawn move constants
+const PAWN_PUSH: usize = 0;
+const PAWN_DOUBLE_PUSH: usize = 1;
+const PAWN_WEST_CAPTURE: usize = 2;
+const PAWN_EAST_CAPTURE: usize = 3;
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
-const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
-const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                        BB_RANK_2 | BB_RANK_7,
-                                        !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                        !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
 
-// Pawn useful constants
 const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
@@ -52,7 +42,7 @@ impl Board {
                   castling: CastlingRights,
                   to_move: Color)
                   -> Result<Board, IllegalBoard> {
-        
+
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
             BLACK => RANK_3,
@@ -339,8 +329,8 @@ impl Board {
             let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
             let our_king_square = bitscan_forward(our_king_bb);
             let checkers = self.attacks_to(them, our_king_square);
-            (dest_square_bb & pawns & o_them != 0) &&
-            (en_passant_bb & !occupied != 0) && (orig_square_bb & !occupied != 0) &&
+            (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
+            (orig_square_bb & !occupied != 0) &&
             (checkers == EMPTY_SET || checkers == dest_square_bb ||
              (pop_count(checkers) == 1 &&
               self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
@@ -519,22 +509,38 @@ impl Board {
                                  en_passant_bb: u64,
                                  legal_dests: u64,
                                  move_stack: &mut MoveStack) {
-        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
-        let occupied_by_them = unsafe { *self.color.get_unchecked(1 ^ self.to_move) };
-        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
 
-        // Generate candidate pawn destination sets.
-        let mut dest_sets = pawn_dest_sets(occupied_by_us,
-                                           occupied_by_them,
-                                           shifts,
-                                           pawns,
-                                           en_passant_bb);
+        const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
+        const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                                BB_RANK_2 | BB_RANK_7,
+                                                !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                                !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
+        let not_occupied_by_us = unsafe { !*self.color.get_unchecked(self.to_move) };
+        let capture_targets = unsafe { *self.color.get_unchecked(1 ^ self.to_move) } |
+                              en_passant_bb;
+
+        // We differentiate 4 types of pawn moves: single push, double
+        // push, west-capture (capturing toward queen side), and
+        // east-capture (capturing toward king side). The benefit of
+        // this separation is that knowing the destination square and
+        // the pawn move type (the index in the destination sets
+        // array) is enough to recover the origin square.
+        let mut dest_sets: [u64; 4] = unsafe { ::std::mem::uninitialized() };
+        for i in 0..4 {
+            dest_sets[i] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[i], shifts[i]) &
+                           not_occupied_by_us &
+                           (capture_targets ^ PAWN_MOVE_QUIET[i]);
+        }
+
+        // The double-push is trickier.
+        dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
 
         // Make sure all destination squares in all sets are legal.
-        dest_sets[PAWN_PUSH] &= legal_dests;
         dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
-        dest_sets[PAWN_QUEENSIDE_CAPTURE] &= legal_dests;
-        dest_sets[PAWN_KINGSIDE_CAPTURE] &= legal_dests;
+        dest_sets[PAWN_PUSH] &= legal_dests;
+        dest_sets[PAWN_WEST_CAPTURE] &= legal_dests;
+        dest_sets[PAWN_EAST_CAPTURE] &= legal_dests;
 
         // Scan each destination set (push, double-push, queen-side
         // capture, king-side capture). For each move calculate the "to"
@@ -665,9 +671,9 @@ impl Board {
          self.piece_type[KNIGHT]) |
         (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
          self.piece_type[KING]) |
-        (gen_shift(square_bb, -shifts[PAWN_KINGSIDE_CAPTURE]) & occupied_by_us &
+        (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
-        (gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
+        (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
@@ -953,46 +959,6 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
 }
 
 
-// This is a helper function for "write_pawn_moves_to_stack()". It
-// generates array with 4 pawn destination sets.
-//
-// We differentiate 4 types of pawn moves: single push, double push,
-// queen-side capture (capturing toward queen side), and king-side
-// capture (capturing toward king side). The benefit of this
-// separation is that knowing the destination square and the pawn move
-// type (the index in the destination sets array) is enough to recover
-// the origin square.
-//
-// The function returns an array of 4 bit-sets (1 for each pawn move
-// type), describing all pseudo-legal destination
-// squares. (Pseudo-legal means that we may still leave the king under
-// check.)
-#[inline(always)]
-fn pawn_dest_sets(occupied_by_us: u64,
-                  occupied_by_them: u64,
-                  shifts: &[isize; 4],
-                  pawns: u64,
-                  en_passant_bb: u64)
-                  -> [u64; 4] {
-    use std::mem::uninitialized;
-    let not_occupied_by_us = !occupied_by_us;
-    let capture_targets = occupied_by_them | en_passant_bb;
-    unsafe {
-        let mut dest_sets: [u64; 4] = uninitialized();
-        for move_type in 0..4 {
-            dest_sets[move_type] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[move_type],
-                                             shifts[move_type]) &
-                                   not_occupied_by_us &
-                                   (capture_targets ^ PAWN_MOVE_QUIET[move_type]);
-        }
-
-        // A double-push is legal only if a single-push is legal too.
-        dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
-        dest_sets
-    }
-}
-
-
 // Return a bit-set describing all pieces that can attack
 // "target_square" once "xrayed_square" becomes vacant.
 //
@@ -1132,32 +1098,38 @@ mod tests {
     #[test]
     fn test_pawn_dest_sets() {
         use basetypes::*;
-        use super::pawn_dest_sets;
-        use super::PAWN_MOVE_SHIFTS;
+        let mut stack = MoveStack::new();
+
         let b = Board::create(&fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K").ok().unwrap(),
-                              None,
+                              Some(H6),
                               CastlingRights::new(),
                               WHITE)
                     .ok()
                     .unwrap();
-        let ds = pawn_dest_sets(b.color[WHITE],
-                                b.color[BLACK],
-                                &PAWN_MOVE_SHIFTS[WHITE],
-                                b.piece_type[PAWN] & b.color[WHITE],
-                                1 << H6);
-        assert_eq!(ds[0], 1 << H3 | 1 << G6 | 1 << E8);
-        assert_eq!(ds[1], 1 << H4);
-        assert_eq!(ds[3], 1 << H5 | 1 << G7 | 1 << H6);
-        assert_eq!(ds[2], 1 << D8);
-        let ds = pawn_dest_sets(b.color[BLACK],
-                                b.color[WHITE],
-                                &PAWN_MOVE_SHIFTS[BLACK],
-                                b.piece_type[PAWN] & b.color[BLACK],
-                                0);
-        assert_eq!(ds[0], 1 << H4 | 1 << G6);
-        assert_eq!(ds[1], 0);
-        assert_eq!(ds[3], 0);
-        assert_eq!(ds[2], 1 << G4 | 1 << F6);
+        b.generate_moves(&mut stack);
+        let mut pawn_dests = 0u64;
+        while let Some(m) = stack.pop() {
+            if m.piece() == PAWN {
+                pawn_dests |= 1 << m.dest_square();
+            }
+        }
+        assert_eq!(pawn_dests,
+                   1 << H3 | 1 << H4 | 1 << G6 | 1 << E8 | 1 << H5 | 1 << G7 | 1 << H6 | 1 << D8);
+
+        let b = Board::create(&fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
+        b.generate_moves(&mut stack);
+        let mut pawn_dests = 0u64;
+        while let Some(m) = stack.pop() {
+            if m.piece() == PAWN {
+                pawn_dests |= 1 << m.dest_square();
+            }
+        }
+        assert_eq!(pawn_dests, 1 << H4 | 1 << G6 | 1 << G4 | 1 << F6);
     }
 
     #[test]
