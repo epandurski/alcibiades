@@ -912,41 +912,40 @@ impl Board {
         // every time a "may_xray"-piece makes a capture.
         let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
                        self.piece_type[QUEEN];
-        unsafe {
-            let mut gain: [Value; 33] = uninitialized();
-            gain[depth] = VALUE[target_piece];
-            while from_square_bb != EMPTY_SET {
-                depth += 1;  // next depth
-                attacking_color ^= 1;  // next side
-                gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
-                if max(-gain[depth - 1], gain[depth]) < 0 {
-                    break;  // pruning does not influence the outcome
-                }
-                attackers_and_defenders ^= from_square_bb;
-                occupied ^= from_square_bb;
-                if from_square_bb & may_xray != EMPTY_SET {
-                    attackers_and_defenders |= consider_xrays(self.geometry,
-                                                              &self.piece_type,
-                                                              occupied,
-                                                              to_square,
-                                                              bitscan_forward(from_square_bb));
-                }
-                assert_eq!(occupied | attackers_and_defenders, occupied);
 
-                // find the next piece in the exchange
-                let next_attack = get_least_valuable_piece_in_a_set(&self.piece_type,
-                                                                    attackers_and_defenders &
-                                                                    self.color[attacking_color]);
-                attacking_piece = next_attack.0;
-                from_square_bb = next_attack.1;
+        let mut gain: [Value; 33] = unsafe { uninitialized() };
+        gain[depth] = VALUE[target_piece];
+        while from_square_bb != EMPTY_SET {
+            depth += 1;  // next depth
+            attacking_color ^= 1;  // next side
+            gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
+            if max(-gain[depth - 1], gain[depth]) < 0 {
+                break;  // pruning does not influence the outcome
             }
-            depth -= 1;  // discard the speculative store
-            while depth > 0 {
-                gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
-                depth -= 1;
+            attackers_and_defenders ^= from_square_bb;
+            occupied ^= from_square_bb;
+            if from_square_bb & may_xray != EMPTY_SET {
+                attackers_and_defenders |= consider_xrays(self.geometry,
+                                                          &self.piece_type,
+                                                          occupied,
+                                                          to_square,
+                                                          bitscan_forward(from_square_bb));
             }
-            gain[0]
+            assert_eq!(occupied | attackers_and_defenders, occupied);
+
+            // find the next piece in the exchange
+            let next_attack = get_least_valuable_piece_in_a_set(&self.piece_type,
+                                                                attackers_and_defenders &
+                                                                self.color[attacking_color]);
+            attacking_piece = next_attack.0;
+            from_square_bb = next_attack.1;
         }
+        depth -= 1;  // discard the speculative store
+        while depth > 0 {
+            gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
+            depth -= 1;
+        }
+        gain[0]
     }
 
 
