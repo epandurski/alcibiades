@@ -759,7 +759,6 @@ impl Board {
     // A helper method for Board::do_move(). It returns true if
     // "square" is attacked by at least one piece of color "us", and
     // false otherwise.
-    #[inline]
     fn is_attacked(&self, us: Color, square: Square) -> bool {
         assert!(us <= 1);
         assert!(square <= 63);
