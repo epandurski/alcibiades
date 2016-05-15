@@ -925,7 +925,7 @@ fn board_geometry() -> &'static BoardGeometry {
 // Return the set of squares that are attacked by a piece (not a pawn)
 // of type "piece" from the square "square", on a board which is
 // occupied with other pieces according to the "occupied"
-// bit-set. "geometry" supplies the look-up tables needed to perform
+// bitboard. "geometry" supplies the look-up tables needed to perform
 // the calculation.
 #[inline(always)]
 fn piece_attacks_from(geometry: &BoardGeometry,
@@ -953,10 +953,9 @@ fn piece_attacks_from(geometry: &BoardGeometry,
 }
 
 
-// Return the piece type at the square represented by the bit-set
+// Return the piece type at the square represented by the bitboard
 // "square_bb", on a board which is occupied with other pieces
-// according to the "piece_type_array" array and "occupied" bit-set
-// and.
+// according to the "piece_type_array" array and "occupied" bitboard.
 #[inline(always)]
 fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
     assert!(square_bb != EMPTY_SET);
