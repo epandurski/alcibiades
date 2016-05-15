@@ -200,6 +200,8 @@ impl Board {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
         assert!(aux_data <= 3);
+        assert!(m.castling_data() <= 3);
+        assert!(m.en_passant_file() <= NO_ENPASSANT_FILE);
 
         let orig_bb = 1 << orig_square;
         let not_dest_bb = !(1 << dest_square);
