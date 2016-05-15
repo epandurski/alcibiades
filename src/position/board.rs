@@ -356,16 +356,6 @@ impl Board {
     // under attack is quite expensive, and therefore we hope that the
     // alpha-beta pruning will eliminate the need for this
     // verification at all.
-    //
-    // "us" is the side to move. "king_square" should be the moving
-    // side king's square. "checkers" should represent all pieces that
-    // give check. "pinned" should represent all pinned pieces (and
-    // pawns). "castling" gives the current castling
-    // rights. "en_passant_bb" is a bitboard that contains 1 for the
-    // passing square (if there is one). "move_stack" is the global
-    // moves stack.
-    //
-    // Returns the number of moves that have been generated.
     pub fn generate_moves(&self, move_stack: &mut MoveStack) {
         assert!(self.is_legal());
 
@@ -471,7 +461,8 @@ impl Board {
         }
 
         // Find all king moves (pseudo-legal, possibly moving into
-        // check). This is executed even when the king is in double
+        // check or passing through attacked square when
+        // castling). This is executed even when the king is in double
         // check.
         self.write_castling_moves_to_stack(king_square, checkers, move_stack);
         self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
@@ -633,13 +624,13 @@ impl Board {
         // capture, king-side capture). For each move calculate the "to"
         // and "from" sqares, and determinne the move type (en-passant
         // capture, pawn promotion, or a normal move).
-        for move_type in 0..4 {
-            let s = &mut dest_sets[move_type];
+        for dest_set_index in 0..4 {
+            let s = &mut dest_sets[dest_set_index];
             while *s != EMPTY_SET {
                 let pawn_bb = ls1b(*s);
                 *s ^= pawn_bb;
                 let dest_square = bitscan_1bit(pawn_bb);
-                let orig_square = (dest_square as isize - shifts[move_type]) as Square;
+                let orig_square = (dest_square as isize - shifts[dest_set_index]) as Square;
                 let captured_piece = get_piece_type_at(&self.piece_type, self.occupied, pawn_bb);
                 match pawn_bb {
 
@@ -707,7 +698,6 @@ impl Board {
                                      checkers: u64,
                                      move_stack: &mut MoveStack) {
         assert!(king_square <= 63);
-        const FINAL_SQUARES: [[Square; 2]; 2] = [[C1, C8], [G1, G8]];
 
         // can not castle if in check
         if checkers == EMPTY_SET {
@@ -728,7 +718,8 @@ impl Board {
                                               KING,
                                               king_square,
                                               unsafe {
-                                                  *FINAL_SQUARES[side].get_unchecked(self.to_move)
+                                                  *[[C1, C8], [G1, G8]][side]
+                                                       .get_unchecked(self.to_move)
                                               },
                                               NO_PIECE,
                                               self.en_passant_file,
