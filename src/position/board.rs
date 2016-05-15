@@ -33,6 +33,7 @@ pub struct Board {
 }
 
 impl Board {
+    
     // Create a new board instance.
     //
     // It makes expensive verification to make sure that the board is
@@ -68,6 +69,7 @@ impl Board {
             Err(IllegalBoard)
         }
     }
+    
 
     // Analyzes the board and decides if it is a legal board.
     //
@@ -145,6 +147,7 @@ impl Board {
               orig_square_bb != 0))
         })
     }
+    
 
     // Play a move on the board.
     //
@@ -250,6 +253,7 @@ impl Board {
         assert!(self.is_legal());
         true
     }
+    
 
     // Take back a previously played move.
     //
@@ -337,6 +341,7 @@ impl Board {
 
         assert!(self.is_legal());
     }
+    
 
     // Generate pseudo-legal moves in the current board position.
     //
@@ -456,6 +461,40 @@ impl Board {
         self.write_castling_moves_to_stack(king_square, checkers, move_stack);
         self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
     }
+    
+
+    // Return the set of squares that have on them pieces (or pawns)
+    // of color "us" that attack the square "square" directly (no
+    // x-rays).
+    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
+        assert!(us <= 1);
+        assert!(square <= 63);
+        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+        let square_bb = 1 << square;
+
+        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
+         (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
+        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
+         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
+        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
+         self.piece_type[KNIGHT]) |
+        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
+         self.piece_type[KING]) |
+        (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
+        (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
+    }
+    
+
+    // Return the square on which the king of color "us" is placed.
+    #[inline]
+    pub fn king_square(&self, us: Color) -> Square {
+        assert!(us <= 1);
+        bitscan_1bit(self.piece_type[KING] & unsafe { self.color.get_unchecked(us) })
+    }
+    
 
     // This is a helper method for Board::generate_moves(). It finds
     // all squares attacked by "piece" from square "from_square", and
@@ -488,6 +527,7 @@ impl Board {
                                       0));
         }
     }
+    
 
     // This is a helper method for Board::generate_moves(). It finds
     // all all possible moves by the set of pawns given by "pawns",
@@ -605,6 +645,7 @@ impl Board {
             }
         }
     }
+    
 
     // This is a helper method for Board::generate_moves(). It figures
     // out which castling moves are pseudo-legal and writes them to
@@ -647,6 +688,7 @@ impl Board {
             }
         }
     }
+    
 
     // This is a helper method for Board::generate_moves(). It returns
     // all pinned pieces belonging to the side to move. This is a
@@ -698,31 +740,52 @@ impl Board {
             pinned_or_discovered_checkers & occupied_by_us
         }
     }
+    
 
-    // Return the set of squares that have on them pieces (or pawns)
-    // of color "us" that attack the square "square" directly (no
-    // x-rays).
-    #[inline]
-    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
-        assert!(us <= 1);
-        assert!(square <= 63);
-        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
-        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
-        let square_bb = 1 << square;
-
-        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
-         (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
-         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
-         self.piece_type[KNIGHT]) |
-        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
-         self.piece_type[KING]) |
-        (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
-         self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
-        (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
-         self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
+    // This is a helper method for Board::generate_moves(). It returns
+    // a bitboard representing the en-passant passing square if there
+    // is one.
+    #[inline(always)]
+    fn en_passant_bb(&self) -> u64 {
+        match self.en_passant_file {
+            x if x >= NO_ENPASSANT_FILE => EMPTY_SET,
+            x => {
+                match self.to_move {
+                    WHITE => 1 << x << 40,
+                    _ => 1 << x << 16,
+                }
+            }
+        }
     }
+    
+
+    // This is a helper method for "write_pawn_moves_to_stack()". It
+    // tests for the special case when an en-passant capture discovers
+    // check on 4/5-th rank. This is the very rare occasion when the
+    // two pawns participating in en-passant capture, disappearing in
+    // one move, discover an unexpected check along the horizontal
+    // (rank 4 of 5). "orig_square" and "dist_square" are the origin
+    // square and the destination square of the capturing pawn.
+    fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
+        let king_square = self.king_square(self.to_move);
+        if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
+            // the king is not on the 4/5-th rank -- we are done
+            true
+        } else {
+            // the king is on the 4/5-th rank -- we have more work to do
+            let the_two_pawns = 1 << orig_square |
+                                gen_shift(1,
+                                          dest_square as isize -
+                                          PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
+            let occupied = self.occupied & !the_two_pawns;
+            let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
+            let checkers = piece_attacks_from(self.geometry, occupied, ROOK, king_square) &
+                           occupied_by_them &
+                           (self.piece_type[ROOK] | self.piece_type[QUEEN]);
+            checkers == EMPTY_SET
+        }
+    }
+    
 
     // A Static Exchange Evaluation (SEE) examines the consequence of
     // a series of exchanges on a single square after a given move,
@@ -810,53 +873,7 @@ impl Board {
             gain[0]
         }
     }
-
-    #[inline(always)]
-    fn en_passant_bb(&self) -> u64 {
-        match self.en_passant_file {
-            x if x >= NO_ENPASSANT_FILE => EMPTY_SET,
-            x => {
-                match self.to_move {
-                    WHITE => 1 << x << 40,
-                    _ => 1 << x << 16,
-                }
-            }
-        }
-    }
-
-    #[inline(always)]
-    fn king_square(&self, us: Color) -> Square {
-        assert!(us <= 1);
-        bitscan_1bit(self.piece_type[KING] & unsafe { self.color.get_unchecked(us) })
-    }
-
-    // This is a helper method for "write_pawn_moves_to_stack()". It
-    // tests for the special case when an en-passant capture discovers
-    // check on 4/5-th rank. This is the very rare occasion when the
-    // two pawns participating in en-passant capture, disappearing in
-    // one move, discover an unexpected check along the horizontal
-    // (rank 4 of 5). "orig_square" and "dist_square" are the origin
-    // square and the destination square of the capturing pawn.
-    #[inline]
-    fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
-        let king_square = self.king_square(self.to_move);
-        if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
-            // the king is not on the 4/5-th rank -- we are done
-            true
-        } else {
-            // the king is on the 4/5-th rank -- we have more work to do
-            let the_two_pawns = 1 << orig_square |
-                                gen_shift(1,
-                                          dest_square as isize -
-                                          PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
-            let occupied = self.occupied & !the_two_pawns;
-            let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
-            let checkers = piece_attacks_from(self.geometry, occupied, ROOK, king_square) &
-                           occupied_by_them &
-                           (self.piece_type[ROOK] | self.piece_type[QUEEN]);
-            checkers == EMPTY_SET
-        }
-    }
+    
 
     fn pretty_string(&self) -> String {
         let mut s = String::new();
