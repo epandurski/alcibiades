@@ -442,10 +442,6 @@ impl Board {
                 let pawn_bb = ls1b(pinned_pawns);
                 pinned_pawns ^= pawn_bb;
                 let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
-
-                // TODO: When working with a single pawn (pawn_bb),
-                // this procedure probably could be optimized. Not
-                // clear if it worth it, though.
                 self.write_pawn_moves_to_stack(pawn_bb,
                                                en_passant_bb,
                                                pin_line & pawn_legal_dests,
@@ -546,13 +542,13 @@ impl Board {
         // east capture). For each move calculate the "to" and "from"
         // sqares, and determinne the move type (en-passant capture,
         // pawn promotion, or a normal move).
-        for dest_set_index in 0..4 {
-            let s = &mut dest_sets[dest_set_index];
+        for i in 0..4 {
+            let s = &mut dest_sets[i];
             while *s != EMPTY_SET {
                 let pawn_bb = ls1b(*s);
                 *s ^= pawn_bb;
                 let dest_square = bitscan_1bit(pawn_bb);
-                let orig_square = (dest_square as isize - shifts[dest_set_index]) as Square;
+                let orig_square = (dest_square as isize - shifts[i]) as Square;
                 let captured_piece = get_piece_type_at(&self.piece_type, self.occupied, pawn_bb);
                 match pawn_bb {
 
