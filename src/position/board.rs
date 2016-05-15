@@ -542,10 +542,10 @@ impl Board {
         dest_sets[PAWN_WEST_CAPTURE] &= legal_dests;
         dest_sets[PAWN_EAST_CAPTURE] &= legal_dests;
 
-        // Scan each destination set (push, double-push, queen-side
-        // capture, king-side capture). For each move calculate the "to"
-        // and "from" sqares, and determinne the move type (en-passant
-        // capture, pawn promotion, or a normal move).
+        // Scan each destination set (push, double push, west capture,
+        // east capture). For each move calculate the "to" and "from"
+        // sqares, and determinne the move type (en-passant capture,
+        // pawn promotion, or a normal move).
         for dest_set_index in 0..4 {
             let s = &mut dest_sets[dest_set_index];
             while *s != EMPTY_SET {
