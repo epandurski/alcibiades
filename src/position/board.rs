@@ -158,10 +158,8 @@ impl Board {
         let dest_bb = 1 << dest_square;
 
         // empty the origin square
-        unsafe {
-            *self.piece_type.get_unchecked_mut(piece) &= not_orig_bb;
-            *self.color.get_unchecked_mut(us) &= not_orig_bb;
-        }
+        self.piece_type[piece] &= not_orig_bb;
+        self.color[us] &= not_orig_bb;
 
         // remove the captured piece (if any)
         if captured_piece < NO_PIECE {
@@ -182,10 +180,8 @@ impl Board {
         } else {
             piece
         };
-        unsafe {
-            *self.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
-            *self.color.get_unchecked_mut(us) |= dest_bb;
-        }
+        self.piece_type[dest_piece] |= dest_bb;
+        self.color[us] |= dest_bb;
 
         // update castling rights
         self.castling.0 &= unsafe {
@@ -207,9 +203,7 @@ impl Board {
         self.to_move = them;
 
         // update the occupation bitboard
-        self.occupied = unsafe {
-            *self.color.get_unchecked(WHITE) | *self.color.get_unchecked(BLACK)
-        };
+        self.occupied = self.color[WHITE] | self.color[BLACK];
 
         assert!(self.is_legal());
         true
@@ -259,10 +253,8 @@ impl Board {
         } else {
             piece
         };
-        unsafe {
-            *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
-            *self.color.get_unchecked_mut(us) &= not_dest_bb;
-        }
+        self.piece_type[dest_piece] &= not_dest_bb;
+        self.color[us] &= not_dest_bb;
 
         // put back the captured piece (if any)
         if captured_piece < NO_PIECE {
@@ -278,10 +270,8 @@ impl Board {
         }
 
         // restore the piece on the origin square
-        unsafe {
-            *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
-            *self.color.get_unchecked_mut(us) |= orig_bb;
-        }
+        self.piece_type[piece] |= orig_bb;
+        self.color[us] |= orig_bb;
 
         // move the rook back if the move is castling
         if move_type == MOVE_CASTLING {
@@ -296,9 +286,7 @@ impl Board {
         }
 
         // update the occupation bitboard
-        self.occupied = unsafe {
-            *self.color.get_unchecked(WHITE) | *self.color.get_unchecked(BLACK)
-        };
+        self.occupied = self.color[WHITE] | self.color[BLACK];
 
         assert!(self.is_legal());
     }
