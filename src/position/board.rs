@@ -33,7 +33,6 @@ pub struct Board {
 }
 
 impl Board {
-    
     // Create a new board instance.
     //
     // It makes expensive verification to make sure that the board is
@@ -69,7 +68,7 @@ impl Board {
             Err(IllegalBoard)
         }
     }
-    
+
 
     // Analyzes the board and decides if it is a legal board.
     //
@@ -147,7 +146,7 @@ impl Board {
               orig_square_bb != 0))
         })
     }
-    
+
 
     // Play a move on the board.
     //
@@ -253,7 +252,7 @@ impl Board {
         assert!(self.is_legal());
         true
     }
-    
+
 
     // Take back a previously played move.
     //
@@ -341,7 +340,7 @@ impl Board {
 
         assert!(self.is_legal());
     }
-    
+
 
     // Generate pseudo-legal moves in the current board position.
     //
@@ -461,7 +460,7 @@ impl Board {
         self.write_castling_moves_to_stack(king_square, checkers, move_stack);
         self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
     }
-    
+
 
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no
@@ -486,7 +485,7 @@ impl Board {
         (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
-    
+
 
     // Return the square on which the king of color "us" is placed.
     #[inline]
@@ -494,7 +493,7 @@ impl Board {
         assert!(us <= 1);
         bitscan_1bit(self.piece_type[KING] & unsafe { self.color.get_unchecked(us) })
     }
-    
+
 
     // This is a helper method for Board::generate_moves(). It finds
     // all squares attacked by "piece" from square "from_square", and
@@ -527,7 +526,7 @@ impl Board {
                                       0));
         }
     }
-    
+
 
     // This is a helper method for Board::generate_moves(). It finds
     // all all possible moves by the set of pawns given by "pawns",
@@ -645,7 +644,7 @@ impl Board {
             }
         }
     }
-    
+
 
     // This is a helper method for Board::generate_moves(). It figures
     // out which castling moves are pseudo-legal and writes them to
@@ -688,7 +687,7 @@ impl Board {
             }
         }
     }
-    
+
 
     // This is a helper method for Board::generate_moves(). It returns
     // all pinned pieces belonging to the side to move. This is a
@@ -740,7 +739,7 @@ impl Board {
             pinned_or_discovered_checkers & occupied_by_us
         }
     }
-    
+
 
     // This is a helper method for Board::generate_moves(). It returns
     // a bitboard representing the en-passant passing square if there
@@ -757,7 +756,7 @@ impl Board {
             }
         }
     }
-    
+
 
     // This is a helper method for "write_pawn_moves_to_stack()". It
     // tests for the special case when an en-passant capture discovers
@@ -785,7 +784,7 @@ impl Board {
             checkers == EMPTY_SET
         }
     }
-    
+
 
     // A Static Exchange Evaluation (SEE) examines the consequence of
     // a series of exchanges on a single square after a given move,
@@ -873,7 +872,7 @@ impl Board {
             gain[0]
         }
     }
-    
+
 
     fn pretty_string(&self) -> String {
         let mut s = String::new();
@@ -929,11 +928,11 @@ fn board_geometry() -> &'static BoardGeometry {
 // bit-set. "geometry" supplies the look-up tables needed to perform
 // the calculation.
 #[inline(always)]
-pub fn piece_attacks_from(geometry: &BoardGeometry,
-                          occupied: u64,
-                          piece: PieceType,
-                          square: Square)
-                          -> u64 {
+fn piece_attacks_from(geometry: &BoardGeometry,
+                      occupied: u64,
+                      piece: PieceType,
+                      square: Square)
+                      -> u64 {
     assert!(piece < PAWN);
     assert!(square <= 63);
 
@@ -1046,6 +1045,7 @@ mod tests {
     #[test]
     fn test_attacks_from() {
         use basetypes::*;
+        use super::piece_attacks_from;
         let b = Board::create(&fen("k7/8/8/8/3P4/8/8/7K").ok().unwrap(),
                               None,
                               CastlingRights::new(),
