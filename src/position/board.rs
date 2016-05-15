@@ -44,11 +44,15 @@ pub struct Board {
 
 impl Board {
     // Create a new board instance.
+    //
+    // It makes expensive verification to make sure that the board is
+    // legal.
     pub fn create(placement: &PiecesPlacement,
                   en_passant_square: Option<Square>,
                   castling: CastlingRights,
                   to_move: Color)
                   -> Result<Board, IllegalBoard> {
+        
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
             BLACK => RANK_3,
@@ -73,7 +77,6 @@ impl Board {
         } else {
             Err(IllegalBoard)
         }
-
     }
 
     // Play a move on the board.
@@ -285,12 +288,11 @@ impl Board {
     // to move in check; 5. having pawns on ranks 1 or 8; 6. having
     // castling rights when the king or the corresponding rook is not
     // on its initial square; 7. having an en-passant square that is
-    // not on 3/6-th rank, or not having a pawn of corresponding color
-    // before, and an empty square on it and behind it; 8. having an
-    // en-passant square while the wrong side is to move; 9. having an
-    // en-passant square while the king is in check not from the
-    // passing pawn and not from a checker that was discovered by the
-    // passing pawn.
+    // not having a pawn of corresponding color before, and an empty
+    // square on it and behind it; 8. having an en-passant square
+    // while the wrong side is to move; 9. having an en-passant square
+    // while the king is in check not from the passing pawn and not
+    // from a checker that was discovered by the passing pawn.
     pub fn is_legal(&self) -> bool {
         if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
             return false;
@@ -337,7 +339,6 @@ impl Board {
             let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
             let our_king_square = bitscan_forward(our_king_bb);
             let checkers = self.attacks_to(them, our_king_square);
-            ([BB_RANK_6, BB_RANK_3][us] & en_passant_bb != 0) && // TODO: This is always true
             (dest_square_bb & pawns & o_them != 0) &&
             (en_passant_bb & !occupied != 0) && (orig_square_bb & !occupied != 0) &&
             (checkers == EMPTY_SET || checkers == dest_square_bb ||
