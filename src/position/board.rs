@@ -170,15 +170,13 @@ impl Board {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
 
-        // TODO: This (and the castling passing square check) can be
-        // done more efficeient.
-        if piece == KING && self.attacks_to(them, dest_square) != EMPTY_SET {
+        if piece == KING && self.is_attacked(them, dest_square) {
             return false;  // the king is in check -- illegal move
         }
 
         // move the rook if the move is castling
         if move_type == MOVE_CASTLING {
-            if self.attacks_to(them, (orig_square + dest_square) >> 1) != EMPTY_SET {
+            if self.is_attacked(them, (orig_square + dest_square) >> 1) {
                 return false;  // king's passing square is attacked -- illegal move
             }
 
@@ -495,10 +493,10 @@ impl Board {
     }
 
 
-    // This is a helper method for Board::generate_moves(). It finds
-    // all squares attacked by "piece" from square "from_square", and
-    // for each square that is within the "legal_dests" set writes a
-    // new move to "move_stack". "piece" can not be a pawn.
+    // A helper method for Board::generate_moves(). It finds all
+    // squares attacked by "piece" from square "from_square", and for
+    // each square that is within the "legal_dests" set writes a new
+    // move to "move_stack". "piece" can not be a pawn.
     #[inline(always)]
     fn write_piece_moves_to_stack(&self,
                                   piece: PieceType,
@@ -528,10 +526,10 @@ impl Board {
     }
 
 
-    // This is a helper method for Board::generate_moves(). It finds
-    // all all possible moves by the set of pawns given by "pawns",
-    // making sure all pawn move destinations are within the
-    // "legal_dests" set. Then it writes the resulting moves to
+    // A helper method for Board::generate_moves(). It finds all all
+    // possible moves by the set of pawns given by "pawns", making
+    // sure all pawn move destinations are within the "legal_dests"
+    // set. Then it writes the resulting moves to
     // "move_stack". "en_passant_bb" represents the en-passant passing
     // square, if there is one.
     //
@@ -646,8 +644,8 @@ impl Board {
     }
 
 
-    // This is a helper method for Board::generate_moves(). It figures
-    // out which castling moves are pseudo-legal and writes them to
+    // A helper method for Board::generate_moves(). It figures out
+    // which castling moves are pseudo-legal and writes them to
     // "move_stack". "king_square" and "checkers" are passed so that
     // we do not recalculate them.
     #[inline(always)]
@@ -689,8 +687,8 @@ impl Board {
     }
 
 
-    // This is a helper method for Board::generate_moves(). It returns
-    // all pinned pieces belonging to the side to move. This is a
+    // A helper method for Board::generate_moves(). It returns all
+    // pinned pieces belonging to the side to move. This is a
     // relatively expensive operation.
     #[inline(always)]
     fn find_pinned(&self) -> u64 {
@@ -741,9 +739,9 @@ impl Board {
     }
 
 
-    // This is a helper method for Board::generate_moves(). It returns
-    // a bitboard representing the en-passant passing square if there
-    // is one.
+    // A helper method for Board::generate_moves(). It returns a
+    // bitboard representing the en-passant passing square if there is
+    // one.
     #[inline(always)]
     fn en_passant_bb(&self) -> u64 {
         match self.en_passant_file {
@@ -758,13 +756,43 @@ impl Board {
     }
 
 
-    // This is a helper method for "write_pawn_moves_to_stack()". It
-    // tests for the special case when an en-passant capture discovers
-    // check on 4/5-th rank. This is the very rare occasion when the
-    // two pawns participating in en-passant capture, disappearing in
-    // one move, discover an unexpected check along the horizontal
-    // (rank 4 of 5). "orig_square" and "dist_square" are the origin
-    // square and the destination square of the capturing pawn.
+    // A helper method for Board::do_move(). It returns true if
+    // "square" is attacked by at least one piece of color "us", and
+    // false otherwise.
+    #[inline]
+    fn is_attacked(&self, us: Color, square: Square) -> bool {
+        assert!(us <= 1);
+        assert!(square <= 63);
+        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
+
+        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
+         (self.piece_type[ROOK] | self.piece_type[QUEEN])) != EMPTY_SET ||
+        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
+         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) != EMPTY_SET ||
+        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
+         self.piece_type[KNIGHT]) != EMPTY_SET ||
+        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
+         self.piece_type[KING]) != EMPTY_SET ||
+        {
+            let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+            let square_bb = 1 << square;
+
+            (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
+             self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) !=
+            EMPTY_SET ||
+            (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
+             self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8)) != EMPTY_SET
+        }
+    }
+
+
+    // A helper method for "write_pawn_moves_to_stack()". It tests for
+    // the special case when an en-passant capture discovers check on
+    // 4/5-th rank. This is the very rare occasion when the two pawns
+    // participating in en-passant capture, disappearing in one move,
+    // discover an unexpected check along the horizontal (rank 4 of
+    // 5). "orig_square" and "dist_square" are the origin square and
+    // the destination square of the capturing pawn.
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square(self.to_move);
         if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
