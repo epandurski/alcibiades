@@ -471,93 +471,6 @@ impl Board {
         self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
     }
 
-    // A Static Exchange Evaluation (SEE) examines the consequence of
-    // a series of exchanges on a single square after a given move,
-    // and calculates the likely evaluation change (material) to be
-    // lost or gained, Donald Michie coined the term swap-off value. A
-    // positive static exchange indicates a "winning" move. For
-    // example, PxQ will always be a win, since the Pawn side can
-    // choose to stop the exchange after its Pawn is recaptured, and
-    // still be ahead.
-    //
-    // The impemented algorithm creates a swap-list of best case
-    // material gains by traversing a square attacked/defended by set
-    // in least valuable piece order from pawn, knight, bishop, rook,
-    // queen until king, with alternating sides. The swap-list, an
-    // unary tree since there are no branches but just a series of
-    // captures, is negamaxed for a final static exchange evaluation.
-    //
-    // The returned value is the material that is expected to be
-    // gained in the exchange by the attacking side
-    // ("attacking_color"), when capturing the "target_piece" on the
-    // "target_square". The "from_square" specifies the square from
-    // which the "attacking_piece" makes the capture.
-    pub fn calc_see(&self,
-                    mut attacking_color: Color,
-                    from_square: Square,
-                    mut attacking_piece: PieceType,
-                    to_square: Square,
-                    target_piece: PieceType)
-                    -> Value {
-
-        // TODO: This method (and the functions it calls) does a lot
-        // of array access and therefore, lots of array boundary
-        // check. Also I expect this code to be crucial for the
-        // performance. Therefore we probably have to switch to
-        // unchecked array indexing.
-
-        use std::mem::uninitialized;
-        use std::cmp::max;
-        static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
-
-        let mut occupied = self.occupied;
-        let mut depth = 0;
-        let mut attackers_and_defenders = self.attacks_to(WHITE, to_square) |
-                                          self.attacks_to(BLACK, to_square);
-        let mut from_square_bb = 1 << from_square;
-
-        // "may_xray" pieces may block x-ray attacks from other
-        // pieces, so we must consider adding new attackers/defenders
-        // every time a "may_xray"-piece makes a capture.
-        let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
-                       self.piece_type[QUEEN];
-        unsafe {
-            let mut gain: [Value; 33] = uninitialized();
-            gain[depth] = VALUE[target_piece];
-            while from_square_bb != EMPTY_SET {
-                depth += 1;  // next depth
-                attacking_color ^= 1;  // next side
-                gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
-                if max(-gain[depth - 1], gain[depth]) < 0 {
-                    break;  // pruning does not influence the outcome
-                }
-                attackers_and_defenders ^= from_square_bb;
-                occupied ^= from_square_bb;
-                if from_square_bb & may_xray != EMPTY_SET {
-                    attackers_and_defenders |= consider_xrays(self.geometry,
-                                                              &self.piece_type,
-                                                              occupied,
-                                                              to_square,
-                                                              bitscan_forward(from_square_bb));
-                }
-                assert_eq!(occupied | attackers_and_defenders, occupied);
-
-                // find the next piece in the exchange
-                let next_attack = get_least_valuable_piece_in_a_set(&self.piece_type,
-                                                                    attackers_and_defenders &
-                                                                    self.color[attacking_color]);
-                attacking_piece = next_attack.0;
-                from_square_bb = next_attack.1;
-            }
-            depth -= 1;  // discard the speculative store
-            while depth > 0 {
-                gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
-                depth -= 1;
-            }
-            gain[0]
-        }
-    }
-
     // This is a helper method for Board::generate_moves(). It finds
     // all squares attacked by "piece" from square "from_square", and
     // for each square that is within the "legal_dests" set writes a
@@ -756,6 +669,93 @@ impl Board {
          self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
         (gen_shift(square_bb, -shifts[PAWN_QUEENSIDE_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
+    }
+
+    // A Static Exchange Evaluation (SEE) examines the consequence of
+    // a series of exchanges on a single square after a given move,
+    // and calculates the likely evaluation change (material) to be
+    // lost or gained, Donald Michie coined the term swap-off value. A
+    // positive static exchange indicates a "winning" move. For
+    // example, PxQ will always be a win, since the Pawn side can
+    // choose to stop the exchange after its Pawn is recaptured, and
+    // still be ahead.
+    //
+    // The impemented algorithm creates a swap-list of best case
+    // material gains by traversing a square attacked/defended by set
+    // in least valuable piece order from pawn, knight, bishop, rook,
+    // queen until king, with alternating sides. The swap-list, an
+    // unary tree since there are no branches but just a series of
+    // captures, is negamaxed for a final static exchange evaluation.
+    //
+    // The returned value is the material that is expected to be
+    // gained in the exchange by the attacking side
+    // ("attacking_color"), when capturing the "target_piece" on the
+    // "target_square". The "from_square" specifies the square from
+    // which the "attacking_piece" makes the capture.
+    pub fn calc_see(&self,
+                    mut attacking_color: Color,
+                    from_square: Square,
+                    mut attacking_piece: PieceType,
+                    to_square: Square,
+                    target_piece: PieceType)
+                    -> Value {
+
+        // TODO: This method (and the functions it calls) does a lot
+        // of array access and therefore, lots of array boundary
+        // check. Also I expect this code to be crucial for the
+        // performance. Therefore we probably have to switch to
+        // unchecked array indexing.
+
+        use std::mem::uninitialized;
+        use std::cmp::max;
+        static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
+
+        let mut occupied = self.occupied;
+        let mut depth = 0;
+        let mut attackers_and_defenders = self.attacks_to(WHITE, to_square) |
+                                          self.attacks_to(BLACK, to_square);
+        let mut from_square_bb = 1 << from_square;
+
+        // "may_xray" pieces may block x-ray attacks from other
+        // pieces, so we must consider adding new attackers/defenders
+        // every time a "may_xray"-piece makes a capture.
+        let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
+                       self.piece_type[QUEEN];
+        unsafe {
+            let mut gain: [Value; 33] = uninitialized();
+            gain[depth] = VALUE[target_piece];
+            while from_square_bb != EMPTY_SET {
+                depth += 1;  // next depth
+                attacking_color ^= 1;  // next side
+                gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
+                if max(-gain[depth - 1], gain[depth]) < 0 {
+                    break;  // pruning does not influence the outcome
+                }
+                attackers_and_defenders ^= from_square_bb;
+                occupied ^= from_square_bb;
+                if from_square_bb & may_xray != EMPTY_SET {
+                    attackers_and_defenders |= consider_xrays(self.geometry,
+                                                              &self.piece_type,
+                                                              occupied,
+                                                              to_square,
+                                                              bitscan_forward(from_square_bb));
+                }
+                assert_eq!(occupied | attackers_and_defenders, occupied);
+
+                // find the next piece in the exchange
+                let next_attack = get_least_valuable_piece_in_a_set(&self.piece_type,
+                                                                    attackers_and_defenders &
+                                                                    self.color[attacking_color]);
+                attacking_piece = next_attack.0;
+                from_square_bb = next_attack.1;
+            }
+            depth -= 1;  // discard the speculative store
+            while depth > 0 {
+                gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
+                depth -= 1;
+            }
+            gain[0]
+        }
     }
 
     #[inline(always)]
