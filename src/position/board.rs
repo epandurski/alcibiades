@@ -98,7 +98,7 @@ impl Board {
 
         // move the rook if the move is castling
         if move_type == MOVE_CASTLING {
-            if self.attacks_to(them, (orig_square + dest_square) / 2) != EMPTY_SET {
+            if self.attacks_to(them, (orig_square + dest_square) >> 1) != EMPTY_SET {
                 return false;  // king's passing square is attacked -- illegal move
             }
 
