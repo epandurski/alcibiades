@@ -78,6 +78,8 @@ impl Board {
     }
 
 
+    // Return a bitboard of checkers, that are attacking the king of
+    // the side to move.
     #[inline]
     pub fn checkers(&self) -> u64 {
         if self._checkers.get() == UNIVERSAL_SET {
@@ -86,7 +88,8 @@ impl Board {
         self._checkers.get()
     }
 
-
+    
+    // Return the square that the king of the side to move occupies.
     #[inline]
     pub fn king_square(&self) -> Square {
         if self._king_square.get() > 63 {
