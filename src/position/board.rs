@@ -69,6 +69,83 @@ impl Board {
         }
     }
 
+    // Analyzes the board and decides if it is a legal board.
+    //
+    // In addition to the obviously wrong boards (that for example
+    // declare some pieces having no or more than one color), there
+    // are many chess boards that are impossible to create from the
+    // starting chess position. Here we are interested to detect and
+    // guard against only those of the cases that have a chance of
+    // disturbing some of our explicit and unavoidably, implicit
+    // presumptions about what a chess position is when writing the
+    // code.
+    //
+    // Invalid boards: 1. having more or less than 1 king from each
+    // color; 2. having more than 8 pawns of a color; 3. having more
+    // than 16 pieces (and pawns) of one color; 4. having the side not
+    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
+    // castling rights when the king or the corresponding rook is not
+    // on its initial square; 7. having an en-passant square that is
+    // not having a pawn of corresponding color before, and an empty
+    // square on it and behind it; 8. having an en-passant square
+    // while the wrong side is to move; 9. having an en-passant square
+    // while the king is in check not from the passing pawn and not
+    // from a checker that was discovered by the passing pawn.
+    pub fn is_legal(&self) -> bool {
+        if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
+            return false;
+        }
+        let us = self.to_move;
+        let en_passant_bb = self.en_passant_bb();
+        let occupied = self.piece_type.into_iter().fold(0, |acc, x| {
+            if acc & x == 0 {
+                acc | x
+            } else {
+                UNIVERSAL_SET
+            }
+        });  // returns "UNIVERSAL_SET" if "self.piece_type" is messed up
+
+        let them = 1 ^ us;
+        let o_us = self.color[us];
+        let o_them = self.color[them];
+        let our_king_bb = self.piece_type[KING] & o_us;
+        let their_king_bb = self.piece_type[KING] & o_them;
+        let pawns = self.piece_type[PAWN];
+
+        self.occupied == occupied && occupied != UNIVERSAL_SET && occupied == o_us | o_them &&
+        o_us & o_them == 0 && pop_count(our_king_bb) == 1 &&
+        pop_count(their_king_bb) == 1 &&
+        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
+        pop_count(o_us) <= 16 && pop_count(o_them) <= 16 &&
+        self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
+        pawns & PAWN_PROMOTION_RANKS == 0 &&
+        (!self.castling.can_castle(WHITE, QUEENSIDE) ||
+         (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
+         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
+        (!self.castling.can_castle(WHITE, KINGSIDE) ||
+         (self.piece_type[ROOK] & self.color[WHITE] & 1 << H1 != 0) &&
+         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
+        (!self.castling.can_castle(BLACK, QUEENSIDE) ||
+         (self.piece_type[ROOK] & self.color[BLACK] & 1 << A8 != 0) &&
+         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
+        (!self.castling.can_castle(BLACK, KINGSIDE) ||
+         (self.piece_type[ROOK] & self.color[BLACK] & 1 << H8 != 0) &&
+         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
+        (en_passant_bb == EMPTY_SET ||
+         {
+            let dest_square_bb = gen_shift(en_passant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let our_king_square = bitscan_forward(our_king_bb);
+            let checkers = self.attacks_to(them, our_king_square);
+            (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
+            (orig_square_bb & !occupied != 0) &&
+            (checkers == EMPTY_SET || checkers == dest_square_bb ||
+             (pop_count(checkers) == 1 &&
+              self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
+              orig_square_bb != 0))
+        })
+    }
+
     // Play a move on the board.
     //
     // Verifies if the move is legal. If the move is legal, the board
@@ -259,83 +336,6 @@ impl Board {
         };
 
         assert!(self.is_legal());
-    }
-
-    // Analyzes the board and decides if it is a legal board.
-    //
-    // In addition to the obviously wrong boards (that for example
-    // declare some pieces having no or more than one color), there
-    // are many chess boards that are impossible to create from the
-    // starting chess position. Here we are interested to detect and
-    // guard against only those of the cases that have a chance of
-    // disturbing some of our explicit and unavoidably, implicit
-    // presumptions about what a chess position is when writing the
-    // code.
-    //
-    // Invalid boards: 1. having more or less than 1 king from each
-    // color; 2. having more than 8 pawns of a color; 3. having more
-    // than 16 pieces (and pawns) of one color; 4. having the side not
-    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
-    // castling rights when the king or the corresponding rook is not
-    // on its initial square; 7. having an en-passant square that is
-    // not having a pawn of corresponding color before, and an empty
-    // square on it and behind it; 8. having an en-passant square
-    // while the wrong side is to move; 9. having an en-passant square
-    // while the king is in check not from the passing pawn and not
-    // from a checker that was discovered by the passing pawn.
-    pub fn is_legal(&self) -> bool {
-        if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
-            return false;
-        }
-        let us = self.to_move;
-        let en_passant_bb = self.en_passant_bb();
-        let occupied = self.piece_type.into_iter().fold(0, |acc, x| {
-            if acc & x == 0 {
-                acc | x
-            } else {
-                UNIVERSAL_SET
-            }
-        });  // returns "UNIVERSAL_SET" if "self.piece_type" is messed up
-
-        let them = 1 ^ us;
-        let o_us = self.color[us];
-        let o_them = self.color[them];
-        let our_king_bb = self.piece_type[KING] & o_us;
-        let their_king_bb = self.piece_type[KING] & o_them;
-        let pawns = self.piece_type[PAWN];
-
-        self.occupied == occupied && occupied != UNIVERSAL_SET && occupied == o_us | o_them &&
-        o_us & o_them == 0 && pop_count(our_king_bb) == 1 &&
-        pop_count(their_king_bb) == 1 &&
-        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
-        pop_count(o_us) <= 16 && pop_count(o_them) <= 16 &&
-        self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
-        pawns & PAWN_PROMOTION_RANKS == 0 &&
-        (!self.castling.can_castle(WHITE, QUEENSIDE) ||
-         (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
-         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling.can_castle(WHITE, KINGSIDE) ||
-         (self.piece_type[ROOK] & self.color[WHITE] & 1 << H1 != 0) &&
-         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling.can_castle(BLACK, QUEENSIDE) ||
-         (self.piece_type[ROOK] & self.color[BLACK] & 1 << A8 != 0) &&
-         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
-        (!self.castling.can_castle(BLACK, KINGSIDE) ||
-         (self.piece_type[ROOK] & self.color[BLACK] & 1 << H8 != 0) &&
-         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
-        (en_passant_bb == EMPTY_SET ||
-         {
-            let dest_square_bb = gen_shift(en_passant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
-            let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
-            let our_king_square = bitscan_forward(our_king_bb);
-            let checkers = self.attacks_to(them, our_king_square);
-            (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
-            (orig_square_bb & !occupied != 0) &&
-            (checkers == EMPTY_SET || checkers == dest_square_bb ||
-             (pop_count(checkers) == 1 &&
-              self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
-              orig_square_bb != 0))
-        })
     }
 
     // Generate pseudo-legal moves in the current board position.
@@ -648,6 +648,57 @@ impl Board {
         }
     }
 
+    // This is a helper method for Board::generate_moves(). It returns
+    // all pinned pieces belonging to the side to move. This is a
+    // relatively expensive operation.
+    #[inline(always)]
+    fn find_pinned(&self) -> u64 {
+        let us = self.to_move;
+        assert!(us <= 1);
+        let king_square = self.king_square(us);
+        let occupied_by_them = unsafe { self.color.get_unchecked(1 ^ us) };
+
+        // To find all potential pinners, we remove all our pieces
+        // from the board, and all enemy pieces that can not slide in
+        // the particular manner (diagonally or straight). Then we
+        // calculate what enemy pieces a bishop or a rook placed on
+        // our king's square can attack. The attacked enemy pieces are
+        // the potential pinners.
+        let diag_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
+        let straight_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[ROOK]);
+        let mut pinners = diag_sliders &
+                          piece_attacks_from(self.geometry, diag_sliders, BISHOP, king_square) |
+                          straight_sliders &
+                          piece_attacks_from(self.geometry, straight_sliders, ROOK, king_square);
+
+        if pinners == EMPTY_SET {
+            EMPTY_SET
+        } else {
+            let occupied_by_us = unsafe { self.color.get_unchecked(us) };
+            let between_king_square_and: &[u64; 64] = unsafe {
+                self.geometry.squares_between_including.get_unchecked(king_square)
+            };
+            let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
+            let mut pinned_or_discovered_checkers = EMPTY_SET;
+
+            // Scan all potential pinners and see if there is one and only
+            // one piece between the pinner and our king.
+            while pinners != EMPTY_SET {
+                let pinner_square = bitscan_forward_and_reset(&mut pinners);
+                let blockers_group = unsafe {
+                    between_king_square_and.get_unchecked(pinner_square)
+                } & blockers;
+                if ls1b(blockers_group) == blockers_group {
+                    // A group of blockers consisting of only one
+                    // piece is either a pinned piece of ours or
+                    // enemy's discovered checker.
+                    pinned_or_discovered_checkers |= blockers_group;
+                }
+            }
+            pinned_or_discovered_checkers & occupied_by_us
+        }
+    }
+
     // Return the set of squares that have on them pieces (or pawns)
     // of color "us" that attack the square "square" directly (no
     // x-rays).
@@ -770,54 +821,6 @@ impl Board {
                     _ => 1 << x << 16,
                 }
             }
-        }
-    }
-
-    #[inline(always)]
-    fn find_pinned(&self) -> u64 {
-        let us = self.to_move;
-        assert!(us <= 1);
-        let king_square = self.king_square(us);
-        let occupied_by_them = unsafe { self.color.get_unchecked(1 ^ us) };
-
-        // To find all potential pinners, we remove all our pieces
-        // from the board, and all enemy pieces that can not slide in
-        // the particular manner (diagonally or straight). Then we
-        // calculate what enemy pieces a bishop or a rook placed on
-        // our king's square can attack. The attacked enemy pieces are
-        // the potential pinners.
-        let diag_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
-        let straight_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[ROOK]);
-        let mut pinners = diag_sliders &
-                          piece_attacks_from(self.geometry, diag_sliders, BISHOP, king_square) |
-                          straight_sliders &
-                          piece_attacks_from(self.geometry, straight_sliders, ROOK, king_square);
-
-        if pinners == EMPTY_SET {
-            EMPTY_SET
-        } else {
-            let occupied_by_us = unsafe { self.color.get_unchecked(us) };
-            let between_king_square_and: &[u64; 64] = unsafe {
-                self.geometry.squares_between_including.get_unchecked(king_square)
-            };
-            let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
-            let mut pinned_or_discovered_checkers = EMPTY_SET;
-
-            // Scan all potential pinners and see if there is one and only
-            // one piece between the pinner and our king.
-            while pinners != EMPTY_SET {
-                let pinner_square = bitscan_forward_and_reset(&mut pinners);
-                let blockers_group = unsafe {
-                    between_king_square_and.get_unchecked(pinner_square)
-                } & blockers;
-                if ls1b(blockers_group) == blockers_group {
-                    // A group of blockers consisting of only one
-                    // piece is either a pinned piece of ours or
-                    // enemy's discovered checker.
-                    pinned_or_discovered_checkers |= blockers_group;
-                }
-            }
-            pinned_or_discovered_checkers & occupied_by_us
         }
     }
 
