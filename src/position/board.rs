@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use basetypes::*;
 use bitsets::*;
 use super::board_geometry::{BoardGeometry, board_geometry};
@@ -26,52 +27,72 @@ pub struct Board {
     geometry: &'static BoardGeometry,
     piece_type: [u64; 6],
     color: [u64; 2],
-    occupied: u64, // this should always be equal to self.color[0] | self.color[1]
     en_passant_file: File,
     castling: CastlingRights,
     to_move: Color,
+    occupied: u64, // this will always be equal to self.color[0] | self.color[1]
+    _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
+    _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
 }
 
 impl Board {
     #[inline(always)]
-    fn geometry(&self) -> &BoardGeometry {
+    pub fn geometry(&self) -> &BoardGeometry {
         self.geometry
     }
 
 
     #[inline(always)]
-    fn piece_type(&self) -> [u64; 6] {
+    pub fn piece_type(&self) -> [u64; 6] {
         self.piece_type
     }
 
 
     #[inline(always)]
-    fn color(&self) -> [u64; 2] {
+    pub fn color(&self) -> [u64; 2] {
         self.color
     }
 
 
     #[inline(always)]
-    fn occupied(&self) -> u64 {
-        self.occupied
-    }
-
-
-    #[inline(always)]
-    fn en_passant_file(&self) -> usize {
+    pub fn en_passant_file(&self) -> usize {
         self.en_passant_file
     }
 
 
     #[inline(always)]
-    fn castling(&self) -> CastlingRights {
+    pub fn castling(&self) -> CastlingRights {
         self.castling
     }
 
 
     #[inline(always)]
-    fn to_move(&self) -> Color {
+    pub fn to_move(&self) -> Color {
         self.to_move
+    }
+
+
+    #[inline(always)]
+    pub fn occupied(&self) -> u64 {
+        self.occupied
+    }
+
+
+    #[inline(always)]
+    pub fn checkers(&self) -> u64 {
+        if self._checkers.get() == UNIVERSAL_SET {
+            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
+        }
+        self._checkers.get()
+    }
+
+
+    #[inline(always)]
+    pub fn king_square(&self) -> Square {
+        if self._king_square.get() > 63 {
+            self._king_square.set(bitscan_1bit(self.piece_type[KING] & self.color[self.to_move]));
+        }
+        self._king_square.get()
     }
 
 
@@ -103,6 +124,8 @@ impl Board {
             castling: castling,
             to_move: to_move,
             occupied: placement.color[WHITE] | placement.color[BLACK],
+            _checkers: Cell::new(UNIVERSAL_SET),
+            _king_square: Cell::new(64),
         };
         if b.is_legal() {
             Ok(b)
@@ -202,8 +225,10 @@ impl Board {
         // change the side to move
         self.to_move = them;
 
-        // update the occupation bitboard
+        // update occupation, _checkers, and _king_square
         self.occupied = self.color[WHITE] | self.color[BLACK];
+        self._checkers.set(UNIVERSAL_SET);
+        self._king_square.set(64);
 
         assert!(self.is_legal());
         true
@@ -285,8 +310,10 @@ impl Board {
             self.color[us] ^= mask;
         }
 
-        // update the occupation bitboard
+        // update occupation, _checkers, and _king_square
         self.occupied = self.color[WHITE] | self.color[BLACK];
+        self._checkers.set(UNIVERSAL_SET);
+        self._king_square.set(64);
 
         assert!(self.is_legal());
     }
@@ -305,10 +332,10 @@ impl Board {
     // verification at all.
     pub fn generate_moves(&self, move_stack: &mut MoveStack) {
         assert!(self.is_legal());
-        assert!(self.king_square(self.to_move) <= 63);
+        assert!(self.king_square() <= 63);
 
-        let king_square = self.king_square(self.to_move);
-        let checkers = self.attacks_to(1 ^ self.to_move, king_square);
+        let king_square = self.king_square();
+        let checkers = self.checkers();
         let en_passant_bb = self.en_passant_bb();
         let occupied_by_us = self.color[self.to_move];
         let pin_lines = &self.geometry.squares_at_line[king_square];
@@ -406,7 +433,7 @@ impl Board {
         // check or passing through attacked square when
         // castling). This is executed even when the king is in double
         // check.
-        self.write_castling_moves_to_stack(king_square, checkers, move_stack);
+        self.write_castling_moves_to_stack(move_stack);
         self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
     }
 
@@ -439,13 +466,6 @@ impl Board {
          self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
         (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
-    }
-
-
-    // Return the square on which the king of color "us" is placed.
-    #[inline]
-    pub fn king_square(&self, us: Color) -> Square {
-        bitscan_1bit(self.piece_type[KING] & self.color[us])
     }
 
 
@@ -523,7 +543,14 @@ impl Board {
              (pop_count(checkers) == 1 &&
               self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
               orig_square_bb != 0))
-        })
+        }) &&
+        {
+            self._king_square.get() > 63 || self._king_square.get() == bitscan_1bit(our_king_bb)
+        } &&
+        {
+            self._checkers.get() == UNIVERSAL_SET ||
+            self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb))
+        }
     }
 
 
@@ -680,17 +707,12 @@ impl Board {
 
     // A helper method for Board::generate_moves(). It figures out
     // which castling moves are pseudo-legal and writes them to
-    // "move_stack". "king_square" and "checkers" are passed so that
-    // we do not recalculate them.
+    // "move_stack".
     #[inline(always)]
-    fn write_castling_moves_to_stack(&self,
-                                     king_square: Square,
-                                     checkers: u64,
-                                     move_stack: &mut MoveStack) {
-        assert!(king_square <= 63);
+    fn write_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
 
         // can not castle if in check
-        if checkers == EMPTY_SET {
+        if self.checkers() == EMPTY_SET {
 
             // try queen-side and king-side castling
             for side in 0..2 {
@@ -706,7 +728,7 @@ impl Board {
                                               0,
                                               MOVE_CASTLING,
                                               KING,
-                                              king_square,
+                                              self.king_square(),
                                               unsafe {
                                                   *[[C1, C8], [G1, G8]][side]
                                                        .get_unchecked(self.to_move)
@@ -727,7 +749,7 @@ impl Board {
     #[inline(always)]
     fn find_pinned(&self) -> u64 {
         let us = self.to_move;
-        let king_square = self.king_square(us);
+        let king_square = self.king_square();
         assert!(us <= 1);
         assert!(king_square <= 63);
         let occupied_by_them = self.color[1 ^ us];
@@ -826,7 +848,7 @@ impl Board {
     // 5). "orig_square" and "dist_square" are the origin square and
     // the destination square of the capturing pawn.
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
-        let king_square = self.king_square(self.to_move);
+        let king_square = self.king_square();
         if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
             // the king is not on the 4/5-th rank -- we are done
             true
