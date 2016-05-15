@@ -23,16 +23,58 @@ pub struct IllegalBoard;
 
 
 pub struct Board {
-    pub geometry: &'static BoardGeometry,
-    pub piece_type: [u64; 6],
-    pub color: [u64; 2],
-    pub occupied: u64, // this should always be equal to self.color[0] | self.color[1]
-    pub en_passant_file: File,
-    pub castling: CastlingRights,
-    pub to_move: Color,
+    geometry: &'static BoardGeometry,
+    piece_type: [u64; 6],
+    color: [u64; 2],
+    occupied: u64, // this should always be equal to self.color[0] | self.color[1]
+    en_passant_file: File,
+    castling: CastlingRights,
+    to_move: Color,
 }
 
 impl Board {
+    #[inline(always)]
+    fn geometry(&self) -> &BoardGeometry {
+        self.geometry
+    }
+
+
+    #[inline(always)]
+    fn piece_type(&self) -> [u64; 6] {
+        self.piece_type
+    }
+
+
+    #[inline(always)]
+    fn color(&self) -> [u64; 2] {
+        self.color
+    }
+
+
+    #[inline(always)]
+    fn occupied(&self) -> u64 {
+        self.occupied
+    }
+
+
+    #[inline(always)]
+    fn en_passant_file(&self) -> usize {
+        self.en_passant_file
+    }
+
+
+    #[inline(always)]
+    fn castling(&self) -> CastlingRights {
+        self.castling
+    }
+
+
+    #[inline(always)]
+    fn to_move(&self) -> Color {
+        self.to_move
+    }
+
+
     // Create a new board instance.
     //
     // It makes expensive verification to make sure that the board is
@@ -67,84 +109,6 @@ impl Board {
         } else {
             Err(IllegalBoard)
         }
-    }
-
-
-    // Analyzes the board and decides if it is a legal board.
-    //
-    // In addition to the obviously wrong boards (that for example
-    // declare some pieces having no or more than one color), there
-    // are many chess boards that are impossible to create from the
-    // starting chess position. Here we are interested to detect and
-    // guard against only those of the cases that have a chance of
-    // disturbing some of our explicit and unavoidably, implicit
-    // presumptions about what a chess position is when writing the
-    // code.
-    //
-    // Invalid boards: 1. having more or less than 1 king from each
-    // color; 2. having more than 8 pawns of a color; 3. having more
-    // than 16 pieces (and pawns) of one color; 4. having the side not
-    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
-    // castling rights when the king or the corresponding rook is not
-    // on its initial square; 7. having an en-passant square that is
-    // not having a pawn of corresponding color before, and an empty
-    // square on it and behind it; 8. having an en-passant square
-    // while the wrong side is to move; 9. having an en-passant square
-    // while the king is in check not from the passing pawn and not
-    // from a checker that was discovered by the passing pawn.
-    pub fn is_legal(&self) -> bool {
-        if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
-            return false;
-        }
-        let us = self.to_move;
-        let en_passant_bb = self.en_passant_bb();
-        let occupied = self.piece_type.into_iter().fold(0, |acc, x| {
-            if acc & x == 0 {
-                acc | x
-            } else {
-                UNIVERSAL_SET
-            }
-        });  // returns "UNIVERSAL_SET" if "self.piece_type" is messed up
-
-        let them = 1 ^ us;
-        let o_us = self.color[us];
-        let o_them = self.color[them];
-        let our_king_bb = self.piece_type[KING] & o_us;
-        let their_king_bb = self.piece_type[KING] & o_them;
-        let pawns = self.piece_type[PAWN];
-
-        self.occupied == occupied && occupied != UNIVERSAL_SET && occupied == o_us | o_them &&
-        o_us & o_them == 0 && pop_count(our_king_bb) == 1 &&
-        pop_count(their_king_bb) == 1 &&
-        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
-        pop_count(o_us) <= 16 && pop_count(o_them) <= 16 &&
-        self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
-        pawns & PAWN_PROMOTION_RANKS == 0 &&
-        (!self.castling.can_castle(WHITE, QUEENSIDE) ||
-         (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
-         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling.can_castle(WHITE, KINGSIDE) ||
-         (self.piece_type[ROOK] & self.color[WHITE] & 1 << H1 != 0) &&
-         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling.can_castle(BLACK, QUEENSIDE) ||
-         (self.piece_type[ROOK] & self.color[BLACK] & 1 << A8 != 0) &&
-         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
-        (!self.castling.can_castle(BLACK, KINGSIDE) ||
-         (self.piece_type[ROOK] & self.color[BLACK] & 1 << H8 != 0) &&
-         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
-        (en_passant_bb == EMPTY_SET ||
-         {
-            let dest_square_bb = gen_shift(en_passant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
-            let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
-            let our_king_square = bitscan_forward(our_king_bb);
-            let checkers = self.attacks_to(them, our_king_square);
-            (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
-            (orig_square_bb & !occupied != 0) &&
-            (checkers == EMPTY_SET || checkers == dest_square_bb ||
-             (pop_count(checkers) == 1 &&
-              self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
-              orig_square_bb != 0))
-        })
     }
 
 
@@ -353,6 +317,7 @@ impl Board {
     // verification at all.
     pub fn generate_moves(&self, move_stack: &mut MoveStack) {
         assert!(self.is_legal());
+        assert!(self.king_square(self.to_move) <= 63);
 
         let king_square = self.king_square(self.to_move);
         let checkers = self.attacks_to(1 ^ self.to_move, king_square);
@@ -464,10 +429,16 @@ impl Board {
     // of color "us" that attack the square "square" directly (no
     // x-rays).
     pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
-        assert!(us <= 1);
-        assert!(square <= 63);
-        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
-        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+        let occupied_by_us = self.color[us];
+        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
+
+        if square > 63 {
+            // We call "piece_attacks_from()" here many times, which for
+            // performance reasons do not do array boundary checks. Since
+            // "Board::attacks_to()" is a public function, we have to
+            // guarantee memory safety for all its users.
+            panic!("invalid square");
+        }
         let square_bb = 1 << square;
 
         (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
@@ -488,8 +459,85 @@ impl Board {
     // Return the square on which the king of color "us" is placed.
     #[inline]
     pub fn king_square(&self, us: Color) -> Square {
-        assert!(us <= 1);
-        bitscan_1bit(self.piece_type[KING] & unsafe { self.color.get_unchecked(us) })
+        bitscan_1bit(self.piece_type[KING] & self.color[us])
+    }
+
+
+    // Analyzes the board and decides if it is a legal board.
+    //
+    // In addition to the obviously wrong boards (that for example
+    // declare some pieces having no or more than one color), there
+    // are many chess boards that are impossible to create from the
+    // starting chess position. Here we are interested to detect and
+    // guard against only those of the cases that have a chance of
+    // disturbing some of our explicit and unavoidably, implicit
+    // presumptions about what a chess position is when writing the
+    // code.
+    //
+    // Invalid boards: 1. having more or less than 1 king from each
+    // color; 2. having more than 8 pawns of a color; 3. having more
+    // than 16 pieces (and pawns) of one color; 4. having the side not
+    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
+    // castling rights when the king or the corresponding rook is not
+    // on its initial square; 7. having an en-passant square that is
+    // not having a pawn of corresponding color before, and an empty
+    // square on it and behind it; 8. having an en-passant square
+    // while the wrong side is to move; 9. having an en-passant square
+    // while the king is in check not from the passing pawn and not
+    // from a checker that was discovered by the passing pawn.
+    fn is_legal(&self) -> bool {
+        if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
+            return false;
+        }
+        let us = self.to_move;
+        let en_passant_bb = self.en_passant_bb();
+        let occupied = self.piece_type.into_iter().fold(0, |acc, x| {
+            if acc & x == 0 {
+                acc | x
+            } else {
+                UNIVERSAL_SET
+            }
+        });  // returns "UNIVERSAL_SET" if "self.piece_type" is messed up
+
+        let them = 1 ^ us;
+        let o_us = self.color[us];
+        let o_them = self.color[them];
+        let our_king_bb = self.piece_type[KING] & o_us;
+        let their_king_bb = self.piece_type[KING] & o_them;
+        let pawns = self.piece_type[PAWN];
+
+        self.occupied == occupied && occupied != UNIVERSAL_SET && occupied == o_us | o_them &&
+        o_us & o_them == 0 && pop_count(our_king_bb) == 1 &&
+        pop_count(their_king_bb) == 1 &&
+        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
+        pop_count(o_us) <= 16 && pop_count(o_them) <= 16 &&
+        self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
+        pawns & PAWN_PROMOTION_RANKS == 0 &&
+        (!self.castling.can_castle(WHITE, QUEENSIDE) ||
+         (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
+         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
+        (!self.castling.can_castle(WHITE, KINGSIDE) ||
+         (self.piece_type[ROOK] & self.color[WHITE] & 1 << H1 != 0) &&
+         (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
+        (!self.castling.can_castle(BLACK, QUEENSIDE) ||
+         (self.piece_type[ROOK] & self.color[BLACK] & 1 << A8 != 0) &&
+         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
+        (!self.castling.can_castle(BLACK, KINGSIDE) ||
+         (self.piece_type[ROOK] & self.color[BLACK] & 1 << H8 != 0) &&
+         (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
+        (en_passant_bb == EMPTY_SET ||
+         {
+            let dest_square_bb = gen_shift(en_passant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let our_king_square = bitscan_forward(our_king_bb);
+            let checkers = self.attacks_to(them, our_king_square);
+            (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
+            (orig_square_bb & !occupied != 0) &&
+            (checkers == EMPTY_SET || checkers == dest_square_bb ||
+             (pop_count(checkers) == 1 &&
+              self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
+              orig_square_bb != 0))
+        })
     }
 
 
@@ -693,8 +741,9 @@ impl Board {
     #[inline(always)]
     fn find_pinned(&self) -> u64 {
         let us = self.to_move;
-        assert!(us <= 1);
         let king_square = self.king_square(us);
+        assert!(us <= 1);
+        assert!(king_square <= 63);
         let occupied_by_them = unsafe { self.color.get_unchecked(1 ^ us) };
 
         // To find all potential pinners, we remove all our pieces
