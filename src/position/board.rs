@@ -310,10 +310,8 @@ impl Board {
         let king_square = self.king_square(self.to_move);
         let checkers = self.attacks_to(1 ^ self.to_move, king_square);
         let en_passant_bb = self.en_passant_bb();
-        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
-        let pin_lines: &[u64; 64] = unsafe {
-            self.geometry.squares_at_line.get_unchecked(king_square)
-        };
+        let occupied_by_us = self.color[self.to_move];
+        let pin_lines = &self.geometry.squares_at_line[king_square];
 
         // When in check, for every move except king's moves, the only
         // legal destination squares are those lying on the line
@@ -732,7 +730,7 @@ impl Board {
         let king_square = self.king_square(us);
         assert!(us <= 1);
         assert!(king_square <= 63);
-        let occupied_by_them = unsafe { self.color.get_unchecked(1 ^ us) };
+        let occupied_by_them = self.color[1 ^ us];
 
         // To find all potential pinners, we remove all our pieces
         // from the board, and all enemy pieces that can not slide in
@@ -750,10 +748,8 @@ impl Board {
         if pinners == EMPTY_SET {
             EMPTY_SET
         } else {
-            let occupied_by_us = unsafe { self.color.get_unchecked(us) };
-            let between_king_square_and: &[u64; 64] = unsafe {
-                self.geometry.squares_between_including.get_unchecked(king_square)
-            };
+            let occupied_by_us = self.color[us];
+            let between_king_square_and = &self.geometry.squares_between_including[king_square];
             let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
             let mut pinned_or_discovered_checkers = EMPTY_SET;
 
