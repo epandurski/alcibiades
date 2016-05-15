@@ -748,11 +748,9 @@ impl Board {
     // relatively expensive operation.
     #[inline(always)]
     fn find_pinned(&self) -> u64 {
-        let us = self.to_move;
         let king_square = self.king_square();
-        assert!(us <= 1);
+        let occupied_by_them = self.color[1 ^ self.to_move];
         assert!(king_square <= 63);
-        let occupied_by_them = self.color[1 ^ us];
 
         // To find all potential pinners, we remove all our pieces
         // from the board, and all enemy pieces that can not slide in
@@ -770,7 +768,7 @@ impl Board {
         if pinners == EMPTY_SET {
             EMPTY_SET
         } else {
-            let occupied_by_us = self.color[us];
+            let occupied_by_us = self.color[self.to_move];
             let between_king_square_and = &self.geometry.squares_between_including[king_square];
             let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
             let mut pinned_or_discovered_checkers = EMPTY_SET;
