@@ -88,7 +88,7 @@ impl Board {
         self._checkers.get()
     }
 
-    
+
     // Return the square that the king of the side to move occupies.
     #[inline]
     pub fn king_square(&self) -> Square {
@@ -547,13 +547,9 @@ impl Board {
               self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
               orig_square_bb != 0))
         }) &&
-        {
-            self._king_square.get() > 63 || self._king_square.get() == bitscan_1bit(our_king_bb)
-        } &&
-        {
-            self._checkers.get() == UNIVERSAL_SET ||
-            self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb))
-        }
+        (self._king_square.get() > 63 || self._king_square.get() == bitscan_1bit(our_king_bb)) &&
+        (self._checkers.get() == UNIVERSAL_SET ||
+         self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)))
     }
 
 
