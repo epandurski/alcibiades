@@ -77,6 +77,33 @@ impl Board {
         self.occupied
     }
 
+    // Return a null move.
+    //
+    // Null move is an illegal pseudo-move that changes nothing on the
+    // board except the side to move (and the en-passant file, of
+    // course). It is sometimes useful to include speculative null
+    // move in the search tree so as to achieve more aggressive
+    // pruning.
+    //
+    // The move returned from this function will be invalid if the
+    // king is in check. In this case
+    // "board.do_move(board.null_move())" will return "false".
+    #[inline]
+    pub fn null_move(&self) -> Move {
+        let king_square = self.king_square();
+        assert!(king_square <= 63);
+        Move::new(self.to_move,
+                  0,
+                  MOVE_NORMAL,
+                  KING,
+                  king_square,
+                  king_square,
+                  NO_PIECE,
+                  self.en_passant_file,
+                  self.castling,
+                  0)
+    }
+
 
     // Return a bitboard of checkers, that are attacking the king of
     // the side to move.
@@ -86,16 +113,6 @@ impl Board {
             self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
         }
         self._checkers.get()
-    }
-
-
-    // Return the square that the king of the side to move occupies.
-    #[inline]
-    pub fn king_square(&self) -> Square {
-        if self._king_square.get() > 63 {
-            self._king_square.set(bitscan_1bit(self.piece_type[KING] & self.color[self.to_move]));
-        }
-        self._king_square.get()
     }
 
 
@@ -160,8 +177,16 @@ impl Board {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
 
-        if piece == KING && self.is_attacked(them, dest_square) {
-            return false;  // the king is in check -- illegal move
+        if piece == KING {
+            if orig_square != dest_square {
+                if self.is_attacked(them, dest_square) {
+                    return false;  // the king is in check -- illegal move
+                }
+            } else {
+                if self.checkers() != 0 {
+                    return false;  // invalid "null move"
+                }
+            }
         }
 
         // move the rook if the move is castling
@@ -210,10 +235,12 @@ impl Board {
         self.color[us] |= dest_bb;
 
         // update castling rights
-        self.castling.0 &= unsafe {
-            *self.geometry.castling_relation.get_unchecked(orig_square) &
-            *self.geometry.castling_relation.get_unchecked(dest_square)
-        };
+        if orig_square != dest_square {
+            self.castling.0 &= unsafe {
+                *self.geometry.castling_relation.get_unchecked(orig_square) &
+                *self.geometry.castling_relation.get_unchecked(dest_square)
+            };
+        }
 
         // update the en-passant file
         self.en_passant_file = if piece == PAWN {
@@ -841,6 +868,18 @@ impl Board {
                 }
             }
         }
+    }
+
+
+    // A helper method used by various other methods. It returns the
+    // square that the king of the side to move occupies. The value is
+    // lazily calculated and saved for future use.
+    #[inline]
+    fn king_square(&self) -> Square {
+        if self._king_square.get() > 63 {
+            self._king_square.set(bitscan_1bit(self.piece_type[KING] & self.color[self.to_move]));
+        }
+        self._king_square.get()
     }
 
 
@@ -1534,6 +1573,7 @@ mod tests {
                     .unwrap();
         assert_eq!(b.find_pinned(), 1 << F2 | 1 << D6 | 1 << G4);
     }
+                                                        
     #[test]
     fn test_generate_only_captures() {
         use basetypes::*;
@@ -1565,5 +1605,36 @@ mod tests {
                     .unwrap();
         b.generate_moves(false, &mut stack);
         assert_eq!(stack.remove_all(), 7);
+    }
+                                                        
+    #[test]
+    fn test_null_move() {
+        use basetypes::*;
+        let mut stack = MoveStack::new();
+
+        let mut cr = CastlingRights::new();
+        cr.set_with_mask(0b0010);
+        let mut b = Board::create(&fen("k7/8/8/5Pp1/8/8/8/4K2R").ok().unwrap(),
+                                  Some(G6),
+                                  cr,
+                                  WHITE)
+                        .ok()
+                        .unwrap();
+        b.generate_moves(true, &mut stack);
+        let count = stack.remove_all();
+        let m = b.null_move();
+        assert_eq!(b.do_move(m), true);
+        b.undo_move(m);
+        b.generate_moves(true, &mut stack);
+        assert_eq!(count, stack.remove_all());
+        
+        let mut b = Board::create(&fen("k7/4r3/8/8/8/8/8/4K3").ok().unwrap(),
+                                  None,
+                                  CastlingRights::new(),
+                                  WHITE)
+                        .ok()
+                        .unwrap();
+        let m = b.null_move();
+        assert_eq!(b.do_move(m), false);
     }
 }
