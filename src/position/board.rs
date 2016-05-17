@@ -392,7 +392,8 @@ impl Board {
                 let legal_dests = if generate_all_moves {
                     legal_dests
                 } else {
-                    legal_dests & occupied_by_them
+                    assert_eq!(legal_dests, !occupied_by_us);
+                    occupied_by_them
                 };
 
                 for piece in QUEEN..PAWN {
@@ -421,6 +422,7 @@ impl Board {
                 let legal_dests = if generate_all_moves {
                     legal_dests
                 } else {
+                    assert_eq!(legal_dests, !occupied_by_us);
                     legal_dests & (occupied_by_them | en_passant_bb | PAWN_PROMOTION_RANKS)
                 };
 
