@@ -43,7 +43,7 @@ impl Board {
         self.geometry
     }
 
-    // Return an array of 6 occupation bitboards -- one for piece
+    // Return an array of 6 occupation bitboards -- one for each piece
     // type.
     #[inline(always)]
     pub fn piece_type(&self) -> [u64; 6] {
