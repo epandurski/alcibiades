@@ -322,26 +322,29 @@ impl Board {
     }
 
 
-    // Generate pseudo-legal moves in the current board position.
+    // Generate pseudo-legal moves and write them to "move_stack".
     //
-    // It is guaranteed that all legal moves will be found. It is also
-    // guaranteed, that all generated moves with pieces other than the
-    // king are legal. It is possible that some of the king's moves
-    // are illegal because the destination square is under check, or
-    // when castling, king's passing square is attacked. This is
-    // because verifying that all king destination squares are not
+    // When "all" is true, all pseudo-legal moves will be
+    // considered. When "all" is false, only captures, pawn
+    // promotions, and check evasions will be considered.
+    //
+    // It is guaranteed, that all generated moves with pieces other
+    // than the king are legal. It is possible that some of the king's
+    // moves are illegal because the destination square is under
+    // check, or when castling, king's passing square is
+    // attacked. This is because verifying that these squares are not
     // under attack is quite expensive, and therefore we hope that the
     // alpha-beta pruning will eliminate the need for this
     // verification at all.
-    pub fn generate_moves(&self, move_stack: &mut MoveStack) {
+    pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
         assert!(self.is_legal());
-        assert!(self.king_square() <= 63);
 
         let king_square = self.king_square();
         let checkers = self.checkers();
-        let en_passant_bb = self.en_passant_bb();
         let occupied_by_us = self.color[self.to_move];
-        let pin_lines = &self.geometry.squares_at_line[king_square];
+        let occupied_by_them = self.occupied ^ occupied_by_us;
+        let generate_all_moves = all || checkers != 0;
+        assert!(king_square <= 63);
 
         // When in check, for every move except king's moves, the only
         // legal destination squares are those lying on the line
@@ -349,12 +352,12 @@ impl Board {
         // to a square that is occupied by a friendly piece.
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
-            0 => {
+            0 =>
                 // Not in check -- every move destination may be
                 // considered "covering".
-                UNIVERSAL_SET
-            }
-            x if x == checkers => {
+                UNIVERSAL_SET,
+
+            x if x == checkers =>
                 // Single check -- calculate the check covering
                 // destination subset (the squares between the king
                 // and the checker). Notice that we must OR with "x"
@@ -366,78 +369,109 @@ impl Board {
                          .squares_between_including
                          .get_unchecked(king_square)
                          .get_unchecked(bitscan_1bit(x))
-                }
-            }
-            _ => {
+                },
+
+            _ =>
                 // Double check -- no covering moves.
-                EMPTY_SET
-            }
+                EMPTY_SET,
         };
 
         if legal_dests != EMPTY_SET {
             // This block is not executed when the king is in double
             // check.
-            let pinned = self.find_pinned();
 
-            // Find all queen, rook, bishop, and knight moves.
-            for piece in QUEEN..PAWN {
-                let mut bb = self.piece_type[piece] & occupied_by_us;
-                while bb != EMPTY_SET {
-                    let piece_bb = ls1b(bb);
-                    bb ^= piece_bb;
-                    let from_square = bitscan_1bit(piece_bb);
-                    let piece_legal_dests = match piece_bb & pinned {
-                        0 => legal_dests,
-                        _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
-                    };
-                    self.write_piece_moves_to_stack(piece,
-                                                    from_square,
-                                                    piece_legal_dests,
-                                                    move_stack);
+            let pinned = self.find_pinned();
+            let en_passant_bb = self.en_passant_bb();
+            let pin_lines = &self.geometry.squares_at_line[king_square];
+
+            // Find queen, rook, bishop, and knight moves.
+            {
+                // Reduce the set of legal destinations when searching
+                // only for captures, pawn promotions, and check
+                // evasions.
+                let legal_dests = if generate_all_moves {
+                    legal_dests
+                } else {
+                    legal_dests & occupied_by_them
+                };
+
+                for piece in QUEEN..PAWN {
+                    let mut bb = self.piece_type[piece] & occupied_by_us;
+                    while bb != EMPTY_SET {
+                        let piece_bb = ls1b(bb);
+                        bb ^= piece_bb;
+                        let from_square = bitscan_1bit(piece_bb);
+                        let piece_legal_dests = match piece_bb & pinned {
+                            0 => legal_dests,
+                            _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
+                        };
+                        self.write_piece_moves_to_stack(piece,
+                                                        from_square,
+                                                        piece_legal_dests,
+                                                        move_stack);
+                    }
                 }
             }
 
-            // When in check, en-passant capture is a legal evasion
-            // move only when the checking piece is the passing pawn
-            // itself. To determine if the checker is the passing
-            // pawn, or if there is a discovered check we take
-            // advantage of the fact that if the checker itself is the
-            // only square on the check-line, then we can not have a
-            // discovered check.
-            let pawn_legal_dests = match legal_dests == checkers {
-                false => legal_dests,
-                true => legal_dests | en_passant_bb,
-            };
+            // Find pawn moves.
+            {
+                // Reduce the set of legal destinations when searching
+                // only for captures, pawn promotions, and check
+                // evasions.
+                let legal_dests = if generate_all_moves {
+                    legal_dests
+                } else {
+                    legal_dests & (occupied_by_them | en_passant_bb | PAWN_PROMOTION_RANKS)
+                };
 
-            // Find all free pawn moves at once.
-            let all_pawns = self.piece_type[PAWN] & occupied_by_us;
-            let mut pinned_pawns = all_pawns & pinned;
-            let free_pawns = all_pawns ^ pinned_pawns;
-            if free_pawns != EMPTY_SET {
-                self.write_pawn_moves_to_stack(free_pawns,
-                                               en_passant_bb,
-                                               pawn_legal_dests,
-                                               move_stack);
-            }
+                // When in check, en-passant capture is a legal evasion
+                // move only when the checking piece is the passing pawn
+                // itself.
+                let pawn_legal_dests = match checkers & self.piece_type[PAWN] {
+                    0 => legal_dests,
+                    _ => legal_dests | en_passant_bb,
+                };
 
-            // Find pinned pawn moves pawn by pawn.
-            while pinned_pawns != EMPTY_SET {
-                let pawn_bb = ls1b(pinned_pawns);
-                pinned_pawns ^= pawn_bb;
-                let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
-                self.write_pawn_moves_to_stack(pawn_bb,
-                                               en_passant_bb,
-                                               pin_line & pawn_legal_dests,
-                                               move_stack);
+                // Find all free pawn moves at once.
+                let all_pawns = self.piece_type[PAWN] & occupied_by_us;
+                let mut pinned_pawns = all_pawns & pinned;
+                let free_pawns = all_pawns ^ pinned_pawns;
+                if free_pawns != EMPTY_SET {
+                    self.write_pawn_moves_to_stack(free_pawns,
+                                                   en_passant_bb,
+                                                   pawn_legal_dests,
+                                                   move_stack);
+                }
+
+                // Find pinned pawn moves pawn by pawn.
+                while pinned_pawns != EMPTY_SET {
+                    let pawn_bb = ls1b(pinned_pawns);
+                    pinned_pawns ^= pawn_bb;
+                    let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
+                    self.write_pawn_moves_to_stack(pawn_bb,
+                                                   en_passant_bb,
+                                                   pin_line & pawn_legal_dests,
+                                                   move_stack);
+                }
             }
         }
 
-        // Find all king moves (pseudo-legal, possibly moving into
-        // check or passing through attacked square when
-        // castling). This is executed even when the king is in double
-        // check.
-        self.write_castling_moves_to_stack(move_stack);
-        self.write_piece_moves_to_stack(KING, king_square, !occupied_by_us, move_stack);
+        // Find king moves (pseudo-legal, possibly moving into check
+        // or passing through attacked square when castling). This is
+        // executed even when the king is in double check.
+        {
+            let king_legal_dests = if generate_all_moves {
+                self.write_castling_moves_to_stack(move_stack);
+                !occupied_by_us
+            } else {
+                // Reduce the set of legal destinations when searching
+                // only for captures, pawn promotions, and check
+                // evasions.
+                occupied_by_them
+            };
+
+            self.write_piece_moves_to_stack(KING, king_square, king_legal_dests, move_stack);
+        }
     }
 
 
@@ -1179,7 +1213,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         let mut pawn_dests = 0u64;
         while let Some(m) = stack.pop() {
             if m.piece() == PAWN {
@@ -1195,7 +1229,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         let mut pawn_dests = 0u64;
         while let Some(m) = stack.pop() {
             if m.piece() == PAWN {
@@ -1216,7 +1250,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 5);
 
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1").ok().unwrap(),
@@ -1225,7 +1259,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 7);
 
         let b = Board::create(&fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
@@ -1234,7 +1268,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 8);
 
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
@@ -1243,7 +1277,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 22);
 
         let b = Board::create(&fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K").ok().unwrap(),
@@ -1252,7 +1286,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 23);
 
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k").ok().unwrap(),
@@ -1261,7 +1295,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 25);
 
         let b = Board::create(&fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8").ok().unwrap(),
@@ -1270,7 +1304,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 5);
     }
 
@@ -1285,7 +1319,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 6);
 
         let b = Board::create(&fen("8/8/8/5k2/5pP1/8/8/5R1K").ok().unwrap(),
@@ -1294,7 +1328,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 7);
 
         let b = Board::create(&fen("8/8/8/8/5pP1/7k/8/5B1K").ok().unwrap(),
@@ -1303,7 +1337,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 5);
     }
 
@@ -1318,7 +1352,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 6);
     }
 
@@ -1333,7 +1367,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 7);
     }
 
@@ -1349,7 +1383,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 5);
 
         cr.set_with_mask(CASTLE_WHITE_KINGSIDE);
@@ -1359,7 +1393,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 6);
 
         cr.set_with_mask(CASTLE_WHITE_QUEENSIDE);
@@ -1369,7 +1403,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 7);
 
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
@@ -1378,7 +1412,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 5);
 
         cr.set_with_mask(CASTLE_BLACK_KINGSIDE);
@@ -1388,7 +1422,7 @@ mod tests {
                               BLACK)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 6);
 
         cr.set_for(BLACK, 0);
@@ -1398,7 +1432,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 5);
 
         let mut b = Board::create(&fen("4k3/8/8/8/8/6n1/8/R3K2R").ok().unwrap(),
@@ -1407,7 +1441,7 @@ mod tests {
                                   WHITE)
                         .ok()
                         .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         let mut count = 0;
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
@@ -1423,7 +1457,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 7);
 
         let b = Board::create(&fen("4k3/8/8/8/8/4n3/8/R3K2R").ok().unwrap(),
@@ -1432,7 +1466,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 5);
 
         let b = Board::create(&fen("4k3/8/1b6/8/8/8/8/R3K2R").ok().unwrap(),
@@ -1441,7 +1475,7 @@ mod tests {
                               WHITE)
                     .ok()
                     .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 7);
     }
 
@@ -1458,13 +1492,13 @@ mod tests {
                                   WHITE)
                         .ok()
                         .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         let count = stack.count();
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
-                b.generate_moves(&mut other_stack);
+                b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.count());
             }
         }
@@ -1475,13 +1509,13 @@ mod tests {
                                   BLACK)
                         .ok()
                         .unwrap();
-        b.generate_moves(&mut stack);
+        b.generate_moves(true, &mut stack);
         let count = stack.count();
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
-                b.generate_moves(&mut other_stack);
+                b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.count());
             }
         }
@@ -1497,5 +1531,37 @@ mod tests {
                     .ok()
                     .unwrap();
         assert_eq!(b.find_pinned(), 1 << F2 | 1 << D6 | 1 << G4);
+    }
+    #[test]
+    fn test_generate_only_captures() {
+        use basetypes::*;
+        let mut stack = MoveStack::new();
+
+        let b = Board::create(&fen("k6r/P7/8/6p1/6pP/8/8/7K").ok().unwrap(),
+                              Some(H3),
+                              CastlingRights::new(),
+                              BLACK)
+                    .ok()
+                    .unwrap();
+        b.generate_moves(false, &mut stack);
+        assert_eq!(stack.remove_all(), 4);
+
+        let b = Board::create(&fen("k7/8/8/4Pp2/4K3/8/8/8").ok().unwrap(),
+                              Some(F6),
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
+        b.generate_moves(false, &mut stack);
+        assert_eq!(stack.remove_all(), 8);
+
+        let b = Board::create(&fen("k7/8/8/4Pb2/4K3/8/8/8").ok().unwrap(),
+                              None,
+                              CastlingRights::new(),
+                              WHITE)
+                    .ok()
+                    .unwrap();
+        b.generate_moves(false, &mut stack);
+        assert_eq!(stack.remove_all(), 7);
     }
 }
