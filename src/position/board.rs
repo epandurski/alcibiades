@@ -23,6 +23,18 @@ pub struct PiecesPlacement {
 pub struct IllegalBoard;
 
 
+// "Board" holds the current chess position and "knows" the rules of
+// chess.
+//
+// "Board" can generate all possible moves in the current position
+// (Board::generate_moves), play a selected move (Board::do_move), and
+// take it back (Board::undo_move). It can tell you which pieces
+// attack a specific square (Board::attacks_to), and which are the
+// checkers to the king (Board::checkers). It can also fabricate a
+// speculative "null move" that can be used to aggressively prune the
+// search tree.
+//
+// "Board" does not know anything about chess strategy or tactics.
 pub struct Board {
     geometry: &'static BoardGeometry,
     piece_type: [u64; 6],
@@ -86,6 +98,20 @@ impl Board {
         self.occupied
     }
 
+
+    // Return a bitboard of all the checkers that are attacking the
+    // king.
+    //
+    // The value is lazily calculated and saved for future use.
+    #[inline]
+    pub fn checkers(&self) -> u64 {
+        if self._checkers.get() == UNIVERSAL_SET {
+            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
+        }
+        self._checkers.get()
+    }
+
+    
     // Return a null move.
     //
     // Null move is an illegal pseudo-move that changes nothing on the
@@ -111,19 +137,6 @@ impl Board {
                   self.en_passant_file,
                   self.castling,
                   0)
-    }
-
-
-    // Return a bitboard of all the checkers that are attacking the
-    // king.
-    //
-    // The value is lazily calculated and saved for future use.
-    #[inline]
-    pub fn checkers(&self) -> u64 {
-        if self._checkers.get() == UNIVERSAL_SET {
-            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
-        }
-        self._checkers.get()
     }
 
 
