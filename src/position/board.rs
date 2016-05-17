@@ -38,6 +38,7 @@ pub struct Board {
 impl Board {
     // Return a reference to a properly initialized "BoardGeometry"
     // object.
+    #[inline(always)]
     pub fn geometry(&self) -> &BoardGeometry {
         self.geometry
     }
