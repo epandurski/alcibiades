@@ -270,12 +270,12 @@ impl Board {
             if captured_piece < NO_PIECE {
                 let not_captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
-                    let en_passant_square = (dest_square as isize + shift) as Square;
+                    let captured_pawn_square = (dest_square as isize + shift) as Square;
                     hash ^= *g.zobrist_pieces
                               .get_unchecked(them)
                               .get_unchecked(captured_piece)
-                              .get_unchecked(en_passant_square);
-                    !(1 << en_passant_square)
+                              .get_unchecked(captured_pawn_square);
+                    !(1 << captured_pawn_square)
                 } else {
                     hash ^= *g.zobrist_pieces
                               .get_unchecked(them)
@@ -407,12 +407,12 @@ impl Board {
             if captured_piece < NO_PIECE {
                 let captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
-                    let en_passant_square = (dest_square as isize + shift) as Square;
+                    let captured_pawn_square = (dest_square as isize + shift) as Square;
                     hash ^= *g.zobrist_pieces
                               .get_unchecked(them)
                               .get_unchecked(captured_piece)
-                              .get_unchecked(en_passant_square);
-                    1 << en_passant_square
+                              .get_unchecked(captured_pawn_square);
+                    1 << captured_pawn_square
                 } else {
                     hash ^= *g.zobrist_pieces
                               .get_unchecked(them)
