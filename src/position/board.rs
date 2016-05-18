@@ -120,7 +120,7 @@ impl Board {
         self._checkers.get()
     }
 
-    
+
     // Return a null move.
     //
     // Null move is an illegal pseudo-move that changes nothing on the
@@ -897,6 +897,7 @@ impl Board {
     // one.
     #[inline(always)]
     fn en_passant_bb(&self) -> u64 {
+        assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
         match self.en_passant_file {
             x if x >= NO_ENPASSANT_FILE => EMPTY_SET,
             x => {
