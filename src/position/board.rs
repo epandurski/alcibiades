@@ -171,7 +171,7 @@ impl Board {
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
             _ => return Err(IllegalBoard),
         };
-        let b = Board {
+        let mut b = Board {
             geometry: board_geometry(),
             piece_type: placement.piece_type,
             color: placement.color,
@@ -183,6 +183,8 @@ impl Board {
             _checkers: Cell::new(UNIVERSAL_SET),
             _king_square: Cell::new(64),
         };
+        b.hash = b.calc_hash();
+
         if b.is_legal() {
             Ok(b)
         } else {
@@ -201,6 +203,7 @@ impl Board {
     // Board::generate_moves() or Board::null_move() for *the current
     // position on the board*.
     pub fn do_move(&mut self, m: Move) -> bool {
+        let g = self.geometry;
         let us = self.to_move;
         let them = 1 ^ us;
         let move_type = m.move_type();
@@ -208,95 +211,128 @@ impl Board {
         let dest_square = m.dest_square();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
+        let mut hash = 0;
         assert!(us <= 1);
         assert!(piece < NO_PIECE);
         assert!(move_type <= 3);
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
 
-        // verify if the move will leave the king in check
-        if piece == KING {
-            if orig_square != dest_square {
-                if self.is_attacked(them, dest_square) {
-                    return false;  // the king is in check -- illegal move
-                }
-            } else {
-                if self.checkers() != 0 {
-                    return false;  // invalid "null move"
-                }
-            }
+        if piece >= NO_PIECE {
+            // Since "Board::do_move()" is a public function, we have
+            // to guarantee memory safety for all its users.
+            panic!("invalid piece");
         }
 
-        // move the rook if the move is castling
-        if move_type == MOVE_CASTLING {
-            if self.is_attacked(them, (orig_square + dest_square) >> 1) {
-                return false;  // king's passing square is attacked -- illegal move
+        unsafe {
+            // verify if the move will leave the king in check
+            if piece == KING {
+                if orig_square != dest_square {
+                    if self.is_attacked(them, dest_square) {
+                        return false;  // the king is in check -- illegal move
+                    }
+                } else {
+                    if self.checkers() != 0 {
+                        return false;  // invalid "null move"
+                    }
+                }
             }
 
-            let side = if dest_square > orig_square {
-                KINGSIDE
-            } else {
-                QUEENSIDE
-            };
-            let mask = self.castling.rook_xor_mask(us, side);
-            self.piece_type[ROOK] ^= mask;
-            self.color[us] ^= mask;
-        }
+            // move the rook if the move is castling
+            if move_type == MOVE_CASTLING {
+                if self.is_attacked(them, (orig_square + dest_square) >> 1) {
+                    return false;  // king's passing square is attacked -- illegal move
+                }
 
-        let not_orig_bb = !(1 << orig_square);
-        let dest_bb = 1 << dest_square;
+                let side = if dest_square > orig_square {
+                    KINGSIDE
+                } else {
+                    QUEENSIDE
+                };
+                let mask = self.castling.rook_xor_mask(us, side);
+                self.piece_type[ROOK] ^= mask;
+                self.color[us] ^= mask;
+                hash ^= g.zobrist_castling_rook_move[us][side];
+            }
 
-        // empty the origin square
-        self.piece_type[piece] &= not_orig_bb;
-        self.color[us] &= not_orig_bb;
+            let not_orig_bb = !(1 << orig_square);
+            let dest_bb = 1 << dest_square;
 
-        // remove the captured piece (if any)
-        if captured_piece < NO_PIECE {
-            let not_captured_bb = if move_type == MOVE_ENPASSANT {
-                !gen_shift(dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
-            } else {
-                !dest_bb
-            };
-            unsafe {
+            // empty the origin square
+            *self.piece_type.get_unchecked_mut(piece) &= not_orig_bb;
+            *self.color.get_unchecked_mut(us) &= not_orig_bb;
+            hash ^= *g.zobrist_pieces
+                      .get_unchecked(us)
+                      .get_unchecked(piece)
+                      .get_unchecked(orig_square);
+
+            // remove the captured piece (if any)
+            if captured_piece < NO_PIECE {
+                let not_captured_bb = if move_type == MOVE_ENPASSANT {
+                    let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
+                    let en_passant_square = (dest_square as isize + shift) as Square;
+                    hash ^= *g.zobrist_pieces
+                              .get_unchecked(them)
+                              .get_unchecked(captured_piece)
+                              .get_unchecked(en_passant_square);
+                    !(1 << en_passant_square)
+                } else {
+                    hash ^= *g.zobrist_pieces
+                              .get_unchecked(them)
+                              .get_unchecked(captured_piece)
+                              .get_unchecked(dest_square);
+                    !dest_bb
+                };
                 *self.piece_type.get_unchecked_mut(captured_piece) &= not_captured_bb;
                 *self.color.get_unchecked_mut(them) &= not_captured_bb;
             }
-        }
 
-        // occupy the destination square
-        let dest_piece = if move_type == MOVE_PROMOTION {
-            Move::piece_from_aux_data(m.aux_data())
-        } else {
-            piece
-        };
-        self.piece_type[dest_piece] |= dest_bb;
-        self.color[us] |= dest_bb;
-
-        // update castling rights (null moves do not affect castling)
-        if orig_square != dest_square {
-            self.castling.0 &= unsafe {
-                *self.geometry.castling_relation.get_unchecked(orig_square) &
-                *self.geometry.castling_relation.get_unchecked(dest_square)
+            // occupy the destination square
+            let dest_piece = if move_type == MOVE_PROMOTION {
+                Move::piece_from_aux_data(m.aux_data())
+            } else {
+                piece
             };
-        }
+            *self.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
+            *self.color.get_unchecked_mut(us) |= dest_bb;
+            hash ^= *g.zobrist_pieces
+                      .get_unchecked(us)
+                      .get_unchecked(dest_piece)
+                      .get_unchecked(dest_square);
 
-        // update the en-passant file
-        self.en_passant_file = if piece == PAWN {
-            match dest_square as isize - orig_square as isize {
-                16 | -16 => file(dest_square),
-                _ => NO_ENPASSANT_FILE,
+            // update castling rights (null moves do not affect castling)
+            if orig_square != dest_square {
+                hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
+                self.castling.0 &= *g.castling_relation.get_unchecked(orig_square) &
+                                   *g.castling_relation.get_unchecked(dest_square);
+                hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
             }
-        } else {
-            NO_ENPASSANT_FILE
-        };
 
-        // change the side to move
-        self.to_move = them;
+            // update the en-passant file
+            hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
+            self.en_passant_file = if piece == PAWN {
+                match dest_square as isize - orig_square as isize {
+                    16 | -16 => {
+                        let file = file(dest_square);
+                        hash ^= *g.zobrist_en_passant.get_unchecked(file);
+                        file
+                    }
+                    _ => NO_ENPASSANT_FILE,
+                }
+            } else {
+                NO_ENPASSANT_FILE
+            };
 
-        // update "occupied", "_checkers", and "_king_square"
-        self.occupied = self.color[WHITE] | self.color[BLACK];
-        self._checkers.set(UNIVERSAL_SET);
-        self._king_square.set(64);
+            // change the side to move
+            self.to_move = them;
+            hash ^= g.zobrist_to_move;
+
+            // update "hash", "occupied", "_checkers", and "_king_square"
+            self.occupied = self.color[WHITE] | self.color[BLACK];
+            self.hash ^= hash;
+            self._checkers.set(UNIVERSAL_SET);
+            self._king_square.set(64);
+        }
 
         assert!(self.is_legal());
         true
@@ -308,6 +344,7 @@ impl Board {
     // The move passed to this method should be the last move passed
     // to Board::do_move().
     pub fn undo_move(&mut self, m: Move) {
+        let g = self.geometry;
         let them = self.to_move;
         let us = 1 ^ them;
         let move_type = m.move_type();
@@ -316,6 +353,7 @@ impl Board {
         let aux_data = m.aux_data();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
+        let mut hash = 0;
         assert!(them <= 1);
         assert!(piece < NO_PIECE);
         assert!(move_type <= 3);
@@ -325,63 +363,94 @@ impl Board {
         assert!(m.castling_data() <= 3);
         assert!(m.en_passant_file() <= NO_ENPASSANT_FILE);
 
+        if piece >= NO_PIECE {
+            // Since "Board::undo_move()" is a public function, we
+            // have to guarantee memory safety for all its users.
+            panic!("invalid piece");
+        }
+
         let orig_bb = 1 << orig_square;
         let not_dest_bb = !(1 << dest_square);
 
-        // change the side to move
-        self.to_move = us;
+        unsafe {
+            // change the side to move
+            self.to_move = us;
+            hash ^= g.zobrist_to_move;
 
-        // restore the en-passant file
-        self.en_passant_file = m.en_passant_file();
+            // restore the en-passant file
+            hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
+            self.en_passant_file = m.en_passant_file();
+            hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
 
-        // restore castling rights
-        self.castling.set_for(them, m.castling_data());
-        if move_type != MOVE_PROMOTION {
-            self.castling.set_for(us, aux_data);
-        }
+            // restore castling rights
+            hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
+            self.castling.set_for(them, m.castling_data());
+            if move_type != MOVE_PROMOTION {
+                self.castling.set_for(us, aux_data);
+            }
+            hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
 
-        // empty the destination square
-        let dest_piece = if move_type == MOVE_PROMOTION {
-            Move::piece_from_aux_data(aux_data)
-        } else {
-            piece
-        };
-        self.piece_type[dest_piece] &= not_dest_bb;
-        self.color[us] &= not_dest_bb;
-
-        // put back the captured piece (if any)
-        if captured_piece < NO_PIECE {
-            let captured_bb = if move_type == MOVE_ENPASSANT {
-                gen_shift(!not_dest_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
+            // empty the destination square
+            let dest_piece = if move_type == MOVE_PROMOTION {
+                Move::piece_from_aux_data(aux_data)
             } else {
-                !not_dest_bb
+                piece
             };
-            unsafe {
+            *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
+            *self.color.get_unchecked_mut(us) &= not_dest_bb;
+            hash ^= *g.zobrist_pieces
+                      .get_unchecked(us)
+                      .get_unchecked(dest_piece)
+                      .get_unchecked(dest_square);
+
+            // put back the captured piece (if any)
+            if captured_piece < NO_PIECE {
+                let captured_bb = if move_type == MOVE_ENPASSANT {
+                    let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
+                    let en_passant_square = (dest_square as isize + shift) as Square;
+                    hash ^= *g.zobrist_pieces
+                              .get_unchecked(them)
+                              .get_unchecked(captured_piece)
+                              .get_unchecked(en_passant_square);
+                    1 << en_passant_square
+                } else {
+                    hash ^= *g.zobrist_pieces
+                              .get_unchecked(them)
+                              .get_unchecked(captured_piece)
+                              .get_unchecked(dest_square);
+                    !not_dest_bb
+                };
                 *self.piece_type.get_unchecked_mut(captured_piece) |= captured_bb;
                 *self.color.get_unchecked_mut(them) |= captured_bb;
             }
+
+            // restore the piece on the origin square
+            *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
+            *self.color.get_unchecked_mut(us) |= orig_bb;
+            hash ^= *g.zobrist_pieces
+                      .get_unchecked(us)
+                      .get_unchecked(piece)
+                      .get_unchecked(orig_square);
+
+            // move the rook back if the move is castling
+            if move_type == MOVE_CASTLING {
+                let side = if dest_square > orig_square {
+                    KINGSIDE
+                } else {
+                    QUEENSIDE
+                };
+                let mask = self.castling.rook_xor_mask(us, side);
+                self.piece_type[ROOK] ^= mask;
+                self.color[us] ^= mask;
+                hash ^= g.zobrist_castling_rook_move[us][side];
+            }
+
+            // update "hash", "occupied", "_checkers", and "_king_square"
+            self.occupied = self.color[WHITE] | self.color[BLACK];
+            self.hash ^= hash;
+            self._checkers.set(UNIVERSAL_SET);
+            self._king_square.set(64);
         }
-
-        // restore the piece on the origin square
-        self.piece_type[piece] |= orig_bb;
-        self.color[us] |= orig_bb;
-
-        // move the rook back if the move is castling
-        if move_type == MOVE_CASTLING {
-            let side = if dest_square > orig_square {
-                KINGSIDE
-            } else {
-                QUEENSIDE
-            };
-            let mask = self.castling.rook_xor_mask(us, side);
-            self.piece_type[ROOK] ^= mask;
-            self.color[us] ^= mask;
-        }
-
-        // update "occupied", "_checkers", and "_king_square"
-        self.occupied = self.color[WHITE] | self.color[BLACK];
-        self._checkers.set(UNIVERSAL_SET);
-        self._king_square.set(64);
 
         assert!(self.is_legal());
     }
@@ -650,7 +719,11 @@ impl Board {
         }) &&
         (self._king_square.get() > 63 || self._king_square.get() == bitscan_1bit(our_king_bb)) &&
         (self._checkers.get() == UNIVERSAL_SET ||
-         self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)))
+         self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb))) &&
+        {
+            assert_eq!(self.hash, self.calc_hash());
+            true
+        }
     }
 
 
@@ -1593,7 +1666,7 @@ mod tests {
 
         let mut cr = CastlingRights::new();
         cr.set_with_mask(0b1011);
-        let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R").ok().unwrap(),
+        let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R").ok().unwrap(),
                                   Some(F6),
                                   cr,
                                   WHITE)

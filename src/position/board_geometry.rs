@@ -38,6 +38,7 @@ pub struct BoardGeometry {
     pub castling_relation: [usize; 64],
     pub zobrist_pieces: [[[u64; 64]; 6]; 2],
     pub zobrist_castling: [u64; 16],
+    pub zobrist_castling_rook_move: [[u64; 2]; 2],
     pub zobrist_en_passant: [u64; 16],
     pub zobrist_to_move: u64,
 }
@@ -82,6 +83,7 @@ impl BoardGeometry {
             castling_relation: [!0; 64],
             zobrist_pieces: [[[0; 64]; 6]; 2],
             zobrist_castling: [0; 16],
+            zobrist_castling_rook_move: [[0; 2]; 2],
             zobrist_en_passant: [0; 16],
             zobrist_to_move: 0,
         };
@@ -166,7 +168,7 @@ impl BoardGeometry {
         // "zobrist_*" fields holds bit-masks that are used in
         // calculating the Zobrist hash function.
         bg.fill_zobrist_arrays();
-        
+
         bg
     }
 
@@ -279,7 +281,7 @@ impl BoardGeometry {
         self.castling_relation[H8] = !CASTLE_BLACK_KINGSIDE;
         self.castling_relation[E8] = !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE);
     }
-    
+
     fn fill_zobrist_arrays(&mut self) {
         let seed: &[_] = &[1, 2, 3, 4];
         let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
@@ -293,6 +295,14 @@ impl BoardGeometry {
         for value in 0..16 {
             self.zobrist_castling[value] = rng.gen();
         }
+        self.zobrist_castling_rook_move[WHITE][QUEENSIDE] = self.zobrist_pieces[WHITE][ROOK][A1] ^
+                                                            self.zobrist_pieces[WHITE][ROOK][D1];
+        self.zobrist_castling_rook_move[WHITE][KINGSIDE] = self.zobrist_pieces[WHITE][ROOK][H1] ^
+                                                           self.zobrist_pieces[WHITE][ROOK][F1];
+        self.zobrist_castling_rook_move[BLACK][QUEENSIDE] = self.zobrist_pieces[BLACK][ROOK][A8] ^
+                                                            self.zobrist_pieces[BLACK][ROOK][D8];
+        self.zobrist_castling_rook_move[BLACK][KINGSIDE] = self.zobrist_pieces[BLACK][ROOK][H8] ^
+                                                           self.zobrist_pieces[BLACK][ROOK][F8];
         for file in 0..8 {
             self.zobrist_en_passant[file] = rng.gen();
         }
