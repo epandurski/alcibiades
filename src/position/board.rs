@@ -43,9 +43,11 @@ pub struct Board {
     castling: CastlingRights,
     to_move: Color,
     occupied: u64, // this will always be equal to self.color[0] | self.color[1]
+    hash: u64, // Zobrist hash value
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
 }
+
 
 impl Board {
     // Return a reference to a properly initialized "BoardGeometry"
@@ -82,6 +84,13 @@ impl Board {
     #[inline(always)]
     pub fn castling(&self) -> CastlingRights {
         self.castling
+    }
+
+
+    // Return the Zobrist hash value for the current board.
+    #[inline(always)]
+    pub fn hash(&self) -> u64 {
+        self.hash
     }
 
 
@@ -170,6 +179,7 @@ impl Board {
             castling: castling,
             to_move: to_move,
             occupied: placement.color[WHITE] | placement.color[BLACK],
+            hash: 0,
             _checkers: Cell::new(UNIVERSAL_SET),
             _king_square: Cell::new(64),
         };
@@ -965,6 +975,30 @@ impl Board {
                            (self.piece_type[ROOK] | self.piece_type[QUEEN]);
             checkers == EMPTY_SET
         }
+    }
+
+
+    // Calculate the Zobrist hash for the board.
+    fn calc_hash(&self) -> u64 {
+        let g = self.geometry;
+        let mut hash = 0;
+        for color in 0..2 {
+            for piece in 0..6 {
+                let mut bb = self.color[color] & self.piece_type[piece];
+                while bb != EMPTY_SET {
+                    let square = bitscan_forward_and_reset(&mut bb);
+                    hash ^= g.zobrist_pieces[color][piece][square];
+                }
+            }
+        }
+        hash ^= g.zobrist_castling[self.castling.0];
+        if self.en_passant_file < 8 {
+            hash ^= g.zobrist_en_passant[self.en_passant_file];
+        }
+        if self.to_move == BLACK {
+            hash ^= g.zobrist_to_move;
+        }
+        hash
     }
 
 

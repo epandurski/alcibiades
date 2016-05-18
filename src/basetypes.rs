@@ -175,6 +175,7 @@ impl CastlingRights {
     }
 
     pub fn set_with_mask(&mut self, mask: usize) -> bool {
+        assert!(mask <= 0b1111);
         let before = self.0;
         self.0 |= mask as usize;
         self.0 != before

@@ -5,6 +5,7 @@ authors = ["Evgeni Pandurski <epandurski@gmail.com>"]
 
 [dependencies]
 regex = "0.1"
+rand = "0.3"
 
 [profile.test]
 opt-level = 0

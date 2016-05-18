@@ -1,4 +1,5 @@
 extern crate regex;
+extern crate rand;
 
 pub mod position;
 pub mod basetypes;

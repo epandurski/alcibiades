@@ -1,4 +1,7 @@
 use basetypes::*;
+use rand::{Rng, SeedableRng};
+use rand::isaac::Isaac64Rng;
+
 
 // Return a reference to a properly initialized BoardGeometry
 // object. The object is created and initialized only during the first
@@ -33,6 +36,10 @@ pub struct BoardGeometry {
     pub squares_between_including: [[u64; 64]; 64],
     pub squares_behind_blocker: [[u64; 64]; 64],
     pub castling_relation: [usize; 64],
+    pub zobrist_pieces: [[[u64; 64]; 6]; 2],
+    pub zobrist_castling: [u64; 16],
+    pub zobrist_en_passant: [u64; 16],
+    pub zobrist_to_move: u64,
 }
 
 impl BoardGeometry {
@@ -73,6 +80,10 @@ impl BoardGeometry {
             squares_between_including: [[0; 64]; 64],
             squares_behind_blocker: [[0; 64]; 64],
             castling_relation: [!0; 64],
+            zobrist_pieces: [[[0; 64]; 6]; 2],
+            zobrist_castling: [0; 16],
+            zobrist_en_passant: [0; 16],
+            zobrist_to_move: 0,
         };
 
         // "attacks" and "blockers_and_beyond" fields hold attack and
@@ -152,6 +163,10 @@ impl BoardGeometry {
         // derive the updated castling rights.
         bg.fill_castling_relation();
 
+        // "zobrist_*" fields holds bit-masks that are used in
+        // calculating the Zobrist hash function.
+        bg.fill_zobrist_arrays();
+        
         bg
     }
 
@@ -263,6 +278,25 @@ impl BoardGeometry {
         self.castling_relation[A8] = !CASTLE_BLACK_QUEENSIDE;
         self.castling_relation[H8] = !CASTLE_BLACK_KINGSIDE;
         self.castling_relation[E8] = !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE);
+    }
+    
+    fn fill_zobrist_arrays(&mut self) {
+        let seed: &[_] = &[1, 2, 3, 4];
+        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
+        for color in 0..2 {
+            for piece in 0..6 {
+                for square in 0..64 {
+                    self.zobrist_pieces[color][piece][square] = rng.gen();
+                }
+            }
+        }
+        for value in 0..16 {
+            self.zobrist_castling[value] = rng.gen();
+        }
+        for file in 0..8 {
+            self.zobrist_en_passant[file] = rng.gen();
+        }
+        self.zobrist_to_move = rng.gen();
     }
 }
 
