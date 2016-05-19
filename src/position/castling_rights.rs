@@ -1,5 +1,10 @@
 use basetypes::*;
 
+pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
+pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
+pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
+pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
+
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]
@@ -30,7 +35,7 @@ impl CastlingRights {
     }
 
     #[inline(always)]
-    pub fn get(&self) -> usize {
+    pub fn get_mask(&self) -> usize {
         self.0
     }
     

@@ -315,10 +315,10 @@ impl Board {
 
             // update castling rights (null moves do not affect castling)
             if orig_square != dest_square {
-                hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
+                hash ^= *g.zobrist_castling.get_unchecked(self.castling.get_mask());
                 self.castling.update_with_mask(*g.castling_relation.get_unchecked(orig_square) &
                                                *g.castling_relation.get_unchecked(dest_square));
-                hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
+                hash ^= *g.zobrist_castling.get_unchecked(self.castling.get_mask());
             }
 
             // update the en-passant file
@@ -396,12 +396,12 @@ impl Board {
             hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
 
             // restore castling rights
-            hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
+            hash ^= *g.zobrist_castling.get_unchecked(self.castling.get_mask());
             self.castling.set_for(them, m.castling_data());
             if move_type != MOVE_PROMOTION {
                 self.castling.set_for(us, aux_data);
             }
-            hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
+            hash ^= *g.zobrist_castling.get_unchecked(self.castling.get_mask());
 
             // empty the destination square
             let dest_piece = if move_type == MOVE_PROMOTION {
@@ -1080,7 +1080,7 @@ impl Board {
                 }
             }
         }
-        hash ^= g.zobrist_castling[self.castling.get()];
+        hash ^= g.zobrist_castling[self.castling.get_mask()];
         if self.en_passant_file < 8 {
             hash ^= g.zobrist_en_passant[self.en_passant_file];
         }
@@ -1570,6 +1570,7 @@ mod tests {
     #[test]
     fn test_move_generation_5() {
         use basetypes::*;
+        use position::castling_rights::*;
         let mut stack = MoveStack::new();
 
         let mut cr = CastlingRights::new();

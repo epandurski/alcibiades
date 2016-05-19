@@ -118,12 +118,6 @@ pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
 
-// Castling rights
-pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
-pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
-pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
-pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
-
 // We use "u64" bit-sets called bitboards (BB) to represent a set of
 // squares on the board. Here are some useful square-sets.
 pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;

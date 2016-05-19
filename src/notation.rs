@@ -1,5 +1,5 @@
 use basetypes::*;
-use position::castling_rights::CastlingRights;
+use position::castling_rights::*;
 use position::board::PiecesPlacement;
 
 
