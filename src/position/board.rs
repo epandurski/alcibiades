@@ -1122,6 +1122,7 @@ impl Board {
     //
     // TODO: This method does not belong to "Board". Find it a better
     // owner.
+    #[inline]
     pub fn calc_see(&self,
                     mut attacking_color: Color,
                     from_square: Square,
