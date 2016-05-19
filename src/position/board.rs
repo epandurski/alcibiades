@@ -38,15 +38,12 @@ pub struct Board {
 
 
 impl Board {
-    // Create a new board instance from a FEN string.
-    //
-    // A FEN (Forsyth–Edwards Notation) string defines a particular
-    // position using only the ASCII character set. This function
-    // makes expensive verification to make sure that the resulting
-    // new board is legal.
-    pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
-        let (placement, to_move, castling, en_passant_square, _, _) =
-            try!(notation::parse_fen(fen).map_err(|_| IllegalBoard));
+    // Create a new board instance.
+    pub fn create(placement: &notation::PiecesPlacement,
+                  to_move: Color,
+                  castling: CastlingRights,
+                  en_passant_square: Option<Square>)
+                  -> Result<Board, IllegalBoard> {
 
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
@@ -77,6 +74,20 @@ impl Board {
         } else {
             Err(IllegalBoard)
         }
+    }
+
+
+    // Create a new board instance from a FEN string.
+    //
+    // A FEN (Forsyth–Edwards Notation) string defines a particular
+    // position using only the ASCII character set. This function
+    // makes expensive verification to make sure that the resulting
+    // new board is legal.
+    pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
+        let (ref placement, to_move, castling, en_passant_square, _, _) =
+            try!(notation::parse_fen(fen).map_err(|_| IllegalBoard));
+
+        Board::create(placement, to_move, castling, en_passant_square)
     }
 
 
