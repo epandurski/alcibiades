@@ -8,7 +8,7 @@ use basetypes::*;
 // The lowest 4 bits of the value contain the whole needed
 // information. It is laid out the following way:
 //
-//  usize                                             4           0
+//  usize                                             3           0
 //  +-----------------------------------------------+---+---+---+---+
 //  |                                               |   |   |   |   |
 //  |                   Unused                      | Castling mask |
