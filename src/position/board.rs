@@ -27,11 +27,11 @@ pub struct Board {
     geometry: &'static BoardGeometry,
     piece_type: [u64; 6],
     color: [u64; 2],
-    en_passant_file: File,
-    castling: CastlingRights,
     to_move: Color,
+    castling: CastlingRights,
+    en_passant_file: File,
     occupied: u64, // this will always be equal to self.color[0] | self.color[1]
-    hash: u64, // Zobrist hash value
+    _hash: u64, // Zobrist hash value
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
 }
@@ -62,15 +62,15 @@ impl Board {
             geometry: board_geometry(),
             piece_type: placement.piece_type,
             color: placement.color,
-            en_passant_file: en_passant_file,
-            castling: castling,
             to_move: to_move,
+            castling: castling,
+            en_passant_file: en_passant_file,
             occupied: placement.color[WHITE] | placement.color[BLACK],
-            hash: Default::default(),
+            _hash: Default::default(),
             _checkers: Cell::new(UNIVERSAL_SET),
             _king_square: Cell::new(64),
         };
-        b.hash = b.calc_hash();
+        b._hash = b.calc_hash();
 
         if b.is_legal() {
             Ok(b)
@@ -104,10 +104,10 @@ impl Board {
     }
 
 
-    // Return the en-passant file or "NO_ENPASSANT_FILE".
+    // Return the side to move.
     #[inline]
-    pub fn en_passant_file(&self) -> usize {
-        self.en_passant_file
+    pub fn to_move(&self) -> Color {
+        self.to_move
     }
 
 
@@ -115,6 +115,20 @@ impl Board {
     #[inline]
     pub fn castling(&self) -> CastlingRights {
         self.castling
+    }
+
+
+    // Return the en-passant file or "NO_ENPASSANT_FILE".
+    #[inline]
+    pub fn en_passant_file(&self) -> usize {
+        self.en_passant_file
+    }
+
+
+    // Return a bitboard of all occupied squares.
+    #[inline]
+    pub fn occupied(&self) -> u64 {
+        self.occupied
     }
 
 
@@ -133,21 +147,7 @@ impl Board {
     // databases, e.g. transposition tables and opening books.
     #[inline]
     pub fn hash(&self) -> u64 {
-        self.hash
-    }
-
-
-    // Return the side to move.
-    #[inline]
-    pub fn to_move(&self) -> Color {
-        self.to_move
-    }
-
-
-    // Return a bitboard of all occupied squares.
-    #[inline]
-    pub fn occupied(&self) -> u64 {
-        self.occupied
+        self._hash
     }
 
 
@@ -327,9 +327,9 @@ impl Board {
             self.to_move = them;
             hash ^= g.zobrist_to_move;
 
-            // update "hash", "occupied", "_checkers", and "_king_square"
+            // update "occupied", "_hash", "_checkers", and "_king_square"
             self.occupied = self.color[WHITE] | self.color[BLACK];
-            self.hash ^= hash;
+            self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._king_square.set(64);
         }
@@ -446,9 +446,9 @@ impl Board {
                 hash ^= g.zobrist_castling_rook_move[us][side];
             }
 
-            // update "hash", "occupied", "_checkers", and "_king_square"
+            // update "occupied", "_hash", "_checkers", and "_king_square"
             self.occupied = self.color[WHITE] | self.color[BLACK];
-            self.hash ^= hash;
+            self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._king_square.set(64);
         }
@@ -725,7 +725,7 @@ impl Board {
                     self._king_square.get() == bitscan_1bit(our_king_bb));
             assert!(self._checkers.get() == UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
-            assert_eq!(self.hash, self.calc_hash());
+            assert_eq!(self._hash, self.calc_hash());
             true
         }
     }
