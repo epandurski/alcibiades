@@ -30,7 +30,7 @@ pub struct Board {
     to_move: Color,
     castling: CastlingRights,
     en_passant_file: File,
-    occupied: u64, // this will always be equal to self.color[0] | self.color[1]
+    _occupied: u64, // this will always be equal to self.color[0] | self.color[1]
     _hash: u64, // Zobrist hash value
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
@@ -65,7 +65,7 @@ impl Board {
             to_move: to_move,
             castling: castling,
             en_passant_file: en_passant_file,
-            occupied: placement.color[WHITE] | placement.color[BLACK],
+            _occupied: placement.color[WHITE] | placement.color[BLACK],
             _hash: Default::default(),
             _checkers: Cell::new(UNIVERSAL_SET),
             _king_square: Cell::new(64),
@@ -128,7 +128,7 @@ impl Board {
     // Return a bitboard of all occupied squares.
     #[inline]
     pub fn occupied(&self) -> u64 {
-        self.occupied
+        self._occupied
     }
 
 
@@ -327,8 +327,8 @@ impl Board {
             self.to_move = them;
             hash ^= g.zobrist_to_move;
 
-            // update "occupied", "_hash", "_checkers", and "_king_square"
-            self.occupied = self.color[WHITE] | self.color[BLACK];
+            // update "_occupied", "_hash", "_checkers", and "_king_square"
+            self._occupied = self.color[WHITE] | self.color[BLACK];
             self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._king_square.set(64);
@@ -446,8 +446,8 @@ impl Board {
                 hash ^= g.zobrist_castling_rook_move[us][side];
             }
 
-            // update "occupied", "_hash", "_checkers", and "_king_square"
-            self.occupied = self.color[WHITE] | self.color[BLACK];
+            // update "_occupied", "_hash", "_checkers", and "_king_square"
+            self._occupied = self.color[WHITE] | self.color[BLACK];
             self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._king_square.set(64);
@@ -478,7 +478,7 @@ impl Board {
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = self.color[self.to_move];
-        let occupied_by_them = self.occupied ^ occupied_by_us;
+        let occupied_by_them = self.occupied() ^ occupied_by_us;
         let generate_all_moves = all || checkers != 0;
         assert!(king_square <= 63);
 
@@ -630,13 +630,13 @@ impl Board {
         }
         let square_bb = 1 << square;
 
-        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, self.occupied(), ROOK, square) & occupied_by_us &
          (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, self.occupied(), BISHOP, square) & occupied_by_us &
          (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, self.occupied(), KNIGHT, square) & occupied_by_us &
          self.piece_type[KNIGHT]) |
-        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, self.occupied(), KING, square) & occupied_by_us &
          self.piece_type[KING]) |
         (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
@@ -688,11 +688,11 @@ impl Board {
         let their_king_bb = self.piece_type[KING] & o_them;
         let pawns = self.piece_type[PAWN];
 
-        self.occupied == occupied && occupied != UNIVERSAL_SET && occupied == o_us | o_them &&
-        o_us & o_them == 0 && pop_count(our_king_bb) == 1 &&
-        pop_count(their_king_bb) == 1 &&
-        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
-        pop_count(o_us) <= 16 && pop_count(o_them) <= 16 &&
+        occupied != UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
+        pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
+        pop_count(pawns & o_us) <= 8 &&
+        pop_count(pawns & o_them) <= 8 && pop_count(o_us) <= 16 &&
+        pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
         pawns & PAWN_PROMOTION_RANKS == 0 &&
         (!self.castling.can_castle(WHITE, QUEENSIDE) ||
@@ -721,11 +721,12 @@ impl Board {
               orig_square_bb != 0))
         }) &&
         {
-            assert!(self._king_square.get() > 63 ||
-                    self._king_square.get() == bitscan_1bit(our_king_bb));
+            assert_eq!(self._occupied, occupied);
+            assert_eq!(self._hash, self.calc_hash());
             assert!(self._checkers.get() == UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
-            assert_eq!(self._hash, self.calc_hash());
+            assert!(self._king_square.get() > 63 ||
+                    self._king_square.get() == bitscan_1bit(our_king_bb));
             true
         }
     }
@@ -743,13 +744,13 @@ impl Board {
                                   move_stack: &mut MoveStack) {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
-        let mut dest_set = piece_attacks_from(self.geometry, self.occupied, piece, from_square) &
+        let mut dest_set = piece_attacks_from(self.geometry, self.occupied(), piece, from_square) &
                            legal_dests;
         while dest_set != EMPTY_SET {
             let dest_bb = ls1b(dest_set);
             dest_set ^= dest_bb;
             let dest_square = bitscan_1bit(dest_bb);
-            let captured_piece = get_piece_type_at(&self.piece_type, self.occupied, dest_bb);
+            let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), dest_bb);
             move_stack.push(Move::new(self.to_move,
                                       0,
                                       MOVE_NORMAL,
@@ -824,7 +825,7 @@ impl Board {
                 *s ^= pawn_bb;
                 let dest_square = bitscan_1bit(pawn_bb);
                 let orig_square = (dest_square as isize - shifts[i]) as Square;
-                let captured_piece = get_piece_type_at(&self.piece_type, self.occupied, pawn_bb);
+                let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), pawn_bb);
                 match pawn_bb {
 
                     // en-passant capture
@@ -895,7 +896,7 @@ impl Board {
             for side in 0..2 {
 
                 // ensure squares between the king and the rook are empty
-                if self.castling.obstacles(self.to_move, side) & self.occupied == 0 {
+                if self.castling.obstacles(self.to_move, side) & self.occupied() == 0 {
 
                     // it seems castling is legal unless king's
                     // passing or final squares are attacked, but
@@ -1008,13 +1009,14 @@ impl Board {
         assert!(square <= 63);
         let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
 
-        (piece_attacks_from(self.geometry, self.occupied, ROOK, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, self.occupied(), ROOK, square) & occupied_by_us &
          (self.piece_type[ROOK] | self.piece_type[QUEEN])) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, self.occupied, BISHOP, square) & occupied_by_us &
-         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, self.occupied, KNIGHT, square) & occupied_by_us &
-         self.piece_type[KNIGHT]) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, self.occupied, KING, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, self.occupied(), BISHOP, square) & occupied_by_us &
+         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) !=
+        EMPTY_SET ||
+        (piece_attacks_from(self.geometry, self.occupied(), KNIGHT, square) &
+         occupied_by_us & self.piece_type[KNIGHT]) != EMPTY_SET ||
+        (piece_attacks_from(self.geometry, self.occupied(), KING, square) & occupied_by_us &
          self.piece_type[KING]) != EMPTY_SET ||
         {
             let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
@@ -1048,7 +1050,7 @@ impl Board {
                                 gen_shift(1,
                                           dest_square as isize -
                                           PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
-            let occupied = self.occupied & !the_two_pawns;
+            let occupied = self.occupied() & !the_two_pawns;
             let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
             let checkers = piece_attacks_from(self.geometry, occupied, ROOK, king_square) &
                            occupied_by_them &
@@ -1126,7 +1128,7 @@ impl Board {
         use std::cmp::max;
         static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
-        let mut occupied = self.occupied;
+        let mut occupied = self.occupied();
         let mut depth = 0;
         let mut attackers_and_defenders = self.attacks_to(WHITE, to_square) |
                                           self.attacks_to(BLACK, to_square);
