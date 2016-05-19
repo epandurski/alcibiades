@@ -1,5 +1,6 @@
 use basetypes::*;
 
+
 pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
 pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
 pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;

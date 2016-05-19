@@ -1,5 +1,5 @@
 use basetypes::*;
-use position::castling_rights::CastlingRights;
+use position::castling_rights::*;
 
 
 // "Move" represents a move on the chessboard. It contains 3 types of
@@ -77,6 +77,8 @@ const M_MASK_MOVE_TYPE: u32 = 0b11 << M_SHIFT_MOVE_TYPE;
 const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
 const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
 const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
+
+pub const NO_ENPASSANT_FILE: Rank = 8;
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]

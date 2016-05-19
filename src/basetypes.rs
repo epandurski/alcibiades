@@ -50,7 +50,6 @@ pub const FILE_E: Rank = 4;
 pub const FILE_F: Rank = 5;
 pub const FILE_G: Rank = 6;
 pub const FILE_H: Rank = 7;
-pub const NO_ENPASSANT_FILE: Rank = 8;
 
 // Squares
 pub const A1: Square = 0 + 0 * 8;
