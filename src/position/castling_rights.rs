@@ -73,7 +73,7 @@ impl CastlingRights {
     // Return a bitboard with the set of squares that should be vacant
     // in order for the specified ("color", "side") castling move to
     // be possible.
-    #[inline(always)]
+    #[inline]
     pub fn obstacles(&self, color: Color, side: CastlingSide) -> u64 {
         const OBSTACLES: [[u64; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                           [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
@@ -102,7 +102,7 @@ impl CastlingRights {
 
     // Set the castling rights for the player "color" with a 2-bit
     // value ("rights").
-    #[inline(always)]
+    #[inline]
     pub fn set_for(&mut self, color: Color, rights: usize) {
         assert!(color <= 1);
         if rights > 0b11 {
