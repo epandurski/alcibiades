@@ -1,12 +1,17 @@
 use basetypes::*;
 use position::castling_rights::*;
-use position::board::PiecesPlacement;
 
 
 pub struct ParseError;
 
 
 pub type Result<T> = ::std::result::Result<T, ParseError>;
+
+
+pub struct PiecesPlacement {
+    pub piece_type: [u64; 6],
+    pub color: [u64; 2],
+}
 
 
 // Parses a square in algebraic notation.

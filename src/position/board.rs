@@ -18,12 +18,6 @@ static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
-pub struct PiecesPlacement {
-    pub piece_type: [u64; 6],
-    pub color: [u64; 2],
-}
-
-
 pub struct IllegalBoard;
 
 
