@@ -1,9 +1,9 @@
 use std::cell::Cell;
 use basetypes::*;
 use bitsets::*;
-use position::board_geometry::{BoardGeometry, board_geometry};
 use position::castling_rights::CastlingRights;
 use position::chess_move::{Move, MoveStack};
+use position::board_geometry::{BoardGeometry, board_geometry};
 
 // Pawn move constants
 const PAWN_PUSH: usize = 0;

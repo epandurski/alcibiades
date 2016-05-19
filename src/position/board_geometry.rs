@@ -1,6 +1,6 @@
-use basetypes::*;
 use rand::{Rng, SeedableRng};
 use rand::isaac::Isaac64Rng;
+use basetypes::*;
 use position::castling_rights::*;
 
 
