@@ -8,9 +8,63 @@ pub struct ParseError;
 pub type Result<T> = ::std::result::Result<T, ParseError>;
 
 
+// Pieces placement desctiption
 pub struct PiecesPlacement {
     pub piece_type: [u64; 6],
     pub color: [u64; 2],
+}
+
+
+// Parse a FEN string.
+//
+// A FEN (Forsyth–Edwards Notation) string defines a particular
+// position using only the ASCII character set. A FEN string
+// contains six fields separated by a space. The fields are:
+//
+// 1) Piece placement (from white's perspective). Each rank is
+//    described, starting with rank 8 and ending with rank 1. Within
+//    each rank, the contents of each square are described from file A
+//    through file H. Following the Standard Algebraic Notation (SAN),
+//    each piece is identified by a single letter taken from the
+//    standard English names. White pieces are designated using
+//    upper-case letters ("PNBRQK") whilst Black uses lowercase
+//    ("pnbrqk"). Blank squares are noted using digits 1 through 8
+//    (the number of blank squares), and "/" separates ranks.
+//
+// 2) Active color. "w" means white moves next, "b" means black.
+//
+// 3) Castling availability. If neither side can castle, this is
+//    "-". Otherwise, this has one or more letters: "K" (White can
+//    castle kingside), "Q" (White can castle queenside), "k" (Black
+//    can castle kingside), and/or "q" (Black can castle queenside).
+//
+// 4) En passant target square (in algebraic notation). If there's no
+//    en passant target square, this is "-". If a pawn has just made a
+//    2-square move, this is the position "behind" the pawn. This is
+//    recorded regardless of whether there is a pawn in position to
+//    make an en passant capture.
+//
+// 5) Halfmove clock. This is the number of halfmoves since the last
+//    pawn advance or capture. This is used to determine if a draw can
+//    be claimed under the fifty-move rule.
+//
+// 6) Fullmove number. The number of the full move. It starts at 1,
+//    and is incremented after Black's move.
+//
+pub fn parse_fen(s: &str)
+                 -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u32, u32)> {
+
+    let fileds: Vec<_> = s.split_whitespace().collect();
+    if fileds.len() == 6 {
+        Ok((try!(parse_fen_piece_placement(fileds[0])),
+            try!(parse_fen_active_color(fileds[1])),
+            try!(parse_fen_castling_rights(fileds[2])),
+            try!(parse_fen_enpassant_square(fileds[3])),
+            try!(fileds[4].parse::<u32>().map_err(|_| ParseError)),
+            try!(fileds[5].parse::<u32>().map_err(|_| ParseError))))
+    } else {
+        Err(ParseError)
+    }
 }
 
 
@@ -30,8 +84,7 @@ pub fn parse_square(s: &str) -> Result<Square> {
 }
 
 
-// Parse FEN piece placement field.
-pub fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement> {
+fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement> {
 
     // We start with an empty board. FEN describes the board
     // starting at A8 and going toward H1.
@@ -98,15 +151,17 @@ pub fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement> {
 
     // Ensure the piece placement field had the right length.
     if file == 8 && rank == 0 {
-        Ok(PiecesPlacement { piece_type: piece_type, color: color })
+        Ok(PiecesPlacement {
+            piece_type: piece_type,
+            color: color,
+        })
     } else {
         Err(ParseError)
     }
 }
 
 
-// Parse FEN active color field.
-pub fn parse_fen_active_color(s: &str) -> Result<Color> {
+fn parse_fen_active_color(s: &str) -> Result<Color> {
     match s {
         "w" => Ok(WHITE),
         "b" => Ok(BLACK),
@@ -115,8 +170,7 @@ pub fn parse_fen_active_color(s: &str) -> Result<Color> {
 }
 
 
-// Parses FEN castling rights field.
-pub fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights> {
+fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights> {
 
     // We start with no caltling allowed.
     let mut rights = CastlingRights::new();
@@ -157,11 +211,9 @@ pub fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights> {
 }
 
 
-// Parse FEN en-passant square field.
-pub fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>> {
+fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>> {
     match s {
         "-" => Ok(None),
         _ => Ok(Some(try!(parse_square(s).map_err(|_| ParseError)))),
     }
 }
-

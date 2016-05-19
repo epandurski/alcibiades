@@ -4,8 +4,7 @@ use bitsets::*;
 use position::castling_rights::*;
 use position::chess_move::*;
 use position::board_geometry::*;
-use notation::{parse_fen_castling_rights, parse_fen_enpassant_square, parse_fen_piece_placement,
-               parse_fen_active_color};
+use notation;
 
 
 // Illegal board error
@@ -42,67 +41,12 @@ impl Board {
     // Create a new board instance from a FEN string.
     //
     // A FEN (Forsyth–Edwards Notation) string defines a particular
-    // position using only the ASCII character set. A FEN string
-    // contains six fields separated by a space. The fields are:
-    //
-    // 1) Piece placement (from white's perspective). Each rank is
-    //    described, starting with rank 8 and ending with rank
-    //    1. Within each rank, the contents of each square are
-    //    described from file A through file H. Following the Standard
-    //    Algebraic Notation (SAN), each piece is identified by a
-    //    single letter taken from the standard English names. White
-    //    pieces are designated using upper-case letters ("PNBRQK")
-    //    whilst Black uses lowercase ("pnbrqk"). Blank squares are
-    //    noted using digits 1 through 8 (the number of blank
-    //    squares), and "/" separates ranks.
-    //
-    // 2) Active color. "w" means white moves next, "b" means black.
-    //
-    // 3) Castling availability. If neither side can castle, this is
-    //    "-". Otherwise, this has one or more letters: "K" (White can
-    //    castle kingside), "Q" (White can castle queenside), "k"
-    //    (Black can castle kingside), and/or "q" (Black can castle
-    //    queenside).
-    //
-    // 4) En passant target square (in algebraic notation). If there's
-    //    no en passant target square, this is "-". If a pawn has just
-    //    made a 2-square move, this is the position "behind" the
-    //    pawn. This is recorded regardless of whether there is a pawn
-    //    in position to make an en passant capture.
-    //
-    // 5) Halfmove clock. This is the number of halfmoves since the
-    //    last pawn advance or capture. This is used to determine if a
-    //    draw can be claimed under the fifty-move rule.
-    //
-    // 6) Fullmove number. The number of the full move. It starts at
-    //    1, and is incremented after Black's move.
-    //
-    // This function makes expensive verification to make sure that
-    // the board is legal.
+    // position using only the ASCII character set. This function
+    // makes expensive verification to make sure that the resulting
+    // new board is legal.
     pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
-
-        // separate the FEN string parts
-        let parts: Vec<_> = fen.split_whitespace().collect();
-        if parts.len() != 6 {
-            return Err(IllegalBoard);
-        }
-
-        // parse piece placement
-        let placement = try!(parse_fen_piece_placement(parts[0]).map_err(|_| IllegalBoard));
-
-        // parse the side to move
-        let to_move = try!(parse_fen_active_color(parts[1]).map_err(|_| IllegalBoard));
-
-        // parse castling rights
-        let castling = try!(parse_fen_castling_rights(parts[2]).map_err(|_| IllegalBoard));
-
-        // parse en-passant square
-        let en_passant_square = try!(parse_fen_enpassant_square(parts[3])
-                                         .map_err(|_| IllegalBoard));
-
-        // ensure the move numbers are OK (we do not use them, though)
-        try!(parts[4].parse::<u32>().map_err(|_| IllegalBoard));
-        try!(parts[5].parse::<u32>().map_err(|_| IllegalBoard));
+        let (placement, to_move, castling, en_passant_square, _, _) =
+            try!(notation::parse_fen(fen).map_err(|_| IllegalBoard));
 
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
