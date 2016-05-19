@@ -7,8 +7,8 @@ pub mod chess_move;
 pub mod board;
 
 // use basetypes::*;
-use notation;
-use self::board::Board;
+// use notation;
+use self::board::{Board, IllegalBoard};
 
 
 pub struct Position {
@@ -57,22 +57,18 @@ impl Position {
     // 6) Fullmove number. The number of the full move. It starts at 1, and is
     //    incremented after Black's move.
     //
-    pub fn from_fen(fen: &str) -> Result<Position, notation::ParseError> {
+    pub fn from_fen(fen: &str) -> Result<Position, IllegalBoard> {
         let parts: Vec<_> = fen.split_whitespace().collect();
 
         if parts.len() == 6 {
             let p = Position {
-                board: try!(Board::create(&try!(notation::parse_fen_piece_placement(parts[0])),
-                                          try!(notation::parse_fen_enpassant_square(parts[3])),
-                                          try!(notation::parse_fen_castling_rights(parts[2])),
-                                          try!(notation::parse_fen_active_color(parts[1])))
-                                .map_err(|e| notation::ParseError)), /* TODO: Should it be other error? */
-                halfmove_clock: try!(parts[4].parse::<u32>().map_err(|e| notation::ParseError)),
-                fullmove_number: try!(parts[5].parse::<u32>().map_err(|e| notation::ParseError)),
+                board: try!(Board::from_fen(fen)),
+                halfmove_clock: try!(parts[4].parse::<u32>().map_err(|e| IllegalBoard)),
+                fullmove_number: try!(parts[5].parse::<u32>().map_err(|e| IllegalBoard)),
             };
             Ok(p)
         } else {
-            Err(notation::ParseError)
+            Err(IllegalBoard)
         }
     }
 }

@@ -126,3 +126,37 @@ pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
 pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
 pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
 pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_castling_rights() {
+        use basetypes::*;
+
+        let mut c = CastlingRights::new();
+        c.set_for(WHITE, 0b10);
+        c.set_for(BLACK, 0b11);
+        assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
+        assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
+        assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
+        assert_eq!(c.can_castle(BLACK, KINGSIDE), true);
+        c.update_with_mask(!CASTLE_BLACK_KINGSIDE);
+        assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
+        assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
+        assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
+        assert_eq!(c.can_castle(BLACK, KINGSIDE), false);
+        assert_eq!(c.get_for(BLACK), 0b01);
+        assert_eq!(c.get_for(WHITE), 0b10);
+        assert_eq!(c.get_value(), 0b0110);
+        let granted = c.grant(CASTLE_BLACK_KINGSIDE);
+        assert_eq!(granted, CASTLE_BLACK_KINGSIDE);
+        let granted = c.grant(CASTLE_BLACK_KINGSIDE);
+        assert_eq!(granted, 0);
+        assert_eq!(c.get_value(), 0b1110);
+        assert_eq!(c.obstacles(WHITE, QUEENSIDE), UNIVERSAL_SET);
+        assert_eq!(c.obstacles(BLACK, QUEENSIDE), 1 << B8 | 1 << C8 | 1 << D8);
+    }
+}
