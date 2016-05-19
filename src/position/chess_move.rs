@@ -64,7 +64,7 @@ pub struct Move(u32);
 
 
 impl Move {
-    #[inline(always)]
+    #[inline]
     pub fn new(us: Color,
                score: usize,
                move_type: MoveType,
@@ -98,56 +98,59 @@ impl Move {
               aux_data << M_SHIFT_AUX_DATA) as u32)
     }
 
-    #[inline(always)]
+    // Set the "move score" field to a particular value.
+    #[inline]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= 0b1111);
         self.0 &= !M_MASK_SCORE;
         self.0 |= (score << M_SHIFT_SCORE) as u32;
     }
 
-    #[inline(always)]
+    // Set a particular bit in the "move score" field to 1.
+    #[inline]
     pub fn set_score_bit(&mut self, b: usize) {
         assert!(b <= 3);
         self.0 |= 1 << b << M_SHIFT_SCORE;
     }
 
-    #[inline(always)]
+    // Set a particular bit in the "move score" field to 0.
+    #[inline]
     pub fn clear_score_bit(&mut self, b: usize) {
         assert!(b <= 3);
         self.0 &= !(1 << b << M_SHIFT_SCORE);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn score(&self) -> usize {
         ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn move_type(&self) -> MoveType {
         ((self.0 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE) as MoveType
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn piece(&self) -> PieceType {
         ((self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE) as PieceType
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn orig_square(&self) -> Square {
         ((self.0 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE) as Square
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn dest_square(&self) -> Square {
         ((self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn captured_piece(&self) -> PieceType {
         ((!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE) as PieceType
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn en_passant_file(&self) -> File {
         ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as File
     }
@@ -162,23 +165,24 @@ impl Move {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
 
-    #[inline(always)]
+    // Get the promoted piece type in case of pawn promotion move.
+    #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
+        assert!(pp_code <= 3);
         match pp_code {
             0 => QUEEN,
             1 => ROOK,
             2 => BISHOP,
-            3 => KNIGHT,
-            _ => panic!("invalid promoted piece code"),
+            _ => KNIGHT,
         }
     }
 }
 
 
-// Represents no en-passant file.
-pub const NO_ENPASSANT_FILE: Rank = 8;
+pub const NO_ENPASSANT_FILE: Rank = 8;  // "8" represents no en-passant file
 
 
+// Field shifts
 const M_SHIFT_SCORE: u32 = 28;
 const M_SHIFT_CAPTURED_PIECE: u32 = 25;
 const M_SHIFT_PIECE: u32 = 22;
@@ -189,6 +193,7 @@ const M_SHIFT_ORIG_SQUARE: u32 = 8;
 const M_SHIFT_DEST_SQUARE: u32 = 2;
 const M_SHIFT_AUX_DATA: u32 = 0;
 
+// Field masks
 const M_MASK_SCORE: u32 = 0b1111 << M_SHIFT_SCORE;
 const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
 const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
@@ -200,6 +205,8 @@ const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
 const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
 
 
+// TODO: Here does not seem to be the right place for
+// "MoveStack". Find it other owner.
 pub struct MoveStack {
     stack: [Move; MOVE_STACK_SIZE],
     next_index: usize,
@@ -238,13 +245,11 @@ impl MoveStack {
         self.next_index = 0;
         count
     }
-    
+
     #[inline(always)]
     pub fn count(&self) -> usize {
         self.next_index
     }
-    
-    
 }
 
 
