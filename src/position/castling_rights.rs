@@ -105,16 +105,17 @@ impl CastlingRights {
     #[inline(always)]
     pub fn set_for(&mut self, color: Color, rights: usize) {
         assert!(color <= 1);
-        assert!(rights <= 0b11);
-
-        // Since the raw value of "CastlingRights" frequently is used
-        // as an array index without boundary checking, we guarantee
-        // that the raw value is always less than 16 by sanitizing the
-        // passed "rights".
+        if rights > 0b11 {
+            // Since the raw value of "CastlingRights" frequently is used
+            // as an array index without boundary checking, we guarantee
+            // that the raw value is always less than 16 by sanitizing the
+            // passed "rights".
+            panic!("invalid castling rights");
+        }
         self.0 = if color == WHITE {
-            self.0 & 0b1100 | rights & 0b0011
+            self.0 & 0b1100 | rights
         } else {
-            self.0 & 0b0011 | (rights & 0b0011) << 2
+            self.0 & 0b0011 | rights << 2
         }
     }
 }
