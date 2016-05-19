@@ -26,14 +26,14 @@ pub struct CastlingRights(usize);
 
 impl CastlingRights {
     // Create a new instance.
-    #[inline(always)]
+    #[inline]
     pub fn new() -> CastlingRights {
         CastlingRights(0)
     }
 
 
     // Get the contained raw value.
-    #[inline(always)]
+    #[inline]
     pub fn get_value(&self) -> usize {
         self.0
     }
@@ -55,14 +55,14 @@ impl CastlingRights {
 
     // Update the castling rights with a 4-bit mask (bit-wise AND-ing
     // the previous value with "mask").
-    #[inline(always)]
+    #[inline]
     pub fn update_with_mask(&mut self, mask: usize) {
         self.0 &= mask;
     }
 
 
     // Return if the player "color" can castle on the given "side".
-    #[inline(always)]
+    #[inline]
     pub fn can_castle(&self, color: Color, side: CastlingSide) -> bool {
         assert!(color <= 1);
         assert!(side <= 1);
@@ -89,7 +89,7 @@ impl CastlingRights {
 
     // Return a 2-bit value representing the castling rights for the
     // player "color".
-    #[inline(always)]
+    #[inline]
     pub fn get_for(&self, color: Color) -> usize {
         assert!(color <= 1);
         if color == WHITE {
