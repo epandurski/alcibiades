@@ -37,6 +37,7 @@ pub struct BoardGeometry {
     pub squares_between_including: [[u64; 64]; 64],
     pub squares_behind_blocker: [[u64; 64]; 64],
     pub castling_relation: [usize; 64],
+    pub castling_rook_mask: [[u64; 2]; 2],
     pub zobrist_pieces: [[[u64; 64]; 6]; 2],
     pub zobrist_castling: [u64; 16],
     pub zobrist_castling_rook_move: [[u64; 2]; 2],
@@ -82,6 +83,7 @@ impl BoardGeometry {
             squares_between_including: [[0; 64]; 64],
             squares_behind_blocker: [[0; 64]; 64],
             castling_relation: [!0; 64],
+            castling_rook_mask: [[0; 2]; 2],
             zobrist_pieces: [[[0; 64]; 6]; 2],
             zobrist_castling: [0; 16],
             zobrist_castling_rook_move: [[0; 2]; 2],
@@ -165,6 +167,11 @@ impl BoardGeometry {
         // destination square is &-ed with the castling rights, to
         // derive the updated castling rights.
         bg.fill_castling_relation();
+        
+        // The "castling_rook_mask" field holds bit-masks that
+        // describe how the castling rook moves during the castling
+        // move.
+        bg.fill_castling_rook_mask();
 
         // "zobrist_*" fields hold bit-masks that are used in
         // calculating the Zobrist hash function.
@@ -308,6 +315,13 @@ impl BoardGeometry {
             self.zobrist_en_passant[file] = rng.gen();
         }
         self.zobrist_to_move = rng.gen();
+    }
+    
+    fn fill_castling_rook_mask(&mut self) {
+        self.castling_rook_mask[WHITE][QUEENSIDE] = 1 << A1 | 1 << D1;
+        self.castling_rook_mask[WHITE][KINGSIDE] = 1 << H1 | 1 << F1;
+        self.castling_rook_mask[BLACK][QUEENSIDE] = 1 << A8 | 1 << D8;
+        self.castling_rook_mask[BLACK][KINGSIDE] = 1 << H8 | 1 << F8;
     }
 }
 

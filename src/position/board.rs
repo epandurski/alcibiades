@@ -263,7 +263,7 @@ impl Board {
                 } else {
                     QUEENSIDE
                 };
-                let mask = self.castling.rook_xor_mask(us, side);
+                let mask = g.castling_rook_mask[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
                 hash ^= g.zobrist_castling_rook_move[us][side];
@@ -317,8 +317,8 @@ impl Board {
             // update castling rights (null moves do not affect castling)
             if orig_square != dest_square {
                 hash ^= *g.zobrist_castling.get_unchecked(self.castling.get_mask());
-                self.castling.update_with_mask(*g.castling_relation.get_unchecked(orig_square) &
-                                               *g.castling_relation.get_unchecked(dest_square));
+                self.castling.update_mask(*g.castling_relation.get_unchecked(orig_square) &
+                                          *g.castling_relation.get_unchecked(dest_square));
                 hash ^= *g.zobrist_castling.get_unchecked(self.castling.get_mask());
             }
 
@@ -453,7 +453,7 @@ impl Board {
                 } else {
                     QUEENSIDE
                 };
-                let mask = self.castling.rook_xor_mask(us, side);
+                let mask = g.castling_rook_mask[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
                 hash ^= g.zobrist_castling_rook_move[us][side];
@@ -1584,7 +1584,7 @@ mod tests {
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 5);
 
-        cr.set_with_mask(CASTLE_WHITE_KINGSIDE);
+        cr.grant(CASTLE_WHITE_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
                               cr,
@@ -1594,7 +1594,7 @@ mod tests {
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 6);
 
-        cr.set_with_mask(CASTLE_WHITE_QUEENSIDE);
+        cr.grant(CASTLE_WHITE_QUEENSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
                               cr,
@@ -1613,7 +1613,7 @@ mod tests {
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.remove_all(), 19 + 5);
 
-        cr.set_with_mask(CASTLE_BLACK_KINGSIDE);
+        cr.grant(CASTLE_BLACK_KINGSIDE);
         let b = Board::create(&fen("rn2k2r/8/8/8/8/8/8/R3K2R").ok().unwrap(),
                               None,
                               cr,
@@ -1683,7 +1683,7 @@ mod tests {
         let mut stack = MoveStack::new();
 
         let mut cr = CastlingRights::new();
-        cr.set_with_mask(0b1011);
+        cr.grant(0b1011);
         let mut b = Board::create(&fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R").ok().unwrap(),
                                   Some(F6),
                                   cr,
@@ -1770,7 +1770,7 @@ mod tests {
         let mut stack = MoveStack::new();
 
         let mut cr = CastlingRights::new();
-        cr.set_with_mask(0b0010);
+        cr.grant(0b0010);
         let mut b = Board::create(&fen("k7/8/8/5Pp1/8/8/8/4K2R").ok().unwrap(),
                                   Some(G6),
                                   cr,
