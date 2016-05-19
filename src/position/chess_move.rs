@@ -1,4 +1,6 @@
 use basetypes::*;
+use position::castling_rights::CastlingRights;
+
 
 // "Move" represents a move on the chessboard. It contains 3 types of
 // information:
@@ -245,6 +247,7 @@ impl MoveStack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use position::castling_rights::CastlingRights;
 
     #[test]
     fn test_move() {

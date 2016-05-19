@@ -2,8 +2,9 @@
 #![allow(unused_variables)]
 
 pub mod board_geometry;
-pub mod board;
+pub mod castling_rights;
 pub mod chess_move;
+pub mod board;
 
 // use basetypes::*;
 use notation;

@@ -1,8 +1,9 @@
 use std::cell::Cell;
 use basetypes::*;
 use bitsets::*;
-use super::board_geometry::{BoardGeometry, board_geometry};
-use super::chess_move::{Move, MoveStack};
+use position::board_geometry::{BoardGeometry, board_geometry};
+use position::castling_rights::CastlingRights;
+use position::chess_move::{Move, MoveStack};
 
 // Pawn move constants
 const PAWN_PUSH: usize = 0;
@@ -314,10 +315,10 @@ impl Board {
 
             // update castling rights (null moves do not affect castling)
             if orig_square != dest_square {
-                hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
-                self.castling.0 &= *g.castling_relation.get_unchecked(orig_square) &
-                                   *g.castling_relation.get_unchecked(dest_square);
-                hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
+                hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
+                self.castling.update_with_mask(*g.castling_relation.get_unchecked(orig_square) &
+                                               *g.castling_relation.get_unchecked(dest_square));
+                hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
             }
 
             // update the en-passant file
@@ -395,12 +396,12 @@ impl Board {
             hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
 
             // restore castling rights
-            hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
+            hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
             self.castling.set_for(them, m.castling_data());
             if move_type != MOVE_PROMOTION {
                 self.castling.set_for(us, aux_data);
             }
-            hash ^= *g.zobrist_castling.get_unchecked(self.castling.0);
+            hash ^= *g.zobrist_castling.get_unchecked(self.castling.get());
 
             // empty the destination square
             let dest_piece = if move_type == MOVE_PROMOTION {
@@ -1079,7 +1080,7 @@ impl Board {
                 }
             }
         }
-        hash ^= g.zobrist_castling[self.castling.0];
+        hash ^= g.zobrist_castling[self.castling.get()];
         if self.en_passant_file < 8 {
             hash ^= g.zobrist_en_passant[self.en_passant_file];
         }
@@ -1323,6 +1324,7 @@ fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (
 #[cfg(test)]
 mod tests {
     use super::*;
+    use position::castling_rights::CastlingRights;
     use position::chess_move::MoveStack;
     use notation::parse_fen_piece_placement as fen;
 
