@@ -88,6 +88,18 @@ impl Board {
 
 
     // Return the Zobrist hash value for the current board.
+    //
+    // Zobrist Hashing is a technique to transform a board position of
+    // arbitrary size into a number of a set length, with an equal
+    // distribution over all possible numbers, invented by Albert
+    // Zobrist.
+    //
+    // The main purpose of Zobrist hash codes in chess programming is
+    // to get an almost unique index number for any chess position,
+    // with a very important requirement that two similar positions
+    // generate entirely different indices. These index numbers are
+    // used for faster and more space efficient Hash tables or
+    // databases, e.g. transposition tables and opening books.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
         self.hash
@@ -717,10 +729,11 @@ impl Board {
               self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
               orig_square_bb != 0))
         }) &&
-        (self._king_square.get() > 63 || self._king_square.get() == bitscan_1bit(our_king_bb)) &&
-        (self._checkers.get() == UNIVERSAL_SET ||
-         self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb))) &&
         {
+            assert!(self._king_square.get() > 63 ||
+                    self._king_square.get() == bitscan_1bit(our_king_bb));
+            assert!(self._checkers.get() == UNIVERSAL_SET ||
+                    self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             assert_eq!(self.hash, self.calc_hash());
             true
         }
@@ -1052,7 +1065,8 @@ impl Board {
     }
 
 
-    // Calculate the Zobrist hash for the board.
+    // A helper method for "create()". Calculates the Zobrist hash for
+    // the board.
     fn calc_hash(&self) -> u64 {
         let g = self.geometry;
         let mut hash = 0;

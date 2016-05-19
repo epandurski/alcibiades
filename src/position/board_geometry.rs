@@ -165,7 +165,7 @@ impl BoardGeometry {
         // derive the updated castling rights.
         bg.fill_castling_relation();
 
-        // "zobrist_*" fields holds bit-masks that are used in
+        // "zobrist_*" fields hold bit-masks that are used in
         // calculating the Zobrist hash function.
         bg.fill_zobrist_arrays();
 
