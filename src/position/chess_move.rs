@@ -57,33 +57,11 @@ use position::castling_rights::*;
 // MVV-LVA (Most valuable victim -- least valuable aggressor) ordering
 // of the moves is preserved, even when the "Move score" field stays
 // the same.
-
-const M_SHIFT_SCORE: u32 = 28;
-const M_SHIFT_CAPTURED_PIECE: u32 = 25;
-const M_SHIFT_PIECE: u32 = 22;
-const M_SHIFT_CASTLING_DATA: u32 = 20;
-const M_SHIFT_ENPASSANT_FILE: u32 = 16;
-const M_SHIFT_MOVE_TYPE: u32 = 14;
-const M_SHIFT_ORIG_SQUARE: u32 = 8;
-const M_SHIFT_DEST_SQUARE: u32 = 2;
-const M_SHIFT_AUX_DATA: u32 = 0;
-
-const M_MASK_SCORE: u32 = 0b1111 << M_SHIFT_SCORE;
-const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
-const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
-const M_MASK_CASTLING_DATA: u32 = 0b11 << M_SHIFT_CASTLING_DATA;
-const M_MASK_ENPASSANT_FILE: u32 = 0b1111 << M_SHIFT_ENPASSANT_FILE;
-const M_MASK_MOVE_TYPE: u32 = 0b11 << M_SHIFT_MOVE_TYPE;
-const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
-const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
-const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
-
-pub const NO_ENPASSANT_FILE: Rank = 8;
-
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
 pub struct Move(u32);
+
 
 impl Move {
     #[inline(always)]
@@ -196,6 +174,30 @@ impl Move {
     }
 }
 
+
+// Represents no en-passant file.
+pub const NO_ENPASSANT_FILE: Rank = 8;
+
+
+const M_SHIFT_SCORE: u32 = 28;
+const M_SHIFT_CAPTURED_PIECE: u32 = 25;
+const M_SHIFT_PIECE: u32 = 22;
+const M_SHIFT_CASTLING_DATA: u32 = 20;
+const M_SHIFT_ENPASSANT_FILE: u32 = 16;
+const M_SHIFT_MOVE_TYPE: u32 = 14;
+const M_SHIFT_ORIG_SQUARE: u32 = 8;
+const M_SHIFT_DEST_SQUARE: u32 = 2;
+const M_SHIFT_AUX_DATA: u32 = 0;
+
+const M_MASK_SCORE: u32 = 0b1111 << M_SHIFT_SCORE;
+const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
+const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
+const M_MASK_CASTLING_DATA: u32 = 0b11 << M_SHIFT_CASTLING_DATA;
+const M_MASK_ENPASSANT_FILE: u32 = 0b1111 << M_SHIFT_ENPASSANT_FILE;
+const M_MASK_MOVE_TYPE: u32 = 0b11 << M_SHIFT_MOVE_TYPE;
+const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
+const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
+const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
 
 
 pub struct MoveStack {
