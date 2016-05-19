@@ -141,6 +141,8 @@ pub const BB_FILE_F: u64 = BB_FILE_E << 1;
 pub const BB_FILE_G: u64 = BB_FILE_F << 1;
 pub const BB_FILE_H: u64 = BB_FILE_G << 1;
 
+pub const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
+
 // The maximum number of moves in the move stack. It should be large
 // enough so we that never overrun it.
 pub const MOVE_STACK_SIZE: usize = 32 * 256;

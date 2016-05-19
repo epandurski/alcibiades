@@ -8,16 +8,7 @@ use notation::{parse_fen_castling_rights, parse_fen_enpassant_square, parse_fen_
                parse_fen_active_color};
 
 
-// Pawn move constants
-const PAWN_PUSH: usize = 0;
-const PAWN_DOUBLE_PUSH: usize = 1;
-const PAWN_WEST_CAPTURE: usize = 2;
-const PAWN_EAST_CAPTURE: usize = 3;
-static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
-
-const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
-
-
+// Illegal board error
 pub struct IllegalBoard;
 
 
@@ -117,6 +108,7 @@ impl Board {
         self.geometry
     }
 
+    
     // Return an array of 6 occupation bitboards -- one for each piece
     // type.
     #[inline]
@@ -1229,6 +1221,17 @@ impl Board {
         s
     }
 }
+
+
+// Pawn move types
+const PAWN_PUSH: usize = 0;
+const PAWN_DOUBLE_PUSH: usize = 1;
+const PAWN_WEST_CAPTURE: usize = 2;
+const PAWN_EAST_CAPTURE: usize = 3;
+
+
+// Pawn move shifts (one for each color and move type)
+static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 
 // Return the set of squares that are attacked by a piece (not a pawn)
