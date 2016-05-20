@@ -4,10 +4,12 @@ use basetypes::*;
 use position::castling_rights::*;
 
 
-// Return a reference to a properly initialized BoardGeometry
-// object. The object is created and initialized only during the first
-// call. All next calls will return a reference to the same
-// object. This is done in a thread-safe manner.
+/// Returns a reference to a properly initialized `BoardGeometry`
+/// object.
+///
+/// The object is created and initialized only during the first
+/// call. All next calls will return a reference to the same
+/// object. This is done in a thread-safe manner.
 pub fn board_geometry() -> &'static BoardGeometry {
     use std::sync::{Once, ONCE_INIT};
     static INIT_GEOMETRY: Once = ONCE_INIT;
@@ -24,28 +26,136 @@ pub fn board_geometry() -> &'static BoardGeometry {
 }
 
 
-// "BoardGeometry" is a collection of pre-calculated tables that are
-// needed for implementing move generation and various other
-// board-related problems.
+/// A collection of pre-calculated tables.
+///
+/// `BoardGeometry` contains pre-calculated tables that are needed for
+/// implementing move generation and various other board-related
+/// problems.
 pub struct BoardGeometry {
     grid: [u8; 120],
     piece_grid_deltas: [[i8; 8]; 5],
     piece_longrange: [bool; 5],
+
+    /// Holds attack bitboards for each piece on each possible square.
+    /// 
+    /// # Examples
+    ///
+    /// ```text
+    /// g.attacks[QUEEN][D4]        g.attacks[KNIGHT][D4] 
+    /// . . . 1 . . . 1             . . . . . . . .       
+    /// 1 . . 1 . . 1 .             . . . . . . . .       
+    /// . 1 . 1 . 1 . .             . . 1 . 1 . . .       
+    /// . . 1 1 1 . . .             . 1 . . . 1 . .       
+    /// 1 1 1 Q 1 1 1 1             . . . N . . . .       
+    /// . . 1 1 1 . . .             . 1 . . . 1 . .       
+    /// . 1 . 1 . 1 . .             . . 1 . 1 . . .       
+    /// 1 . . 1 . . 1 .             . . . . . . . .       
+    /// ```
     pub attacks: [[u64; 64]; 5],
+
+    /// Holds "blockers and beyond" bitboards for each piece on each
+    /// possible square.
+    ///
+    /// # Examples:
+    ///
+    /// ```text
+    /// g.blockers_and_beyond[KNIGHT][D4]  g.blockers_and_beyond[QUEEN][D4]
+    /// . . . . . . . .                    . . . . . . . .
+    /// . . . . . . . .                    . . . 1 . . 1 .
+    /// . . . . . . . .                    . 1 . 1 . 1 . .
+    /// . . . . . . . .                    . . 1 1 1 . . .
+    /// . . . N . . . .                    . 1 1 Q 1 1 1 .
+    /// . . . . . . . .                    . . 1 1 1 . . .
+    /// . . . . . . . .                    . 1 . 1 . 1 . .
+    /// . . . . . . . .                    . . . . . . . .
+    /// ```
     pub blockers_and_beyond: [[u64; 64]; 5],
+
+    /// Holds bitsets that describe all squares lying at the line
+    /// determined by the attacker and the blocker.
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// g.squares_at_line[B2][F6]
+    /// . . . . . . . 1
+    /// . . . . . . 1 .
+    /// . . . . . 1 . .
+    /// . . . . 1 . . .
+    /// . . . 1 . . . .
+    /// . . 1 . . . . .
+    /// . 1 . . . . . .
+    /// 1 . . . . . . .
+    /// ```
     pub squares_at_line: [[u64; 64]; 64],
+
+    /// Holds bitboards that describe all squares between an attacker
+    /// an a blocker including the attacker's and blocker's fields
+    /// themselves.
+    ///
+    /// # Examples
+    ///
+    /// ```text
+    /// g.squares_between_including[B2][F6]
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . 1 . .
+    /// . . . . 1 . . .
+    /// . . . 1 . . . .
+    /// . . 1 . . . . .
+    /// . 1 . . . . . .
+    /// . . . . . . . .
+    /// ```
     pub squares_between_including: [[u64; 64]; 64],
+
+    /// Holds bitboards that describe all squares hidden behind a
+    /// blocker from the attacker's position.
+    ///
+    /// # Examples:
+    /// 
+    /// ```text
+    /// g.squares_behind_blocker[B2][F6]
+    /// . . . . . . . 1
+    /// . . . . . . 1 .
+    /// . . . . . B . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . A . . . . . .
+    /// . . . . . . . .
+    /// ```
     pub squares_behind_blocker: [[u64; 64]; 64],
+
+    /// Holds bitboards that describe how each square on the board is
+    /// affiliated to castling.
+    ///
+    /// On each move, the value of `castling_relation` for the origin
+    /// and destination squares are &-ed with the castling rights, to
+    /// derive the updated castling rights.
     pub castling_relation: [usize; 64],
+
+    /// Holds bitboards that describe how the castling rook moves
+    /// during the castling move.
     pub castling_rook_mask: [[u64; 2]; 2],
+
+    /// Used in calculating the Zobrist hash function.
     pub zobrist_pieces: [[[u64; 64]; 6]; 2],
+
+    /// Used in calculating the Zobrist hash function.
     pub zobrist_castling: [u64; 16],
+    
+    /// Used in calculating the Zobrist hash function.
     pub zobrist_castling_rook_move: [[u64; 2]; 2],
+    
+    /// Used in calculating the Zobrist hash function.
     pub zobrist_en_passant: [u64; 16],
+    
+    /// Used in calculating the Zobrist hash function.
     pub zobrist_to_move: u64,
 }
 
 impl BoardGeometry {
+    /// Creates a new instance.
     pub fn new() -> BoardGeometry {
         // We use 10x12 grid (8x8 with guarding markers, 2 at top and
         // bottom, 1 at the sides), so that we can detect out-of-board
@@ -91,98 +201,20 @@ impl BoardGeometry {
             zobrist_to_move: 0,
         };
 
-        // "attacks" and "blockers_and_beyond" fields hold attack and
-        // blockers bitsets for each piece on each possible square.
-        // For example:
-        //
-        // g.attacks[QUEEN][D4]  g.blockers_and_beyond[QUEEN][D4]
-        // . . . 1 . . . 1       . . . . . . . .
-        // 1 . . 1 . . 1 .       . . . 1 . . 1 .
-        // . 1 . 1 . 1 . .       . 1 . 1 . 1 . .
-        // . . 1 1 1 . . .       . . 1 1 1 . . .
-        // 1 1 1 Q 1 1 1 1       . 1 1 Q 1 1 1 .
-        // . . 1 1 1 . . .       . . 1 1 1 . . .
-        // . 1 . 1 . 1 . .       . 1 . 1 . 1 . .
-        // 1 . . 1 . . 1 .       . . . . . . . .
-        //
-        // g.attacks[KNIGHT][D4] g.blockers_and_beyond[KNIGHT][D4]
-        // . . . . . . . .       . . . . . . . .
-        // . . . . . . . .       . . . . . . . .
-        // . . 1 . 1 . . .       . . . . . . . .
-        // . 1 . . . 1 . .       . . . . . . . .
-        // . . . N . . . .       . . . N . . . .
-        // . 1 . . . 1 . .       . . . . . . . .
-        // . . 1 . 1 . . .       . . . . . . . .
-        // . . . . . . . .       . . . . . . . .
         bg.fill_attack_and_blockers_and_beyond_arrays();
-
-        // The "squares_behind_blocker" field holds bitsets that
-        // describe all squares hidden behind a blocker from the
-        // attacker's position. For example:
-        //
-        // g.squares_behind_blocker[B2][F6]
-        // . . . . . . . 1
-        // . . . . . . 1 .
-        // . . . . . B . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . . . .
-        // . A . . . . . .
-        // . . . . . . . .
-        //
-        // The "squares_between_including" field holds bitsets that
-        // describe all squares between an attacker an a blocker
-        // including the attacker's and blocker's fields
-        // themselves. For example:
-        //
-        // g.squares_between_including[B2][F6]
-        // . . . . . . . .
-        // . . . . . . . .
-        // . . . . . 1 . .
-        // . . . . 1 . . .
-        // . . . 1 . . . .
-        // . . 1 . . . . .
-        // . 1 . . . . . .
-        // . . . . . . . .
         bg.fill_squares_between_including_and_squares_behind_blocker_arrays();
-
-        // The "squares_at_line" field holds bitsets that describe all
-        // squares lying at the line determined by the attacker and
-        // the blocker. For example:
-        //
-        // g.squares_at_line[B2][F6]
-        // . . . . . . . 1
-        // . . . . . . 1 .
-        // . . . . . 1 . .
-        // . . . . 1 . . .
-        // . . . 1 . . . .
-        // . . 1 . . . . .
-        // . 1 . . . . . .
-        // 1 . . . . . . .
         bg.fill_squares_at_line_array();
-
-        // The "castling_relation" field holds bit-masks that describe
-        // how each square on the board is affiliated to castling. On
-        // each move, the value of "castling_relation" for the
-        // destination square is &-ed with the castling rights, to
-        // derive the updated castling rights.
         bg.fill_castling_relation();
-        
-        // The "castling_rook_mask" field holds bit-masks that
-        // describe how the castling rook moves during the castling
-        // move.
         bg.fill_castling_rook_mask();
-
-        // "zobrist_*" fields hold bit-masks that are used in
-        // calculating the Zobrist hash function.
         bg.fill_zobrist_arrays();
-
         bg
     }
+
 
     fn grid_index(&self, i: Square) -> usize {
         grid_index_from_square(i)
     }
+
 
     fn fill_attack_and_blockers_and_beyond_arrays(&mut self) {
         for piece in 0..5 {
@@ -215,6 +247,7 @@ impl BoardGeometry {
             }
         }
     }
+
 
     fn fill_squares_between_including_and_squares_behind_blocker_arrays(&mut self) {
         for attacker in 0..64 {
@@ -271,6 +304,7 @@ impl BoardGeometry {
         }
     }
 
+
     fn fill_squares_at_line_array(&mut self) {
         for a in 0..64 {
             for b in 0..64 {
@@ -281,6 +315,7 @@ impl BoardGeometry {
         }
     }
 
+
     fn fill_castling_relation(&mut self) {
         self.castling_relation[A1] = !CASTLE_WHITE_QUEENSIDE;
         self.castling_relation[H1] = !CASTLE_WHITE_KINGSIDE;
@@ -289,6 +324,7 @@ impl BoardGeometry {
         self.castling_relation[H8] = !CASTLE_BLACK_KINGSIDE;
         self.castling_relation[E8] = !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE);
     }
+
 
     fn fill_zobrist_arrays(&mut self) {
         let seed: &[_] = &[1, 2, 3, 4];
@@ -316,7 +352,8 @@ impl BoardGeometry {
         }
         self.zobrist_to_move = rng.gen();
     }
-    
+
+
     fn fill_castling_rook_mask(&mut self) {
         self.castling_rook_mask[WHITE][QUEENSIDE] = 1 << A1 | 1 << D1;
         self.castling_rook_mask[WHITE][KINGSIDE] = 1 << H1 | 1 << F1;
