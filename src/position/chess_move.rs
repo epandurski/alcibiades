@@ -193,7 +193,8 @@ impl Move {
 }
 
 
-pub const NO_ENPASSANT_FILE: Rank = 8;  // "8" represents no en-passant file
+/// Represents no en-passant file.
+pub const NO_ENPASSANT_FILE: Rank = 8;
 
 
 // Field shifts
