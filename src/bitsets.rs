@@ -32,22 +32,82 @@ pub const BB_FILE_H: u64 = BB_FILE_G << 1;
 pub const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
+/// Returns the least significant bit of a value.
+///
+/// The way to calculate this is: `ls1b(x) = x & -x;`. If `x` is `0`
+/// this function returns `0`.
+///
+/// # Examples
+///
+/// ```text
+/// 
+///        x         &        -x         =      ls1b(x)
+/// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
+/// . . 1 . 1 . . .     1 1 . 1 . 1 1 1     . . . . . . . .
+/// . 1 . . . 1 . .     1 . 1 1 1 . 1 1     . . . . . . . .
+/// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
+/// . 1 . . . 1 . .  &  1 . 1 1 1 . 1 1  =  . . . . . . . .
+/// . . 1 . 1 . . .     . . 1 1 . 1 1 1     . . 1 . . . . .
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// ```
 #[inline(always)]
 pub fn ls1b(x: u64) -> u64 {
     (x as i64 & (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
+/// Sets the least significant bit of a value to zero.
 #[inline(always)]
 pub fn reset_ls1b(x: &mut u64) {
     *x &= (Wrapping(*x) - Wrapping(1)).0;
 }
 
+/// Returns a mask with all bits above the LS1B set to 1.
+///
+/// The way to calculate this is: `above_ls1b_mask(x) = x ^ -x;`.
+///
+/// If `x` is `0` this function returns `0`.
+/// 
+/// # Examples:
+///
+/// ```text
+/// 
+///       x          ^        -x         =  above_LS1B_mask(x)
+/// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// . . 1 . 1 . . .     1 1 . 1 . 1 1 1     1 1 1 1 1 1 1 1
+/// . 1 . . . 1 . .     1 . 1 1 1 . 1 1     1 1 1 1 1 1 1 1
+/// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// . 1 . . . 1 . .  ^  1 . 1 1 1 . 1 1  =  1 1 1 1 1 1 1 1
+/// . . 1 . 1 . . .     . . 1 1 . 1 1 1     . . . 1 1 1 1 1
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// ```
 #[inline(always)]
 pub fn above_ls1b_mask(x: u64) -> u64 {
     assert!(x != 0);
     (x as i64 ^ (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
+/// Returns a mask with all bits below and including the LS1B set to
+/// 1.
+///
+/// The way to calculate this is: `below_lsb1_mask_including(x) = x ^ (x - 1);`.
+///
+/// If `x` is `0` this function returns `0xffffffffffffffff`.
+/// 
+/// # Examples:
+///
+/// ```text
+///       x          ^      (x - 1)      =  below_lsb1_mask_including(x)
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// . . 1 . 1 . . .     . . 1 . 1 . . .     . . . . . . . .
+/// . 1 . . . 1 . .     . 1 . . . 1 . .     . . . . . . . .
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// . 1 . . . 1 . .  ^  . 1 . . . 1 . .  =  . . . . . . . .
+/// . . 1 . 1 . . .     1 1 . . 1 . . .     1 1 1 . . . . .
+/// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// ```
 #[inline(always)]
 pub fn below_lsb1_mask_including(x: u64) -> u64 {
     assert!(x != 0);
