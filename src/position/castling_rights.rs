@@ -1,4 +1,5 @@
 use basetypes::*;
+use bitsets::*;
 
 
 /// Holds information about which player is allowed to castle on which
@@ -156,6 +157,7 @@ mod tests {
     #[test]
     fn test_castling_rights() {
         use basetypes::*;
+        use bitsets::*;
 
         let mut c = CastlingRights::new();
         c.set_for(WHITE, 0b10);

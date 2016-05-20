@@ -112,12 +112,6 @@ pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
 
-/// Empty bitboard
-pub const EMPTY_SET: u64 = 0;
-
-/// Completely full bitboard
-pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
-
 
 /// Returns the square on given file and rank.
 #[inline]

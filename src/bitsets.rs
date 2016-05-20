@@ -3,6 +3,13 @@ use basetypes::*;
 
 // We use "u64" bit-sets called bitboards (BB) to represent a set of
 // squares on the board. Here are some useful square-sets.
+
+/// Empty bitboard
+pub const EMPTY_SET: u64 = 0;
+
+/// Completely full bitboard
+pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
+
 pub const BB_RANK_1: u64 = 0b11111111;
 pub const BB_RANK_2: u64 = BB_RANK_1 << 8;
 pub const BB_RANK_3: u64 = BB_RANK_2 << 8;
