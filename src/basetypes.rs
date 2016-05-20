@@ -21,12 +21,6 @@ pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
 pub const NO_PIECE: PieceType = 6;
 
-// Move types
-pub const MOVE_NORMAL: MoveType = 0;
-pub const MOVE_ENPASSANT: MoveType = 1;
-pub const MOVE_PROMOTION: MoveType = 2;
-pub const MOVE_CASTLING: MoveType = 3;
-
 // Castling sides
 pub const QUEENSIDE: CastlingSide = 0;
 pub const KINGSIDE: CastlingSide = 1;

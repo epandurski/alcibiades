@@ -194,6 +194,18 @@ impl Move {
 }
 
 
+/// Normal move type
+pub const MOVE_NORMAL: MoveType = 0;
+
+/// En-passant move type
+pub const MOVE_ENPASSANT: MoveType = 1;
+
+/// Pawn promotion move type
+pub const MOVE_PROMOTION: MoveType = 2;
+
+/// Castling move type
+pub const MOVE_CASTLING: MoveType = 3;
+
 /// Represents no en-passant file.
 pub const NO_ENPASSANT_FILE: Rank = 8;
 
