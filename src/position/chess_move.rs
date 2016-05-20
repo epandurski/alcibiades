@@ -2,61 +2,66 @@ use basetypes::*;
 use position::castling_rights::*;
 
 
-// "Move" represents a move on the chessboard. It contains 3 types of
-// information:
-//
-// 1. Information about the played move itself.
-//
-// 2. Information needed so as to be able to undo the move and restore
-// the board into the exact same state as before.
-//
-// 3. The move score -- moves with higher score are tried
-// first. Ideally the best move should have the highest score.
-//
-// "Move" is a 32-bit unsigned number. The lowest 16 bits contain the
-// whole needed information about the move itself (type 1). And is
-// laid out the following way:
-//
-//   15                                                           0
-//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-//  | Move  |    Origin square      |   Destination square  | Aux   |
-//  | type  |       6 bits          |        6 bits         | data  |
-//  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
-//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |       |
-//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//
-// There are 4 "move type"s: 0) normal move; 1) en-passant capture; 2)
-// pawn promotion; 3) castling. "Aux data" encodes the type of the
-// promoted piece if the move type is pawn promotion, otherwise it
-// encodes castling rights (see below).
-//
-// The highest 16 bits contain the rest ot the info:
-//
-//   31                                                          16
-//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-//  |  Move score   |  Captured |  Played   | Cast- |   En-passant  |
-//  |    4 bits     |  piece    |  piece    | ling  |      file     |
-//  |   |   |   |   |  3 bits   |  3 bits   | 2 bits|     4 bits    |
-//  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
-//  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//
-// "En-passant file" tells on what vertical line (if any) on the board
-// there was a passing pawn before the move was played.
-//
-// Castling rights are a bit complex. The castling rights for the side
-// that makes the move, before the move was made, are stored in the
-// "Aux data" field. This is OK, because promoting a pawn never
-// changes the moving player's castling rights. The castling rights
-// for the opposite side are stored in "Castling" field. (A move can
-// change the castling rights for the other side when a rook in the
-// corner is captured.)
-//
-// When "Captured piece" is stored, its bits are inverted, so that
-// MVV-LVA (Most valuable victim -- least valuable aggressor) ordering
-// of the moves is preserved, even when the "Move score" field stays
-// the same.
+/// Represents a move on the chessboard.
+///
+/// `Move` contains 3 types of information:
+///
+/// 1. Information about the played move itself.
+///
+/// 2. Information needed so as to be able to undo the move and
+///    restore the board into the exact same state as before.
+///
+/// 3. The move score -- moves with higher score are tried
+///    first. Ideally the best move should have the highest score.
+///
+/// `Move` is a 32-bit unsigned number. The lowest 16 bits contain the
+/// whole needed information about the move itself (type 1). And is
+/// laid out the following way:
+///
+///  ```text
+///   15                                                           0
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+///  | Move  |    Origin square      |   Destination square  | Aux   |
+///  | type  |       6 bits          |        6 bits         | data  |
+///  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |       |
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  ```
+///
+/// There are 4 "move type"s: `0`) normal move; `1`) en-passant
+/// capture; `2`) pawn promotion; `3`) castling. "Aux data" encodes
+/// the type of the promoted piece if the move type is pawn promotion,
+/// otherwise it encodes castling rights (see below).
+///
+/// The highest 16 bits contain the rest ot the info:
+///
+///  ```text
+///   31                                                          16
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+///  |  Move score   |  Captured |  Played   | Cast- |   En-passant  |
+///  |    4 bits     |  piece    |  piece    | ling  |      file     |
+///  |   |   |   |   |  3 bits   |  3 bits   | 2 bits|     4 bits    |
+///  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  ```
+///
+/// "En-passant file" tells on what vertical line (if any) on the board
+/// there was a passing pawn before the move was played.
+///
+/// Castling rights are a bit complex. The castling rights for the side
+/// that makes the move, before the move was made, are stored in the
+/// "Aux data" field. This is OK, because promoting a pawn never
+/// changes the moving player's castling rights. The castling rights
+/// for the opposite side are stored in "Castling" field. (A move can
+/// change the castling rights for the other side when a rook in the
+/// corner is captured.)
+///
+/// When "Captured piece" is stored, its bits are inverted, so that
+/// MVV-LVA (Most valuable victim -- least valuable aggressor) ordering
+/// of the moves is preserved, even when the "Move score" field stays
+/// the same.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
@@ -64,6 +69,11 @@ pub struct Move(u32);
 
 
 impl Move {
+    /// Creates a new instance of `Move`.
+    ///
+    /// `us` is the side that makes the move. `promoted_piece_code` is
+    /// used only when the `move_type` is pawn promotion, otherwise it
+    /// is ignored.
     #[inline]
     pub fn new(us: Color,
                score: usize,
@@ -98,7 +108,7 @@ impl Move {
               aux_data << M_SHIFT_AUX_DATA) as u32)
     }
 
-    // Set the "move score" field to a particular value.
+    /// Sets the "move score" field to a particular value.
     #[inline]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= 0b1111);
@@ -106,14 +116,14 @@ impl Move {
         self.0 |= (score << M_SHIFT_SCORE) as u32;
     }
 
-    // Set a particular bit in the "move score" field to 1.
+    /// Sets a particular bit in the "move score" field to `1`.
     #[inline]
     pub fn set_score_bit(&mut self, b: usize) {
         assert!(b <= 3);
         self.0 |= 1 << b << M_SHIFT_SCORE;
     }
 
-    // Set a particular bit in the "move score" field to 0.
+    /// Sets a particular bit in the "move score" field to `0`.
     #[inline]
     pub fn clear_score_bit(&mut self, b: usize) {
         assert!(b <= 3);
@@ -165,7 +175,11 @@ impl Move {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
 
-    // Get the promoted piece type in case of pawn promotion move.
+    /// Gets the promoted piece type from the raw value of "aux data".
+    ///
+    /// When the "move type" is pawn promotion, "aux data" holds the
+    /// promoted piece type encoded with a number from 0 to 3. This
+    /// function decodes this number to a piece type.
     #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         assert!(pp_code <= 3);
