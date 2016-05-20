@@ -47,8 +47,9 @@ use position::castling_rights::*;
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
-/// "En-passant file" tells on what vertical line (if any) on the board
-/// there was a passing pawn before the move was played.
+/// "En-passant file" tells on what vertical line on the board there
+/// was a passing pawn before the move was played. If there was no
+/// passing pawn "en-passant file" is `NO_ENPASSANT_FILE`.
 ///
 /// Castling rights are a bit complex. The castling rights for the side
 /// that makes the move, before the move was made, are stored in the
