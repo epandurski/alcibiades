@@ -31,8 +31,8 @@ use position::castling_rights::*;
 ///
 /// There are 4 "move type"s: `0`) normal move; `1`) en-passant
 /// capture; `2`) pawn promotion; `3`) castling. "Aux data" encodes
-/// the type of the promoted piece if the move type is pawn promotion,
-/// otherwise it encodes castling rights (see below).
+/// the type of the promoted piece if the move type is a pawn
+/// promotion, otherwise it encodes castling rights (see below).
 ///
 /// The highest 16 bits contain the rest ot the info:
 ///
@@ -72,9 +72,12 @@ pub struct Move(u32);
 impl Move {
     /// Creates a new instance of `Move`.
     ///
-    /// `us` is the side that makes the move. `promoted_piece_code` is
-    /// used only when the `move_type` is pawn promotion, otherwise it
-    /// is ignored.
+    /// `us` is the side that makes the move. `en_passant_file` is the
+    /// vertical line on which there was a passing pawn before the
+    /// move was played. `castling` are the castling rights before the
+    /// move was played. `promoted_piece_code` should be a number
+    /// between `0` and `3` and is used only when the `move_type` is a
+    /// pawn promotion, otherwise it is ignored.
     #[inline]
     pub fn new(us: Color,
                score: usize,
@@ -176,7 +179,8 @@ impl Move {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
 
-    /// Gets the promoted piece type from the raw value of "aux data".
+    /// Decodes the promoted piece type from the raw value of "aux
+    /// data".
     ///
     /// When the "move type" is pawn promotion, "aux data" holds the
     /// promoted piece type encoded with a number from 0 to 3. This
