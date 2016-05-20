@@ -1131,7 +1131,7 @@ impl Board {
                     mut attacking_piece: PieceType,
                     to_square: Square,
                     target_piece: PieceType)
-                    -> Value {
+                    -> i16 {
 
         // TODO: This method (and the functions it calls) does a lot
         // of array access and therefore, lots of array boundary
@@ -1141,7 +1141,7 @@ impl Board {
 
         use std::mem::uninitialized;
         use std::cmp::max;
-        static VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
+        static VALUE: [i16; 6] = [10000, 975, 500, 325, 325, 100];
 
         let mut occupied = self.occupied();
         let mut depth = 0;
@@ -1155,7 +1155,7 @@ impl Board {
         let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
                        self.piece_type[QUEEN];
 
-        let mut gain: [Value; 33] = unsafe { uninitialized() };
+        let mut gain: [i16; 33] = unsafe { uninitialized() };
         gain[depth] = VALUE[target_piece];
         while from_square_bb != EMPTY_SET {
             depth += 1;  // next depth

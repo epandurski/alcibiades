@@ -1,10 +1,17 @@
-// Basic types
+/// `WHITE` or `BLACK`
 pub type Color = usize; // 0 or 1
+
+/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, or `NO_PIECE`
 pub type PieceType = usize;  // from 0 to 5
+
+/// From 0 to 7 (0 is rank 1, 7 is rank 8)
 pub type Rank = usize;  // from 0 to 7
+
+/// From 0 to 7 (0 is file A, 7 is file H)
 pub type File = usize;  // from 0 to 7
+
+/// From 0 to 63 (0 is A1, 63 is H8)
 pub type Square = usize;  // from 0 to 63
-pub type Value = i16;
 
 // Color
 pub const WHITE: Color = 0;
@@ -105,10 +112,14 @@ pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
 
-pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
+/// Empty bitboard
 pub const EMPTY_SET: u64 = 0;
 
+/// Completely full bitboard
+pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 
+
+/// Returns the square on given file and rank.
 #[inline]
 pub fn square(file: File, rank: Rank) -> Square {
     assert!(file < 8);
@@ -116,11 +127,13 @@ pub fn square(file: File, rank: Rank) -> Square {
     rank * 8 + file
 }
 
+/// Returns the rank of a given square.
 #[inline]
 pub fn rank(square: Square) -> Rank {
     square >> 3
 }
 
+/// Returns the file of a given square.
 #[inline]
 pub fn file(square: Square) -> File {
     square % 8
