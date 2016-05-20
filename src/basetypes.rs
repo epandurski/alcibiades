@@ -1,7 +1,6 @@
 // Basic types
 pub type Color = usize; // 0 or 1
 pub type PieceType = usize;  // from 0 to 5
-pub type MoveType = usize;  // from 0 to 3
 pub type Rank = usize;  // from 0 to 7
 pub type File = usize;  // from 0 to 7
 pub type Square = usize;  // from 0 to 63

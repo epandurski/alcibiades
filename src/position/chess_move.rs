@@ -197,10 +197,14 @@ impl Move {
 }
 
 
+/// Can be normal move, castling, en-passant capture, or pawn
+/// promotion.
+pub type MoveType = usize;
+
 /// Normal move type
 pub const MOVE_NORMAL: MoveType = 0;
 
-/// En-passant move type
+/// En-passant capture move type
 pub const MOVE_ENPASSANT: MoveType = 1;
 
 /// Pawn promotion move type
