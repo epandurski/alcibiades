@@ -7,22 +7,18 @@ use position::board_geometry::*;
 use notation;
 
 
-// Illegal board error
+/// Represents an illegal board error.
 pub struct IllegalBoard;
 
 
-// "Board" holds the current chess position and "knows" the rules of
-// chess.
-//
-// "Board" can generate all possible moves in the current position
-// (Board::generate_moves), play a selected move (Board::do_move), and
-// take it back (Board::undo_move). It can tell you which pieces
-// attack a specific square (Board::attacks_to), and which are the
-// checkers to the king (Board::checkers). It can also fabricate a
-// speculative "null move" that can be used to aggressively prune the
-// search tree.
-//
-// "Board" does not know anything about chess strategy or tactics.
+/// Holds the current chess position and "knows" the rules of chess.
+///
+/// `Board` can generate all possible moves in the current position,
+/// play a selected move, and take it back. It can tell you which
+/// pieces attack a specific square, and which are the checkers to the
+/// king. It can also fabricate a speculative "null move" that can be
+/// used to aggressively prune the search tree. `Board` does not know
+/// anything about chess strategy or tactics.
 pub struct Board {
     geometry: &'static BoardGeometry,
     piece_type: [u64; 6],
@@ -38,7 +34,10 @@ pub struct Board {
 
 
 impl Board {
-    // Create a new board instance.
+    /// Creates a new board instance.
+    ///
+    /// This function makes expensive verification to make sure that
+    /// the resulting new board is legal.
     pub fn create(placement: &notation::PiecesPlacement,
                   to_move: Color,
                   castling: CastlingRights,
@@ -77,12 +76,12 @@ impl Board {
     }
 
 
-    // Create a new board instance from a FEN string.
-    //
-    // A FEN (Forsyth–Edwards Notation) string defines a particular
-    // position using only the ASCII character set. This function
-    // makes expensive verification to make sure that the resulting
-    // new board is legal.
+    /// Creates a new board instance from a FEN string.
+    ///
+    /// A FEN (Forsyth–Edwards Notation) string defines a particular
+    /// position using only the ASCII character set. This function
+    /// makes expensive verification to make sure that the resulting
+    /// new board is legal.
     pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
         let (ref placement, to_move, castling, en_passant_square, _, _) =
             try!(notation::parse_fen(fen).map_err(|_| IllegalBoard));
@@ -91,81 +90,80 @@ impl Board {
     }
 
 
-    // Return a reference to a properly initialized "BoardGeometry"
-    // object.
+    /// Returns a reference to a properly initialized `BoardGeometry`
+    /// object.
     #[inline]
     pub fn geometry(&self) -> &BoardGeometry {
         self.geometry
     }
 
 
-    // Return an array of 6 occupation bitboards -- one for each piece
-    // type.
+    /// Returns an array of 6 occupation bitboards -- one for each
+    /// piece type.
     #[inline]
     pub fn piece_type(&self) -> [u64; 6] {
         self.piece_type
     }
 
 
-    // Return an array of 2 occupation bitboards -- one for each side
-    // (color).
+    /// Returns an array of 2 occupation bitboards -- one for each
+    /// side (color).
     #[inline]
     pub fn color(&self) -> [u64; 2] {
         self.color
     }
 
 
-    // Return the side to move.
+    /// Returns the side to move.
     #[inline]
     pub fn to_move(&self) -> Color {
         self.to_move
     }
 
 
-    // Return the castling rights.
+    /// Returns the castling rights.
     #[inline]
     pub fn castling(&self) -> CastlingRights {
         self.castling
     }
 
 
-    // Return the en-passant file or "NO_ENPASSANT_FILE".
+    /// Returns the en-passant file or `NO_ENPASSANT_FILE`.
     #[inline]
     pub fn en_passant_file(&self) -> usize {
         self.en_passant_file
     }
 
 
-    // Return a bitboard of all occupied squares.
+    /// Returns a bitboard of all occupied squares.
     #[inline]
     pub fn occupied(&self) -> u64 {
         self._occupied
     }
 
 
-    // Return the Zobrist hash value for the current board.
-    //
-    // Zobrist Hashing is a technique to transform a board position of
-    // arbitrary size into a number of a set length, with an equal
-    // distribution over all possible numbers, invented by Albert
-    // Zobrist.
-    //
-    // The main purpose of Zobrist hash codes in chess programming is
-    // to get an almost unique index number for any chess position,
-    // with a very important requirement that two similar positions
-    // generate entirely different indices. These index numbers are
-    // used for faster and more space efficient Hash tables or
-    // databases, e.g. transposition tables and opening books.
+    /// Returns the Zobrist hash value for the current board.
+    ///
+    /// Zobrist Hashing is a technique to transform a board position
+    /// of arbitrary size into a number of a set length, with an equal
+    /// distribution over all possible numbers, invented by Albert
+    /// Zobrist.  The main purpose of Zobrist hash codes in chess
+    /// programming is to get an almost unique index number for any
+    /// chess position, with a very important requirement that two
+    /// similar positions generate entirely different indices. These
+    /// index numbers are used for faster and more space efficient
+    /// hash tables or databases, e.g. transposition tables and
+    /// opening books.
     #[inline]
     pub fn hash(&self) -> u64 {
         self._hash
     }
 
 
-    // Return a bitboard of all the checkers that are attacking the
-    // king.
-    //
-    // The value is lazily calculated and saved for future use.
+    /// Returns a bitboard of all checkers that are attacking the
+    /// king.
+    ///
+    /// The value is lazily calculated and saved for future use.
     #[inline]
     pub fn checkers(&self) -> u64 {
         if self._checkers.get() == UNIVERSAL_SET {
@@ -175,17 +173,15 @@ impl Board {
     }
 
 
-    // Return a null move.
-    //
-    // Null move is an illegal pseudo-move that changes nothing on the
-    // board except the side to move (and the en-passant file, of
-    // course). It is sometimes useful to include a speculative null
-    // move in the search tree so as to achieve more aggressive
-    // pruning.
-    //
-    // The move returned from this function will be invalid if the
-    // king is in check. In this case
-    // "board.do_move(board.null_move())" will return "false".
+    /// Returns a null move.
+    ///
+    /// "Null move" is an illegal pseudo-move that changes nothing on
+    /// the board except the side to move (and the en-passant file, of
+    /// course). It is sometimes useful to include a speculative null
+    /// move in the search tree so as to achieve more aggressive
+    /// pruning. The move returned from this function will be invalid
+    /// if the king is in check. In this case
+    /// `board.do_move(board.null_move())` will return `false`.
     #[inline]
     pub fn null_move(&self) -> Move {
         let king_square = self.king_square();
@@ -203,15 +199,14 @@ impl Board {
     }
 
 
-    // Play a move on the board.
-    //
-    // It verifies if the move is legal. If the move is legal, the
-    // board is updated and "true" is returned. If the move is
-    // illegal, "false" is returned without updating the board.
-    //
-    // The move passed to this method *must* have been generated by
-    // Board::generate_moves() or Board::null_move() for *the current
-    // position on the board*.
+    /// Plays a move on the board.
+    ///
+    /// It verifies if the move is legal. If the move is legal, the
+    /// board is updated and `true` is returned. If the move is
+    /// illegal, `false` is returned without updating the board. The
+    /// move passed to this method **must** have been generated by
+    /// `generate_moves` or `null_move` for the current position on
+    /// the board.
     #[inline]
     pub fn do_move(&mut self, m: Move) -> bool {
         let g = self.geometry;
@@ -350,10 +345,10 @@ impl Board {
     }
 
 
-    // Take back a previously played move.
-    //
-    // The move passed to this method should be the last move passed
-    // to Board::do_move().
+    /// Takes back a previously played move.
+    ///
+    /// The move passed to this method **must** be the last move passed
+    /// to `do_move`.
     #[inline]
     pub fn undo_move(&mut self, m: Move) {
         let g = self.geometry;
@@ -468,20 +463,19 @@ impl Board {
     }
 
 
-    // Generate pseudo-legal moves and write them to "move_stack".
-    //
-    // When "all" is true, all pseudo-legal moves will be
-    // considered. When "all" is false, only captures, pawn
-    // promotions, and check evasions will be considered.
-    //
-    // It is guaranteed, that all generated moves with pieces other
-    // than the king are legal. It is possible that some of the king's
-    // moves are illegal because the destination square is under
-    // check, or when castling, king's passing square is
-    // attacked. This is because verifying that these squares are not
-    // under attack is quite expensive, and therefore we hope that the
-    // alpha-beta pruning will eliminate the need for this
-    // verification at all.
+    /// Generates pseudo-legal moves and write them to `move_stack`.
+    ///
+    /// When `all` is `true`, all pseudo-legal moves will be
+    /// considered. When `all` is `false`, only captures, pawn
+    /// promotions, and check evasions will be considered.  It is
+    /// guaranteed, that all generated moves with pieces other than
+    /// the king are legal. It is possible that some of the king's
+    /// moves are illegal because the destination square is under
+    /// check, or when castling, king's passing square is
+    /// attacked. This is because verifying that these squares are not
+    /// under attack is quite expensive, and therefore we hope that
+    /// the alpha-beta pruning will eliminate the need for this
+    /// verification at all.
     #[inline]
     pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
         assert!(self.is_legal());
@@ -624,9 +618,7 @@ impl Board {
     }
 
 
-    // Return the set of squares that have on them pieces (or pawns)
-    // of color "us" that attack the square "square" directly (no
-    // x-rays).
+    /// Returns all attackers of a given color to a given square.
     #[inline]
     pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
         let occupied_by_us = self.color[us];
@@ -656,28 +648,28 @@ impl Board {
     }
 
 
-    // Analyzes the board and decides if it is a legal board.
-    //
-    // In addition to the obviously wrong boards (that for example
-    // declare some pieces having no or more than one color), there
-    // are many chess boards that are impossible to create from the
-    // starting chess position. Here we are interested to detect and
-    // guard against only those of the cases that have a chance of
-    // disturbing some of our explicit and unavoidably, implicit
-    // presumptions about what a chess position is when writing the
-    // code.
-    //
-    // Invalid boards: 1. having more or less than 1 king from each
-    // color; 2. having more than 8 pawns of a color; 3. having more
-    // than 16 pieces (and pawns) of one color; 4. having the side not
-    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
-    // castling rights when the king or the corresponding rook is not
-    // on its initial square; 7. having an en-passant square that is
-    // not having a pawn of corresponding color before, and an empty
-    // square on it and behind it; 8. having an en-passant square
-    // while the wrong side is to move; 9. having an en-passant square
-    // while the king is in check not from the passing pawn and not
-    // from a checker that was discovered by the passing pawn.
+    /// Analyzes the board and decides if it is a legal board.
+    ///
+    /// In addition to the obviously wrong boards (that for example
+    /// declare some pieces having no or more than one color), there
+    /// are many chess boards that are impossible to create from the
+    /// starting chess position. Here we are interested to detect and
+    /// guard against only those of the cases that have a chance of
+    /// disturbing some of our explicit and unavoidably, implicit
+    /// presumptions about what a chess position is when writing the
+    /// code.
+    ///
+    /// Invalid boards: 1. having more or less than 1 king from each
+    /// color; 2. having more than 8 pawns of a color; 3. having more
+    /// than 16 pieces (and pawns) of one color; 4. having the side not
+    /// to move in check; 5. having pawns on ranks 1 or 8; 6. having
+    /// castling rights when the king or the corresponding rook is not
+    /// on its initial square; 7. having an en-passant square that is
+    /// not having a pawn of corresponding color before, and an empty
+    /// square on it and behind it; 8. having an en-passant square
+    /// while the wrong side is to move; 9. having an en-passant square
+    /// while the king is in check not from the passing pawn and not
+    /// from a checker that was discovered by the passing pawn.
     fn is_legal(&self) -> bool {
         if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
             return false;
@@ -743,10 +735,12 @@ impl Board {
     }
 
 
-    // A helper method for Board::generate_moves(). It finds all
-    // squares attacked by "piece" from square "from_square", and for
-    // each square that is within the "legal_dests" set writes a new
-    // move to "move_stack". "piece" can not be a pawn.
+    // A helper method for `generate_moves`.
+    //
+    // It finds all squares attacked by `piece` from square
+    // `from_square`, and for each square that is within the
+    // `legal_dests` set writes a new move to `move_stack`. `piece`
+    // can not be a pawn.
     #[inline]
     fn write_piece_moves_to_stack(&self,
                                   piece: PieceType,
@@ -776,16 +770,15 @@ impl Board {
     }
 
 
-    // A helper method for Board::generate_moves(). It finds all all
-    // possible moves by the set of pawns given by "pawns", making
-    // sure all pawn move destinations are within the "legal_dests"
-    // set. Then it writes the resulting moves to
-    // "move_stack". "en_passant_bb" represents the en-passant passing
-    // square, if there is one.
+    // A helper method for `generate_moves()`.
     //
-    // This function also recognizes and discards the very rare case
-    // of pseudo-legal en-passant capture that leaves discovered check
-    // on the 4/5-th rank.
+    // It finds all all possible moves by the set of pawns given by
+    // `pawns`, making sure all pawn move destinations are within the
+    // `legal_dests` set. Then it writes the resulting moves to
+    // `move_stack`. `en_passant_bb` represents the en-passant passing
+    // square, if there is one. This function also recognizes and
+    // discards the very rare case of pseudo-legal en-passant capture
+    // that leaves discovered check on the 4/5-th rank.
     #[inline]
     fn write_pawn_moves_to_stack(&self,
                                  pawns: u64,
@@ -894,9 +887,10 @@ impl Board {
     }
 
 
-    // A helper method for Board::generate_moves(). It figures out
-    // which castling moves are pseudo-legal and writes them to
-    // "move_stack".
+    /// A helper method for `generate_moves`.
+    ///
+    /// It figures out which castling moves are pseudo-legal and
+    /// writes them to `move_stack`.
     #[inline]
     fn write_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
 
@@ -932,9 +926,10 @@ impl Board {
     }
 
 
-    // A helper method for Board::generate_moves(). It returns all
-    // pinned pieces belonging to the side to move. This is a
-    // relatively expensive operation.
+    /// A helper method for `generate_moves`.
+    ///
+    /// It returns all pinned pieces belonging to the side to
+    /// move. This is a relatively expensive operation.
     #[inline]
     fn find_pinned(&self) -> u64 {
         let king_square = self.king_square();
@@ -981,9 +976,10 @@ impl Board {
     }
 
 
-    // A helper method for Board::generate_moves(). It returns a
-    // bitboard representing the en-passant passing square if there is
-    // one.
+    /// A helper method for `generate_moves`.
+    ///
+    /// It returns a bitboard representing the en-passant passing
+    /// square if there is one.
     #[inline]
     fn en_passant_bb(&self) -> u64 {
         assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
@@ -999,9 +995,11 @@ impl Board {
     }
 
 
-    // A helper method used by various other methods. It returns the
-    // square that the king of the side to move occupies. The value is
-    // lazily calculated and saved for future use.
+    /// A helper method used by various other methods.
+    ///
+    /// It returns the square that the king of the side to move
+    /// occupies. The value is lazily calculated and saved for future
+    /// use.
     #[inline]
     fn king_square(&self) -> Square {
         if self._king_square.get() > 63 {
@@ -1011,9 +1009,10 @@ impl Board {
     }
 
 
-    // A helper method for Board::do_move(). It returns true if
-    // "square" is attacked by at least one piece of color "us", and
-    // false otherwise.
+    /// A helper method for `do_move`.
+    ///
+    /// It returns `true` if `square` is attacked by at least one
+    /// piece of color `us`, and `false` otherwise.
     #[inline]
     fn is_attacked(&self, us: Color, square: Square) -> bool {
         assert!(us <= 1);
@@ -1042,13 +1041,15 @@ impl Board {
     }
 
 
-    // A helper method for "write_pawn_moves_to_stack()". It tests for
-    // the special case when an en-passant capture discovers check on
-    // 4/5-th rank. This is the very rare occasion when the two pawns
-    // participating in en-passant capture, disappearing in one move,
-    // discover an unexpected check along the horizontal (rank 4 of
-    // 5). "orig_square" and "dist_square" are the origin square and
-    // the destination square of the capturing pawn.
+    /// A helper method for `write_pawn_moves_to_stack`.
+    ///
+    /// It tests for the special case when an en-passant capture
+    /// discovers check on 4/5-th rank. This is the very rare occasion
+    /// when the two pawns participating in en-passant capture,
+    /// disappearing in one move, discover an unexpected check along
+    /// the horizontal (rank 4 of 5). `orig_square` and `dist_square`
+    /// are the origin square and the destination square of the
+    /// capturing pawn.
     #[inline]
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
@@ -1071,8 +1072,9 @@ impl Board {
     }
 
 
-    // A helper method for "create()". Calculates the Zobrist hash for
-    // the board.
+    /// A helper method for `create`.
+    ///
+    /// It calculates the Zobrist hash for the board.
     fn calc_hash(&self) -> u64 {
         let g = self.geometry;
         let mut hash = 0;
@@ -1096,30 +1098,32 @@ impl Board {
     }
 
 
-    // A Static Exchange Evaluation (SEE) examines the consequence of
-    // a series of exchanges on a single square after a given move,
-    // and calculates the likely evaluation change (material) to be
-    // lost or gained, Donald Michie coined the term swap-off value. A
-    // positive static exchange indicates a "winning" move. For
-    // example, PxQ will always be a win, since the Pawn side can
-    // choose to stop the exchange after its Pawn is recaptured, and
-    // still be ahead.
-    //
-    // The impemented algorithm creates a swap-list of best case
-    // material gains by traversing a square attacked/defended by set
-    // in least valuable piece order from pawn, knight, bishop, rook,
-    // queen until king, with alternating sides. The swap-list, an
-    // unary tree since there are no branches but just a series of
-    // captures, is negamaxed for a final static exchange evaluation.
-    //
-    // The returned value is the material that is expected to be
-    // gained in the exchange by the attacking side
-    // ("attacking_color"), when capturing the "target_piece" on the
-    // "target_square". The "from_square" specifies the square from
-    // which the "attacking_piece" makes the capture.
-    //
-    // TODO: This method does not belong to "Board". Find it a better
-    // owner.
+    /// Calculates the SSE value of a capture.
+    ///
+    /// A Static Exchange Evaluation (SEE) examines the consequence of
+    /// a series of exchanges on a single square after a given move,
+    /// and calculates the likely evaluation change (material) to be
+    /// lost or gained, Donald Michie coined the term swap-off
+    /// value. A positive static exchange indicates a "winning"
+    /// move. For example, PxQ will always be a win, since the Pawn
+    /// side can choose to stop the exchange after its Pawn is
+    /// recaptured, and still be ahead.
+    ///
+    /// The impemented algorithm creates a swap-list of best case
+    /// material gains by traversing a square attacked/defended by set
+    /// in least valuable piece order from pawn, knight, bishop, rook,
+    /// queen until king, with alternating sides. The swap-list, an
+    /// unary tree since there are no branches but just a series of
+    /// captures, is negamaxed for a final static exchange evaluation.
+    ///
+    /// The returned value is the material that is expected to be
+    /// gained in the exchange by the attacking side
+    /// (`attacking_color`), when capturing the `target_piece` on the
+    /// `target_square`. The `from_square` specifies the square from
+    /// which the `attacking_piece` makes the capture.
+    ///
+    /// TODO: This method does not belong to `Board`. Find it a better
+    /// owner.
     #[inline]
     pub fn calc_see(&self,
                     mut attacking_color: Color,
@@ -1226,11 +1230,14 @@ const PAWN_EAST_CAPTURE: usize = 3;
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 
-// Return the set of squares that are attacked by a piece (not a pawn)
-// of type "piece" from the square "square", on a board which is
-// occupied with other pieces according to the "occupied"
-// bitboard. "geometry" supplies the look-up tables needed to perform
-// the calculation.
+/// Returns the set of squares that are attacked by a piece (not a
+/// pawn).
+///
+/// This function returns the set of squares that are attacked by a
+/// piece of type `piece` from the square `square`, on a board which
+/// is occupied with other pieces according to the `occupied`
+/// bitboard. `geometry` supplies the look-up tables needed to perform
+/// the calculation.
 #[inline]
 fn piece_attacks_from(geometry: &BoardGeometry,
                       occupied: u64,
@@ -1257,9 +1264,12 @@ fn piece_attacks_from(geometry: &BoardGeometry,
 }
 
 
-// Return the piece type at the square represented by the bitboard
-// "square_bb", on a board which is occupied with other pieces
-// according to the "piece_type_array" array and "occupied" bitboard.
+/// Returns the type of the piece at a given square.
+///
+/// This function returns the piece type at the square represented by
+/// the bitboard `square_bb`, on a board which is occupied with other
+/// pieces according to the `piece_type_array` array and `occupied`
+/// bitboard.
 #[inline]
 fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
     assert!(square_bb != EMPTY_SET);
@@ -1277,11 +1287,10 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
 }
 
 
-// Return a bit-set describing all pieces that can attack
-// "target_square" once "xrayed_square" becomes vacant.
-//
-// This is a helper function for the static exchange evaluation
-// (Board::calc_see)
+/// A helper function for `calc_see`.
+///
+/// It returns a bitboard describing all pieces that can attack
+/// `target_square` once `xrayed_square` becomes vacant.
 #[inline]
 fn consider_xrays(geometry: &BoardGeometry,
                   piece_type_array: &[u64; 6],
@@ -1303,10 +1312,9 @@ fn consider_xrays(geometry: &BoardGeometry,
 }
 
 
-// Return the least valuble piece in the subset "set".
-//
-// This is a helper function for the static exchange evaluation
-// (Board::calc_see)
+/// A helper function for `calc_see`.
+///
+/// It returns the least valuble piece in the subset `set`.
 #[inline]
 fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
     for p in (0..6).rev() {
