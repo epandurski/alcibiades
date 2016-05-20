@@ -1,48 +1,51 @@
 use basetypes::*;
 
 
-// "CastlingRights" holds information about which player (white or
-// black) is allowed to castle on which side (queen-side or
-// king-side).
-//
-// The lowest 4 bits of the value contain the whole needed
-// information. It is laid out the following way:
-//
-//  usize                                             3           0
-//  +-----------------------------------------------+---+---+---+---+
-//  |                                               |   |   |   |   |
-//  |                   Unused                      |Castling flags |
-//  |                                               |   |   |   |   |
-//  +-----------------------------------------------+---+---+---+---+
-//
-//  bit 0 -- if set, white can castle on queen-side;
-//  bit 1 -- if set, white can castle on king-side;
-//  bit 2 -- if set, black can castle on queen-side;
-//  bit 3 -- if set, black can castle on king-side.
+/// Holds information about which player is allowed to castle on which
+/// side.
+///
+/// `CastlingRights` is a `usize` number. The lowest 4 bits of the
+/// value contain the whole needed information. It is laid out the
+/// following way:
+///
+/// ```text
+///  usize                                             3           0
+///  +-----------------------------------------------+---+---+---+---+
+///  |                                               |   |   |   |   |
+///  |                   Unused                      |Castling flags |
+///  |                                               |   |   |   |   |
+///  +-----------------------------------------------+---+---+---+---+
+///
+///  bit 0 -- if set, white can castle on queen-side;
+///  bit 1 -- if set, white can castle on king-side;
+///  bit 2 -- if set, black can castle on queen-side;
+///  bit 3 -- if set, black can castle on king-side.
+/// ```
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 pub struct CastlingRights(usize);
 
 
 impl CastlingRights {
-    // Create a new instance.
+    /// Creates a new instance.
     #[inline]
     pub fn new() -> CastlingRights {
         CastlingRights(0)
     }
 
 
-    // Get the contained raw value.
+    /// Returns the contained raw value.
     #[inline]
     pub fn get_value(&self) -> usize {
         self.0
     }
 
 
-    // Grant castling rights according to a given 4-bit mask (bit-wise
-    // OR-ing the previous value with "mask").
-    //
-    // Returns which bits were zero before, and were turned to one.
+    /// Grants castling rights according to a given 4-bit mask.
+    ///
+    /// `mask` is bit-wise OR-ed with the previous value.
+    ///
+    /// Returns which bits were zero before, and were turned to one.
     pub fn grant(&mut self, mask: usize) -> usize {
         if mask > 0b1111 {
             panic!("invalid mask");
@@ -53,15 +56,16 @@ impl CastlingRights {
     }
 
 
-    // Update the castling rights with a 4-bit mask (bit-wise AND-ing
-    // the previous value with "mask").
+    /// Updates the castling rights with a 4-bit mask.
+    ///
+    /// `mask` is bit-wise AND-ed with the previous value.
     #[inline]
     pub fn update_with_mask(&mut self, mask: usize) {
         self.0 &= mask;
     }
 
 
-    // Return if the player "color" can castle on the given "side".
+    /// Returns if a given player can castle on a given side.
     #[inline]
     pub fn can_castle(&self, color: Color, side: CastlingSide) -> bool {
         assert!(color <= 1);
@@ -70,9 +74,11 @@ impl CastlingRights {
     }
 
 
-    // Return a bitboard with the set of squares that should be vacant
-    // in order for the specified ("color", "side") castling move to
-    // be possible.
+    /// Returns a bitboard with potential castling obstacles.
+    /// 
+    /// Returns a bitboard with the set of squares that should be
+    /// vacant in order for the specified (`color`, `side`) castling
+    /// move to be possible.
     #[inline]
     pub fn obstacles(&self, color: Color, side: CastlingSide) -> u64 {
         const OBSTACLES: [[u64; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
@@ -87,8 +93,8 @@ impl CastlingRights {
     }
 
 
-    // Return a 2-bit value representing the castling rights for the
-    // player "color".
+    /// Returns a 2-bit value representing the castling rights for a
+    /// given player.
     #[inline]
     pub fn get_for(&self, color: Color) -> usize {
         assert!(color <= 1);
@@ -100,8 +106,8 @@ impl CastlingRights {
     }
 
 
-    // Set the castling rights for the player "color" with a 2-bit
-    // value ("rights").
+    /// Sets the castling rights for a given player with a 2-bit
+    /// value.
     #[inline]
     pub fn set_for(&mut self, color: Color, rights: usize) {
         assert!(color <= 1);
@@ -121,10 +127,25 @@ impl CastlingRights {
 }
 
 
-// Castling flags
+/// `QUEENSIDE` of `KINGSIDE`
+pub type CastlingSide = usize;
+
+/// Queen-side castling
+pub const QUEENSIDE: CastlingSide = 0;
+
+/// King-side castling
+pub const KINGSIDE: CastlingSide = 1;
+
+/// White can castle on the queen-side.
 pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
+
+/// White can castle on the king-side.
 pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
+
+/// Black can castle on the queen-side.
 pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
+
+/// Black can castle on the king-side.
 pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
 
 

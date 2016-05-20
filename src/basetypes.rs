@@ -2,7 +2,6 @@
 pub type Color = usize; // 0 or 1
 pub type PieceType = usize;  // from 0 to 5
 pub type MoveType = usize;  // from 0 to 3
-pub type CastlingSide = usize;  // 0 or 1
 pub type Rank = usize;  // from 0 to 7
 pub type File = usize;  // from 0 to 7
 pub type Square = usize;  // from 0 to 63
@@ -20,10 +19,6 @@ pub const BISHOP: PieceType = 3;
 pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
 pub const NO_PIECE: PieceType = 6;
-
-// Castling sides
-pub const QUEENSIDE: CastlingSide = 0;
-pub const KINGSIDE: CastlingSide = 1;
 
 // Ranks
 pub const RANK_1: Rank = 0;
