@@ -108,10 +108,6 @@ pub const H8: Square = 7 + 7 * 8;
 pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 pub const EMPTY_SET: u64 = 0;
 
-// The maximum number of moves in the move stack. It should be large
-// enough so we that never overrun it.
-pub const MOVE_STACK_SIZE: usize = 32 * 256;
-
 
 #[inline]
 pub fn square(file: File, rank: Rank) -> Square {

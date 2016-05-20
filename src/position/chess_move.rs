@@ -242,6 +242,8 @@ const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
 
 // TODO: Here does not seem to be the right place for
 // "MoveStack". Find it other owner.
+const MOVE_STACK_SIZE: usize = 32 * 256;
+
 pub struct MoveStack {
     stack: [Move; MOVE_STACK_SIZE],
     next_index: usize,
