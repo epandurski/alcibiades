@@ -32,10 +32,11 @@ pub const BB_FILE_H: u64 = BB_FILE_G << 1;
 pub const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
-/// Returns the least significant bit of a value.
+/// Returns only the least significant bit of a value.
 ///
-/// The way to calculate this is: `ls1b(x) = x & -x;`. If `x` is `0`
-/// this function returns `0`.
+/// The way to calculate this is: `ls1b(x) = x & -x;`.
+///
+/// If `x` is `0` this function returns `0`.
 ///
 /// # Examples
 ///
@@ -56,11 +57,32 @@ pub fn ls1b(x: u64) -> u64 {
     (x as i64 & (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
-/// Sets the least significant bit of a value to zero.
+
+/// Resets the least significant bit of a value to zero.
+///
+/// The way to calculate this is: `x_with_reset_ls1b = x & (x - 1);`.
+///
+/// If `x` is `0` this function does nothing.
+///
+/// # Examples
+///
+/// ```text
+/// 
+///       x          &      (x - 1)      =  x_with_reset_ls1b(x)
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// . . 1 . 1 . . .     . . 1 . 1 . . .     . . 1 . 1 . . .
+/// . 1 . . . 1 . .     . 1 . . . 1 . .     . 1 . . . 1 . .
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// . 1 . . . 1 . .  &  . 1 . . . 1 . .  =  . 1 . . . 1 . .
+/// . . 1 . 1 . . .     1 1 . . 1 . . .     . . . . 1 . . .
+/// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
+/// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
+/// ```
 #[inline(always)]
 pub fn reset_ls1b(x: &mut u64) {
     *x &= (Wrapping(*x) - Wrapping(1)).0;
 }
+
 
 /// Returns a mask with all bits above the LS1B set to 1.
 ///
@@ -84,9 +106,9 @@ pub fn reset_ls1b(x: &mut u64) {
 /// ```
 #[inline(always)]
 pub fn above_ls1b_mask(x: u64) -> u64 {
-    assert!(x != 0);
     (x as i64 ^ (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
+
 
 /// Returns a mask with all bits below and including the LS1B set to
 /// 1.
@@ -110,27 +132,60 @@ pub fn above_ls1b_mask(x: u64) -> u64 {
 /// ```
 #[inline(always)]
 pub fn below_lsb1_mask_including(x: u64) -> u64 {
-    assert!(x != 0);
-    x ^ (x - 1)
+    x ^ (Wrapping(x) - Wrapping(1)).0
 }
 
-#[inline(always)]
-pub fn below_lsb1_mask(x: u64) -> u64 {
-    assert!(x != 0);
-    !x & (x - 1)
-}
 
+/// Returns a mask with all bits above and including the LS1B set to
+/// 1.
+///
+/// The way to calculate this is: `above_lsb1_mask_including(x) = x |
+/// -x;`.
+///
+/// If `x` is `0` this function returns `0`.
+/// 
+/// # Examples:
+///
+///       x          |        -x         =  above_lsb1_mask_including(x)
+/// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// . . 1 . 1 . . .     1 1 . 1 . 1 1 1     1 1 1 1 1 1 1 1
+/// . 1 . . . 1 . .     1 . 1 1 1 . 1 1     1 1 1 1 1 1 1 1
+/// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// . 1 . . . 1 . .  |  1 . 1 1 1 . 1 1  =  1 1 1 1 1 1 1 1
+/// . . 1 . 1 . . .     . . 1 1 . 1 1 1     . . 1 1 1 1 1 1
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// . . . . . . . .     . . . . . . . .     . . . . . . . .
+/// ```
 #[inline(always)]
-pub fn smeared_ls1b_up(x: u64) -> u64 {
-    assert!(x != 0);
+pub fn above_lsb1_mask_including(x: u64) -> u64 {
     ((x as i64) | (Wrapping(0) - Wrapping(x as i64)).0) as u64
 }
 
+
+/// Returns a mask with all bits below the LS1B set to 1.
+///
+/// The way to calculate this is: `below_lsb1_mask(x) = !x & (x - 1);`.
+///
+/// If `x` is `0` this function returns `0xffffffffffffffff`.
+/// 
+/// # Examples:
+///
+/// ```text
+///      !x          &      (x - 1)      =  below_lsb1_mask(x)
+/// 1 1 1 1 1 1 1 1     . . . . . . . .     . . . . . . . .
+/// 1 1 . 1 . 1 1 1     . . 1 . 1 . . .     . . . . . . . .
+/// 1 . 1 1 1 . 1 1     . 1 . . . 1 . .     . . . . . . . .
+/// 1 1 1 1 1 1 1 1     . . . . . . . .     . . . . . . . .
+/// 1 . 1 1 1 . 1 1  &  . 1 . . . 1 . .  =  . . . . . . . .
+/// 1 1 . 1 . 1 1 1     1 1 . . 1 . . .     1 1 . . . . . .
+/// 1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// 1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
+/// ```
 #[inline(always)]
-pub fn smeared_ls1b_down(x: u64) -> u64 {
-    assert!(x != 0);
-    x | (x - 1)
+pub fn below_lsb1_mask(x: u64) -> u64 {
+    !x & (Wrapping(x) - Wrapping(1)).0
 }
+
 
 #[inline(always)]
 pub fn gen_shift(x: u64, s: isize) -> u64 {
@@ -167,14 +222,23 @@ pub fn bitscan_1bit(b: u64) -> Square {
     unsafe { *INDEX64.get_unchecked(((Wrapping(b) * DEBRUIJN64).0 >> 58) as usize) }
 }
 
+
+/// Returns the number of ones in the binary representation of a
+/// value.
+///
+/// # Examples:
+/// ```
+/// assert_eq!(pop_count(0b100101), 3);
+/// ```
+
 #[inline]
 pub fn pop_count(mut b: u64) -> usize {
-   let mut count = 0;
-   while b != 0 {
-       count += 1;
-       reset_ls1b(&mut b);
-   }
-   count
+    let mut count = 0;
+    while b != 0 {
+        count += 1;
+        reset_ls1b(&mut b);
+    }
+    count
 }
 
 
@@ -195,13 +259,16 @@ mod tests {
         assert_eq!(x, 0);
         reset_ls1b(&mut x);
         assert_eq!(x, 0);
+        assert_eq!(above_ls1b_mask(0), 0);
         assert_eq!(above_ls1b_mask(0b11101000), 0xfffffffffffffff0);
         assert_eq!(above_ls1b_mask(0x8000000000000000), 0);
+        assert_eq!(below_lsb1_mask_including(0), 0xffffffffffffffff);
         assert_eq!(below_lsb1_mask_including(0b11101000), 0b1111);
+        assert_eq!(below_lsb1_mask(0), 0xffffffffffffffff);
         assert_eq!(below_lsb1_mask(0b11101000), 0b111);
-        assert_eq!(smeared_ls1b_up(0b1010000), 0xfffffffffffffff0);
-        assert_eq!(smeared_ls1b_up(0x8000000000000000), 0x8000000000000000);
-        assert_eq!(smeared_ls1b_down(0b1010000), 0b1011111);
+        assert_eq!(above_lsb1_mask_including(0), 0);
+        assert_eq!(above_lsb1_mask_including(0b1010000), 0xfffffffffffffff0);
+        assert_eq!(above_lsb1_mask_including(0x8000000000000000), 0x8000000000000000);
         assert_eq!(pop_count(0), 0);
         assert_eq!(pop_count(0b1001101), 4);
         assert_eq!(pop_count(0xffffffffffffffff), 64);
