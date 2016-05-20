@@ -54,7 +54,7 @@ pub const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 /// ```
 #[inline(always)]
 pub fn ls1b(x: u64) -> u64 {
-    (x as i64 & (Wrapping(0) - Wrapping(x as i64)).0) as u64
+    x & (Wrapping(0) - Wrapping(x)).0
 }
 
 
@@ -106,7 +106,7 @@ pub fn reset_ls1b(x: &mut u64) {
 /// ```
 #[inline(always)]
 pub fn above_ls1b_mask(x: u64) -> u64 {
-    (x as i64 ^ (Wrapping(0) - Wrapping(x as i64)).0) as u64
+    x ^ (Wrapping(0) - Wrapping(x)).0
 }
 
 
@@ -158,7 +158,7 @@ pub fn below_lsb1_mask_including(x: u64) -> u64 {
 /// ```
 #[inline(always)]
 pub fn above_lsb1_mask_including(x: u64) -> u64 {
-    ((x as i64) | (Wrapping(0) - Wrapping(x as i64)).0) as u64
+    x | (Wrapping(0) - Wrapping(x)).0
 }
 
 
@@ -187,6 +187,10 @@ pub fn below_lsb1_mask(x: u64) -> u64 {
 }
 
 
+/// Shifts a value with a signed number.
+///
+/// Returns `x << s` if `s` is positive, and `x >> s` if `s` is
+/// negative.
 #[inline(always)]
 pub fn gen_shift(x: u64, s: isize) -> u64 {
     if s > 0 {
@@ -230,7 +234,6 @@ pub fn bitscan_1bit(b: u64) -> Square {
 /// ```
 /// assert_eq!(pop_count(0b100101), 3);
 /// ```
-
 #[inline]
 pub fn pop_count(mut b: u64) -> usize {
     let mut count = 0;
@@ -268,7 +271,8 @@ mod tests {
         assert_eq!(below_lsb1_mask(0b11101000), 0b111);
         assert_eq!(above_lsb1_mask_including(0), 0);
         assert_eq!(above_lsb1_mask_including(0b1010000), 0xfffffffffffffff0);
-        assert_eq!(above_lsb1_mask_including(0x8000000000000000), 0x8000000000000000);
+        assert_eq!(above_lsb1_mask_including(0x8000000000000000),
+                   0x8000000000000000);
         assert_eq!(pop_count(0), 0);
         assert_eq!(pop_count(0b1001101), 4);
         assert_eq!(pop_count(0xffffffffffffffff), 64);
