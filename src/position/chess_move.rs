@@ -49,7 +49,7 @@ use position::castling_rights::*;
 ///
 /// "En-passant file" tells on what vertical line on the board there
 /// was a passing pawn before the move was played. If there was no
-/// passing pawn "en-passant file" is `NO_ENPASSANT_FILE`.
+/// passing pawn, "en-passant file" should be `NO_ENPASSANT_FILE`.
 ///
 /// Castling rights are a bit complex. The castling rights for the side
 /// that makes the move, before the move was made, are stored in the
@@ -72,12 +72,11 @@ pub struct Move(u32);
 impl Move {
     /// Creates a new instance of `Move`.
     ///
-    /// `us` is the side that makes the move. `en_passant_file` is the
-    /// vertical line on which there was a passing pawn before the
-    /// move was played. `castling` are the castling rights before the
-    /// move was played. `promoted_piece_code` should be a number
-    /// between `0` and `3` and is used only when the `move_type` is a
-    /// pawn promotion, otherwise it is ignored.
+    /// `us` is the side that makes the move. `castling` are the
+    /// castling rights before the move was
+    /// played. `promoted_piece_code` should be a number between `0`
+    /// and `3` and is used only when the `move_type` is a pawn
+    /// promotion, otherwise it is ignored.
     #[inline]
     pub fn new(us: Color,
                score: usize,
