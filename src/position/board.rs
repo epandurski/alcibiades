@@ -564,7 +564,7 @@ impl Board {
                     legal_dests
                 } else {
                     assert_eq!(legal_dests, !occupied_by_us);
-                    legal_dests & (occupied_by_them | en_passant_bb | PAWN_PROMOTION_RANKS)
+                    legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
                 };
 
                 // When in check, en-passant capture is a legal evasion
@@ -697,7 +697,7 @@ impl Board {
         pop_count(pawns & o_them) <= 8 && pop_count(o_us) <= 16 &&
         pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
-        pawns & PAWN_PROMOTION_RANKS == 0 &&
+        pawns & BB_PAWN_PROMOTION_RANKS == 0 &&
         (!self.castling.can_castle(WHITE, QUEENSIDE) ||
          (self.piece_type[ROOK] & self.color[WHITE] & 1 << A1 != 0) &&
          (self.piece_type[KING] & self.color[WHITE] & 1 << E1 != 0)) &&
@@ -849,7 +849,7 @@ impl Board {
                     }
 
                     // pawn promotion
-                    x if x & PAWN_PROMOTION_RANKS != 0 => {
+                    x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
                             move_stack.push(Move::new(self.to_move,
                                                       if Move::piece_from_aux_data(p) == QUEEN {

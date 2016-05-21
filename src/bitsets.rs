@@ -19,8 +19,7 @@ pub const BB_RANK_6: u64 = BB_RANK_5 << 8;
 pub const BB_RANK_7: u64 = BB_RANK_6 << 8;
 pub const BB_RANK_8: u64 = BB_RANK_7 << 8;
 
-pub const BB_FILE_A: u64 = 1 << A1 | 1 << A2 | 1 << A3 | 1 << A4 | 1 << A5 | 1 << A6 | 1 << A7 |
-                           1 << A8;
+pub const BB_FILE_A: u64 = 0x0101010101010101;
 pub const BB_FILE_B: u64 = BB_FILE_A << 1;
 pub const BB_FILE_C: u64 = BB_FILE_B << 1;
 pub const BB_FILE_D: u64 = BB_FILE_C << 1;
@@ -29,7 +28,7 @@ pub const BB_FILE_F: u64 = BB_FILE_E << 1;
 pub const BB_FILE_G: u64 = BB_FILE_F << 1;
 pub const BB_FILE_H: u64 = BB_FILE_G << 1;
 
-pub const PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
+pub const BB_PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
 /// Returns only the least significant bit of a value.
