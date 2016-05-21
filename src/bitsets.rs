@@ -84,7 +84,7 @@ pub fn reset_ls1b(x: &mut u64) {
 }
 
 
-/// Returns a mask with all bits above the LS1B set to 1.
+/// Returns a mask with all bits above the LS1B set to `1`.
 ///
 /// The way to calculate this is: `above_ls1b_mask(x) = x ^ -x;`.
 ///
@@ -111,7 +111,7 @@ pub fn above_ls1b_mask(x: u64) -> u64 {
 
 
 /// Returns a mask with all bits below and including the LS1B set to
-/// 1.
+/// `1`.
 ///
 /// The way to calculate this is: `below_lsb1_mask_including(x) = x ^ (x - 1);`.
 ///
@@ -137,7 +137,7 @@ pub fn below_lsb1_mask_including(x: u64) -> u64 {
 
 
 /// Returns a mask with all bits above and including the LS1B set to
-/// 1.
+/// `1`.
 ///
 /// The way to calculate this is: `above_lsb1_mask_including(x) = x |
 /// -x;`.
@@ -145,7 +145,7 @@ pub fn below_lsb1_mask_including(x: u64) -> u64 {
 /// If `x` is `0` this function returns `0`.
 /// 
 /// # Examples:
-///
+/// ```text
 ///       x          |        -x         =  above_lsb1_mask_including(x)
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// . . 1 . 1 . . .     1 1 . 1 . 1 1 1     1 1 1 1 1 1 1 1
@@ -162,7 +162,7 @@ pub fn above_lsb1_mask_including(x: u64) -> u64 {
 }
 
 
-/// Returns a mask with all bits below the LS1B set to 1.
+/// Returns a mask with all bits below the LS1B set to `1`.
 ///
 /// The way to calculate this is: `below_lsb1_mask(x) = !x & (x - 1);`.
 ///
@@ -200,12 +200,28 @@ pub fn gen_shift(x: u64, s: isize) -> u64 {
     }
 }
 
+/// Returns the binary position of the least significant bit in a
+/// value.
+///
+/// # Examples:
+/// ```
+/// assert_eq!(bitscan_forward(0b100100), 2);
+/// ```
 #[inline(always)]
 pub fn bitscan_forward(b: u64) -> Square {
     assert!(b != 0);
     bitscan_1bit(ls1b(b))
 }
 
+/// Returns the binary position of the LS1B, and resets the LS1B to
+/// zero.
+///
+/// # Examples:
+/// ```
+/// let mut x = 0b100100;
+/// assert_eq!(bitscan_forward_and_reset(&mut x), 2);
+/// assert_eq!(x, 0b100000);
+/// ```
 #[inline(always)]
 pub fn bitscan_forward_and_reset(b: &mut u64) -> Square {
     assert!(*b != 0);
@@ -214,6 +230,10 @@ pub fn bitscan_forward_and_reset(b: &mut u64) -> Square {
     bitscan_1bit(ls1b)
 }
 
+/// Returns the binary position of the only binary `1` in a value.
+///
+/// If `b` is a number in the form `2 ** x`, this function will return
+/// `x`. Otherwise, it will panic or return garbage.
 #[inline(always)]
 pub fn bitscan_1bit(b: u64) -> Square {
     assert!(b != 0);
@@ -227,7 +247,7 @@ pub fn bitscan_1bit(b: u64) -> Square {
 }
 
 
-/// Returns the number of ones in the binary representation of a
+/// Returns the number of `1`s in the binary representation of a
 /// value.
 ///
 /// # Examples:
