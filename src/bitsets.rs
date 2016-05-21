@@ -199,8 +199,12 @@ pub fn gen_shift(x: u64, s: isize) -> u64 {
     }
 }
 
+
 /// Returns the binary position of the least significant bit in a
 /// value.
+///
+/// `b` must not be zero, otherwise this function will panic or return
+/// garbage.
 ///
 /// # Examples:
 /// ```
@@ -212,9 +216,13 @@ pub fn bitscan_forward(b: u64) -> Square {
     bitscan_1bit(ls1b(b))
 }
 
+
 /// Returns the binary position of the LS1B, and resets the LS1B to
 /// zero.
 ///
+/// `b` must not be zero, otherwise this function will panic or return
+/// garbage.
+/// 
 /// # Examples:
 /// ```
 /// let mut x = 0b100100;
