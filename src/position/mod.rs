@@ -1,3 +1,6 @@
+//! This module "knows" how to play chess. It is aware of chess rules,
+//! strategy, and tactics.
+
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
@@ -30,8 +33,8 @@ impl Position {
         if parts.len() == 6 {
             let p = Position {
                 board: try!(Board::from_fen(fen)),
-                halfmove_clock: try!(parts[4].parse::<u32>().map_err(|e| IllegalBoard)),
-                fullmove_number: try!(parts[5].parse::<u32>().map_err(|e| IllegalBoard)),
+                halfmove_clock: try!(parts[4].parse::<u32>().map_err(|_| IllegalBoard)),
+                fullmove_number: try!(parts[5].parse::<u32>().map_err(|_| IllegalBoard)),
             };
             Ok(p)
         } else {
