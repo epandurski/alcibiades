@@ -1,3 +1,4 @@
+use regex::Regex;
 use basetypes::*;
 use position::castling_rights::*;
 
@@ -70,10 +71,11 @@ pub fn parse_fen(s: &str)
 
 // Parses a square in algebraic notation.
 pub fn parse_square(s: &str) -> Result<Square> {
-    use regex::Regex;
-    let re = Regex::new(r"^[a-h][1-8]$").unwrap();  // TODO: Do this at compile time!
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
+    }
 
-    if re.is_match(s) {
+    if RE.is_match(s) {
         let mut chars = s.chars();
         let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
         let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;

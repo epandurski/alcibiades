@@ -4,8 +4,9 @@ version = "0.1.0"
 authors = ["Evgeni Pandurski <epandurski@gmail.com>"]
 
 [dependencies]
-regex = "0.1"
-rand = "0.3"
+lazy_static = "0.2.1"
+regex = "0.1.71"
+rand = "0.3.14"
 
 [profile.test]
 opt-level = 0
