@@ -1,13 +1,19 @@
+//! `u64` bit-sets called *bitboards* (BB) are used to represent a set
+//! of squares on the chess board. This module defines useful
+//! functions for manipulating bit-sets. It also defines frequently
+//! used constants.
+//!
+//! The term "LS1B" is frequently used everywhere in the code. It
+//! means "least significant `1` bit".
+
 use std::num::Wrapping;
 use basetypes::*;
 
-// We use "u64" bit-sets called bitboards (BB) to represent a set of
-// squares on the board. Here are some useful square-sets.
 
-/// Empty bitboard
+/// An empty bitboard
 pub const EMPTY_SET: u64 = 0;
 
-/// Completely full bitboard
+/// A completely full bitboard
 pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 
 pub const BB_RANK_1: u64 = 0b11111111;
@@ -31,7 +37,7 @@ pub const BB_FILE_H: u64 = BB_FILE_G << 1;
 pub const BB_PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 
-/// Returns only the least significant bit of a value.
+/// Returns only LS1B of a value.
 ///
 /// The way to calculate this is: `ls1b(x) = x & -x;`.
 ///
@@ -57,7 +63,7 @@ pub fn ls1b(x: u64) -> u64 {
 }
 
 
-/// Resets the least significant bit of a value to zero.
+/// Resets the LS1B of a value to zero.
 ///
 /// The way to calculate this is: `x_with_reset_ls1b = x & (x - 1);`.
 ///
@@ -200,8 +206,7 @@ pub fn gen_shift(x: u64, s: isize) -> u64 {
 }
 
 
-/// Returns the binary position of the least significant bit in a
-/// value.
+/// Returns the binary position of the LS1B in a value.
 ///
 /// `b` must not be zero, otherwise this function will panic or return
 /// garbage.

@@ -1,3 +1,8 @@
+//! This module defines the most basic types and constants like the
+//! pieces, colors, squares, files, and ranks. It also defines few
+//! simple functions.
+
+
 /// `WHITE` or `BLACK`
 pub type Color = usize; // 0 or 1
 
