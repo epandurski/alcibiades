@@ -7,6 +7,7 @@ pub mod position;
 pub mod basetypes;
 pub mod bitsets;
 pub mod notation;
+pub mod uci;
 
 fn main() {
     // use regex::Regex;
