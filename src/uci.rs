@@ -62,7 +62,12 @@ fn parse_uci_command(s: &str) -> Option<UciCommand> {
         let command = captures.at(1).unwrap();
         let the_rest = captures.at(2).unwrap_or("");
         match command {
-            "uci" => Some(UciCommand::Uci),
+            "uci" if the_rest == "" => Some(UciCommand::Uci),
+            "stop" if the_rest == "" => Some(UciCommand::Stop),
+            "quit" if the_rest == "" => Some(UciCommand::Quit),
+            "isready" if the_rest == "" => Some(UciCommand::IsReady),
+            "ponderhit" if the_rest == "" => Some(UciCommand::PonderHit),
+            "ucinewgame" if the_rest == "" => Some(UciCommand::UciNewGame),
             "debug" => {
                 if let Some(params) = parse_debug_params(the_rest) {
                     Some(UciCommand::Debug(params))
@@ -70,7 +75,6 @@ fn parse_uci_command(s: &str) -> Option<UciCommand> {
                     None
                 }
             }
-            "isready" => Some(UciCommand::IsReady),
             "setoption" => {
                 if let Some(params) = parse_setoption_params(the_rest) {
                     Some(UciCommand::SetOption(params))
@@ -78,12 +82,14 @@ fn parse_uci_command(s: &str) -> Option<UciCommand> {
                     None
                 }
             }
-            "ucinewgame" => Some(UciCommand::UciNewGame),
-            "postition" => Some(UciCommand::Position(parse_position_params(the_rest))),
+            "postition" => {
+                if let Some(params) = parse_position_params(the_rest) {
+                    Some(UciCommand::Position(params))
+                } else {
+                    None
+                }
+            }
             "go" => Some(UciCommand::Go(parse_go_params(the_rest))),
-            "stop" => Some(UciCommand::Stop),
-            "ponderhit" => Some(UciCommand::PonderHit),
-            "quit" => Some(UciCommand::Quit),
             _ => None,
         }
     } else {
@@ -97,10 +103,11 @@ fn parse_debug_params(s: &str) -> Option<bool> {
         static ref RE: Regex = Regex::new(
             r"^(on|off)\s*$").unwrap();
     }
+
     if let Some(captures) = RE.captures(s) {
-        match captures.at(1) {
-            Some("on") => Some(true),
-            Some("off") => Some(false),
+        match captures.at(1).unwrap() {
+            "on" => Some(true),
+            "off" => Some(false),
             _ => None,
         }
     } else {
@@ -114,6 +121,7 @@ fn parse_setoption_params(s: &str) -> Option<SetOptionParams> {
         static ref RE: Regex = Regex::new(
             r"^name\s+(.*?)(?:\s+value\s+(.*?))?\s*$").unwrap();
     }
+
     if let Some(captures) = RE.captures(s) {
         Some(SetOptionParams {
             name: captures.at(1).unwrap().to_string(),
@@ -125,10 +133,33 @@ fn parse_setoption_params(s: &str) -> Option<SetOptionParams> {
 }
 
 
-fn parse_position_params(s: &str) -> PositionParams {
-    PositionParams {
-        fen: "String".to_string(),
-        moves: vec!["move1".to_string(), "move2".to_string()],
+fn parse_position_params(s: &str) -> Option<PositionParams> {
+    const MOVES: &'static str = r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)*";
+    const STARTPOS: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
+    lazy_static! {
+        static ref RE: Regex = Regex::new(
+            format!(
+                r"^(?:fen\s+(?P<fen>.*?)|startpos)(?:\s+moves(?P<moves>{}))?\s*$",
+                MOVES,
+            ).as_str()
+        ).unwrap();
+    }
+
+    if let Some(captures) = RE.captures(s) {
+        Some(PositionParams {
+            fen: if let Some(fen) = captures.name("fen") {
+                fen.to_string()
+            } else {
+                STARTPOS.to_string()
+            },
+            moves: captures.name("moves")
+                           .unwrap_or("")
+                           .split_whitespace()
+                           .map(|x| x.to_string())
+                           .collect(),
+        })
+    } else {
+        None
     }
 }
 
@@ -297,7 +328,8 @@ mod tests {
         assert_eq!(parse_go_params(" wtime22000  ").wtime, None);
         assert_eq!(parse_go_params(" wtime    22000  ").wtime, Some(22000));
         assert_eq!(parse_go_params("wtime 22000").wtime, Some(22000));
-        assert_eq!(parse_go_params("wtime 99999999999999998888888888999999999999999999").wtime, None);
+        assert_eq!(parse_go_params("wtime 99999999999999998888888888999999999999999999").wtime,
+                   None);
         assert_eq!(parse_go_params("wtime 22000").infinite, false);
         assert_eq!(parse_go_params("searchmoves   e2e4  c7c8q  ").searchmoves,
                    Some(vec!["e2e4".to_string(), "c7c8q".to_string()]));
@@ -306,8 +338,61 @@ mod tests {
         assert_eq!(parse_go_params("searchmoves aabb").searchmoves, None);
         assert_eq!(parse_go_params("infinite wtime 22000").wtime, Some(22000));
         assert_eq!(parse_go_params("infinite wtime 22000").infinite, true);
-        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000").infinite, true);
-        assert_eq!(parse_go_params("wtime fdfee / 22000 infinite btime 11000 fdfds").infinite, true);
-        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000 ponder").btime, Some(11000));
+        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000").infinite,
+                   true);
+        assert_eq!(parse_go_params("wtime fdfee / 22000 infinite btime 11000 fdfds").infinite,
+                   true);
+        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000 ponder").btime,
+                   Some(11000));
+    }
+
+    #[test]
+    fn test_parse_debug_params() {
+        use super::parse_debug_params;
+        assert_eq!(parse_debug_params("on"), Some(true));
+        assert_eq!(parse_debug_params(" on"), None);
+        assert_eq!(parse_debug_params("off   "), Some(false));
+        assert_eq!(parse_debug_params(" off   "), None);
+        assert_eq!(parse_debug_params("    "), None);
+    }
+
+    #[test]
+    fn test_parse_setoption_params() {
+        use super::parse_setoption_params;
+        assert_eq!(parse_setoption_params("name   xxx  value   yyy  ").unwrap().name,
+                   "xxx".to_string());
+        assert_eq!(parse_setoption_params("name xxx value yyy").unwrap().value,
+                   "yyy".to_string());
+        assert_eq!(parse_setoption_params("name xxx   value  ").unwrap().value,
+                   "".to_string());
+        assert_eq!(parse_setoption_params("name xxx    ").unwrap().value,
+                   "".to_string());
+        assert_eq!(parse_setoption_params("name     ").unwrap().name,
+                   "".to_string());
+        assert_eq!(parse_setoption_params("name     ").unwrap().value,
+                   "".to_string());
+        assert!(parse_setoption_params("namexxx     ").is_none());
+    }
+
+    #[test]
+    fn test_parse_position_params() {
+        use super::parse_position_params;
+        assert_eq!(parse_position_params("startpos  ").unwrap().fen,
+                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1");
+        assert_eq!(parse_position_params("startpos ").unwrap().moves.len(), 0);
+        assert_eq!(parse_position_params("startpos   moves  ").unwrap().moves.len(),
+                   0);
+        assert_eq!(parse_position_params("startpos   moves   e2e4   d2d4 ").unwrap().moves.len(),
+                   2);
+        assert_eq!(parse_position_params("fen xxx moves e2e4").unwrap().moves.len(),
+                   1);
+        assert_eq!(parse_position_params("fen xxx moves e2e4").unwrap().fen,
+                   "xxx".to_string());
+        assert_eq!(parse_position_params("fen   xxx    moves e2e4").unwrap().fen,
+                   "xxx".to_string());
+        assert_eq!(parse_position_params("fen   xxx    moves").unwrap().fen,
+                   "xxx".to_string());
+        assert_eq!(parse_position_params("fen   xxx   ").unwrap().fen,
+                   "xxx".to_string());
     }
 }
