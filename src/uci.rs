@@ -49,47 +49,50 @@ pub struct GoParams {
 }
 
 
+struct ParseError;
+
+
 fn parse_uci_command(s: &str) -> Option<UciCommand> {
-    const COMMAND: &'static str = "uci|debug|isready|setoption|register|\
-                                   ucinewgame|position|go|stop|ponderhit|quit";
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            format!(r"\b({})\s*(?:\s(.*)|$)", COMMAND).as_str()
+            format!(r"\b({})\s*(?:\s(.*)|$)",
+                    "uci|debug|isready|setoption|register|\
+                     ucinewgame|position|go|stop|ponderhit|quit",  // any UCI command
+            ).as_str()
         ).unwrap();
     }
-
     if let Some(captures) = RE.captures(s) {
-        let command = captures.at(1).unwrap();
-        let the_rest = captures.at(2).unwrap_or("");
-        match command {
-            "uci" if the_rest == "" => Some(UciCommand::Uci),
-            "stop" if the_rest == "" => Some(UciCommand::Stop),
-            "quit" if the_rest == "" => Some(UciCommand::Quit),
-            "isready" if the_rest == "" => Some(UciCommand::IsReady),
-            "ponderhit" if the_rest == "" => Some(UciCommand::PonderHit),
-            "ucinewgame" if the_rest == "" => Some(UciCommand::UciNewGame),
+        let command_str = captures.at(1).unwrap();
+        let params_str = captures.at(2).unwrap_or("");
+        match command_str {
+            "uci" if params_str == "" => Some(UciCommand::Uci),
+            "stop" if params_str == "" => Some(UciCommand::Stop),
+            "quit" if params_str == "" => Some(UciCommand::Quit),
+            "isready" if params_str == "" => Some(UciCommand::IsReady),
+            "ponderhit" if params_str == "" => Some(UciCommand::PonderHit),
+            "ucinewgame" if params_str == "" => Some(UciCommand::UciNewGame),
             "debug" => {
-                if let Some(params) = parse_debug_params(the_rest) {
-                    Some(UciCommand::Debug(params))
+                if let Some(p) = parse_debug_params(params_str) {
+                    Some(UciCommand::Debug(p))
                 } else {
                     None
                 }
             }
             "setoption" => {
-                if let Some(params) = parse_setoption_params(the_rest) {
-                    Some(UciCommand::SetOption(params))
+                if let Some(p) = parse_setoption_params(params_str) {
+                    Some(UciCommand::SetOption(p))
                 } else {
                     None
                 }
             }
             "postition" => {
-                if let Some(params) = parse_position_params(the_rest) {
-                    Some(UciCommand::Position(params))
+                if let Some(p) = parse_position_params(params_str) {
+                    Some(UciCommand::Position(p))
                 } else {
                     None
                 }
             }
-            "go" => Some(UciCommand::Go(parse_go_params(the_rest))),
+            "go" => Some(UciCommand::Go(parse_go_params(params_str))),
             _ => None,
         }
     } else {
@@ -103,7 +106,6 @@ fn parse_debug_params(s: &str) -> Option<bool> {
         static ref RE: Regex = Regex::new(
             r"^(on|off)\s*$").unwrap();
     }
-
     if let Some(captures) = RE.captures(s) {
         match captures.at(1).unwrap() {
             "on" => Some(true),
@@ -121,7 +123,6 @@ fn parse_setoption_params(s: &str) -> Option<SetOptionParams> {
         static ref RE: Regex = Regex::new(
             r"^name\s+(.*?)(?:\s+value\s+(.*?))?\s*$").unwrap();
     }
-
     if let Some(captures) = RE.captures(s) {
         Some(SetOptionParams {
             name: captures.at(1).unwrap().to_string(),
@@ -134,17 +135,15 @@ fn parse_setoption_params(s: &str) -> Option<SetOptionParams> {
 
 
 fn parse_position_params(s: &str) -> Option<PositionParams> {
-    const MOVES: &'static str = r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)*";
     const STARTPOS: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(
                 r"^(?:fen\s+(?P<fen>.*?)|startpos)(?:\s+moves(?P<moves>{}))?\s*$",
-                MOVES,
+                r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)*",  // a possibly empty list of moves
             ).as_str()
         ).unwrap();
     }
-
     if let Some(captures) = RE.captures(s) {
         Some(PositionParams {
             fen: if let Some(fen) = captures.name("fen") {
@@ -165,19 +164,16 @@ fn parse_position_params(s: &str) -> Option<PositionParams> {
 
 
 fn parse_go_params(s: &str) -> GoParams {
-    const MOVES: &'static str = r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)+";
-    const KEYWORD: &'static str = "wtime|btime|winc|binc|movestogo|depth|nodes|\
-                                   mate|movetime|ponder|infinite|searchmoves";
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(
                 r"\b(?P<keyword>{})(?:\s+(?P<number>\d+)|(?P<moves>{}))?(?:\s+|$)",
-                KEYWORD,
-                MOVES,
+                "wtime|btime|winc|binc|movestogo|depth|\
+                 nodes|mate|movetime|ponder|infinite|searchmoves",  // any keyword
+                r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)+",  // a non-empty list of moves
             ).as_str()
         ).unwrap();
     }
-
     let mut params = GoParams {
         searchmoves: None,
         ponder: false,
@@ -192,7 +188,6 @@ fn parse_go_params(s: &str) -> GoParams {
         movetime: None,
         infinite: false,
     };
-
     for captures in RE.captures_iter(s) {
         let keyword = captures.name("keyword").unwrap();
         match keyword {
@@ -354,6 +349,7 @@ mod tests {
         assert_eq!(parse_debug_params("off   "), Some(false));
         assert_eq!(parse_debug_params(" off   "), None);
         assert_eq!(parse_debug_params("    "), None);
+        assert_eq!(parse_debug_params(" sgssgs  "), None);
     }
 
     #[test]
