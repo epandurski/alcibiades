@@ -73,7 +73,7 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
             "ucinewgame" if params_str == "" => Ok(UciCommand::UciNewGame),
             "debug" => Ok(UciCommand::Debug(try!(parse_debug_params(params_str)))),
             "setoption" => Ok(UciCommand::SetOption(try!(parse_setoption_params(params_str)))),
-            "postition" => Ok(UciCommand::Position(try!(parse_position_params(params_str)))),
+            "position" => Ok(UciCommand::Position(try!(parse_position_params(params_str)))),
             "go" => Ok(UciCommand::Go(parse_go_params(params_str))),
             _ => Err(ParseError),
         }
@@ -377,5 +377,74 @@ mod tests {
                    "xxx".to_string());
         assert_eq!(parse_position_params("fen   xxx   ").ok().unwrap().fen,
                    "xxx".to_string());
+    }
+
+    #[test]
+    fn test_parse_uci_command() {
+        use super::parse_uci_command;
+        assert!(match parse_uci_command("uci").ok().unwrap() {
+            UciCommand::Uci => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("  uci  ").ok().unwrap() {
+            UciCommand::Uci => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command(" foo  uci  ").ok().unwrap() {
+            UciCommand::Uci => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("isready  ").ok().unwrap() {
+            UciCommand::IsReady => true,
+            _ => false,
+        });
+        assert!(parse_uci_command("isready xxx ").is_err());
+        assert!(parse_uci_command("quit xxx ").is_err());
+        assert!(parse_uci_command("stop xxx ").is_err());
+        assert!(parse_uci_command("ponderhit xxx ").is_err());
+        assert!(match parse_uci_command("ponderhit  ").ok().unwrap() {
+            UciCommand::PonderHit => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command(" foo quit  ").ok().unwrap() {
+            UciCommand::Quit => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("  stop  ").ok().unwrap() {
+            UciCommand::Stop => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("ucinewgame").ok().unwrap() {
+            UciCommand::UciNewGame => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("position startpos").ok().unwrap() {
+            UciCommand::Position(_) => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1")
+                          .ok()
+                          .unwrap() {
+            UciCommand::Position(_) => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1 moves h1h2")
+                          .ok()
+                          .unwrap() {
+            UciCommand::Position(_) => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("setoption name x value y").ok().unwrap() {
+            UciCommand::SetOption(_) => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("debug on").ok().unwrap() {
+            UciCommand::Debug(true) => true,
+            _ => false,
+        });
+        assert!(match parse_uci_command("go infinite").ok().unwrap() {
+            UciCommand::Go(_) => true,
+            _ => false,
+        });
     }
 }
