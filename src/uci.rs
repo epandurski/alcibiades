@@ -40,28 +40,31 @@ pub struct GoParams {
     btime: Option<u64>,
     winc: Option<u64>,
     binc: Option<u64>,
-    movestogo: Option<u32>,
-    depth: Option<u32>,
+    movestogo: Option<u64>,
+    depth: Option<u64>,
     nodes: Option<u64>,
-    mate: Option<u32>,
+    mate: Option<u64>,
     movetime: Option<u64>,
     infinite: bool,
 }
 
 
 fn parse_uci_command(s: &str) -> Option<UciCommand> {
+    const COMMAND: &'static str = "uci|debug|isready|setoption|register|\
+                                   ucinewgame|position|go|stop|ponderhit|quit";
     lazy_static! {
-        static ref COMMAND: Regex = Regex::new(
-            r"\b(uci|debug|isready|setoption|register|ucinewgame|position|go|stop|ponderhit|quit)\b").unwrap();
+        static ref RE: Regex = Regex::new(
+            format!(r"\b({})\s*(?:\s(.*)|$)", COMMAND).as_str()
+        ).unwrap();
     }
 
-    if let Some((start, end)) = COMMAND.find(s) {
-        let command = &s[start..end];
-        let rest = &s[end..];
+    if let Some(captures) = RE.captures(s) {
+        let command = captures.at(1).unwrap();
+        let the_rest = captures.at(2).unwrap_or("");
         match command {
             "uci" => Some(UciCommand::Uci),
             "debug" => {
-                if let Some(params) = parse_debug_params(rest) {
+                if let Some(params) = parse_debug_params(the_rest) {
                     Some(UciCommand::Debug(params))
                 } else {
                     None
@@ -69,15 +72,15 @@ fn parse_uci_command(s: &str) -> Option<UciCommand> {
             }
             "isready" => Some(UciCommand::IsReady),
             "setoption" => {
-                if let Some(params) = parse_setoption_params(rest) {
+                if let Some(params) = parse_setoption_params(the_rest) {
                     Some(UciCommand::SetOption(params))
                 } else {
                     None
                 }
             }
             "ucinewgame" => Some(UciCommand::UciNewGame),
-            "postition" => Some(UciCommand::Position(parse_position_params(rest))),
-            "go" => Some(UciCommand::Go(parse_go_params(rest))),
+            "postition" => Some(UciCommand::Position(parse_position_params(the_rest))),
+            "go" => Some(UciCommand::Go(parse_go_params(the_rest))),
             "stop" => Some(UciCommand::Stop),
             "ponderhit" => Some(UciCommand::PonderHit),
             "quit" => Some(UciCommand::Quit),
@@ -89,12 +92,12 @@ fn parse_uci_command(s: &str) -> Option<UciCommand> {
 }
 
 
-fn parse_debug_params(params: &str) -> Option<bool> {
+fn parse_debug_params(s: &str) -> Option<bool> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            r"^\s+(on|off)\s*$").unwrap();
+            r"^(on|off)\s*$").unwrap();
     }
-    if let Some(captures) = RE.captures(params) {
+    if let Some(captures) = RE.captures(s) {
         match captures.at(1) {
             Some("on") => Some(true),
             Some("off") => Some(false),
@@ -106,12 +109,12 @@ fn parse_debug_params(params: &str) -> Option<bool> {
 }
 
 
-fn parse_setoption_params(params: &str) -> Option<SetOptionParams> {
+fn parse_setoption_params(s: &str) -> Option<SetOptionParams> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            r"^\s+name\s+(\S.*?)(?:\s+value\s+(.*?))?\s*$").unwrap();
+            r"^name\s+(.*?)(?:\s+value\s+(.*?))?\s*$").unwrap();
     }
-    if let Some(captures) = RE.captures(params) {
+    if let Some(captures) = RE.captures(s) {
         Some(SetOptionParams {
             name: captures.at(1).unwrap().to_string(),
             value: captures.at(2).unwrap_or("").to_string(),
@@ -122,7 +125,7 @@ fn parse_setoption_params(params: &str) -> Option<SetOptionParams> {
 }
 
 
-fn parse_position_params(params: &str) -> PositionParams {
+fn parse_position_params(s: &str) -> PositionParams {
     PositionParams {
         fen: "String".to_string(),
         moves: vec!["move1".to_string(), "move2".to_string()],
@@ -130,15 +133,21 @@ fn parse_position_params(params: &str) -> PositionParams {
 }
 
 
-fn parse_go_params(params: &str) -> GoParams {
-    const KEY: &'static str =
-        r"searchmoves|ponder|wtime|btime|winc|binc|movestogo|depth|nodes|mate|movetime|infinite";
+fn parse_go_params(s: &str) -> GoParams {
+    const MOVES: &'static str = r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)+";
+    const KEYWORD: &'static str = "wtime|btime|winc|binc|movestogo|depth|nodes|\
+                                   mate|movetime|ponder|infinite|searchmoves";
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            format!(r"\s+({0})\s+(.*?)\s*(?:{0}|$)", KEY).as_str()
+            format!(
+                r"\b(?P<keyword>{})(?:\s+(?P<number>\d+)|(?P<moves>{}))?(?:\s+|$)",
+                KEYWORD,
+                MOVES,
+            ).as_str()
         ).unwrap();
     }
-    let mut result = GoParams {
+
+    let mut params = GoParams {
         searchmoves: None,
         ponder: false,
         wtime: None,
@@ -152,52 +161,43 @@ fn parse_go_params(params: &str) -> GoParams {
         movetime: None,
         infinite: false,
     };
-    for captures in RE.captures_iter(params) {
-        let key = captures.at(1).unwrap();
-        let value = captures.at(2).unwrap();
-        match key {
+
+    for captures in RE.captures_iter(s) {
+        let keyword = captures.name("keyword").unwrap();
+        match keyword {
             "searchmoves" => {
-                result.searchmoves = Some(value.split_whitespace()
-                                               .map(|x| x.to_string())
-                                               .collect());
-            }
-            "wtime" => {
-                result.wtime = value.parse::<u64>().ok();
-            }
-            "btime" => {
-                result.btime = value.parse::<u64>().ok();
-            }
-            "winc" => {
-                result.winc = value.parse::<u64>().ok();
-            }
-            "binc" => {
-                result.binc = value.parse::<u64>().ok();
-            }
-            "movestogo" => {
-                result.movestogo = value.parse::<u32>().ok();
-            }
-            "depth" => {
-                result.depth = value.parse::<u32>().ok();
-            }
-            "nodes" => {
-                result.nodes = value.parse::<u64>().ok();
-            }
-            "mate" => {
-                result.mate = value.parse::<u32>().ok();
-            }
-            "movetime" => {
-                result.movetime = value.parse::<u64>().ok();
+                if let Some(moves) = captures.name("moves") {
+                    params.searchmoves = Some(moves.split_whitespace()
+                                                   .map(|x| x.to_string())
+                                                   .collect());
+                }
             }
             "infinite" => {
-                result.infinite = value == "";
+                params.infinite = true;
             }
             "ponder" => {
-                result.ponder = value == "";
+                params.ponder = true;
             }
-            _ => {}
+            _ => {
+                if let Some(number) = captures.name("number") {
+                    let field = match keyword {
+                        "wtime" => &mut params.wtime,
+                        "btime" => &mut params.btime,
+                        "winc" => &mut params.winc,
+                        "binc" => &mut params.binc,
+                        "movestogo" => &mut params.movestogo,
+                        "depth" => &mut params.depth,
+                        "nodes" => &mut params.nodes,
+                        "mate" => &mut params.mate,
+                        "movetime" => &mut params.movetime,
+                        _ => panic!("invalid keyword"),
+                    };
+                    *field = number.parse::<u64>().ok();
+                }
+            }
         }
     }
-    result
+    params
 }
 
 
@@ -284,4 +284,30 @@ impl<R: Read, W: Write> UciServingLoop<R, W> {
 
 pub trait UciEngine {
     fn options(&self) -> Vec<OptionDescription>;
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_go_params() {
+        use super::parse_go_params;
+        assert_eq!(parse_go_params(" wtime22000  ").wtime, None);
+        assert_eq!(parse_go_params(" wtime    22000  ").wtime, Some(22000));
+        assert_eq!(parse_go_params("wtime 22000").wtime, Some(22000));
+        assert_eq!(parse_go_params("wtime 99999999999999998888888888999999999999999999").wtime, None);
+        assert_eq!(parse_go_params("wtime 22000").infinite, false);
+        assert_eq!(parse_go_params("searchmoves   e2e4  c7c8q  ").searchmoves,
+                   Some(vec!["e2e4".to_string(), "c7c8q".to_string()]));
+        assert_eq!(parse_go_params("searchmoves   e2e4  c7c8q,ponder  ").searchmoves,
+                   Some(vec!["e2e4".to_string()]));
+        assert_eq!(parse_go_params("searchmoves aabb").searchmoves, None);
+        assert_eq!(parse_go_params("infinite wtime 22000").wtime, Some(22000));
+        assert_eq!(parse_go_params("infinite wtime 22000").infinite, true);
+        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000").infinite, true);
+        assert_eq!(parse_go_params("wtime fdfee / 22000 infinite btime 11000 fdfds").infinite, true);
+        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000 ponder").btime, Some(11000));
+    }
 }
