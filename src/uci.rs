@@ -121,7 +121,7 @@ fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(
-                r"^(?:fen\s+(?P<fen>.*?)|startpos)(?:\s+moves(?P<moves>{}))?\s*$",
+                r"^(?:fen\s+(?P<fen>[^m]*?)|startpos)(?:\s+moves(?P<moves>{}))?\s*$",
                 r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)*",  // a possibly empty list of moves
             ).as_str()
         ).unwrap();
@@ -434,6 +434,8 @@ mod tests {
             UciCommand::Position(_) => true,
             _ => false,
         });
+        assert!(parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1 moves h1h2 aabb")
+                    .is_err());
         assert!(match parse_uci_command("setoption name x value y").ok().unwrap() {
             UciCommand::SetOption(_) => true,
             _ => false,
