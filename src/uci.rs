@@ -9,7 +9,6 @@ use std::io::{Read, Write, BufRead, BufReader, BufWriter, ErrorKind};
 /// A command from the GUI to the engine.
 pub enum UciCommand {
     Uci,
-    Debug(bool),
     IsReady,
     SetOption(SetOptionParams),
     UciNewGame,
@@ -56,8 +55,8 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(r"\b({})\s*(?:\s(.*)|$)",
-                    "uci|debug|isready|setoption|register|\
-                     ucinewgame|position|go|stop|ponderhit|quit",  // any UCI command
+                    "uci|isready|setoption|ucinewgame|\
+                     position|go|stop|ponderhit|quit",  // UCI command
             ).as_str()
         ).unwrap();
     }
@@ -66,32 +65,14 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
         let params_str = captures.at(2).unwrap_or("");
         match command_str {
             "uci" if params_str == "" => Ok(UciCommand::Uci),
-            "stop" if params_str == "" => Ok(UciCommand::Stop),
-            "quit" if params_str == "" => Ok(UciCommand::Quit),
-            "isready" if params_str == "" => Ok(UciCommand::IsReady),
-            "ponderhit" if params_str == "" => Ok(UciCommand::PonderHit),
-            "ucinewgame" if params_str == "" => Ok(UciCommand::UciNewGame),
-            "debug" => Ok(UciCommand::Debug(try!(parse_debug_params(params_str)))),
+            "stop" => Ok(UciCommand::Stop),
+            "quit" => Ok(UciCommand::Quit),
+            "isready" => Ok(UciCommand::IsReady),
+            "ponderhit" => Ok(UciCommand::PonderHit),
+            "ucinewgame" => Ok(UciCommand::UciNewGame),
             "setoption" => Ok(UciCommand::SetOption(try!(parse_setoption_params(params_str)))),
             "position" => Ok(UciCommand::Position(try!(parse_position_params(params_str)))),
             "go" => Ok(UciCommand::Go(parse_go_params(params_str))),
-            _ => Err(ParseError),
-        }
-    } else {
-        Err(ParseError)
-    }
-}
-
-
-fn parse_debug_params(s: &str) -> Result<bool, ParseError> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(
-            r"^(on|off)\s*$").unwrap();
-    }
-    if let Some(captures) = RE.captures(s) {
-        match captures.at(1).unwrap() {
-            "on" => Ok(true),
-            "off" => Ok(false),
             _ => Err(ParseError),
         }
     } else {
@@ -121,7 +102,8 @@ fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(
-                r"^(?:fen\s+(?P<fen>[^m]*?)|startpos)(?:\s+moves(?P<moves>{}))?\s*$",
+                r"^(?:fen\s+(?P<fen>{})|startpos)(?:\s+moves(?P<moves>{}))?\s*$",
+                r"[1-8KQRBNPkqrbnp/]+\s+[wb]\s+(?:[KQkq]{1,4}|-)\s+(?:[a-h][1-8]|-)\s+\d+\s+\d+",
                 r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)*",  // a possibly empty list of moves
             ).as_str()
         ).unwrap();
@@ -324,17 +306,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_debug_params() {
-        use super::parse_debug_params;
-        assert_eq!(parse_debug_params("on").ok().unwrap(), true);
-        assert!(parse_debug_params(" on").is_err());
-        assert_eq!(parse_debug_params("off   ").ok().unwrap(), false);
-        assert!(parse_debug_params(" off   ").is_err());
-        assert!(parse_debug_params("    ").is_err());
-        assert!(parse_debug_params(" sgssgs  ").is_err());
-    }
-
-    #[test]
     fn test_parse_setoption_params() {
         use super::parse_setoption_params;
         assert_eq!(parse_setoption_params("name   xxx  value   yyy  ").ok().unwrap().name,
@@ -367,16 +338,29 @@ mod tests {
                        .moves
                        .len(),
                    2);
-        assert_eq!(parse_position_params("fen xxx moves e2e4").ok().unwrap().moves.len(),
+        assert_eq!(parse_position_params("fen 8/8/8/8/8/8/8/k6K w KQk e6 0 1 moves e2e4")
+                       .ok()
+                       .unwrap()
+                       .moves
+                       .len(),
                    1);
-        assert_eq!(parse_position_params("fen xxx moves e2e4").ok().unwrap().fen,
-                   "xxx".to_string());
-        assert_eq!(parse_position_params("fen   xxx    moves e2e4").ok().unwrap().fen,
-                   "xxx".to_string());
-        assert_eq!(parse_position_params("fen   xxx    moves").ok().unwrap().fen,
-                   "xxx".to_string());
-        assert_eq!(parse_position_params("fen   xxx   ").ok().unwrap().fen,
-                   "xxx".to_string());
+        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K w - - 0 1  moves e2e4")
+                       .ok()
+                       .unwrap()
+                       .fen,
+                   "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K   w   -  -  0  1    moves e2e4")
+                       .ok()
+                       .unwrap()
+                       .fen,
+                   "8/8/8/8/8/8/8/k6K   w   -  -  0  1".to_string());
+        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K w - - 0 1    moves")
+                       .ok()
+                       .unwrap()
+                       .fen,
+                   "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K w - - 0 1   ").ok().unwrap().fen,
+                   "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
     }
 
     #[test]
@@ -398,10 +382,10 @@ mod tests {
             UciCommand::IsReady => true,
             _ => false,
         });
-        assert!(parse_uci_command("isready xxx ").is_err());
-        assert!(parse_uci_command("quit xxx ").is_err());
-        assert!(parse_uci_command("stop xxx ").is_err());
-        assert!(parse_uci_command("ponderhit xxx ").is_err());
+        assert!(match parse_uci_command("isready xxx").ok().unwrap() {
+            UciCommand::IsReady => true,
+            _ => false,
+        });
         assert!(match parse_uci_command("ponderhit  ").ok().unwrap() {
             UciCommand::PonderHit => true,
             _ => false,
@@ -438,10 +422,6 @@ mod tests {
                     .is_err());
         assert!(match parse_uci_command("setoption name x value y").ok().unwrap() {
             UciCommand::SetOption(_) => true,
-            _ => false,
-        });
-        assert!(match parse_uci_command("debug on").ok().unwrap() {
-            UciCommand::Debug(true) => true,
             _ => false,
         });
         assert!(match parse_uci_command("go infinite").ok().unwrap() {
