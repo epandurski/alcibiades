@@ -28,6 +28,7 @@ fn main() {
             Err(_) => { exit(1); }
         }
     }
+    exit(1);
 }
 
 
@@ -70,6 +71,9 @@ impl UciEngine for DummyEngine {
             },
         ]
     }
+    
+    #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {}
-    fn start(&mut self) {}
+    
+    fn prepare(&mut self) {}
 }

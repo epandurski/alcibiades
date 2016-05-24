@@ -98,7 +98,6 @@ pub struct UciServingLoop<R: Read, W: Write, E: UciEngine> {
     reader: BufReader<R>,
     writer: BufWriter<W>,
     engine: E,
-    engine_is_started: bool,
     engine_is_thinking: bool,
 }
 
@@ -153,7 +152,6 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
             reader: reader,
             writer: writer,
             engine: engine,
-            engine_is_started: false,
             engine_is_thinking: false,
         })
     }
@@ -168,16 +166,11 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
                         break;
                     }
                     UciCommand::IsReady => {
-                        if !self.engine_is_started {
-                            self.engine.start();
-                        }
+                        self.engine.prepare();
                         try!(write!(self.writer, "readyok\n"));
                         try!(self.writer.flush());
                     }
                     UciCommand::SetOption(SetOptionParams { name, value }) => {
-                        if !self.engine_is_started {
-                            self.engine.start();
-                        }
                         self.engine.set_option(name.as_str(), value.as_str());
                     }
                     _ => {}
@@ -196,7 +189,7 @@ pub trait UciEngine {
     fn author(&self) -> &str;
     fn options(&self) -> Vec<OptionDescription>;
     fn set_option(&mut self, name: &str, value: &str);
-    fn start(&mut self);
+    fn prepare(&mut self);
 }
 
 
