@@ -16,16 +16,8 @@ pub enum UciResponse {
 }
 
 
-/// Description of a configuration option supported by the engine.
-///
-/// The GUI will use this information to configure the engine. Most
-/// commonly it will build a dialog box according to the received
-/// option descriptions so that GUI users can configure the engine
-/// themselves.
-pub struct OptionDescription {
-    pub name: String,
-    pub description: ValueDescription,
-}
+/// Name of a configuration option supported by the engine.
+pub type OptionName = String;
 
 
 /// Description of a configurable value.
@@ -93,11 +85,11 @@ impl<R, W, F, E> Server<R, W, F, E>
         }
         try!(write!(writer, "id name {}\n", engine_factory.name()));
         try!(write!(writer, "id author {}\n", engine_factory.author()));
-        for opt in engine_factory.options() {
+        for (name, description) in engine_factory.options() {
             try!(write!(writer,
                         "option name {} type {}\n",
-                        opt.name,
-                        match opt.description {
+                        name,
+                        match description {
                             ValueDescription::Check { default } => {
                                 format!("check defalut {}", default)
                             }
@@ -213,7 +205,12 @@ pub trait EngineFactory<E: Engine> {
     fn author(&self) -> &str;
 
     /// Returns all configuration options supported by the engine.
-    fn options(&self) -> Vec<OptionDescription>;
+    ///
+    /// The GUI will use this information to configure the
+    /// engine. Most commonly it will build a dialog box according to
+    /// the received option names and descriptions so that GUI users
+    /// can configure the engine themselves.
+    fn options(&self) -> Vec<(OptionName, ValueDescription)>;
 
     /// Returns a fully initialized engine.
     fn create(&self) -> E;

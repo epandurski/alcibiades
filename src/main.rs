@@ -45,34 +45,21 @@ impl uci::EngineFactory<DummyEngine> for DummyEngineFactory {
     fn author(&self) -> &str {
         "Evgeni Pandurski"
     }
-    fn options(&self) -> Vec<uci::OptionDescription> {
+    fn options(&self) -> Vec<(uci::OptionName, uci::ValueDescription)> {
         vec![
-            uci::OptionDescription {
-                 name: "Nullmove".to_string(),
-                 description: uci::ValueDescription::Check { default: true },
-            },
-            uci::OptionDescription {
-                 name: "Selectivity".to_string(),
-                 description: uci::ValueDescription::Spin { default: 2, min: 0, max: 4 },
-            },
-            uci::OptionDescription {
-                name: "Style".to_string(),
-                description: uci::ValueDescription::Combo { default: "Normal".to_string(),
-                                                       list: vec![
-                                                           "Solid".to_string(),
-                                                           "Normal".to_string(),
-                                                           "Risky".to_string()
-                                                       ]
-                },
-            },
-            uci::OptionDescription {
-                 name: "NalimovPath".to_string(),
-                 description: uci::ValueDescription::String { default: "c:\\".to_string() },
-            },
-            uci::OptionDescription {
-                 name: "Clear Hash".to_string(),
-                 description: uci::ValueDescription::Button,
-            },
+            ("Nullmove".to_string(), uci::ValueDescription::Check { default: true }),
+            ("Selectivity".to_string(), uci::ValueDescription::Spin { default: 2, min: 0, max: 4 }),
+            ("Style".to_string(),
+             uci::ValueDescription::Combo {
+                 default: "Normal".to_string(),
+                 list: vec![
+                     "Solid".to_string(),
+                     "Normal".to_string(),
+                     "Risky".to_string()
+                 ]
+             }),
+            ("NalimovPath".to_string(), uci::ValueDescription::String { default: "c:\\".to_string() }),
+            ("Clear Hash".to_string(), uci::ValueDescription::Button),
         ]
     }
 
