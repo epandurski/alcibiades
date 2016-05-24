@@ -116,8 +116,8 @@ impl<R, W, F, E> Server<R, W, F, E>
     /// Waits for a UCI handshake from the GUI and sends a proper
     /// reply.
     ///
-    /// Will return `Err` if the handshake was unsuccessful, or an IO
-    /// error had occurred.
+    /// Will return `Err` if the handshake was unsuccessful, or if an
+    /// IO error had occurred.
     pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: F) -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
@@ -171,7 +171,7 @@ impl<R, W, F, E> Server<R, W, F, E>
 
     /// Serves UCI commands until a "quit" command is received.
     ///
-    /// May return `Err` if an IO error had occurred.
+    /// Will return `Err` if an IO error had occurred.
     pub fn serve(&mut self) -> io::Result<()> {
         let mut line = String::new();
         while try!(self.reader.read_line(&mut line)) > 0 {
