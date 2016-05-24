@@ -92,7 +92,7 @@ impl uci::Engine for DummyEngine {
     fn new_game(&mut self) {}
 
     #[allow(unused_variables)]
-    fn position(&mut self, fen: String, moves: Vec<String>) {}
+    fn position(&mut self, fen: &str, moves: Vec<String>) {}
 
     #[allow(unused_variables)]
     fn go(&mut self,

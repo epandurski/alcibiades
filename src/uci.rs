@@ -158,7 +158,7 @@ impl<R, W, F, E> Server<R, W, F, E>
                         engine.set_option(name.as_str(), value.as_str());
                     }
                     UciCommand::Position(PositionParams { fen, moves }) => {
-                        engine.position(fen, moves);
+                        engine.position(fen.as_str(), moves);
                     }
                     UciCommand::Stop => {
                         engine.stop();
@@ -240,9 +240,9 @@ pub trait Engine {
     /// `fen` will be the position represented in Forsyth–Edwards
     /// notation. `moves` is a list of moves played from the given
     /// position. The move format is in long algebraic
-    /// notation. Examples: e2e4, e7e5, e1g1 (white short castling),
-    /// e7e8q (for promotion).
-    fn position(&mut self, fen: String, moves: Vec<String>);
+    /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
+    /// castling), `e7e8q` (for promotion).
+    fn position(&mut self, fen: &str, moves: Vec<String>);
 
     /// Tells the engine to start thinking.
     ///
@@ -251,7 +251,9 @@ pub trait Engine {
     /// Engine's thinking can be influenced by many parameters:
     /// 
     /// * *searchmoves:* Restricts the search to a subset of moves
-    /// only.
+    /// only. The move format is in long algebraic notation. Examples:
+    /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
+    /// promotion).
     /// 
     /// * *ponder:* Starts searching in pondering mode. The last move
     /// sent in in the position string is the ponder move. The engine
@@ -312,10 +314,10 @@ pub trait Engine {
     /// it is our turn to move, this is also referred as "permanent
     /// brain".
     /// 
-    /// The move format is in long algebraic notation. Examples: e2e4,
-    /// e7e5, e1g1 (white short castling), e7e8q (for promotion).
-    /// Returns `None` if the engine is not thinking in pondering mode
-    /// at the moment.
+    /// The move format is in long algebraic notation. Examples:
+    /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
+    /// promotion).  Returns `None` if the engine is not thinking in
+    /// pondering mode at the moment.
     fn ponder_move(&self) -> Option<String>;
     
     /// Tells the engine that the move it is pondering on was played
