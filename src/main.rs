@@ -11,7 +11,7 @@ pub mod uci;
 
 use std::io;
 use std::process::exit;
-use uci::{UciServingLoop, UciEngine, OptionDescription, ValueDescription};
+use uci::{UciServingLoop, UciEngine, UciEngineFactory, OptionDescription, ValueDescription};
 
 
 fn main() {
@@ -21,20 +21,26 @@ fn main() {
     // Position::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_ok();
     // println!("Board -> {}", 1);
 
-    let engine = DummyEngine;
-    if let Ok(mut uci_loop) = UciServingLoop::wait_for_hanshake(io::stdin(), io::stdout(), engine) {
+    if let Ok(mut uci_loop) = UciServingLoop::wait_for_hanshake(io::stdin(),
+                                                                io::stdout(),
+                                                                DummyEngineFactory) {
         match uci_loop.run() {
-            Ok(_) => { exit(0); }
-            Err(_) => { exit(1); }
+            Ok(_) => {
+                exit(0);
+            }
+            Err(_) => {
+                exit(1);
+            }
         }
     }
     exit(1);
 }
 
 
-struct DummyEngine;
+struct DummyEngineFactory;
 
-impl UciEngine for DummyEngine {
+
+impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
     fn name(&self) -> &str {
         "Socrates"
     }
@@ -71,9 +77,18 @@ impl UciEngine for DummyEngine {
             },
         ]
     }
+
+    fn create(&self) -> DummyEngine {
+        DummyEngine
+    }
+}
+
+
+struct DummyEngine;
+
+
+impl UciEngine for DummyEngine {
     
     #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {}
-    
-    fn prepare(&mut self) {}
 }

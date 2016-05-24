@@ -94,18 +94,30 @@ pub enum ValueDescription {
 
 
 /// The main UCI protocol serving loop.
-pub struct UciServingLoop<R: Read, W: Write, E: UciEngine> {
+pub struct UciServingLoop<R, W, F, E>
+    where R: Read,
+          W: Write,
+          F: UciEngineFactory<E>,
+          E: UciEngine
+{
     reader: BufReader<R>,
     writer: BufWriter<W>,
-    engine: E,
+    engine_factory: F,
+    engine: Option<E>,
     engine_is_thinking: bool,
 }
 
 
-impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
+impl<R, W, F, E> UciServingLoop<R, W, F, E>
+    where R: Read,
+          W: Write,
+          F: UciEngineFactory<E>,
+          E: UciEngine
+{
     /// Waits for UCI handshake from the GUI and sends a proper
     /// response.
-    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine: E) -> io::Result<Self> {
+    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: F) -> io::Result<Self>
+    {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
         }
@@ -118,9 +130,9 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
         if !RE.is_match(line.as_str()) {
             return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
         }
-        try!(write!(writer, "id name {}\n", engine.name()));
-        try!(write!(writer, "id author {}\n", engine.author()));
-        for opt in engine.options() {
+        try!(write!(writer, "id name {}\n", engine_factory.name()));
+        try!(write!(writer, "id author {}\n", engine_factory.author()));
+        for opt in engine_factory.options() {
             try!(write!(writer,
                         "option name {} type {}\n",
                         opt.name,
@@ -151,7 +163,8 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
         Ok(UciServingLoop {
             reader: reader,
             writer: writer,
-            engine: engine,
+            engine: None,
+            engine_factory: engine_factory,
             engine_is_thinking: false,
         })
     }
@@ -166,12 +179,17 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
                         break;
                     }
                     UciCommand::IsReady => {
-                        self.engine.prepare();
+                        if self.engine.is_none() {
+                            self.engine = Some(self.engine_factory.create());
+                        }
                         try!(write!(self.writer, "readyok\n"));
                         try!(self.writer.flush());
                     }
                     UciCommand::SetOption(SetOptionParams { name, value }) => {
-                        self.engine.set_option(name.as_str(), value.as_str());
+                        if self.engine.is_none() {
+                            self.engine = Some(self.engine_factory.create());
+                        }
+                        self.engine.as_mut().unwrap().set_option(name.as_str(), value.as_str());
                     }
                     _ => {}
                 }
@@ -183,13 +201,18 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
 }
 
 
-/// A UCI-compatible engine.
-pub trait UciEngine {
+/// A UCI-compatible engine factory.
+pub trait UciEngineFactory<E: UciEngine> {
     fn name(&self) -> &str;
     fn author(&self) -> &str;
     fn options(&self) -> Vec<OptionDescription>;
+    fn create(&self) -> E;
+}
+
+
+/// A UCI-compatible engine.
+pub trait UciEngine {
     fn set_option(&mut self, name: &str, value: &str);
-    fn prepare(&mut self);
 }
 
 
