@@ -11,7 +11,8 @@ pub mod uci;
 
 use std::io;
 use std::process::exit;
-use uci::{UciServingLoop, UciEngine, UciEngineFactory, OptionDescription, ValueDescription};
+use uci::{UciServingLoop, UciEngine, UciEngineFactory, OptionDescription, ValueDescription,
+          GoParams};
 
 
 fn main() {
@@ -88,7 +89,18 @@ struct DummyEngine;
 
 
 impl UciEngine for DummyEngine {
-    
     #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {}
+
+    fn new_game(&mut self) {}
+
+    #[allow(unused_variables)]
+    fn position(&mut self, fen: String, moves: Vec<String>) {}
+
+    #[allow(unused_variables)]
+    fn go(&mut self, p: GoParams) {}
+
+    fn ponder_hit(&mut self) {}
+
+    fn stop(&mut self) {}
 }

@@ -104,7 +104,6 @@ pub struct UciServingLoop<R, W, F, E>
     writer: BufWriter<W>,
     engine_factory: F,
     engine: Option<E>,
-    engine_is_thinking: bool,
 }
 
 
@@ -116,8 +115,7 @@ impl<R, W, F, E> UciServingLoop<R, W, F, E>
 {
     /// Waits for UCI handshake from the GUI and sends a proper
     /// response.
-    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: F) -> io::Result<Self>
-    {
+    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: F) -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
         }
@@ -163,9 +161,8 @@ impl<R, W, F, E> UciServingLoop<R, W, F, E>
         Ok(UciServingLoop {
             reader: reader,
             writer: writer,
-            engine: None,
             engine_factory: engine_factory,
-            engine_is_thinking: false,
+            engine: None,
         })
     }
 
@@ -174,24 +171,43 @@ impl<R, W, F, E> UciServingLoop<R, W, F, E>
         let mut line = String::new();
         while try!(self.reader.read_line(&mut line)) > 0 {
             if let Ok(cmd) = parse_uci_command(line.as_str()) {
+                if let UciCommand::Quit = cmd {
+                    // "quit" command has been received from the GUI.
+                    break;
+                }
+                if self.engine.is_none() {
+                    // The UCI protocol requires that we do not
+                    // initialize the engine before "isready",
+                    // "setoption", or other non-"quit" command had
+                    // been received.
+                    self.engine = Some(self.engine_factory.create());
+                }
+                let engine = self.engine.as_mut().unwrap();
+                
                 match cmd {
-                    UciCommand::Quit => {
-                        break;
-                    }
                     UciCommand::IsReady => {
-                        if self.engine.is_none() {
-                            self.engine = Some(self.engine_factory.create());
-                        }
                         try!(write!(self.writer, "readyok\n"));
                         try!(self.writer.flush());
                     }
                     UciCommand::SetOption(SetOptionParams { name, value }) => {
-                        if self.engine.is_none() {
-                            self.engine = Some(self.engine_factory.create());
-                        }
-                        self.engine.as_mut().unwrap().set_option(name.as_str(), value.as_str());
+                        engine.set_option(name.as_str(), value.as_str());
                     }
-                    _ => {}
+                    UciCommand::Position(PositionParams { fen, moves }) => {
+                        engine.position(fen, moves);
+                    }
+                    UciCommand::Stop => {
+                        engine.stop();
+                    }
+                    UciCommand::UciNewGame => {
+                        engine.new_game();
+                    }
+                    UciCommand::PonderHit => {
+                        engine.ponder_hit();
+                    }
+                    UciCommand::Go(prams) => {
+                        engine.go(prams);
+                    }
+                    UciCommand::Quit => panic!("This should not happen!"),
                 }
             }
             line.clear();
@@ -213,6 +229,11 @@ pub trait UciEngineFactory<E: UciEngine> {
 /// A UCI-compatible engine.
 pub trait UciEngine {
     fn set_option(&mut self, name: &str, value: &str);
+    fn new_game(&mut self);
+    fn position(&mut self, fen: String, moves: Vec<String>);
+    fn go(&mut self, p: GoParams);
+    fn ponder_hit(&mut self);
+    fn stop(&mut self);
 }
 
 
