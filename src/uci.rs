@@ -228,15 +228,21 @@ pub trait Engine {
     /// Tells the engine that the next position will be from a
     /// different game.
     ///
+    /// Does nothing if the engine is thinking at the moment.
+    ///
     /// In practice, this method will clear the transposition tables.
     fn new_game(&mut self);
 
     /// Loads a new chess position.
+    ///
+    /// Does nothing if the engine is thinking at the moment.
     fn position(&mut self, fen: String, moves: Vec<String>);
 
     /// Tells the engine to start thinking.
     ///
-    /// Engine's thinking can be influences by many parameters:
+    /// Does nothing if the engine is thinking at the moment.
+    ///
+    /// Engine's thinking can be influenced by many parameters:
     /// 
     /// * *searchmoves:* Restricts the search to a subset of moves
     /// only.
@@ -286,13 +292,33 @@ pub trait Engine {
           movetime: Option<u64>,
           infinite: bool);
 
-    /// Tells the engine that the move it was pondering on was played
-    /// on the board.
-    fn ponder_hit(&mut self);
-
     /// Forces the engine to stop thinking and spit the best move it
     /// had found.
+    ///
+    /// Does nothing if the engine is not thinking at the moment.
     fn stop(&mut self);
+    
+    /// Returns the move on which the engine is pondering at the
+    /// moment.
+    ///
+    /// Pondering is using the opponent's move time to consider likely
+    /// opponent moves and thus gain a pre-processing advantage when
+    /// it is our turn to move, this is also referred as "permanent
+    /// brain".
+    /// 
+    /// Returns `None` if the engine is not thinking in pondering mode
+    /// at the moment.
+    fn ponder_move(&self) -> Option<String>;
+    
+    /// Tells the engine that the move it is pondering on was played
+    /// on the board.
+    ///
+    /// Does nothing if the engine is not thinking in pondering mode
+    /// at the moment.
+    fn ponder_hit(&mut self);
+
+    /// Returns if the engine is thinking at the moment.
+    fn is_thinking(&self) -> bool;
 }
 
 

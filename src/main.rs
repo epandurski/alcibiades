@@ -113,4 +113,12 @@ impl uci::Engine for DummyEngine {
     fn ponder_hit(&mut self) {}
 
     fn stop(&mut self) {}
+
+    fn ponder_move(&self) -> Option<String> {
+        None
+    }
+
+    fn is_thinking(&self) -> bool {
+        false
+    }
 }
