@@ -95,7 +95,20 @@ impl uci::Engine for DummyEngine {
     fn position(&mut self, fen: String, moves: Vec<String>) {}
 
     #[allow(unused_variables)]
-    fn go(&mut self, p: uci::GoParams) {}
+    fn go(&mut self,
+          searchmoves: Option<Vec<String>>,
+          ponder: bool,
+          wtime: Option<u64>,
+          btime: Option<u64>,
+          winc: Option<u64>,
+          binc: Option<u64>,
+          movestogo: Option<u64>,
+          depth: Option<u64>,
+          nodes: Option<u64>,
+          mate: Option<u64>,
+          movetime: Option<u64>,
+          infinite: bool) {
+    }
 
     fn ponder_hit(&mut self) {}
 

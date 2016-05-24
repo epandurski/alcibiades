@@ -6,50 +6,6 @@ use std::io;
 use std::io::{Read, Write, BufRead, BufReader, BufWriter, ErrorKind};
 
 
-// A command from the GUI to the engine.
-enum UciCommand {
-    SetOption(SetOptionParams),
-    IsReady,
-    UciNewGame,
-    Position(PositionParams),
-    Go(GoParams),
-    Stop,
-    PonderHit,
-    Quit,
-}
-
-
-// Parameters for `UciCommand::SetOption`.
-struct SetOptionParams {
-    pub name: String,
-    pub value: String,
-}
-
-
-// Parameters for `UciCommand::Postion`.
-struct PositionParams {
-    pub fen: String,
-    pub moves: Vec<String>,
-}
-
-
-/// Parameters for `UciCommand::Go`.
-pub struct GoParams {
-    pub searchmoves: Option<Vec<String>>,
-    pub ponder: bool,
-    pub wtime: Option<u64>,
-    pub btime: Option<u64>,
-    pub winc: Option<u64>,
-    pub binc: Option<u64>,
-    pub movestogo: Option<u64>,
-    pub depth: Option<u64>,
-    pub nodes: Option<u64>,
-    pub mate: Option<u64>,
-    pub movetime: Option<u64>,
-    pub infinite: bool,
-}
-
-
 /// A response from the engine to the GUI .
 pub enum UciResponse {
     BestMove {
@@ -213,8 +169,30 @@ impl<R, W, F, E> Server<R, W, F, E>
                     UciCommand::PonderHit => {
                         engine.ponder_hit();
                     }
-                    UciCommand::Go(prams) => {
-                        engine.go(prams);
+                    UciCommand::Go(GoParams { searchmoves,
+                                              ponder,
+                                              wtime,
+                                              btime,
+                                              winc,
+                                              binc,
+                                              movestogo,
+                                              depth,
+                                              nodes,
+                                              mate,
+                                              movetime,
+                                              infinite }) => {
+                        engine.go(searchmoves,
+                                  ponder,
+                                  wtime,
+                                  btime,
+                                  winc,
+                                  binc,
+                                  movestogo,
+                                  depth,
+                                  nodes,
+                                  mate,
+                                  movetime,
+                                  infinite);
                     }
                     UciCommand::Quit => panic!("This should not happen!"),
                 }
@@ -228,16 +206,15 @@ impl<R, W, F, E> Server<R, W, F, E>
 
 /// UCI-compatible chess engine factory.
 pub trait EngineFactory<E: Engine> {
-    
     /// Returns the name of the engine.
     fn name(&self) -> &str;
-    
+
     /// Returns the author of the engine.
     fn author(&self) -> &str;
-    
+
     /// Returns all configuration options supported by the engine.
     fn options(&self) -> Vec<OptionDescription>;
-    
+
     /// Returns a fully initialized engine.
     fn create(&self) -> E;
 }
@@ -245,32 +222,125 @@ pub trait EngineFactory<E: Engine> {
 
 /// UCI-compatible chess engine.
 pub trait Engine {
-    
     /// Sets a new value for a given configuration option.
     fn set_option(&mut self, name: &str, value: &str);
-    
+
     /// Tells the engine that the next position will be from a
     /// different game.
     ///
     /// In practice, this method will clear the transposition tables.
     fn new_game(&mut self);
-    
+
     /// Loads a new chess position.
     fn position(&mut self, fen: String, moves: Vec<String>);
-    
+
     /// Tells the engine to start thinking.
-    fn go(&mut self, p: GoParams);
-    
+    ///
+    /// Engine's thinking can be influences by many parameters:
+    /// 
+    /// * *searchmoves:* Restricts the search to a subset of moves
+    /// only.
+    /// 
+    /// * *ponder:* Starts searching in pondering mode. The last move
+    /// sent in in the position string is the ponder move. The engine
+    /// can do what it wants to do, but after a `ponder_hit()` command
+    /// it should execute the suggested move to ponder on. This means
+    /// that the ponder move sent by the GUI can be interpreted as a
+    /// recommendation about which move to ponder. However, if the
+    /// engine decides to ponder on a different move, it should not
+    /// display any mainlines as they are likely to be misinterpreted
+    /// by the GUI because the GUI expects the engine to ponder on the
+    /// suggested move.
+    ///      
+    /// * *wtime:* Milliseconds left on the white's clock.
+    /// 
+    /// * *btime:* Milliseconds left on the black's clock.
+    /// 
+    /// * *winc:* White increment per move in milliseconds.
+    /// 
+    /// * *binc:* Black increment per move in milliseconds.
+    /// 
+    /// * *movestogo:* The number of moves to the next time control.
+    /// 
+    /// * *depth:* Search to this depth (plies) only.
+    /// 
+    /// * *nodes:* Search that many nodes only.
+    /// 
+    /// * *mate:* Search for a mate in that many moves.
+    /// 
+    /// * *movetime:* Search for exactly that many milliseconds.
+    /// 
+    /// * *infinite:* Search until the `stop()` command. Do not exit
+    /// the search without being told so in this mode!
+    fn go(&mut self,
+          searchmoves: Option<Vec<String>>,
+          ponder: bool,
+          wtime: Option<u64>,
+          btime: Option<u64>,
+          winc: Option<u64>,
+          binc: Option<u64>,
+          movestogo: Option<u64>,
+          depth: Option<u64>,
+          nodes: Option<u64>,
+          mate: Option<u64>,
+          movetime: Option<u64>,
+          infinite: bool);
+
     /// Tells the engine that the move it was pondering on was played
     /// on the board.
     fn ponder_hit(&mut self);
-    
+
     /// Forces the engine to stop thinking and spit the best move it
     /// had found.
     fn stop(&mut self);
 }
 
 
+// A command from the GUI to the engine.
+enum UciCommand {
+    SetOption(SetOptionParams),
+    IsReady,
+    UciNewGame,
+    Position(PositionParams),
+    Go(GoParams),
+    Stop,
+    PonderHit,
+    Quit,
+}
+
+
+// Parameters for `UciCommand::SetOption`.
+struct SetOptionParams {
+    name: String,
+    value: String,
+}
+
+
+// Parameters for `UciCommand::Postion`.
+struct PositionParams {
+    fen: String,
+    moves: Vec<String>,
+}
+
+
+// Parameters for `UciCommand::Go`.
+struct GoParams {
+    searchmoves: Option<Vec<String>>,
+    ponder: bool,
+    wtime: Option<u64>,
+    btime: Option<u64>,
+    winc: Option<u64>,
+    binc: Option<u64>,
+    movestogo: Option<u64>,
+    depth: Option<u64>,
+    nodes: Option<u64>,
+    mate: Option<u64>,
+    movetime: Option<u64>,
+    infinite: bool,
+}
+
+
+// Represents a parse error.
 struct ParseError;
 
 
