@@ -8,9 +8,8 @@ use std::io::{Read, Write, BufRead, BufReader, BufWriter, ErrorKind};
 
 /// A command from the GUI to the engine.
 pub enum UciCommand {
-    Uci,
-    IsReady,
     SetOption(SetOptionParams),
+    IsReady,
     UciNewGame,
     Position(PositionParams),
     Go(GoParams),
@@ -20,18 +19,21 @@ pub enum UciCommand {
 }
 
 
+/// Parameters for `UciCommand::SetOption`.
 pub struct SetOptionParams {
     pub name: String,
     pub value: String,
 }
 
 
+/// Parameters for `UciCommand::Postion`.
 pub struct PositionParams {
     pub fen: String,
     pub moves: Vec<String>,
 }
 
 
+/// Parameters for `UciCommand::Go`.
 pub struct GoParams {
     pub searchmoves: Option<Vec<String>>,
     pub ponder: bool,
@@ -51,11 +53,12 @@ pub struct GoParams {
 struct ParseError;
 
 
+/// Tries to interpret a string as a UCI command.
 fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(r"\b({})\s*(?:\s(.*)|$)",
-                    "uci|isready|setoption|ucinewgame|\
+                    "setoption|isready|ucinewgame|\
                      position|go|stop|ponderhit|quit",  // UCI command
             ).as_str()
         ).unwrap();
@@ -64,7 +67,6 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
         let command_str = captures.at(1).unwrap();
         let params_str = captures.at(2).unwrap_or("");
         match command_str {
-            "uci" if params_str == "" => Ok(UciCommand::Uci),
             "stop" => Ok(UciCommand::Stop),
             "quit" => Ok(UciCommand::Quit),
             "isready" => Ok(UciCommand::IsReady),
@@ -81,6 +83,8 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
 }
 
 
+// A helper function for `parse_uci_command`. It parses parameters for
+// the "setoption" command.
 fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -97,6 +101,8 @@ fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
 }
 
 
+// A helper function for `parse_uci_command`. It parses parameters for
+// the "position" command.
 fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
     const STARTPOS: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
     lazy_static! {
@@ -127,6 +133,8 @@ fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
 }
 
 
+// A helper function for `parse_uci_command`. It parses parameters for
+// the "go" command.
 fn parse_go_params(s: &str) -> GoParams {
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -213,7 +221,7 @@ pub enum UciResponse {
 ///
 /// The GUI may use this information to configure the engine. It may
 /// also build dialog boxes according to the received option
-/// descriptions so that GUI users can configure the engine.
+/// descriptions so that GUI users can configure the engine too.
 pub struct OptionDescription {
     pub name: String,
     pub description: ValueDescription,
@@ -253,13 +261,16 @@ pub struct UciServingLoop<R: Read, W: Write, E: UciEngine> {
 
 impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
     pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine: E) -> io::Result<Self> {
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
+        }
         let mut reader = BufReader::new(in_stream);
         let mut writer = BufWriter::new(out_stream);
         let mut line = String::new();
         if try!(reader.read_line(&mut line)) == 0 {
             return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"));
         }
-        if line.as_str().trim() != "uci" {
+        if !RE.is_match(line.as_str()) {
             return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
         }
         write!(writer, "id name {}\n", engine.name());
@@ -288,6 +299,7 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
                        ValueDescription::Button => "button".to_string(),
                    });
         }
+        writer.flush();
         Ok(UciServingLoop {
             reader: reader,
             writer: writer,
@@ -395,16 +407,12 @@ mod tests {
     #[test]
     fn test_parse_uci_command() {
         use super::parse_uci_command;
-        assert!(match parse_uci_command("uci").ok().unwrap() {
-            UciCommand::Uci => true,
+        assert!(match parse_uci_command("isready").ok().unwrap() {
+            UciCommand::IsReady => true,
             _ => false,
         });
-        assert!(match parse_uci_command("  uci  ").ok().unwrap() {
-            UciCommand::Uci => true,
-            _ => false,
-        });
-        assert!(match parse_uci_command(" foo  uci  ").ok().unwrap() {
-            UciCommand::Uci => true,
+        assert!(match parse_uci_command("   isready  ").ok().unwrap() {
+            UciCommand::IsReady => true,
             _ => false,
         });
         assert!(match parse_uci_command("isready  ").ok().unwrap() {
