@@ -6,8 +6,8 @@ use std::io;
 use std::io::{Read, Write, BufRead, BufReader, BufWriter, ErrorKind};
 
 
-/// A command from the GUI to the engine.
-pub enum UciCommand {
+// A command from the GUI to the engine.
+enum UciCommand {
     SetOption(SetOptionParams),
     IsReady,
     UciNewGame,
@@ -19,15 +19,15 @@ pub enum UciCommand {
 }
 
 
-/// Parameters for `UciCommand::SetOption`.
-pub struct SetOptionParams {
+// Parameters for `UciCommand::SetOption`.
+struct SetOptionParams {
     pub name: String,
     pub value: String,
 }
 
 
-/// Parameters for `UciCommand::Postion`.
-pub struct PositionParams {
+// Parameters for `UciCommand::Postion`.
+struct PositionParams {
     pub fen: String,
     pub moves: Vec<String>,
 }
@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_parse_uci_command() {
-        use super::parse_uci_command;
+        use super::{parse_uci_command, UciCommand};
         assert!(match parse_uci_command("isready").ok().unwrap() {
             UciCommand::IsReady => true,
             _ => false,
