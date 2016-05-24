@@ -6,17 +6,65 @@ use std::io;
 use std::io::{Read, Write, BufRead, BufReader, BufWriter, ErrorKind};
 
 
-/// A response from the engine to the GUI .
-pub enum UciResponse {
+/// Represents a reply from the engine to the GUI.
+///
+/// The move format is in long algebraic notation. Examples: `e2e4`,
+/// `e7e5`, `e1g1` (white short castling), `e7e8q` (for promotion).
+pub enum EngineReply {
     BestMove {
         best_move: String,
-        ponder: Option<String>,
+        ponder_move: Option<String>,
     },
-    Info(String),
+    Info(Vec<(InfoType, String)>),
 }
 
 
+/// Specific information article that the engine sends to the GUI.
+///
+/// There are many standard types of information that GUIs visualize
+/// and therefore expect the engine to send. Here are some of the most
+/// important ones:
+///
+/// * `"depth"`: search depth in plies;
+/// 
+/// * `"time"`: the time searched in milliseconds, this should be sent
+/// together with the PV;
+/// 
+/// * `"nodes"`: nodes searched, the engine should send this info
+/// regularly;
+/// 
+/// * `"pv"`: the best line found;
+/// 
+/// * `"multipv"`: for the multi PV mode;
+///
+/// * `"score"`: the score from the engine's point of view;
+///
+/// * `"currmove"`: currently searching this move;
+/// 
+/// * `"currmovenumber"`: currently searching this move number;
+/// 
+/// * `"hashfull"`: the hash is that much full, the engine should send
+/// this info regularly;
+/// 
+/// * `"nps"`: nodes per second searched, the engine should send this
+/// info regularly.
+/// 
+/// * `"string"`: any string that will be displayed;
+///
+/// * `"refutation"`: a refutation line;
+///
+/// * `"currline"`: the current line the engine is calculating;
+pub type InfoType = String;
+
+
 /// Name of a configuration option supported by the engine.
+///
+/// Examples of option names supported by many popular chess engines:
+///
+/// * `"Hash"`
+/// * `"OwnBook"`
+/// * `"MultiPV"`
+/// * `"UCI_AnalyseMode"`
 pub type OptionName = String;
 
 
@@ -66,7 +114,7 @@ impl<R, W, F, E> Server<R, W, F, E>
           E: Engine
 {
     /// Waits for a UCI handshake from the GUI and sends a proper
-    /// response.
+    /// reply.
     ///
     /// Will return `Err` if the handshake was unsuccessful, or an IO
     /// error had occurred.
