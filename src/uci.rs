@@ -50,6 +50,133 @@ pub struct GoParams {
 }
 
 
+/// A response from the engine to the GUI .
+pub enum UciResponse {
+    Id {
+        attribute: String,
+        value: String,
+    },
+    UciOk,
+    ReadyOk,
+    BestMove {
+        best_move: String,
+        ponder: Option<String>,
+    },
+    Info(String),
+    Option(OptionDescription),
+}
+
+
+/// A description of a single configuration option (name and value)
+/// supported by the engine.
+///
+/// The GUI may use this information to configure the engine. It may
+/// also build dialog boxes according to the received option
+/// descriptions so that GUI users can configure the engine too.
+pub struct OptionDescription {
+    pub name: String,
+    pub description: ValueDescription,
+}
+
+
+/// A description of a single configurable value.
+pub enum ValueDescription {
+    Check {
+        default: bool,
+    },
+    Spin {
+        min: i32,
+        max: i32,
+        default: i32,
+    },
+    Combo {
+        list: Vec<String>,
+        default: String,
+    },
+    String {
+        default: String,
+    },
+    Button,
+}
+
+
+/// The main UCI protocol serving loop.
+pub struct UciServingLoop<R: Read, W: Write, E: UciEngine> {
+    reader: BufReader<R>,
+    writer: BufWriter<W>,
+    engine: E,
+    engine_is_started: bool,
+    engine_is_thinking: bool,
+}
+
+
+impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
+    /// Waits for UCI handshake from the GUI and sends a proper
+    /// response.
+    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine: E) -> io::Result<Self> {
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
+        }
+        let mut reader = BufReader::new(in_stream);
+        let mut writer = BufWriter::new(out_stream);
+        let mut line = String::new();
+        if try!(reader.read_line(&mut line)) == 0 {
+            return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"));
+        }
+        if !RE.is_match(line.as_str()) {
+            return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
+        }
+        write!(writer, "id name {}\n", engine.name());
+        write!(writer, "id author {}\n", engine.author());
+        for opt in engine.options() {
+            write!(writer,
+                   "option name {} type {}\n",
+                   opt.name,
+                   match opt.description {
+                       ValueDescription::Check { default } => format!("check defalut {}", default),
+                       ValueDescription::Spin { default, min, max } => {
+                           format!("spin defalut {} min {} max {}", default, min, max)
+                       }
+                       ValueDescription::Combo { default, list } => {
+                           format!("combo default {}{}",
+                                   default,
+                                   list.into_iter().fold(String::new(), |mut acc, x| {
+                                       acc.push_str(" var ");
+                                       acc.push_str(x.as_str());
+                                       acc
+                                   }))
+                       }
+                       ValueDescription::String { default } => {
+                           format!("string defalut {}", default)
+                       }
+                       ValueDescription::Button => "button".to_string(),
+                   });
+        }
+        writer.flush();
+        Ok(UciServingLoop {
+            reader: reader,
+            writer: writer,
+            engine: engine,
+            engine_is_started: false,
+            engine_is_thinking: false,
+        })
+    }
+    
+    /// Serves UCI commands forever.
+    pub fn run(&mut self) -> ! {
+        panic!("xxx");
+    }
+}
+
+
+/// A UCI-compatible engine.
+pub trait UciEngine {
+    fn name(&self) -> &str;
+    fn author(&self) -> &str;
+    fn options(&self) -> Vec<OptionDescription>;
+}
+
+
 struct ParseError;
 
 
@@ -196,125 +323,6 @@ fn parse_go_params(s: &str) -> GoParams {
         }
     }
     params
-}
-
-
-/// A response from the engine to the GUI .
-pub enum UciResponse {
-    Id {
-        attribute: String,
-        value: String,
-    },
-    UciOk,
-    ReadyOk,
-    BestMove {
-        best_move: String,
-        ponder: Option<String>,
-    },
-    Info(String),
-    Option(OptionDescription),
-}
-
-
-/// A description of a single configuration option (name and value)
-/// supported by the engine.
-///
-/// The GUI may use this information to configure the engine. It may
-/// also build dialog boxes according to the received option
-/// descriptions so that GUI users can configure the engine too.
-pub struct OptionDescription {
-    pub name: String,
-    pub description: ValueDescription,
-}
-
-
-/// A description of a single configurable value.
-pub enum ValueDescription {
-    Check {
-        default: bool,
-    },
-    Spin {
-        min: i32,
-        max: i32,
-        default: i32,
-    },
-    Combo {
-        list: Vec<String>,
-        default: String,
-    },
-    String {
-        default: String,
-    },
-    Button,
-}
-
-
-/// The main UCI protocol serving loop.
-pub struct UciServingLoop<R: Read, W: Write, E: UciEngine> {
-    reader: BufReader<R>,
-    writer: BufWriter<W>,
-    engine: E,
-    engine_is_started: bool,
-    engine_is_thinking: bool,
-}
-
-
-impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
-    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine: E) -> io::Result<Self> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
-        }
-        let mut reader = BufReader::new(in_stream);
-        let mut writer = BufWriter::new(out_stream);
-        let mut line = String::new();
-        if try!(reader.read_line(&mut line)) == 0 {
-            return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"));
-        }
-        if !RE.is_match(line.as_str()) {
-            return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
-        }
-        write!(writer, "id name {}\n", engine.name());
-        write!(writer, "id author {}\n", engine.author());
-        for opt in engine.options() {
-            write!(writer,
-                   "option name {} type {}\n",
-                   opt.name,
-                   match opt.description {
-                       ValueDescription::Check { default } => format!("check defalut {}", default),
-                       ValueDescription::Spin { default, min, max } => {
-                           format!("spin defalut {} min {} max {}", default, min, max)
-                       }
-                       ValueDescription::Combo { default, list } => {
-                           format!("combo default {}{}",
-                                   default,
-                                   list.into_iter().fold(String::new(), |mut acc, x| {
-                                       acc.push_str(" var ");
-                                       acc.push_str(x.as_str());
-                                       acc
-                                   }))
-                       }
-                       ValueDescription::String { default } => {
-                           format!("string defalut {}", default)
-                       }
-                       ValueDescription::Button => "button".to_string(),
-                   });
-        }
-        writer.flush();
-        Ok(UciServingLoop {
-            reader: reader,
-            writer: writer,
-            engine: engine,
-            engine_is_started: false,
-            engine_is_thinking: false,
-        })
-    }
-}
-
-
-pub trait UciEngine {
-    fn name(&self) -> &str;
-    fn author(&self) -> &str;
-    fn options(&self) -> Vec<OptionDescription>;
 }
 
 
