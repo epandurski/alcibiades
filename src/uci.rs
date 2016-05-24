@@ -60,19 +60,23 @@ pub enum UciResponse {
 }
 
 
-/// A description of a single configuration option (name and value)
-/// supported by the engine.
+/// Description of a configuration option supported by the engine.
 ///
-/// The GUI may use this information to configure the engine. It may
-/// also build dialog boxes according to the received option
-/// descriptions so that GUI users can configure the engine too.
+/// The GUI will use this information to configure the engine. Most
+/// commonly it will build a dialog box according to the received
+/// option descriptions so that GUI users can configure the engine
+/// themselves.
 pub struct OptionDescription {
     pub name: String,
     pub description: ValueDescription,
 }
 
 
-/// A description of a single configurable value.
+/// Description of a configurable value.
+///
+/// Configurable options can have several value types, depending on
+/// their intended appearance in the GUI: check box, spin box, combo
+/// box, string box, or button.
 pub enum ValueDescription {
     Check {
         default: bool,
@@ -93,12 +97,12 @@ pub enum ValueDescription {
 }
 
 
-/// The main UCI protocol serving loop.
-pub struct UciServingLoop<R, W, F, E>
+/// UCI protocol server.
+pub struct Server<R, W, F, E>
     where R: Read,
           W: Write,
-          F: UciEngineFactory<E>,
-          E: UciEngine
+          F: EngineFactory<E>,
+          E: Engine
 {
     reader: BufReader<R>,
     writer: BufWriter<W>,
@@ -107,14 +111,17 @@ pub struct UciServingLoop<R, W, F, E>
 }
 
 
-impl<R, W, F, E> UciServingLoop<R, W, F, E>
+impl<R, W, F, E> Server<R, W, F, E>
     where R: Read,
           W: Write,
-          F: UciEngineFactory<E>,
-          E: UciEngine
+          F: EngineFactory<E>,
+          E: Engine
 {
-    /// Waits for UCI handshake from the GUI and sends a proper
+    /// Waits for a UCI handshake from the GUI and sends a proper
     /// response.
+    ///
+    /// Will return `Err` if the handshake was unsuccessful, or an IO
+    /// error had occurred.
     pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: F) -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
@@ -158,7 +165,7 @@ impl<R, W, F, E> UciServingLoop<R, W, F, E>
         }
         try!(write!(writer, "uciok\n"));
         try!(writer.flush());
-        Ok(UciServingLoop {
+        Ok(Server {
             reader: reader,
             writer: writer,
             engine_factory: engine_factory,
@@ -167,7 +174,9 @@ impl<R, W, F, E> UciServingLoop<R, W, F, E>
     }
 
     /// Serves UCI commands until a "quit" command is received.
-    pub fn run(&mut self) -> io::Result<()> {
+    ///
+    /// May return `Err` if an IO error had occurred.
+    pub fn serve(&mut self) -> io::Result<()> {
         let mut line = String::new();
         while try!(self.reader.read_line(&mut line)) > 0 {
             if let Ok(cmd) = parse_uci_command(line.as_str()) {
@@ -183,7 +192,7 @@ impl<R, W, F, E> UciServingLoop<R, W, F, E>
                     self.engine = Some(self.engine_factory.create());
                 }
                 let engine = self.engine.as_mut().unwrap();
-                
+
                 match cmd {
                     UciCommand::IsReady => {
                         try!(write!(self.writer, "readyok\n"));
@@ -217,22 +226,47 @@ impl<R, W, F, E> UciServingLoop<R, W, F, E>
 }
 
 
-/// A UCI-compatible engine factory.
-pub trait UciEngineFactory<E: UciEngine> {
+/// UCI-compatible chess engine factory.
+pub trait EngineFactory<E: Engine> {
+    
+    /// Returns the name of the engine.
     fn name(&self) -> &str;
+    
+    /// Returns the author of the engine.
     fn author(&self) -> &str;
+    
+    /// Returns all configuration options supported by the engine.
     fn options(&self) -> Vec<OptionDescription>;
+    
+    /// Returns a fully initialized engine.
     fn create(&self) -> E;
 }
 
 
-/// A UCI-compatible engine.
-pub trait UciEngine {
+/// UCI-compatible chess engine.
+pub trait Engine {
+    
+    /// Sets a new value for a given configuration option.
     fn set_option(&mut self, name: &str, value: &str);
+    
+    /// Tells the engine that the next position will be from a
+    /// different game.
+    ///
+    /// In practice, this method will clear the transposition tables.
     fn new_game(&mut self);
+    
+    /// Loads a new chess position.
     fn position(&mut self, fen: String, moves: Vec<String>);
+    
+    /// Tells the engine to start thinking.
     fn go(&mut self, p: GoParams);
+    
+    /// Tells the engine that the move it was pondering on was played
+    /// on the board.
     fn ponder_hit(&mut self);
+    
+    /// Forces the engine to stop thinking and spit the best move it
+    /// had found.
     fn stop(&mut self);
 }
 

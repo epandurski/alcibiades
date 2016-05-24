@@ -11,9 +11,6 @@ pub mod uci;
 
 use std::io;
 use std::process::exit;
-use uci::{UciServingLoop, UciEngine, UciEngineFactory, OptionDescription, ValueDescription,
-          GoParams};
-
 
 fn main() {
     // use regex::Regex;
@@ -22,10 +19,10 @@ fn main() {
     // Position::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_ok();
     // println!("Board -> {}", 1);
 
-    if let Ok(mut uci_loop) = UciServingLoop::wait_for_hanshake(io::stdin(),
-                                                                io::stdout(),
-                                                                DummyEngineFactory) {
-        match uci_loop.run() {
+    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(io::stdin(),
+                                                             io::stdout(),
+                                                             DummyEngineFactory) {
+        match uci_loop.serve() {
             Ok(_) => {
                 exit(0);
             }
@@ -41,26 +38,26 @@ fn main() {
 struct DummyEngineFactory;
 
 
-impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
+impl uci::EngineFactory<DummyEngine> for DummyEngineFactory {
     fn name(&self) -> &str {
         "Socrates"
     }
     fn author(&self) -> &str {
         "Evgeni Pandurski"
     }
-    fn options(&self) -> Vec<OptionDescription> {
+    fn options(&self) -> Vec<uci::OptionDescription> {
         vec![
-            OptionDescription {
+            uci::OptionDescription {
                  name: "Nullmove".to_string(),
-                 description: ValueDescription::Check { default: true },
+                 description: uci::ValueDescription::Check { default: true },
             },
-            OptionDescription {
+            uci::OptionDescription {
                  name: "Selectivity".to_string(),
-                 description: ValueDescription::Spin { default: 2, min: 0, max: 4 },
+                 description: uci::ValueDescription::Spin { default: 2, min: 0, max: 4 },
             },
-            OptionDescription {
+            uci::OptionDescription {
                 name: "Style".to_string(),
-                description: ValueDescription::Combo { default: "Normal".to_string(),
+                description: uci::ValueDescription::Combo { default: "Normal".to_string(),
                                                        list: vec![
                                                            "Solid".to_string(),
                                                            "Normal".to_string(),
@@ -68,13 +65,13 @@ impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
                                                        ]
                 },
             },
-            OptionDescription {
+            uci::OptionDescription {
                  name: "NalimovPath".to_string(),
-                 description: ValueDescription::String { default: "c:\\".to_string() },
+                 description: uci::ValueDescription::String { default: "c:\\".to_string() },
             },
-            OptionDescription {
+            uci::OptionDescription {
                  name: "Clear Hash".to_string(),
-                 description: ValueDescription::Button,
+                 description: uci::ValueDescription::Button,
             },
         ]
     }
@@ -88,7 +85,7 @@ impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
 struct DummyEngine;
 
 
-impl UciEngine for DummyEngine {
+impl uci::Engine for DummyEngine {
     #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {}
 
@@ -98,7 +95,7 @@ impl UciEngine for DummyEngine {
     fn position(&mut self, fen: String, moves: Vec<String>) {}
 
     #[allow(unused_variables)]
-    fn go(&mut self, p: GoParams) {}
+    fn go(&mut self, p: uci::GoParams) {}
 
     fn ponder_hit(&mut self) {}
 
