@@ -52,18 +52,11 @@ pub struct GoParams {
 
 /// A response from the engine to the GUI .
 pub enum UciResponse {
-    Id {
-        attribute: String,
-        value: String,
-    },
-    UciOk,
-    ReadyOk,
     BestMove {
         best_move: String,
         ponder: Option<String>,
     },
     Info(String),
-    Option(OptionDescription),
 }
 
 
@@ -126,33 +119,36 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
         if !RE.is_match(line.as_str()) {
             return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
         }
-        write!(writer, "id name {}\n", engine.name());
-        write!(writer, "id author {}\n", engine.author());
+        try!(write!(writer, "id name {}\n", engine.name()));
+        try!(write!(writer, "id author {}\n", engine.author()));
         for opt in engine.options() {
-            write!(writer,
-                   "option name {} type {}\n",
-                   opt.name,
-                   match opt.description {
-                       ValueDescription::Check { default } => format!("check defalut {}", default),
-                       ValueDescription::Spin { default, min, max } => {
-                           format!("spin defalut {} min {} max {}", default, min, max)
-                       }
-                       ValueDescription::Combo { default, list } => {
-                           format!("combo default {}{}",
-                                   default,
-                                   list.into_iter().fold(String::new(), |mut acc, x| {
-                                       acc.push_str(" var ");
-                                       acc.push_str(x.as_str());
-                                       acc
-                                   }))
-                       }
-                       ValueDescription::String { default } => {
-                           format!("string defalut {}", default)
-                       }
-                       ValueDescription::Button => "button".to_string(),
-                   });
+            try!(write!(writer,
+                        "option name {} type {}\n",
+                        opt.name,
+                        match opt.description {
+                            ValueDescription::Check { default } => {
+                                format!("check defalut {}", default)
+                            }
+                            ValueDescription::Spin { default, min, max } => {
+                                format!("spin defalut {} min {} max {}", default, min, max)
+                            }
+                            ValueDescription::Combo { default, list } => {
+                                format!("combo default {}{}",
+                                        default,
+                                        list.into_iter().fold(String::new(), |mut acc, x| {
+                                            acc.push_str(" var ");
+                                            acc.push_str(x.as_str());
+                                            acc
+                                        }))
+                            }
+                            ValueDescription::String { default } => {
+                                format!("string defalut {}", default)
+                            }
+                            ValueDescription::Button => "button".to_string(),
+                        }));
         }
-        writer.flush();
+        try!(write!(writer, "uciok\n"));
+        try!(writer.flush());
         Ok(UciServingLoop {
             reader: reader,
             writer: writer,
@@ -161,10 +157,35 @@ impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
             engine_is_thinking: false,
         })
     }
-    
-    /// Serves UCI commands forever.
-    pub fn run(&mut self) -> ! {
-        panic!("xxx");
+
+    /// Serves UCI commands until a "quit" command is received.
+    pub fn run(&mut self) -> io::Result<()> {
+        let mut line = String::new();
+        while try!(self.reader.read_line(&mut line)) > 0 {
+            if let Ok(cmd) = parse_uci_command(line.as_str()) {
+                match cmd {
+                    UciCommand::Quit => {
+                        break;
+                    }
+                    UciCommand::IsReady => {
+                        if !self.engine_is_started {
+                            self.engine.start();
+                        }
+                        try!(write!(self.writer, "readyok\n"));
+                        try!(self.writer.flush());
+                    }
+                    UciCommand::SetOption(SetOptionParams { name, value }) => {
+                        if !self.engine_is_started {
+                            self.engine.start();
+                        }
+                        self.engine.set_option(name.as_str(), value.as_str());
+                    }
+                    _ => {}
+                }
+            }
+            line.clear();
+        }
+        Ok(())
     }
 }
 
@@ -174,13 +195,15 @@ pub trait UciEngine {
     fn name(&self) -> &str;
     fn author(&self) -> &str;
     fn options(&self) -> Vec<OptionDescription>;
+    fn set_option(&mut self, name: &str, value: &str);
+    fn start(&mut self);
 }
 
 
 struct ParseError;
 
 
-/// Tries to interpret a string as a UCI command.
+// Tries to interpret a string as a UCI command.
 fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -215,7 +238,7 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
 fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
-            r"^name\s+(.*?)(?:\s+value\s+(.*?))?\s*$").unwrap();
+            r"^name\s+(\S.*?)(?:\s+value\s+(.*?))?\s*$").unwrap();
     }
     if let Some(captures) = RE.captures(s) {
         Ok(SetOptionParams {
@@ -365,10 +388,7 @@ mod tests {
                    "".to_string());
         assert_eq!(parse_setoption_params("name xxx    ").ok().unwrap().value,
                    "".to_string());
-        assert_eq!(parse_setoption_params("name     ").ok().unwrap().name,
-                   "".to_string());
-        assert_eq!(parse_setoption_params("name     ").ok().unwrap().value,
-                   "".to_string());
+        assert!(parse_setoption_params("name     ").is_err());
         assert!(parse_setoption_params("namexxx     ").is_err());
     }
 

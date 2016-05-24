@@ -10,6 +10,7 @@ pub mod notation;
 pub mod uci;
 
 use std::io;
+use std::process::exit;
 use uci::{UciServingLoop, UciEngine, OptionDescription, ValueDescription};
 
 
@@ -21,7 +22,12 @@ fn main() {
     // println!("Board -> {}", 1);
 
     let engine = DummyEngine;
-    UciServingLoop::wait_for_hanshake(io::stdin(), io::stdout(), engine);
+    if let Ok(mut uci_loop) = UciServingLoop::wait_for_hanshake(io::stdin(), io::stdout(), engine) {
+        match uci_loop.run() {
+            Ok(_) => { exit(0); }
+            Err(_) => { exit(1); }
+        }
+    }
 }
 
 
@@ -64,4 +70,6 @@ impl UciEngine for DummyEngine {
             },
         ]
     }
+    fn set_option(&mut self, name: &str, value: &str) {}
+    fn start(&mut self) {}
 }
