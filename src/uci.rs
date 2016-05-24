@@ -367,8 +367,10 @@ pub trait Engine {
     /// 
     /// The move format is in long algebraic notation. Examples:
     /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
-    /// promotion).  Returns `None` if the engine is not thinking in
-    /// pondering mode at the moment.
+    /// promotion).
+    ///
+    /// Returns `None` if the engine is not thinking in pondering mode
+    /// at the moment.
     fn ponder_move(&self) -> Option<String>;
 
     /// Tells the engine that the move it is pondering on was played
