@@ -21,30 +21,30 @@ pub enum UciCommand {
 
 
 pub struct SetOptionParams {
-    name: String,
-    value: String,
+    pub name: String,
+    pub value: String,
 }
 
 
 pub struct PositionParams {
-    fen: String,
-    moves: Vec<String>,
+    pub fen: String,
+    pub moves: Vec<String>,
 }
 
 
 pub struct GoParams {
-    searchmoves: Option<Vec<String>>,
-    ponder: bool,
-    wtime: Option<u64>,
-    btime: Option<u64>,
-    winc: Option<u64>,
-    binc: Option<u64>,
-    movestogo: Option<u64>,
-    depth: Option<u64>,
-    nodes: Option<u64>,
-    mate: Option<u64>,
-    movetime: Option<u64>,
-    infinite: bool,
+    pub searchmoves: Option<Vec<String>>,
+    pub ponder: bool,
+    pub wtime: Option<u64>,
+    pub btime: Option<u64>,
+    pub winc: Option<u64>,
+    pub binc: Option<u64>,
+    pub movestogo: Option<u64>,
+    pub depth: Option<u64>,
+    pub nodes: Option<u64>,
+    pub mate: Option<u64>,
+    pub movetime: Option<u64>,
+    pub infinite: bool,
 }
 
 
@@ -215,8 +215,8 @@ pub enum UciResponse {
 /// also build dialog boxes according to the received option
 /// descriptions so that GUI users can configure the engine.
 pub struct OptionDescription {
-    name: String,
-    description: ValueDescription,
+    pub name: String,
+    pub description: ValueDescription,
 }
 
 
@@ -242,29 +242,56 @@ pub enum ValueDescription {
 
 
 /// The main UCI protocol serving loop.
-pub struct UciServingLoop<R: Read, W: Write> {
+pub struct UciServingLoop<R: Read, W: Write, E: UciEngine> {
     reader: BufReader<R>,
     writer: BufWriter<W>,
-    // engine: Box<UciEngine>,
+    engine: E,
     engine_is_started: bool,
     engine_is_thinking: bool,
 }
 
 
-impl<R: Read, W: Write> UciServingLoop<R, W> {
-    fn wait_for_hanshake(in_stream: R, out_stream: W) -> io::Result<Self> {
+impl<R: Read, W: Write, E: UciEngine> UciServingLoop<R, W, E> {
+    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine: E) -> io::Result<Self> {
         let mut reader = BufReader::new(in_stream);
         let mut writer = BufWriter::new(out_stream);
         let mut line = String::new();
         if try!(reader.read_line(&mut line)) == 0 {
             return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"));
         }
-        if line.as_str() != "uci" {
+        if line.as_str().trim() != "uci" {
             return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
+        }
+        write!(writer, "id name {}\n", engine.name());
+        write!(writer, "id author {}\n", engine.author());
+        for opt in engine.options() {
+            write!(writer,
+                   "option name {} type {}\n",
+                   opt.name,
+                   match opt.description {
+                       ValueDescription::Check { default } => format!("check defalut {}", default),
+                       ValueDescription::Spin { default, min, max } => {
+                           format!("spin defalut {} min {} max {}", default, min, max)
+                       }
+                       ValueDescription::Combo { default, list } => {
+                           format!("combo default {}{}",
+                                   default,
+                                   list.into_iter().fold(String::new(), |mut acc, x| {
+                                       acc.push_str(" var ");
+                                       acc.push_str(x.as_str());
+                                       acc
+                                   }))
+                       }
+                       ValueDescription::String { default } => {
+                           format!("string defalut {}", default)
+                       }
+                       ValueDescription::Button => "button".to_string(),
+                   });
         }
         Ok(UciServingLoop {
             reader: reader,
             writer: writer,
+            engine: engine,
             engine_is_started: false,
             engine_is_thinking: false,
         })
@@ -273,6 +300,8 @@ impl<R: Read, W: Write> UciServingLoop<R, W> {
 
 
 pub trait UciEngine {
+    fn name(&self) -> &str;
+    fn author(&self) -> &str;
     fn options(&self) -> Vec<OptionDescription>;
 }
 
