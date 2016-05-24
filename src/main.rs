@@ -108,4 +108,8 @@ impl uci::Engine for DummyEngine {
     fn is_thinking(&self) -> bool {
         false
     }
+    
+    fn get_reply(&mut self) -> Option<uci::EngineReply> {
+        Some(uci::EngineReply::Info(vec![]))
+    }
 }

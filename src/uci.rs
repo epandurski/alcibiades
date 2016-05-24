@@ -8,8 +8,10 @@ use std::io::{Read, Write, BufRead, BufReader, BufWriter, ErrorKind};
 
 /// Represents a reply from the engine to the GUI.
 ///
-/// The move format is in long algebraic notation. Examples: `e2e4`,
-/// `e7e5`, `e1g1` (white short castling), `e7e8q` (for promotion).
+/// The engine reply is either a best move found, or a new/updated
+/// information item. The move format is in long algebraic
+/// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
+/// `e7e8q` (for promotion).
 pub enum EngineReply {
     BestMove {
         best_move: String,
@@ -266,6 +268,10 @@ pub trait EngineFactory<E: Engine> {
 
 
 /// UCI-compatible chess engine.
+///
+/// Methods in this trait **must not block** the current thread. This
+/// means that all the engine calculations should be done in a
+/// separate thread(s).
 pub trait Engine {
     /// Sets a new value for a given configuration option.
     fn set_option(&mut self, name: &str, value: &str);
@@ -273,25 +279,23 @@ pub trait Engine {
     /// Tells the engine that the next position will be from a
     /// different game.
     ///
-    /// Does nothing if the engine is thinking at the moment.
-    ///
     /// In practice, this method will clear the transposition tables.
+    ///
+    /// Does nothing if the engine is thinking at the moment.
     fn new_game(&mut self);
 
     /// Loads a new chess position.
-    ///
-    /// Does nothing if the engine is thinking at the moment.
     /// 
     /// `fen` will be the position represented in Forsyth–Edwards
     /// notation. `moves` is a list of moves played from the given
     /// position. The move format is in long algebraic
     /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
     /// castling), `e7e8q` (for promotion).
+    ///
+    /// Does nothing if the engine is thinking at the moment.
     fn position(&mut self, fen: &str, moves: Vec<String>);
 
     /// Tells the engine to start thinking.
-    ///
-    /// Does nothing if the engine is thinking at the moment.
     ///
     /// Engine's thinking can be influenced by many parameters:
     /// 
@@ -331,6 +335,8 @@ pub trait Engine {
     /// 
     /// * *infinite:* Search until the `stop()` command. Do not exit
     /// the search without being told so in this mode!
+    ///
+    /// Does nothing if the engine is thinking at the moment.
     fn go(&mut self,
           searchmoves: Option<Vec<String>>,
           ponder: bool,
@@ -350,7 +356,7 @@ pub trait Engine {
     ///
     /// Does nothing if the engine is not thinking at the moment.
     fn stop(&mut self);
-    
+
     /// Returns the move on which the engine is pondering at the
     /// moment.
     ///
@@ -364,7 +370,7 @@ pub trait Engine {
     /// promotion).  Returns `None` if the engine is not thinking in
     /// pondering mode at the moment.
     fn ponder_move(&self) -> Option<String>;
-    
+
     /// Tells the engine that the move it is pondering on was played
     /// on the board.
     ///
@@ -374,6 +380,13 @@ pub trait Engine {
 
     /// Returns if the engine is thinking at the moment.
     fn is_thinking(&self) -> bool;
+
+    /// Checks if there is an engine reply available.
+    ///
+    /// The engine reply can be either `EngineReply::BestMove`
+    /// indicating the best move found, or `EngineReply::Info`
+    /// indicating a new/updated information item.
+    fn get_reply(&mut self) -> Option<EngineReply>;
 }
 
 
