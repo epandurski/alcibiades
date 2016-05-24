@@ -236,6 +236,12 @@ pub trait Engine {
     /// Loads a new chess position.
     ///
     /// Does nothing if the engine is thinking at the moment.
+    /// 
+    /// `fen` will be the position represented in Forsyth–Edwards
+    /// notation. `moves` is a list of moves played from the given
+    /// position. The move format is in long algebraic
+    /// notation. Examples: e2e4, e7e5, e1g1 (white short castling),
+    /// e7e8q (for promotion).
     fn position(&mut self, fen: String, moves: Vec<String>);
 
     /// Tells the engine to start thinking.
@@ -306,6 +312,8 @@ pub trait Engine {
     /// it is our turn to move, this is also referred as "permanent
     /// brain".
     /// 
+    /// The move format is in long algebraic notation. Examples: e2e4,
+    /// e7e5, e1g1 (white short castling), e7e8q (for promotion).
     /// Returns `None` if the engine is not thinking in pondering mode
     /// at the moment.
     fn ponder_move(&self) -> Option<String>;
