@@ -21,7 +21,7 @@ fn main() {
 
     if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(io::stdin(),
                                                              io::stdout(),
-                                                             DummyEngineFactory) {
+                                                             &DummyEngineFactory) {
         match uci_loop.serve() {
             Ok(_) => {
                 exit(0);

@@ -96,20 +96,21 @@ pub enum ValueDescription {
 
 
 /// UCI protocol server.
-pub struct Server<R, W, F, E>
+pub struct Server<'a, R, W, F, E>
     where R: Read,
           W: Write,
-          F: EngineFactory<E>,
-          E: Engine
+          F: EngineFactory<E> + 'a,
+          E: Engine,
+
 {
     reader: BufReader<R>,
     writer: BufWriter<W>,
-    engine_factory: F,
+    engine_factory: &'a F,
     engine: Option<E>,
 }
 
 
-impl<R, W, F, E> Server<R, W, F, E>
+impl<'a, R, W, F, E> Server<'a, R, W, F, E>
     where R: Read,
           W: Write,
           F: EngineFactory<E>,
@@ -120,7 +121,7 @@ impl<R, W, F, E> Server<R, W, F, E>
     ///
     /// Will return `Err` if the handshake was unsuccessful, or if an
     /// IO error had occurred.
-    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: F) -> io::Result<Self> {
+    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: &'a F) -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
         }
