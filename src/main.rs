@@ -107,6 +107,11 @@ impl uci::Engine for DummyEngine {
     }
 
     fn get_reply(&mut self) -> Option<uci::EngineReply> {
-        Some(uci::EngineReply::Info(vec![]))
+        // Some(uci::EngineReply::BestMove {
+        //     best_move: "e2e4".to_string(),
+        //     ponder_move: Some("e7e5".to_string()),
+        // })
+        Some(uci::EngineReply::Info(vec![("depth".to_string(), "5".to_string()),
+                                         ("time".to_string(), "2000".to_string())]))
     }
 }

@@ -277,10 +277,20 @@ impl<'a, F, E> Server<'a, F, E>
                 while let Some(reply) = engine.get_reply() {
                     match reply {
                         EngineReply::BestMove { best_move, ponder_move } => {
-                            try!(write!(writer, "bestmove {}", best_move));
+                            try!(write!(writer,
+                                        "bestmove {}{}",
+                                        best_move,
+                                        match ponder_move {
+                                            None => "\n".to_string(),
+                                            Some(m) => format!(" ponder {}\n", m),
+                                        }))
                         }
                         EngineReply::Info(infos) => {
-                            try!(write!(writer, "info\n"));
+                            try!(write!(writer, "info"));
+                            for (name, value) in infos {
+                                try!(write!(writer, " {} {}", name, value));
+                            }
+                            try!(write!(writer, "\n"));
                         }
                     }
                 }
