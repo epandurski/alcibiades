@@ -201,16 +201,16 @@ impl Move {
 /// promotion.
 pub type MoveType = usize;
 
-/// Normal move type
+/// Normal move type.
 pub const MOVE_NORMAL: MoveType = 0;
 
-/// En-passant capture move type
+/// En-passant capture move type.
 pub const MOVE_ENPASSANT: MoveType = 1;
 
-/// Pawn promotion move type
+/// Pawn promotion move type.
 pub const MOVE_PROMOTION: MoveType = 2;
 
-/// Castling move type
+/// Castling move type.
 pub const MOVE_CASTLING: MoveType = 3;
 
 /// Represents no en-passant file.

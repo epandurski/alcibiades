@@ -3,19 +3,19 @@
 //! simple functions.
 
 
-/// `WHITE` or `BLACK`
+/// `WHITE` or `BLACK`.
 pub type Color = usize; // 0 or 1
 
-/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, or `NO_PIECE`
+/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, or `NO_PIECE`.
 pub type PieceType = usize;  // from 0 to 5
 
-/// From 0 to 7 (0 is rank 1, 7 is rank 8)
+/// From 0 to 7 (0 is rank 1, 7 is rank 8).
 pub type Rank = usize;  // from 0 to 7
 
-/// From 0 to 7 (0 is file A, 7 is file H)
+/// From 0 to 7 (0 is file A, 7 is file H).
 pub type File = usize;  // from 0 to 7
 
-/// From 0 to 63 (0 is A1, 63 is H8)
+/// From 0 to 63 (0 is A1, 63 is H8).
 pub type Square = usize;  // from 0 to 63
 
 // Color

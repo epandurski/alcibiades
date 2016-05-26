@@ -128,13 +128,13 @@ impl CastlingRights {
 }
 
 
-/// `QUEENSIDE` of `KINGSIDE`
+/// `QUEENSIDE` of `KINGSIDE`.
 pub type CastlingSide = usize;
 
-/// Queen-side castling
+/// Queen-side castling.
 pub const QUEENSIDE: CastlingSide = 0;
 
-/// King-side castling
+/// King-side castling.
 pub const KINGSIDE: CastlingSide = 1;
 
 /// White can castle on the queen-side.

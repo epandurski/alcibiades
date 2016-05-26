@@ -10,10 +10,10 @@ use std::num::Wrapping;
 use basetypes::*;
 
 
-/// An empty bitboard
+/// An empty bitboard.
 pub const EMPTY_SET: u64 = 0;
 
-/// A completely full bitboard
+/// A completely full bitboard.
 pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 
 pub const BB_RANK_1: u64 = 0b11111111;
