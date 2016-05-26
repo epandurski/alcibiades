@@ -8,12 +8,14 @@ use std::io;
 use std::io::{Write, BufWriter, BufRead, ErrorKind};
 use std::sync::mpsc::{channel, TryRecvError};
 
+
 /// Represents a reply from the engine to the GUI.
 ///
 /// The engine reply is either a best move found, or a new/updated
 /// information item. The move format is in long algebraic
 /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
-/// `e7e8q` (for promotion).
+/// `e7e8q` (for promotion). If supplied, `ponder_move` is the
+/// response on which the engine would like to ponder.
 pub enum EngineReply {
     BestMove {
         best_move: String,
@@ -72,12 +74,12 @@ pub type InfoType = String;
 pub type OptionName = String;
 
 
-/// Description of a configurable value.
+/// Describes a configuration option supported by the engine.
 ///
-/// Configurable options can have several value types, depending on
-/// their intended appearance in the GUI: check box, spin box, combo
-/// box, string box, or button.
-pub enum ValueDescription {
+/// Configurable options can be of several different types, depending
+/// on their intended appearance in the GUI: check box, spin box,
+/// combo box, string box, or button.
+pub enum OptionDescription {
     Check {
         default: bool,
     },
@@ -97,7 +99,7 @@ pub enum ValueDescription {
 }
 
 
-/// UCI protocol server.
+/// UCI protocol server -- connects the engine to the GUI.
 pub struct Server<'a, F, E>
     where F: EngineFactory<E> + 'a,
           E: Engine
@@ -111,8 +113,8 @@ impl<'a, F, E> Server<'a, F, E>
     where F: EngineFactory<E>,
           E: Engine
 {
-    /// Waits for a UCI handshake from the GUI and sends a proper
-    /// reply.
+    /// Waits for a UCI handshake from the GUI and sends proper
+    /// initialization information.
     ///
     /// Will return `Err` if the handshake was unsuccessful, or if an
     /// IO error had occurred.
@@ -137,13 +139,13 @@ impl<'a, F, E> Server<'a, F, E>
                         "option name {} type {}\n",
                         name,
                         match description {
-                            ValueDescription::Check { default } => {
+                            OptionDescription::Check { default } => {
                                 format!("check defalut {}", default)
                             }
-                            ValueDescription::Spin { default, min, max } => {
+                            OptionDescription::Spin { default, min, max } => {
                                 format!("spin defalut {} min {} max {}", default, min, max)
                             }
-                            ValueDescription::Combo { default, list } => {
+                            OptionDescription::Combo { default, list } => {
                                 format!("combo default {}{}",
                                         default,
                                         list.into_iter().fold(String::new(), |mut acc, x| {
@@ -152,10 +154,10 @@ impl<'a, F, E> Server<'a, F, E>
                                             acc
                                         }))
                             }
-                            ValueDescription::String { default } => {
+                            OptionDescription::String { default } => {
                                 format!("string defalut {}", default)
                             }
-                            ValueDescription::Button => "button".to_string(),
+                            OptionDescription::Button => "button".to_string(),
                         }));
         }
         try!(write!(writer, "uciok\n"));
@@ -165,6 +167,7 @@ impl<'a, F, E> Server<'a, F, E>
             engine: None,
         })
     }
+
 
     /// Serves UCI commands until a "quit" command is received.
     ///
@@ -311,7 +314,7 @@ impl<'a, F, E> Server<'a, F, E>
             // Yield to another thread.
             thread::sleep(time::Duration::from_millis(50));
         }
-        
+
         // End of the UCI session.
         Ok(())
     }
@@ -332,7 +335,7 @@ pub trait EngineFactory<E: Engine> {
     /// engine. Most commonly it will build a dialog box according to
     /// the received option names and descriptions so that GUI users
     /// can configure the engine themselves.
-    fn options(&self) -> Vec<(OptionName, ValueDescription)>;
+    fn options(&self) -> Vec<(OptionName, OptionDescription)>;
 
     /// Returns a fully initialized engine.
     fn create(&self) -> E;
@@ -432,10 +435,8 @@ pub trait Engine {
     /// Returns the move on which the engine is pondering at the
     /// moment.
     ///
-    /// Pondering is using the opponent's move time to consider likely
-    /// opponent moves and thus gain a pre-processing advantage when
-    /// it is our turn to move, this is also referred as "permanent
-    /// brain".
+    /// This is the move that will be executed if `ponder_hit()` is
+    /// called.
     /// 
     /// The move format is in long algebraic notation. Examples:
     /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
@@ -447,6 +448,11 @@ pub trait Engine {
 
     /// Tells the engine that the move it is pondering on was played
     /// on the board.
+    ///
+    /// Pondering is using the opponent's move time to consider likely
+    /// opponent moves and thus gain a pre-processing advantage when
+    /// it is our turn to move, this is also referred as "permanent
+    /// brain".
     ///
     /// Does nothing if the engine is not thinking in pondering mode
     /// at the moment.

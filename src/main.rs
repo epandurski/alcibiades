@@ -42,12 +42,12 @@ impl uci::EngineFactory<DummyEngine> for DummyEngineFactory {
     fn author(&self) -> &str {
         "Evgeni Pandurski"
     }
-    fn options(&self) -> Vec<(uci::OptionName, uci::ValueDescription)> {
+    fn options(&self) -> Vec<(uci::OptionName, uci::OptionDescription)> {
         vec![
-            ("Nullmove".to_string(), uci::ValueDescription::Check { default: true }),
-            ("Selectivity".to_string(), uci::ValueDescription::Spin { default: 2, min: 0, max: 4 }),
+            ("Nullmove".to_string(), uci::OptionDescription::Check { default: true }),
+            ("Selectivity".to_string(), uci::OptionDescription::Spin { default: 2, min: 0, max: 4 }),
             ("Style".to_string(),
-             uci::ValueDescription::Combo {
+             uci::OptionDescription::Combo {
                  default: "Normal".to_string(),
                  list: vec![
                      "Solid".to_string(),
@@ -55,8 +55,8 @@ impl uci::EngineFactory<DummyEngine> for DummyEngineFactory {
                      "Risky".to_string()
                  ]
              }),
-            ("NalimovPath".to_string(), uci::ValueDescription::String { default: "c:\\".to_string() }),
-            ("Clear Hash".to_string(), uci::ValueDescription::Button),
+            ("NalimovPath".to_string(), uci::OptionDescription::String { default: "c:\\".to_string() }),
+            ("Clear Hash".to_string(), uci::OptionDescription::Button),
         ]
     }
 
