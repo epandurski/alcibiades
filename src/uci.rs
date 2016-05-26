@@ -2,9 +2,11 @@
 //! communication.
 
 use regex::Regex;
+use std::time;
+use std::thread;
 use std::io;
-use std::io::{Read, Write, BufRead, BufReader, BufWriter, ErrorKind};
-
+use std::io::{Write, BufRead, ErrorKind};
+use std::sync::mpsc::{channel, TryRecvError};
 
 /// Represents a reply from the engine to the GUI.
 ///
@@ -96,24 +98,17 @@ pub enum ValueDescription {
 
 
 /// UCI protocol server.
-pub struct Server<'a, R, W, F, E>
-    where R: Read,
-          W: Write,
-          F: EngineFactory<E> + 'a,
-          E: Engine,
-
+pub struct Server<'a, F, E>
+    where F: EngineFactory<E> + 'a,
+          E: Engine
 {
-    reader: BufReader<R>,
-    writer: BufWriter<W>,
     engine_factory: &'a F,
     engine: Option<E>,
 }
 
 
-impl<'a, R, W, F, E> Server<'a, R, W, F, E>
-    where R: Read,
-          W: Write,
-          F: EngineFactory<E>,
+impl<'a, F, E> Server<'a, F, E>
+    where F: EngineFactory<E>,
           E: Engine
 {
     /// Waits for a UCI handshake from the GUI and sends a proper
@@ -121,12 +116,13 @@ impl<'a, R, W, F, E> Server<'a, R, W, F, E>
     ///
     /// Will return `Err` if the handshake was unsuccessful, or if an
     /// IO error had occurred.
-    pub fn wait_for_hanshake(in_stream: R, out_stream: W, engine_factory: &'a F) -> io::Result<Self> {
+    pub fn wait_for_hanshake(engine_factory: &'a F) -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
         }
-        let mut reader = BufReader::new(in_stream);
-        let mut writer = BufWriter::new(out_stream);
+        let stdin = io::stdin();
+        let mut reader = stdin.lock();
+        let mut writer = io::stdout();
         let mut line = String::new();
         if try!(reader.read_line(&mut line)) == 0 {
             return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"));
@@ -165,8 +161,6 @@ impl<'a, R, W, F, E> Server<'a, R, W, F, E>
         try!(write!(writer, "uciok\n"));
         try!(writer.flush());
         Ok(Server {
-            reader: reader,
-            writer: writer,
             engine_factory: engine_factory,
             engine: None,
         })
@@ -176,26 +170,63 @@ impl<'a, R, W, F, E> Server<'a, R, W, F, E>
     ///
     /// Will return `Err` if an IO error had occurred.
     pub fn serve(&mut self) -> io::Result<()> {
-        let mut line = String::new();
-        while try!(self.reader.read_line(&mut line)) > 0 {
-            if let Ok(cmd) = parse_uci_command(line.as_str()) {
+        let (tx, rx) = channel();
+
+        // Spawn a thread that reads from `stdin` and writes to `tx`.
+        thread::spawn(move || {
+            let stdin = io::stdin();
+            let mut reader = stdin.lock();
+            let mut line = String::new();
+            loop {
+                if let Ok(cmd) = match reader.read_line(&mut line) {
+                    Err(_) | Ok(0) => return,
+                    Ok(_) => parse_uci_command(line.as_str()),
+                } {
+                    if tx.send(cmd).is_err() {
+                        return;
+                    }
+                }
+                line.clear();
+            }
+        });
+
+        // Read commands from `rx` and send them to the engine. Read
+        // replies from the engine and send them to `stdout`.
+        let mut writer = io::stdout();
+        loop {
+
+            // Try to read a command from the GUI.
+            if let Some(cmd) = match rx.try_recv() {
+                Ok(cmd) => Some(cmd),
+                Err(TryRecvError::Empty) => None,
+                Err(TryRecvError::Disconnected) => {
+                    return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"))
+                }
+            } {
+                // Check if this is a "quit" command. The UCI protocol
+                // requires that we do not initialize the engine
+                // before "isready", "setoption", or other non-"quit"
+                // command had been received.
                 if let UciCommand::Quit = cmd {
-                    // "quit" command has been received from the GUI.
                     break;
                 }
-                if self.engine.is_none() {
-                    // The UCI protocol requires that we do not
-                    // initialize the engine before "isready",
-                    // "setoption", or other non-"quit" command had
-                    // been received.
-                    self.engine = Some(self.engine_factory.create());
-                }
-                let engine = self.engine.as_mut().unwrap();
 
+                // Initialize the engine if necessery.
+                let engine = match self.engine {
+                    None => {
+                        self.engine = Some(self.engine_factory.create());
+                        self.engine.as_mut().unwrap()
+                    }
+                    Some(ref mut x) => x,
+                };
+
+                // Fetch the received command to the engine. (Except
+                // for the "isready" command, to which we can reply
+                // directly.)
                 match cmd {
                     UciCommand::IsReady => {
-                        try!(write!(self.writer, "readyok\n"));
-                        try!(self.writer.flush());
+                        try!(write!(writer, "readyok\n"));
+                        try!(writer.flush());
                     }
                     UciCommand::SetOption(SetOptionParams { name, value }) => {
                         engine.set_option(name.as_str(), value.as_str());
@@ -237,10 +268,27 @@ impl<'a, R, W, F, E> Server<'a, R, W, F, E>
                                   movetime,
                                   infinite);
                     }
-                    UciCommand::Quit => panic!("This should not happen!"),
+                    UciCommand::Quit => panic!("This should never happen!"),
                 }
             }
-            line.clear();
+
+            // Try to read a reply from the engine.
+            if let Some(ref mut engine) = self.engine {
+                while let Some(reply) = engine.get_reply() {
+                    match reply {
+                        EngineReply::BestMove { best_move, ponder_move } => {
+                            try!(write!(writer, "bestmove {}", best_move));
+                        }
+                        EngineReply::Info(infos) => {
+                            try!(write!(writer, "info\n"));
+                        }
+                    }
+                }
+                try!(writer.flush());
+            }
+
+            // Yield to another thread.
+            thread::sleep(time::Duration::from_millis(50));
         }
         Ok(())
     }

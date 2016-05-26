@@ -9,7 +9,6 @@ pub mod bitsets;
 pub mod notation;
 pub mod uci;
 
-use std::io;
 use std::process::exit;
 
 fn main() {
@@ -19,9 +18,7 @@ fn main() {
     // Position::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_ok();
     // println!("Board -> {}", 1);
 
-    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(io::stdin(),
-                                                             io::stdout(),
-                                                             &DummyEngineFactory) {
+    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(&DummyEngineFactory) {
         match uci_loop.serve() {
             Ok(_) => {
                 exit(0);
@@ -108,7 +105,7 @@ impl uci::Engine for DummyEngine {
     fn is_thinking(&self) -> bool {
         false
     }
-    
+
     fn get_reply(&mut self) -> Option<uci::EngineReply> {
         Some(uci::EngineReply::Info(vec![]))
     }
