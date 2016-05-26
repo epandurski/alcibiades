@@ -170,6 +170,7 @@ impl<'a, F, E> Server<'a, F, E>
     ///
     /// Will return `Err` if an IO error had occurred.
     pub fn serve(&mut self) -> io::Result<()> {
+        let mut writer = BufWriter::new(io::stdout());
         let (tx, rx) = channel();
 
         // Spawn a thread that reads from `stdin` and writes to `tx`.
@@ -190,13 +191,11 @@ impl<'a, F, E> Server<'a, F, E>
             }
         });
 
-        // Read commands from `rx` and send them to the engine. Read
-        // replies from the engine and send them to `stdout`.
-        let mut writer = BufWriter::new(io::stdout());
-        loop {
+        'mainloop: loop {
 
-            // Try to read a command from the GUI.
-            if let Some(cmd) = match rx.try_recv() {
+            // Try to read a command from the GUI, fetch it to the
+            // engine.
+            while let Some(cmd) = match rx.try_recv() {
                 Ok(cmd) => Some(cmd),
                 Err(TryRecvError::Empty) => None,
                 Err(TryRecvError::Disconnected) => {
@@ -208,7 +207,7 @@ impl<'a, F, E> Server<'a, F, E>
                 // before "isready", "setoption", or other non-"quit"
                 // command had been received.
                 if let UciCommand::Quit = cmd {
-                    break;
+                    break 'mainloop;
                 }
 
                 // Initialize the engine if necessery.
@@ -272,9 +271,13 @@ impl<'a, F, E> Server<'a, F, E>
                 }
             }
 
-            // Try to read a reply from the engine.
+            // Try to read a reply from the engine, fetch it to
+            // `stdout`.
             if let Some(ref mut engine) = self.engine {
+                let mut count = 0;
                 while let Some(reply) = engine.get_reply() {
+
+                    // Fetch the reply to the GUI.
                     match reply {
                         EngineReply::BestMove { best_move, ponder_move } => {
                             try!(write!(writer,
@@ -293,6 +296,14 @@ impl<'a, F, E> Server<'a, F, E>
                             try!(write!(writer, "\n"));
                         }
                     }
+
+                    // Make sure a crazy engine can not block the
+                    // mainloop.
+                    if count >= 50 {
+                        break;
+                    } else {
+                        count += 1;
+                    }
                 }
                 try!(writer.flush());
             }
@@ -300,6 +311,8 @@ impl<'a, F, E> Server<'a, F, E>
             // Yield to another thread.
             thread::sleep(time::Duration::from_millis(50));
         }
+        
+        // End of the UCI session.
         Ok(())
     }
 }
