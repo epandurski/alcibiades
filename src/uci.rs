@@ -292,11 +292,13 @@ impl<'a, F, E> Server<'a, F, E>
                                         }))
                         }
                         EngineReply::Info(infos) => {
-                            try!(write!(writer, "info"));
-                            for (name, value) in infos {
-                                try!(write!(writer, " {} {}", name, value));
+                            if infos.len() > 0 {
+                                try!(write!(writer, "info"));
+                                for (name, value) in infos {
+                                    try!(write!(writer, " {} {}", name, value));
+                                }
+                                try!(write!(writer, "\n"));
                             }
-                            try!(write!(writer, "\n"));
                         }
                     }
 
