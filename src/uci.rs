@@ -5,7 +5,7 @@ use regex::Regex;
 use std::time;
 use std::thread;
 use std::io;
-use std::io::{Write, BufRead, ErrorKind};
+use std::io::{Write, BufWriter, BufRead, ErrorKind};
 use std::sync::mpsc::{channel, TryRecvError};
 
 /// Represents a reply from the engine to the GUI.
@@ -122,7 +122,7 @@ impl<'a, F, E> Server<'a, F, E>
         }
         let stdin = io::stdin();
         let mut reader = stdin.lock();
-        let mut writer = io::stdout();
+        let mut writer = BufWriter::new(io::stdout());
         let mut line = String::new();
         if try!(reader.read_line(&mut line)) == 0 {
             return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"));
@@ -192,7 +192,7 @@ impl<'a, F, E> Server<'a, F, E>
 
         // Read commands from `rx` and send them to the engine. Read
         // replies from the engine and send them to `stdout`.
-        let mut writer = io::stdout();
+        let mut writer = BufWriter::new(io::stdout());
         loop {
 
             // Try to read a command from the GUI.
