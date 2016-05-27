@@ -318,10 +318,7 @@ impl<'a, F, E> Server<'a, F, E>
         }
 
         // End of the UCI session.
-        match read_thread.join() {
-            Ok(x) => x,
-            Err(_) => Err(io::Error::new(ErrorKind::Other, "the read thread panicked")),
-        }
+        read_thread.join().unwrap()
     }
 }
 
