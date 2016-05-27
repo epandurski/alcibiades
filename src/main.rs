@@ -35,7 +35,7 @@ fn main() {
 struct DummyEngineFactory;
 
 
-impl uci::EngineFactory<DummyEngine> for DummyEngineFactory {
+impl uci::UciEngineFactory<DummyEngine> for DummyEngineFactory {
     fn name(&self) -> &str {
         "Socrates"
     }
@@ -69,7 +69,7 @@ impl uci::EngineFactory<DummyEngine> for DummyEngineFactory {
 struct DummyEngine;
 
 
-impl uci::Engine for DummyEngine {
+impl uci::UciEngine for DummyEngine {
     #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {}
 

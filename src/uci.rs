@@ -101,8 +101,8 @@ pub enum OptionDescription {
 
 /// UCI protocol server -- connects the engine to the GUI.
 pub struct Server<'a, F, E>
-    where F: EngineFactory<E> + 'a,
-          E: Engine
+    where F: UciEngineFactory<E> + 'a,
+          E: UciEngine
 {
     engine_factory: &'a F,
     engine: Option<E>,
@@ -110,8 +110,8 @@ pub struct Server<'a, F, E>
 
 
 impl<'a, F, E> Server<'a, F, E>
-    where F: EngineFactory<E>,
-          E: Engine
+    where F: UciEngineFactory<E>,
+          E: UciEngine
 {
     /// Waits for a UCI handshake from the GUI and sends proper
     /// initialization information.
@@ -324,7 +324,7 @@ impl<'a, F, E> Server<'a, F, E>
 
 
 /// UCI-compatible chess engine factory.
-pub trait EngineFactory<E: Engine> {
+pub trait UciEngineFactory<E: UciEngine> {
     /// Returns the name of the engine.
     fn name(&self) -> &str;
 
@@ -349,7 +349,7 @@ pub trait EngineFactory<E: Engine> {
 /// Methods in this trait **must not block** the current thread. This
 /// means that all the engine calculations should be done in a
 /// separate thread(s).
-pub trait Engine {
+pub trait UciEngine {
     /// Sets a new value for a given configuration option.
     fn set_option(&mut self, name: &str, value: &str);
 
