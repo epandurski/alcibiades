@@ -177,17 +177,26 @@ impl<'a, F, E> Server<'a, F, E>
         let (tx, rx) = channel();
 
         // Spawn a thread that reads from `stdin` and writes to `tx`.
-        thread::spawn(move || {
+        let read_thread = thread::spawn(move || -> io::Result<()> {
             let stdin = io::stdin();
             let mut reader = stdin.lock();
             let mut line = String::new();
             loop {
                 if let Ok(cmd) = match reader.read_line(&mut line) {
-                    Err(_) | Ok(0) => return,
+                    Err(x) => return Err(x),
+                    Ok(0) => return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF")),
                     Ok(_) => parse_uci_command(line.as_str()),
                 } {
+                    // Check if this is a "quit" command. The UCI protocol
+                    // requires that we do not initialize the engine
+                    // before "isready", "setoption", or other non-"quit"
+                    // command had been received.
+                    if let UciCommand::Quit = cmd {
+                        return Ok(());
+                    }
                     if tx.send(cmd).is_err() {
-                        return;
+                        // Normally, this should not happen.
+                        return Err(io::Error::new(ErrorKind::Other, "broken channel"));
                     }
                 }
                 line.clear();
@@ -201,18 +210,8 @@ impl<'a, F, E> Server<'a, F, E>
             while let Some(cmd) = match rx.try_recv() {
                 Ok(cmd) => Some(cmd),
                 Err(TryRecvError::Empty) => None,
-                Err(TryRecvError::Disconnected) => {
-                    return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"))
-                }
+                Err(TryRecvError::Disconnected) => break 'mainloop,
             } {
-                // Check if this is a "quit" command. The UCI protocol
-                // requires that we do not initialize the engine
-                // before "isready", "setoption", or other non-"quit"
-                // command had been received.
-                if let UciCommand::Quit = cmd {
-                    break 'mainloop;
-                }
-
                 // Initialize the engine if necessery.
                 let engine = match self.engine {
                     None => {
@@ -309,16 +308,20 @@ impl<'a, F, E> Server<'a, F, E>
                     } else {
                         count += 1;
                     }
+
                 }
                 try!(writer.flush());
             }
 
             // Yield to another thread.
-            thread::sleep(time::Duration::from_millis(50));
+            thread::sleep(time::Duration::from_millis(25));
         }
 
         // End of the UCI session.
-        Ok(())
+        match read_thread.join() {
+            Ok(x) => x,
+            Err(_) => Err(io::Error::new(ErrorKind::Other, "the read thread panicked")),
+        }
     }
 }
 
