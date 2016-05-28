@@ -1,6 +1,9 @@
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::board::Board;
 use position::chess_move::*;
+use rand;
+use rand::distributions::{Sample, Range};
+
 
 pub const VERSION: &'static str = "0.1";
 
@@ -89,14 +92,17 @@ impl UciEngine for DummyEngine {
         let s = &mut self.move_stack;
         let b = &mut self.board;
         b.generate_moves(true, s);
+        let mut legal_moves = vec![];   
         while let Some(m) = s.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                self.best_move = m.notation();
-                s.remove_all();
-                break;
+                legal_moves.push(m.notation()); 
             }
         }
+        let mut rng = rand::thread_rng();
+        let mut between = Range::new(0, legal_moves.len());
+        self.best_move = legal_moves[between.sample(&mut rng)].clone();
+            
         self.ponder = ponder;
         self.infinite = infinite;
         self.is_thinking = infinite | ponder;
