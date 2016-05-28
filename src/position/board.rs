@@ -234,7 +234,7 @@ impl Board {
             // verify if the move will leave the king in check
             if piece == KING {
                 if orig_square != dest_square {
-                    if self.is_attacked(them, dest_square) {
+                    if self.king_would_be_in_check(dest_square) {
                         return false;  // the king is in check -- illegal move
                     }
                 } else {
@@ -246,7 +246,7 @@ impl Board {
 
             // move the rook if the move is castling
             if move_type == MOVE_CASTLING {
-                if self.is_attacked(them, (orig_square + dest_square) >> 1) {
+                if self.king_would_be_in_check((orig_square + dest_square) >> 1) {
                     return false;  // king's passing square is attacked -- illegal move
                 }
 
@@ -1011,31 +1011,32 @@ impl Board {
 
     /// A helper method for `do_move`.
     ///
-    /// It returns `true` if `square` is attacked by at least one
-    /// piece of color `us`, and `false` otherwise.
+    /// It returns `true` if had our king moved to square `square` it
+    /// would be in check, and `false` otherwise.
     #[inline]
-    fn is_attacked(&self, us: Color, square: Square) -> bool {
-        assert!(us <= 1);
+    fn king_would_be_in_check(&self, square: Square) -> bool {
+        let them = 1 ^ self.to_move;
         assert!(square <= 63);
-        let occupied_by_us = unsafe { *self.color.get_unchecked(us) };
+        assert!(them <= 1);
+        let occupied_by_them = unsafe { *self.color.get_unchecked(them) };
+        let occupied = self.occupied() & !(1 << self.king_square());
 
-        (piece_attacks_from(self.geometry, self.occupied(), ROOK, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, occupied, ROOK, square) & occupied_by_them &
          (self.piece_type[ROOK] | self.piece_type[QUEEN])) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, self.occupied(), BISHOP, square) & occupied_by_us &
-         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) !=
-        EMPTY_SET ||
-        (piece_attacks_from(self.geometry, self.occupied(), KNIGHT, square) &
-         occupied_by_us & self.piece_type[KNIGHT]) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, self.occupied(), KING, square) & occupied_by_us &
+        (piece_attacks_from(self.geometry, occupied, BISHOP, square) & occupied_by_them &
+         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) != EMPTY_SET ||
+        (piece_attacks_from(self.geometry, occupied, KNIGHT, square) & occupied_by_them &
+         self.piece_type[KNIGHT]) != EMPTY_SET ||
+        (piece_attacks_from(self.geometry, occupied, KING, square) & occupied_by_them &
          self.piece_type[KING]) != EMPTY_SET ||
         {
-            let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+            let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(them) };
             let square_bb = 1 << square;
 
-            (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
+            (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
              self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) !=
             EMPTY_SET ||
-            (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
+            (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
              self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8)) != EMPTY_SET
         }
     }
@@ -1618,5 +1619,18 @@ mod tests {
         let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
         let m = b.null_move();
         assert_eq!(b.do_move(m), false);
+    }
+
+    #[test]
+    fn test_move_into_check_bug() {
+        let mut stack = MoveStack::new();
+
+        let mut b = Board::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5N2/PPPN1PP1/2K4R b - - 0 1")
+                        .ok()
+                        .unwrap();
+        b.generate_moves(true, &mut stack);
+        let m = stack.pop().unwrap();
+        b.do_move(m);
+        assert!(b.is_legal());
     }
 }
