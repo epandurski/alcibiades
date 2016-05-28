@@ -178,6 +178,25 @@ impl Move {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
 
+    /// Returns the algebraic notation of the move.
+    pub fn notation(&self) -> String {
+        format!("{}{}{}",
+                notation(self.orig_square()),
+                notation(self.dest_square()),
+                match self.move_type() {
+                    MOVE_PROMOTION => {
+                        match Move::piece_from_aux_data(self.aux_data()) {
+                            QUEEN => "q",
+                            ROOK => "r",
+                            BISHOP => "b",
+                            KNIGHT => "n",
+                            _ => panic!("invalid promoted piece"),
+                        }
+                    }
+                    _ => "",
+                })
+    }
+
     /// Decodes the promoted piece type from the raw value of "aux
     /// data".
     ///

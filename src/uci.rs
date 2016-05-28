@@ -434,20 +434,6 @@ pub trait UciEngine {
     /// Does nothing if the engine is not thinking at the moment.
     fn stop(&mut self);
 
-    /// Returns the move on which the engine is pondering at the
-    /// moment.
-    ///
-    /// This is the move that will be executed if `ponder_hit()` is
-    /// called.
-    /// 
-    /// The move format is in long algebraic notation. Examples:
-    /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
-    /// promotion).
-    ///
-    /// Returns `None` if the engine is not thinking in pondering mode
-    /// at the moment.
-    fn ponder_move(&self) -> Option<String>;
-
     /// Tells the engine that the move it is pondering on was played
     /// on the board.
     ///
