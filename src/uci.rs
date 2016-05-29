@@ -233,7 +233,7 @@ impl<'a, F, E> Server<'a, F, E>
                         engine.set_option(name.as_str(), value.as_str());
                     }
                     UciCommand::Position(PositionParams { fen, moves }) => {
-                        engine.position(fen.as_str(), moves);
+                        engine.position(fen.as_str(), &mut moves.split_whitespace());
                     }
                     UciCommand::Stop => {
                         engine.stop();
@@ -364,13 +364,13 @@ pub trait UciEngine {
     /// Loads a new chess position.
     /// 
     /// `fen` will be the position represented in Forsyth–Edwards
-    /// notation. `moves` is a list of moves played from the given
-    /// position. The move format is in long algebraic
+    /// notation. `moves` is an iterator over the moves played from
+    /// the given position. The move format is in long algebraic
     /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
     /// castling), `e7e8q` (for promotion).
     ///
     /// Does nothing if the engine is thinking at the moment.
-    fn position(&mut self, fen: &str, moves: Vec<String>);
+    fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
 
     /// Tells the engine to start thinking.
     ///
@@ -478,10 +478,10 @@ struct SetOptionParams {
 }
 
 
-// Parameters for `UciCommand::Postion`.
+// Parameters for `UciCommand::Poston`.
 struct PositionParams {
     fen: String,
-    moves: Vec<String>,
+    moves: String,
 }
 
 
@@ -574,11 +574,7 @@ fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
             } else {
                 STARTPOS.to_string()
             },
-            moves: captures.name("moves")
-                           .unwrap_or("")
-                           .split_whitespace()
-                           .map(|x| x.to_string())
-                           .collect(),
+            moves: captures.name("moves").unwrap_or("").to_string(),
         })
     } else {
         Err(ParseError)
@@ -708,13 +704,15 @@ mod tests {
                        .ok()
                        .unwrap()
                        .moves
-                       .len(),
+                       .split_whitespace()
+                       .count(),
                    2);
         assert_eq!(parse_position_params("fen 8/8/8/8/8/8/8/k6K w KQk e6 0 1 moves e2e4")
                        .ok()
                        .unwrap()
                        .moves
-                       .len(),
+                       .split_whitespace()
+                       .count(),
                    1);
         assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K w - - 0 1  moves e2e4")
                        .ok()

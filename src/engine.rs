@@ -46,9 +46,9 @@ impl UciEngine for DummyEngine {
     fn new_game(&mut self) {}
 
     #[allow(unused_variables)]
-    fn position(&mut self, fen: &str, moves: Vec<String>) {
+    fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
         if self.is_thinking {
-            return
+            return;
         }
         self.board = match Board::from_fen(fen) {
             Ok(x) => x,
@@ -56,7 +56,7 @@ impl UciEngine for DummyEngine {
         };
         let s = &mut self.move_stack;
         let b = &mut self.board;
-        'played_move: for played_move in moves {
+        'played_move: for played_move in moves.into_iter() {
             b.generate_moves(true, s);
             while let Some(m) = s.pop() {
                 if played_move == m.notation() {
@@ -87,22 +87,22 @@ impl UciEngine for DummyEngine {
           movetime: Option<u64>,
           infinite: bool) {
         if self.is_thinking {
-            return
+            return;
         }
         let s = &mut self.move_stack;
         let b = &mut self.board;
         b.generate_moves(true, s);
-        let mut legal_moves = vec![];   
+        let mut legal_moves = vec![];
         while let Some(m) = s.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                legal_moves.push(m.notation()); 
+                legal_moves.push(m.notation());
             }
         }
         let mut rng = rand::thread_rng();
         let mut between = Range::new(0, legal_moves.len());
         self.best_move = legal_moves[between.sample(&mut rng)].clone();
-            
+
         self.ponder = ponder;
         self.infinite = infinite;
         self.is_thinking = infinite | ponder;
@@ -126,7 +126,7 @@ impl UciEngine for DummyEngine {
 
     fn stop(&mut self) {
         if !self.is_thinking {
-            return
+            return;
         }
         self.replies.push(EngineReply::BestMove {
             best_move: self.best_move.clone(),
