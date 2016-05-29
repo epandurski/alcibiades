@@ -184,15 +184,7 @@ impl Move {
                 notation(self.orig_square()),
                 notation(self.dest_square()),
                 match self.move_type() {
-                    MOVE_PROMOTION => {
-                        match Move::piece_from_aux_data(self.aux_data()) {
-                            QUEEN => "q",
-                            ROOK => "r",
-                            BISHOP => "b",
-                            KNIGHT => "n",
-                            _ => panic!("invalid promoted piece"),
-                        }
-                    }
+                    MOVE_PROMOTION => ["q", "r", "b", "n"][self.aux_data()],
                     _ => "",
                 })
     }
