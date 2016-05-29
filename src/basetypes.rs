@@ -139,8 +139,12 @@ pub fn file(square: Square) -> File {
 }
 
 /// Returns the algebraic notation for a given square.
-pub fn notation(square: Square) -> String {
-    format!("{}{}",
-            ["a", "b", "c", "d", "e", "f", "g", "h"][file(square)],
-            ["1", "2", "3", "4", "5", "6", "7", "8"][rank(square)])
+pub fn notation(square: Square) -> &'static str {
+    lazy_static! {
+        static ref NOTATION: Vec<String> = (0..64).map(|i| format!("{}{}",
+            ["a", "b", "c", "d", "e", "f", "g", "h"][file(i)],
+            ["1", "2", "3", "4", "5", "6", "7", "8"][rank(i)])
+        ).collect();
+    }
+    NOTATION[square].as_str()
 }
