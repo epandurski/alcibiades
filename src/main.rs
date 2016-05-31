@@ -9,6 +9,7 @@ pub mod bitsets;
 pub mod notation;
 pub mod uci;
 pub mod engine;
+pub mod tt;
 
 use std::process::exit;
 use engine::DummyEngineFactory;
