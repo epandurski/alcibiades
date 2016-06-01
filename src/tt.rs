@@ -51,15 +51,16 @@ impl EntryData {
     /// 
     /// * `value` -- the value assigned to the position,
     /// 
-    /// * `bound` -- the meaning of the assigned value (`BOUND_EXACT`,
-    ///    `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`),
+    /// * `bound` -- the meaning of the assigned value (should be
+    ///   `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or
+    ///   `BOUND_NONE`),
     /// 
     /// * `depth` -- the depth of search,
     /// 
     /// * `move16` -- best or refutation move,
     /// 
     /// * `eval_value` -- the calculated static evaluation for the
-    ///    position.
+    ///   position.
     pub fn new(value: i16, bound: u8, depth: u8, move16: u16, eval_value: i16) -> EntryData {
         assert!(bound <= 0b11);
         assert!(depth < 128);
