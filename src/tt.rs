@@ -20,6 +20,19 @@ use std::cell::UnsafeCell;
 use std::mem::transmute;
 
 
+/// The value is void.
+pub const BOUND_NONE: u8 = 0;
+
+/// All-Node, the value is "Upper Bound".
+pub const BOUND_UPPER: u8 = 0b10;
+
+/// Cut-Node, the value is "Lower Bound".
+pub const BOUND_LOWER: u8 = 0b01;
+
+/// PV-Node, the value is "Exact".
+pub const BOUND_EXACT: u8 = BOUND_UPPER | BOUND_LOWER;
+
+
 /// Stores information about a particular position.
 #[derive(Copy, Clone)]
 pub struct EntryData {
@@ -38,8 +51,8 @@ impl EntryData {
     /// 
     /// * `value` -- the value assigned to the position,
     /// 
-    /// * `bound` -- the meaning of the assigned value ("Exact",
-    ///    "Upper Bound", or "Lower Bound"),
+    /// * `bound` -- the meaning of the assigned value (`BOUND_EXACT`,
+    ///    `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`),
     /// 
     /// * `depth` -- the depth of search,
     /// 
@@ -115,7 +128,7 @@ impl Default for Entry {
 
 
 impl Entry {
-    // Returns the whole entry data as `u64`.
+    // Returns the whole contained data as one `u64` value.
     //
     // This is needed for implementing the lock-less probing and
     // storing.
@@ -124,15 +137,22 @@ impl Entry {
         unsafe { transmute(self.data) }
     }
 
+    // Returns entry's generation.
     #[inline(always)]
     fn generation(&self) -> u8 {
         self.data.gen_bound & 0b11111100
     }
 
+    // Updates entry's generation.
+    // 
+    // Since the `key` is saved xored with the data, when we change
+    // the data, we have to change the stored `key` as well.
     #[inline(always)]
-    fn set_generation(&mut self, generation: u8) {
+    fn update_generation(&mut self, generation: u8) {
         assert_eq!(generation & 0b11, 0);
-        self.data.gen_bound = generation | self.data.bound()
+        let old_data_u64 = self.data_u64();
+        self.data.gen_bound = generation | self.data.bound();
+        self.key ^= old_data_u64 ^ self.data_u64();
     }
 }
 
@@ -211,18 +231,15 @@ impl TranspositionTable {
     /// Probes for data by a specific key.
     #[inline]
     pub fn probe(&self, key: u64) -> Option<EntryData> {
-        // `probe` and `store` implement a clever lock-less hashing
-        // method. Rather than to store two disjoint items, the key is
-        // stored xored with data, while data is stored additionally
-        // as usual.
         let cluster = unsafe { self.cluster_mut(key) };
         for entry in cluster.iter_mut() {
             if entry.key ^ entry.data_u64() == key {
                 // If `key` and `data` were written simultaneously by
-                // different search instances with different keys, the
-                // error will yield in a mismatch of the comparison
-                // (except the rare and inherent key collisions).
-                entry.set_generation(self.generation);  // Update the generation.!!! bug!!!!
+                // different search instances with different keys,
+                // this will yield in a mismatch of the above
+                // comparison (except for the rare and inherent key
+                // collisions).
+                entry.update_generation(self.generation);
                 return Some(entry.data);
             }
         }
@@ -236,13 +253,19 @@ impl TranspositionTable {
     /// meantime it might have been overwritten.
     #[inline]
     pub fn store(&self, key: u64, mut data: EntryData) {
-        data.gen_bound |= self.generation;  // Set the generation.
+        // `store` and `probe` jointly implement a clever lock-less
+        // hashing method. Rather than to store two disjoint items,
+        // the key is stored xored with data, while data is stored
+        // additionally as usual.
+        
+        data.gen_bound |= self.generation;  // Sets the generation.
         let mut cluster = unsafe { self.cluster_mut(key) };
         let mut replace_index = 0;
         let mut replace_score = 0xff;
         for (i, entry) in cluster.iter_mut().enumerate() {
-            // Check if this is an empty entry, or an old entry for
-            // the same key.
+            // Check if this is an empty slot, or an old entry for the
+            // same key. If this this is the case we will use this
+            // slot for the new entry.
             if entry.key == 0 || entry.key ^ entry.data_u64() == key {
                 if data.move16 == 0 {
                     data.move16 = entry.data.move16;  // Preserve any existing move.
@@ -250,8 +273,8 @@ impl TranspositionTable {
                 replace_index = i;
                 break;
             }
-            // The replaced entry will be the entry with the lowest
-            // score.
+            // If we can not find empty/old slot, the replaced entry
+            // will be the entry with the lowest score.
             let entry_score = self.calc_score(entry);
             if entry_score < replace_score {
                 replace_index = i;
@@ -267,7 +290,8 @@ impl TranspositionTable {
     // A helper method for `store`.
     //
     // Implements our replacement strategy. Should return higher
-    // values for the entries that are move likely to save CPU work.
+    // values for the entries that are move likely to save CPU work in
+    // the future.
     #[inline]
     fn calc_score(&self, entry: &Entry) -> u8 {
         (if entry.generation() == self.generation {
