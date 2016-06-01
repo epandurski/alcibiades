@@ -1,10 +1,26 @@
-//! This module implements an efficient transposition table.
+//! This module implements a database that stores results of
+//! previously performed searches.
+//!
+//! Using such a database (called "transposition table") is a way to
+//! greatly reduce the search space of a chess tree with little
+//! negative impact. Chess programs, during their brute-force search,
+//! encounter the same positions again and again, but from different
+//! sequences of moves, which is called a transposition.
+//!
+//! When the search encounters a transposition, it is beneficial to
+//! "remember" what was determined last time the position was
+//! examined, rather than redoing the entire search again. For this
+//! reason, chess programs have a transposition table, which is a
+//! large hash table storing information about positions previously
+//! searched, how deeply they were searched, and what we concluded
+//! about them.
 
 use std;
 use std::cell::UnsafeCell;
 use std::mem::transmute;
 
 
+/// Stores information about a particular position.
 #[derive(Copy, Clone)]
 pub struct EntryData {
     move16: u16,
@@ -16,6 +32,33 @@ pub struct EntryData {
 
 
 impl EntryData {
+    /// Creates a new instance.
+    ///
+    /// The following information can be stored:
+    /// 
+    /// * `value` -- the value assigned to the position,
+    /// 
+    /// * `bound` -- the meaning of the assigned value ("Exact",
+    ///    "Upper Bound", or "Lower Bound"),
+    /// 
+    /// * `depth` -- the depth of search,
+    /// 
+    /// * `move16` -- best or refutation move,
+    /// 
+    /// * `eval_value` -- the calculated static evaluation for the
+    ///    position.
+    pub fn new(value: i16, bound: u8, depth: u8, move16: u16, eval_value: i16) -> EntryData {
+        assert!(bound <= 0b11);
+        assert!(depth < 128);
+        EntryData {
+            move16: move16,
+            value: value,
+            eval_value: eval_value,
+            gen_bound: bound, // Stores the entry's generation and the bound.
+            depth: depth,
+        }
+    }
+
     #[inline(always)]
     pub fn move16(&self) -> u16 {
         self.move16
@@ -32,13 +75,13 @@ impl EntryData {
     }
 
     #[inline(always)]
-    pub fn depth(&self) -> u8 {
-        self.depth
+    pub fn bound(&self) -> u8 {
+        self.gen_bound & 0b11
     }
 
     #[inline(always)]
-    pub fn bound(&self) -> u8 {
-        self.gen_bound & 0b11
+    pub fn depth(&self) -> u8 {
+        self.depth
     }
 }
 
@@ -72,33 +115,12 @@ impl Default for Entry {
 
 
 impl Entry {
-    fn new(key: u64,
-           value: i16,
-           bound: u8,
-           depth: u8,
-           move16: u16,
-           generation: u8,
-           eval_value: i16)
-           -> Entry {
-        Entry {
-            key: key,
-            data: EntryData {
-                move16: move16,
-                value: value,
-                eval_value: eval_value,
-                gen_bound: generation | bound,
-                depth: depth, // TODO: DEPTH_NONE?
-            },
-        }
-    }
-
+    // Returns the whole entry data as `u64`.
+    //
+    // This is needed for implementing the lock-less probing and
+    // storing.
     #[inline(always)]
-    fn key(&self) -> u64 {
-        self.key
-    }
-
-    #[inline(always)]
-    fn data(&self) -> u64 {
+    fn data_u64(&self) -> u64 {
         unsafe { transmute(self.data) }
     }
 
@@ -106,23 +128,30 @@ impl Entry {
     fn generation(&self) -> u8 {
         self.data.gen_bound & 0b11111100
     }
+
+    #[inline(always)]
+    fn set_generation(&mut self, generation: u8) {
+        assert_eq!(generation & 0b11, 0);
+        self.data.gen_bound = generation | self.data.bound()
+    }
 }
 
 
-#[derive(Default, Clone)]
-struct Cluster {
-    entries: [Entry; 4],
-}
-
-
+/// A large hash-table that stores results of previously performed
+/// searches.
 pub struct TranspositionTable {
     generation: u8,
     cluster_count: usize,
-    table: UnsafeCell<Vec<Cluster>>,
+    table: UnsafeCell<Vec<[Entry; 4]>>,
 }
 
 
 impl TranspositionTable {
+    /// Creates a new transposition table.
+    ///
+    /// The newly created table has the minimum possible size. Before
+    /// using the new table for anything, `resize()` should be called
+    /// on it, specifying the desired size.
     pub fn new() -> TranspositionTable {
         TranspositionTable {
             generation: 0,
@@ -131,155 +160,141 @@ impl TranspositionTable {
         }
     }
 
+    /// Signals that a new search is about to begin.
+    ///
+    /// Internally, the transposition table maintains a generation
+    /// counter that is used to implement an efficient replacement
+    /// strategy. This method increases this counter.
     pub fn new_search(&mut self) {
         self.generation += 0b100;  // Lower 2 bits are used by bound type
+        assert_eq!(self.generation & 0b11, 0);
     }
 
+    /// Resizes the transpositon table.
+    ///
+    /// `size_mb` is the desired new size in Mbytes. All entries in
+    /// the table will be lost.
     pub fn resize(&mut self, size_mb: usize) {
         // The cluster count should be in the form "2**n", so the best
         // we can do is to ensure that the new cluster count will be
         // as close as possible but no greater than the requested one.
-        let requested_cluster_count = (size_mb * 1024 * 1024) / std::mem::size_of::<Cluster>();
+        let requested_cluster_count = (size_mb * 1024 * 1024) / std::mem::size_of::<[Entry; 4]>();
 
-        // First we make sure `requested_cluster_count` is exceeded.
+        // First, make sure `requested_cluster_count` is exceeded.
         let mut new_cluster_count = 1;
         while requested_cluster_count >= new_cluster_count {
             new_cluster_count <<= 1;
         }
 
-        // Then we make one step back, making sure that the new
+        // Then make one step back, being careful so that the new
         // cluster count is not zero.
         if new_cluster_count > 1 {
             new_cluster_count >>= 1;
         } else {
             new_cluster_count = 1;
         }
+
+        // Finally, reallocate the vector of clusters.
         if new_cluster_count != self.cluster_count {
             self.cluster_count = new_cluster_count;
             self.table = UnsafeCell::new(vec![Default::default(); new_cluster_count]);
         }
     }
 
+    /// Clears the transpositon table.
+    ///
+    /// All remaining entries in the table will be removed.
     pub fn clear(&mut self) {
         self.table = UnsafeCell::new(vec![Default::default(); self.cluster_count]);
     }
 
+    /// Probes for data by a specific key.
+    #[inline]
     pub fn probe(&self, key: u64) -> Option<EntryData> {
-        let cluster = self.cluster_mut(key);
-        for entry in cluster.entries.iter_mut() {
-            if entry.key() ^ entry.data() == key {
-                // Transposition table hit. Refresh entry's generation
-                // and return the entry.
-                entry.data.gen_bound = self.generation | entry.data.bound();
+        // `probe` and `store` implement a clever lock-less hashing
+        // method. Rather than to store two disjoint items, the key is
+        // stored xored with data, while data is stored additionally
+        // as usual.
+        let cluster = unsafe { self.cluster_mut(key) };
+        for entry in cluster.iter_mut() {
+            if entry.key ^ entry.data_u64() == key {
+                // If `key` and `data` were written simultaneously by
+                // different search instances with different keys, the
+                // error will yield in a mismatch of the comparison
+                // (except the rare and inherent key collisions).
+                entry.set_generation(self.generation);  // Update the generation.!!! bug!!!!
                 return Some(entry.data);
             }
         }
-        // Transposition table miss.
         None
     }
 
+    /// Stores data by a specific key.
+    ///
+    /// After being stored, the data might be retrieved by
+    /// `probe(key)`. This is not guaranteed though, because in the
+    /// meantime it might have been overwritten.
+    #[inline]
     pub fn store(&self, key: u64, mut data: EntryData) {
-        let mut entries = self.cluster_mut(key).entries;
+        data.gen_bound |= self.generation;  // Set the generation.
+        let mut cluster = unsafe { self.cluster_mut(key) };
         let mut replace_index = 0;
-        for i in 0..4 {
-            let e = entries[i];
-            if e.key() == 0 || e.key() ^ e.data() == key {
-                // This is either an empty entry, or we overwrite an
-                // old entry for the same key.
+        let mut replace_score = 0xff;
+        for (i, entry) in cluster.iter_mut().enumerate() {
+            // Check if this is an empty entry, or an old entry for
+            // the same key.
+            if entry.key == 0 || entry.key ^ entry.data_u64() == key {
                 if data.move16 == 0 {
-                    // Preserve any existing move.
-                    data.move16 = e.data.move16;
+                    data.move16 = entry.data.move16;  // Preserve any existing move.
                 }
                 replace_index = i;
                 break;
             }
-            // Implement replace strategy
-            // if (e.generation() == self.generation || e.data.bound() == Bound::BOUND_EXACT) -
-            //    (entries[replace_index].generation() == self.generation) -
-            //    (e.data.depth < entries[replace_index].data.depth) < 0 {
-            //     replace_index = i;
-
-            // }
+            // The replaced entry will be the entry with the lowest
+            // score.
+            let entry_score = self.calc_score(entry);
+            if entry_score < replace_score {
+                replace_index = i;
+                replace_score = entry_score;
+            }
         }
         unsafe {
-            entries.get_unchecked_mut(replace_index).key = key ^ transmute::<EntryData, u64>(data);
-            entries.get_unchecked_mut(replace_index).data = data;
+            cluster.get_unchecked_mut(replace_index).key = key ^ transmute::<EntryData, u64>(data);
+            cluster.get_unchecked_mut(replace_index).data = data;
         }
     }
 
-    #[inline(always)]
-    fn cluster_mut(&self, key: u64) -> &mut Cluster {
-        let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
-        unsafe { (&mut *self.table.get()).get_unchecked_mut(cluster_index) }
+    // A helper method for `store`.
+    //
+    // Implements our replacement strategy. Should return higher
+    // values for the entries that are move likely to save CPU work.
+    #[inline]
+    fn calc_score(&self, entry: &Entry) -> u8 {
+        (if entry.generation() == self.generation {
+            128
+        } else {
+            0
+        }) + entry.data.depth
     }
 
-
-    // void TranspositionTable::store(const Key key, Value v, Bound b, Depth d, Move m, Value statV) {
-
-    //   TTEntry *tte, *replace;
-    //   uint16_t key16 = key >> 48; // Use the high 16 bits as key inside the cluster
-
-    // tte = replace = first_entry(key);
-
-    //   for (unsigned i = 0; i < TTClusterSize; ++i, ++tte)
-    //   {
-    //       if (!tte->key16 || tte->key16 == key16) // Empty or overwrite old
-    //       {
-    //           if (!m)
-    //               m = tte->move(); // Preserve any existing ttMove
-
-    //           replace = tte;
-    //           break;
-    //       }
-
-    //       // Implement replace strategy
-    //       if (  ((    tte->genBound8 & 0xFC) == generation || tte->bound() == BOUND_EXACT)
-    //           - ((replace->genBound8 & 0xFC) == generation)
-    //           - (tte->depth8 < replace->depth8) < 0)
-    //           replace = tte;
-    //   }
-
-    //   replace->save(key16, v, b, d, m, generation, statV);
-    // }
-
-
-
-
-    // const TTEntry* TranspositionTable::probe(const Key key) const {
-
-    //   TTEntry* tte = first_entry(key);
-    //   uint16_t key16 = key >> 48;
-
-    //   for (unsigned i = 0; i < TTClusterSize; ++i, ++tte)
-    //       if (tte->key16 == key16)
-    //       {
-    //           tte->genBound8 = generation | tte->bound(); // Refresh
-    //           return tte;
-    //       }
-
-    //   return NULL;
-    // }
-}
-
-
-pub enum Bound {
-    BOUND_NONE = 0,
-    BOUND_UPPER = 1,
-    BOUND_LOWER = 2,
-    BOUND_EXACT = 3,
+    // A helper method for `probe` and `store`.
+    #[inline]
+    unsafe fn cluster_mut(&self, key: u64) -> &mut [Entry; 4] {
+        let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
+        self.table.get().as_mut().unwrap().get_unchecked_mut(cluster_index)
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{Cluster, Entry};
+    use super::Entry;
     use std;
-    use basetypes::*;
 
     #[test]
     fn test_cluster_size() {
-        assert_eq!(std::mem::size_of::<Cluster>(), 64);
+        assert_eq!(std::mem::size_of::<[Entry; 4]>(), 64);
         assert_eq!(std::mem::size_of::<Entry>(), 16);
     }
 
@@ -289,7 +304,34 @@ mod tests {
         assert_eq!(unsafe { &*tt.table.get() }.capacity(), 1);
         tt.resize(1);
         assert_eq!(unsafe { &*tt.table.get() }.capacity(),
-                   1024 * 1024 / std::mem::size_of::<Cluster>());
+                   1024 * 1024 / std::mem::size_of::<[Entry; 4]>());
         tt.clear();
+    }
+
+    #[test]
+    fn test_store_and_probe() {
+        let mut tt = TranspositionTable::new();
+        assert!(tt.probe(1).is_none());
+        let data = EntryData::new(0, 0, 100, 666, 0);
+        assert_eq!(data.depth(), 100);
+        assert_eq!(data.move16(), 666);
+        tt.store(1, data);
+        assert_eq!(tt.probe(1).unwrap().depth(), 100);
+        tt.store(1, EntryData::new(0, 0, 100, 666, 0));
+        assert_eq!(tt.probe(1).unwrap().depth(), 100);
+        assert_eq!(tt.probe(1).unwrap().move16(), 666);
+        for i in 2..100 {
+            tt.store(i, EntryData::new(i as i16, 0, i as u8, i as u16, i as i16));
+        }
+        assert_eq!(tt.probe(1).unwrap().depth(), 100);
+        assert_eq!(tt.probe(99).unwrap().depth(), 99);
+        assert_eq!(tt.probe(98).unwrap().depth(), 98);
+        assert_eq!(tt.probe(97).unwrap().depth(), 97);
+        tt.clear();
+        assert!(tt.probe(1).is_none());
+        tt.store(1, data);
+        tt.new_search();
+        tt.probe(1);
+        assert!(tt.probe(1).is_some());
     }
 }
