@@ -29,10 +29,10 @@ use position::castling_rights::*;
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
-/// There are 4 "move type"s: `0`) normal move; `1`) en-passant
-/// capture; `2`) pawn promotion; `3`) castling. "Aux data" encodes
-/// the type of the promoted piece if the move type is a pawn
-/// promotion, otherwise it encodes castling rights (see below).
+/// There are 4 "move type"s: `0`) en-passant capture; `1`) pawn
+/// promotion; `2`) castling; `3`) normal move. "Aux data" encodes the
+/// type of the promoted piece if the move type is a pawn promotion,
+/// otherwise it encodes castling rights (see below).
 ///
 /// The highest 16 bits contain the rest ot the info:
 ///
@@ -212,17 +212,17 @@ impl Move {
 /// promotion.
 pub type MoveType = usize;
 
-/// Normal move type.
-pub const MOVE_NORMAL: MoveType = 0;
-
 /// En-passant capture move type.
-pub const MOVE_ENPASSANT: MoveType = 1;
+pub const MOVE_ENPASSANT: MoveType = 0;
 
 /// Pawn promotion move type.
-pub const MOVE_PROMOTION: MoveType = 2;
+pub const MOVE_PROMOTION: MoveType = 1;
 
 /// Castling move type.
-pub const MOVE_CASTLING: MoveType = 3;
+pub const MOVE_CASTLING: MoveType = 2;
+
+/// Normal move type.
+pub const MOVE_NORMAL: MoveType = 3;
 
 /// Represents no en-passant file.
 pub const NO_ENPASSANT_FILE: Rank = 8;
