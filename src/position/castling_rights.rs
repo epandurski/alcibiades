@@ -1,5 +1,4 @@
 use basetypes::*;
-use bitsets::*;
 
 
 /// Holds information about which player is allowed to castle on which
@@ -89,7 +88,7 @@ impl CastlingRights {
         } else {
             // Castling is not allowed, therefore every piece on every
             // square on the board can be considered an obstacle.
-            UNIVERSAL_SET
+            !0
         }
     }
 
