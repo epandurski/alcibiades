@@ -481,7 +481,7 @@ impl Board {
     /// the alpha-beta pruning will eliminate the need for this
     /// verification at all.
     #[inline]
-    pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
+    pub fn generate_moves(&self, all: bool, move_stack: &mut Vec<Move>) {
         assert!(self.is_legal());
 
         let king_square = self.king_square();
@@ -750,7 +750,7 @@ impl Board {
                                   piece: PieceType,
                                   from_square: Square,
                                   legal_dests: u64,
-                                  move_stack: &mut MoveStack) {
+                                  move_stack: &mut Vec<Move>) {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
         let mut dest_set = piece_attacks_from(self.geometry, self.occupied(), piece, from_square) &
@@ -788,7 +788,7 @@ impl Board {
                                  pawns: u64,
                                  en_passant_bb: u64,
                                  legal_dests: u64,
-                                 move_stack: &mut MoveStack) {
+                                 move_stack: &mut Vec<Move>) {
 
         const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
         const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
@@ -896,7 +896,7 @@ impl Board {
     /// It figures out which castling moves are pseudo-legal and
     /// writes them to `move_stack`.
     #[inline]
-    fn write_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
+    fn write_castling_moves_to_stack(&self, move_stack: &mut Vec<Move>) {
 
         // can not castle if in check
         if self.checkers() == EMPTY_SET {
@@ -1355,7 +1355,6 @@ fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (
 mod tests {
     use super::*;
     use basetypes::*;
-    use position::chess_move::MoveStack;
 
     #[test]
     fn test_attacks_from() {
@@ -1410,7 +1409,7 @@ mod tests {
 
     #[test]
     fn test_pawn_dest_sets() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let b = Board::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w - h6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1436,99 +1435,99 @@ mod tests {
 
     #[test]
     fn test_move_generation_1() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 5);
-
+        assert_eq!(stack.len(), 5); stack.clear();
+        
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 7);
+        assert_eq!(stack.len(), 7); stack.clear();
 
         let b = Board::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 8);
+        assert_eq!(stack.len(), 8); stack.clear();
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 22);
+        assert_eq!(stack.len(), 22); stack.clear();
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - c6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 23);
+        assert_eq!(stack.len(), 23); stack.clear();
 
         let b = Board::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k b - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 25);
+        assert_eq!(stack.len(), 25); stack.clear();
 
         let b = Board::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 b - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 5);
+        assert_eq!(stack.len(), 5); stack.clear();
     }
 
     #[test]
     fn test_move_generation_2() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let b = Board::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 6);
+        assert_eq!(stack.len(), 6); stack.clear();
 
         let b = Board::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 7);
+        assert_eq!(stack.len(), 7); stack.clear();
 
         let b = Board::from_fen("8/8/8/8/5pP1/7k/8/5B1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 5);
+        assert_eq!(stack.len(), 5); stack.clear();
     }
 
     #[test]
     fn test_move_generation_3() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let b = Board::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 6);
+        assert_eq!(stack.len(), 6); stack.clear();
     }
 
     #[test]
     fn test_move_generation_4() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let b = Board::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 7);
+        assert_eq!(stack.len(), 7); stack.clear();
     }
 
     #[test]
     fn test_move_generation_5() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 5);
+        assert_eq!(stack.len(), 19 + 5); stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 6);
+        assert_eq!(stack.len(), 19 + 6); stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 7);
+        assert_eq!(stack.len(), 19 + 7); stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 5);
+        assert_eq!(stack.len(), 19 + 5); stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 6);
+        assert_eq!(stack.len(), 19 + 6); stack.clear();
 
         let b = Board::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 5);
+        assert_eq!(stack.len(), 5); stack.clear();
 
         let mut b = Board::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1543,42 +1542,42 @@ mod tests {
 
         let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 7);
+        assert_eq!(stack.len(), 19 + 7); stack.clear();
 
         let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 5);
+        assert_eq!(stack.len(), 19 + 5); stack.clear();
 
         let b = Board::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.remove_all(), 19 + 7);
+        assert_eq!(stack.len(), 19 + 7); stack.clear();
     }
 
     #[test]
     fn test_do_undo_move() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        let count = stack.count();
+        let count = stack.len();
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                let mut other_stack = MoveStack::new();
+                let mut other_stack = Vec::new();
                 b.generate_moves(true, &mut other_stack);
-                assert_eq!(count, other_stack.count());
+                assert_eq!(count, other_stack.len());
             }
         }
-        assert_eq!(stack.count(), 0);
+        assert_eq!(stack.len(), 0);
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        let count = stack.count();
+        let count = stack.len();
         while let Some(m) = stack.pop() {
             if b.do_move(m) {
                 b.undo_move(m);
-                let mut other_stack = MoveStack::new();
+                let mut other_stack = Vec::new();
                 b.generate_moves(true, &mut other_stack);
-                assert_eq!(count, other_stack.count());
+                assert_eq!(count, other_stack.len());
             }
         }
     }
@@ -1592,33 +1591,33 @@ mod tests {
 
     #[test]
     fn test_generate_only_captures() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let b = Board::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
-        assert_eq!(stack.remove_all(), 4);
+        assert_eq!(stack.len(), 4); stack.clear();
 
         let b = Board::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
-        assert_eq!(stack.remove_all(), 8);
+        assert_eq!(stack.len(), 8); stack.clear();
 
         let b = Board::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
-        assert_eq!(stack.remove_all(), 7);
+        assert_eq!(stack.len(), 7); stack.clear();
     }
 
     #[test]
     fn test_null_move() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let mut b = Board::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        let count = stack.remove_all();
+        let count = stack.len(); stack.clear();
         let m = b.null_move();
         assert_eq!(b.do_move(m), true);
         b.undo_move(m);
         b.generate_moves(true, &mut stack);
-        assert_eq!(count, stack.remove_all());
+        assert_eq!(count, stack.len()); stack.clear();
 
         let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
         let m = b.null_move();
@@ -1627,7 +1626,7 @@ mod tests {
 
     #[test]
     fn test_move_into_check_bug() {
-        let mut stack = MoveStack::new();
+        let mut stack = Vec::new();
 
         let mut b = Board::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5N2/PPPN1PP1/2K4R b - - 0 1")
                         .ok()

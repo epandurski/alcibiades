@@ -251,56 +251,6 @@ const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
 const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
 
 
-// TODO: Here does not seem to be the right place for
-// "MoveStack". Find it other owner.
-const MOVE_STACK_SIZE: usize = 32 * 256;
-
-pub struct MoveStack {
-    stack: [Move; MOVE_STACK_SIZE],
-    next_index: usize,
-}
-
-impl MoveStack {
-    pub fn new() -> MoveStack {
-        use std::mem::uninitialized;
-        unsafe {
-            MoveStack {
-                stack: uninitialized(),
-                next_index: 0,
-            }
-        }
-    }
-
-    #[inline(always)]
-    pub fn push(&mut self, m: Move) {
-        self.stack[self.next_index] = m;
-        self.next_index += 1;
-    }
-
-    #[inline(always)]
-    pub fn pop(&mut self) -> Option<Move> {
-        if self.next_index == 0 {
-            None
-        } else {
-            self.next_index -= 1;
-            Some(self.stack[self.next_index])
-        }
-    }
-
-    #[inline(always)]
-    pub fn remove_all(&mut self) -> usize {
-        let count = self.count();
-        self.next_index = 0;
-        count
-    }
-
-    #[inline(always)]
-    pub fn count(&self) -> usize {
-        self.next_index
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;

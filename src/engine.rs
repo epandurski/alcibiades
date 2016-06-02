@@ -15,7 +15,7 @@ pub struct DummyEngine {
     infinite: bool,
     ponder: bool,
     best_move: String,
-    move_stack: MoveStack,
+    move_stack: Vec<Move>,
 }
 
 
@@ -30,7 +30,7 @@ impl DummyEngine {
             infinite: false,
             ponder: false,
             best_move: "0000".to_string(),
-            move_stack: MoveStack::new(),
+            move_stack: Vec::new(),
         }
     }
 }
@@ -60,7 +60,7 @@ impl UciEngine for DummyEngine {
             b.generate_moves(true, s);
             while let Some(m) = s.pop() {
                 if played_move == m.notation() {
-                    s.remove_all();
+                    s.clear();
                     if b.do_move(m) {
                         continue 'played_move;
                     } else {

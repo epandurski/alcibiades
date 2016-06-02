@@ -147,7 +147,7 @@ impl Position {
     /// them), then it is guaranteed that the position is final, and
     /// `evaluate_final()` will return its correct value.
     #[inline]
-    pub fn generate_moves(&self, move_stack: &mut MoveStack) {}
+    pub fn generate_moves(&self, move_stack: &mut Vec<Move>) {}
 
 
     /// Returns a null move.
