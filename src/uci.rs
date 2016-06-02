@@ -1,12 +1,12 @@
 //! This module handles the "Universal Chess Interface" protocol
 //! communication.
 
-use regex::Regex;
 use std::time;
 use std::thread;
 use std::io;
 use std::io::{Write, BufWriter, BufRead, ErrorKind};
 use std::sync::mpsc::{channel, TryRecvError};
+use regex::Regex;
 
 
 /// Represents a reply from the engine to the GUI.

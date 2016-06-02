@@ -36,7 +36,7 @@ impl CastlingRights {
 
     /// Returns the contained raw value.
     #[inline]
-    pub fn get_value(&self) -> usize {
+    pub fn value(&self) -> usize {
         self.0
     }
 
@@ -172,12 +172,12 @@ mod tests {
         assert_eq!(c.can_castle(BLACK, KINGSIDE), false);
         assert_eq!(c.get_for(BLACK), 0b01);
         assert_eq!(c.get_for(WHITE), 0b10);
-        assert_eq!(c.get_value(), 0b0110);
+        assert_eq!(c.value(), 0b0110);
         let granted = c.grant(CASTLE_BLACK_KINGSIDE);
         assert_eq!(granted, CASTLE_BLACK_KINGSIDE);
         let granted = c.grant(CASTLE_BLACK_KINGSIDE);
         assert_eq!(granted, 0);
-        assert_eq!(c.get_value(), 0b1110);
+        assert_eq!(c.value(), 0b1110);
         assert_eq!(c.obstacles(WHITE, QUEENSIDE), UNIVERSAL_SET);
         assert_eq!(c.obstacles(BLACK, QUEENSIDE), 1 << B8 | 1 << C8 | 1 << D8);
     }

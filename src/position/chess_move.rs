@@ -1,5 +1,5 @@
 use basetypes::*;
-use position::castling_rights::*;
+use castling_rights::*;
 
 
 /// Represents a move on the chessboard.
@@ -304,7 +304,7 @@ impl MoveStack {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use position::castling_rights::CastlingRights;
+    use castling_rights::CastlingRights;
 
     #[test]
     fn test_move() {

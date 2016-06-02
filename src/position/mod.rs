@@ -5,7 +5,6 @@
 #![allow(unused_variables)]
 
 pub mod board_geometry;
-pub mod castling_rights;
 pub mod chess_move;
 pub mod board;
 
@@ -159,6 +158,7 @@ impl Position {
     /// check.
     #[inline]
     pub fn null_move(&self) -> Move {
+        use castling_rights::CastlingRights;
         Move::new(WHITE,
                   0,
                   MOVE_NORMAL,
@@ -167,7 +167,7 @@ impl Position {
                   0,
                   NO_PIECE,
                   NO_ENPASSANT_FILE,
-                  self::castling_rights::CastlingRights::new(),
+                  CastlingRights::new(),
                   0)
     }
 }

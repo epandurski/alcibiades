@@ -1,7 +1,7 @@
 use rand::{Rng, SeedableRng};
 use rand::isaac::Isaac64Rng;
 use basetypes::*;
-use position::castling_rights::*;
+use castling_rights::*;
 
 
 /// Returns a reference to a properly initialized `BoardGeometry`

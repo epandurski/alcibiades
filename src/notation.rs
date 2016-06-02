@@ -1,6 +1,6 @@
 use regex::Regex;
 use basetypes::*;
-use position::castling_rights::*;
+use castling_rights::*;
 
 
 pub struct ParseError;

@@ -3,10 +3,11 @@ extern crate lazy_static;
 extern crate regex;
 extern crate rand;
 
-pub mod position;
 pub mod basetypes;
+pub mod castling_rights;
 pub mod bitsets;
 pub mod notation;
+pub mod position;
 pub mod uci;
 pub mod engine;
 pub mod tt;
