@@ -42,9 +42,9 @@ use castling_rights::*;
 ///   31                                                          16
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-///  |  Move score   |  Captured |  Played   | Cast- |   En-passant  |
-///  |    4 bits     |  piece    |  piece    | ling  |      file     |
-///  |   |   |   |   |  3 bits   |  3 bits   | 2 bits|     4 bits    |
+///  | Move  |  Captured | Reser-|  Played   | Cast- |   En-passant  |
+///  | score |  piece    |  ved  |  piece    | ling  |      file     |
+///  | 2 bits|  3 bits   | 2 bits|  3 bits   | 2 bits|     4 bits    |
 ///  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
@@ -94,7 +94,7 @@ impl Move {
                promoted_piece_code: usize)
                -> Move {
         assert!(us <= 1);
-        assert!(score <= 0b1111);
+        assert!(score <= 0b11);
         assert!(move_type <= 0x11);
         assert!(piece < NO_PIECE);
         assert!(orig_square <= 63);
@@ -118,7 +118,7 @@ impl Move {
     /// Sets the "move score" field to a particular value.
     #[inline]
     pub fn set_score(&mut self, score: usize) {
-        assert!(score <= 0b1111);
+        assert!(score <= 0b11);
         self.0 &= !M_MASK_SCORE;
         self.0 |= (score << M_SHIFT_SCORE) as u32;
     }
@@ -126,14 +126,14 @@ impl Move {
     /// Sets a particular bit in the "move score" field to `1`.
     #[inline]
     pub fn set_score_bit(&mut self, b: usize) {
-        assert!(b <= 3);
+        assert!(b <= 1);
         self.0 |= 1 << b << M_SHIFT_SCORE;
     }
 
     /// Sets a particular bit in the "move score" field to `0`.
     #[inline]
     pub fn clear_score_bit(&mut self, b: usize) {
-        assert!(b <= 3);
+        assert!(b <= 1);
         self.0 &= !(1 << b << M_SHIFT_SCORE);
     }
 
@@ -220,6 +220,12 @@ impl Move {
             _ => KNIGHT,
         }
     }
+
+    #[allow(dead_code)]
+    #[inline]
+    fn reserved(&self) -> usize {
+        ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
+    }
 }
 
 
@@ -241,8 +247,9 @@ pub const MOVE_NORMAL: MoveType = 3;
 
 
 // Field shifts
-const M_SHIFT_SCORE: u32 = 28;
-const M_SHIFT_CAPTURED_PIECE: u32 = 25;
+const M_SHIFT_SCORE: u32 = 30;
+const M_SHIFT_CAPTURED_PIECE: u32 = 27;
+const M_SHIFT_RESERVED: u32 = 25;
 const M_SHIFT_PIECE: u32 = 22;
 const M_SHIFT_CASTLING_DATA: u32 = 20;
 const M_SHIFT_ENPASSANT_FILE: u32 = 16;
@@ -252,8 +259,9 @@ const M_SHIFT_DEST_SQUARE: u32 = 2;
 const M_SHIFT_AUX_DATA: u32 = 0;
 
 // Field masks
-const M_MASK_SCORE: u32 = 0b1111 << M_SHIFT_SCORE;
+const M_MASK_SCORE: u32 = 0b11 << M_SHIFT_SCORE;
 const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
+const M_MASK_RESERVED: u32 = 0b11 << M_SHIFT_RESERVED;
 const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
 const M_MASK_CASTLING_DATA: u32 = 0b11 << M_SHIFT_CASTLING_DATA;
 const M_MASK_ENPASSANT_FILE: u32 = 0b1111 << M_SHIFT_ENPASSANT_FILE;
@@ -272,12 +280,12 @@ mod tests {
     fn test_move() {
         use basetypes::*;
         const NO_ENPASSANT_FILE: File = 8;
-        
+
         let mut cr = CastlingRights::new();
         cr.set_for(WHITE, 0b10);
         cr.set_for(BLACK, 0b11);
         let mut m = Move::new(WHITE,
-                              12,
+                              2,
                               MOVE_NORMAL,
                               PAWN,
                               E2,
@@ -287,7 +295,7 @@ mod tests {
                               cr,
                               0);
         let n1 = Move::new(WHITE,
-                           12,
+                           2,
                            MOVE_NORMAL,
                            PAWN,
                            F3,
@@ -297,7 +305,7 @@ mod tests {
                            CastlingRights::new(),
                            0);
         let n2 = Move::new(WHITE,
-                           12,
+                           2,
                            MOVE_NORMAL,
                            KING,
                            F3,
@@ -318,7 +326,7 @@ mod tests {
                            1);
         assert!(n1 > m);
         assert!(n2 < m);
-        assert_eq!(m.score(), 12);
+        assert_eq!(m.score(), 2);
         assert_eq!(m.piece(), PAWN);
         assert_eq!(m.captured_piece(), NO_PIECE);
         assert_eq!(m.orig_square(), E2);
@@ -328,15 +336,16 @@ mod tests {
         assert_eq!(m.castling_data(), 0b11);
         let m2 = m;
         assert_eq!(m, m2);
-        m.set_score(13);
-        assert_eq!(m.score(), 13);
+        m.set_score(3);
+        assert_eq!(m.score(), 3);
         assert!(m > m2);
         m.clear_score_bit(0);
         assert_eq!(m, m2);
         m.set_score_bit(0);
-        assert_eq!(m.score(), 13);
+        assert_eq!(m.score(), 3);
         m.set_score(0);
         assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
+        assert_eq!(n1.reserved(), 0);
     }
 }
