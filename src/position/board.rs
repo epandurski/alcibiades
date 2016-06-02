@@ -1224,6 +1224,10 @@ impl Board {
 }
 
 
+// No passing pawn file.
+const NO_ENPASSANT_FILE: File = 8;
+
+
 // Pawn move types
 const PAWN_PUSH: usize = 0;
 const PAWN_DOUBLE_PUSH: usize = 1;

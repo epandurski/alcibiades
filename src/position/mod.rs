@@ -166,7 +166,7 @@ impl Position {
                   0,
                   0,
                   NO_PIECE,
-                  NO_ENPASSANT_FILE,
+                  8, // no en-passant file
                   CastlingRights::new(),
                   0)
     }

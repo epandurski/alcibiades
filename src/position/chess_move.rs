@@ -49,7 +49,7 @@ use castling_rights::*;
 ///
 /// "En-passant file" tells on what vertical line on the board there
 /// was a passing pawn before the move was played. If there was no
-/// passing pawn, "en-passant file" should be `NO_ENPASSANT_FILE`.
+/// passing pawn, "en-passant file" should be `8`.
 ///
 /// Castling rights are a bit complex. The castling rights for the side
 /// that makes the move, before the move was made, are stored in the
@@ -75,8 +75,9 @@ impl Move {
     /// `us` is the side that makes the move. `castling` are the
     /// castling rights before the move was played. `en_passant_file`
     /// is the file on which there were a passing pawn before the move
-    /// was played. `promoted_piece_code` should be a number between
-    /// `0` and `3` and is used only when the `move_type` is a pawn
+    /// was played (or `8` if there was no passing
+    /// pawn). `promoted_piece_code` should be a number between `0`
+    /// and `3` and is used only when the `move_type` is a pawn
     /// promotion, otherwise it is ignored.
     #[inline]
     pub fn new(us: Color,
@@ -165,7 +166,7 @@ impl Move {
     }
 
     /// Returns the file on which there were a passing pawn before the
-    /// move was played.
+    /// move was played (or `8` if there was no passing pawn).
     #[inline]
     pub fn en_passant_file(&self) -> File {
         ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as File
@@ -236,9 +237,6 @@ pub const MOVE_CASTLING: MoveType = 2;
 /// Normal move type.
 pub const MOVE_NORMAL: MoveType = 3;
 
-/// Represents no en-passant file.
-pub const NO_ENPASSANT_FILE: Rank = 8;
-
 
 // Field shifts
 const M_SHIFT_SCORE: u32 = 28;
@@ -271,7 +269,8 @@ mod tests {
     #[test]
     fn test_move() {
         use basetypes::*;
-
+        const NO_ENPASSANT_FILE: File = 8;
+        
         let mut cr = CastlingRights::new();
         cr.set_for(WHITE, 0b10);
         cr.set_for(BLACK, 0b11);
