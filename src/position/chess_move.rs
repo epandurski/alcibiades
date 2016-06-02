@@ -73,9 +73,10 @@ impl Move {
     /// Creates a new instance of `Move`.
     ///
     /// `us` is the side that makes the move. `castling` are the
-    /// castling rights before the move was
-    /// played. `promoted_piece_code` should be a number between `0`
-    /// and `3` and is used only when the `move_type` is a pawn
+    /// castling rights before the move was played. `en_passant_file`
+    /// is the file on which there were a passing pawn before the move
+    /// was played. `promoted_piece_code` should be a number between
+    /// `0` and `3` and is used only when the `move_type` is a pawn
     /// promotion, otherwise it is ignored.
     #[inline]
     pub fn new(us: Color,
@@ -163,22 +164,37 @@ impl Move {
         ((!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE) as PieceType
     }
 
+    /// Returns the file on which there were a passing pawn before the
+    /// move was played.
     #[inline]
     pub fn en_passant_file(&self) -> File {
         ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as File
     }
 
+    /// Returns a 2-bit value representing the castling rights for the
+    /// side that does not make the move, as they were before the move
+    /// was played.
     #[inline(always)]
     pub fn castling_data(&self) -> usize {
         ((self.0 & M_MASK_CASTLING_DATA) >> M_SHIFT_CASTLING_DATA) as usize
     }
 
+    /// Returns 2-bit value representing auxiliary data.
+    ///
+    /// When the move type is pawn promotion, "aux data" holds the
+    /// promoted piece type encoded with a value from 0 to 3. For all
+    /// other move types "aux data" holds the castling rights for the
+    /// side that makes the move, as they were before the move was
+    /// played.
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
 
     /// Returns the algebraic notation of the move.
+    ///
+    /// Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
+    /// `e7e8q` (for promotion).
     pub fn notation(&self) -> String {
         format!("{}{}{}",
                 notation(self.orig_square()),
@@ -191,10 +207,6 @@ impl Move {
 
     /// Decodes the promoted piece type from the raw value of "aux
     /// data".
-    ///
-    /// When the "move type" is pawn promotion, "aux data" holds the
-    /// promoted piece type encoded with a number from 0 to 3. This
-    /// function decodes this number to a piece type.
     #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         assert!(pp_code <= 3);
@@ -208,8 +220,8 @@ impl Move {
 }
 
 
-/// Can be normal move, castling, en-passant capture, or pawn
-/// promotion.
+/// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
+/// `MOVE_NORMAL`.
 pub type MoveType = usize;
 
 /// En-passant capture move type.
