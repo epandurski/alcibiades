@@ -1,3 +1,5 @@
+//! Defines what information a chess move should contain.
+
 use basetypes::*;
 use castling_rights::*;
 

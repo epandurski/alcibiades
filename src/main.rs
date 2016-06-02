@@ -5,6 +5,7 @@ extern crate rand;
 
 pub mod basetypes;
 pub mod castling_rights;
+pub mod chess_move;
 pub mod bitsets;
 pub mod notation;
 pub mod position;

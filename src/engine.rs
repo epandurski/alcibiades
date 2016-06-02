@@ -1,6 +1,6 @@
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::board::Board;
-use position::chess_move::*;
+use chess_move::*;
 use rand;
 use rand::distributions::{Sample, Range};
 

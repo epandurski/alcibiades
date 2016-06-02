@@ -5,12 +5,11 @@
 #![allow(unused_variables)]
 
 pub mod board_geometry;
-pub mod chess_move;
 pub mod board;
 
 // use notation;
 use basetypes::*;
-use position::chess_move::*;
+use chess_move::*;
 use self::board::{Board, IllegalBoard};
 
 

@@ -2,7 +2,7 @@ use std::cell::Cell;
 use basetypes::*;
 use castling_rights::*;
 use bitsets::*;
-use position::chess_move::*;
+use chess_move::*;
 use position::board_geometry::*;
 use notation;
 
