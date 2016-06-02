@@ -1,3 +1,5 @@
+//! Implements basic operations with bit-sets.
+//!
 //! `u64` bit-sets called *bitboards* (BB) are used to represent a set
 //! of squares on the chess board. This module defines useful
 //! functions for manipulating bit-sets. It also defines frequently

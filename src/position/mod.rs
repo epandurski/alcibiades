@@ -1,5 +1,5 @@
-//! This module implements the rule of chess, as well as static
-//! position evaluation.
+//! Implements the rules of chess and static position evaluation
+//! logic.
 
 #![allow(dead_code)]
 #![allow(unused_variables)]

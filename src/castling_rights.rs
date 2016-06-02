@@ -1,12 +1,14 @@
+//! Implements castling rights logic.
+
 use basetypes::*;
 
 
 /// Holds information about which player is allowed to castle on which
 /// side.
 ///
-/// `CastlingRights` is a `usize` number. The lowest 4 bits of the
-/// value contain the whole needed information. It is laid out the
-/// following way:
+/// The castling rights are held in a `usize` value. The lowest 4 bits
+/// of the value contain the whole needed information. It is laid out
+/// in the following way:
 ///
 /// ```text
 ///  usize                                             3           0

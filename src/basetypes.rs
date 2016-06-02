@@ -1,6 +1,7 @@
-//! This module defines the most basic types and constants like the
-//! pieces, colors, squares, files, and ranks. It also defines few
-//! simple functions.
+//! Defines the most basic types and constants like the pieces,
+//! colors, squares, files, and ranks.
+//!
+//! This module also defines few simple functions.
 
 
 /// `WHITE` or `BLACK`.

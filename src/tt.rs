@@ -1,5 +1,5 @@
-//! This module implements a database that stores results of
-//! previously performed searches.
+//! Implements a database that stores results of previously performed
+//! searches.
 //!
 //! Using such a database (called "transposition table") is a way to
 //! greatly reduce the search space of a chess tree with little
