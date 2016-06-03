@@ -122,6 +122,7 @@ impl Move {
         } else {
             0
         };
+        
         let aux_data = match move_type {
             MOVE_PROMOTION => promoted_piece_code,
             _ => castling.get_for(us),
@@ -212,6 +213,17 @@ impl Move {
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
+    }
+
+    /// Returns the least significant 16 bits of the raw move value.
+    ///
+    /// The returned value contains the whole information about the
+    /// played move itself. The only missing information is the move
+    /// ordering information and the information stored so as to be
+    /// able undo the move.
+    #[inline(always)]
+    pub fn move16(&self) -> u16 {
+        self.0 as u16
     }
 
     /// Returns the algebraic notation of the move.
@@ -367,5 +379,6 @@ mod tests {
         assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
         assert_eq!(n1.reserved(), 0);
+        assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
     }
 }
