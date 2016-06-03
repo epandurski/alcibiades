@@ -65,7 +65,7 @@ use castling_rights::*;
 /// MVV-LVA (Most valuable victim -- least valuable aggressor)
 /// ordering of the moves is preserved, even when the "Move score"
 /// field stays the same. The "Reserved" field is used to make the
-/// ordering for non-capturing moves more predictable.
+/// ordering of non-capturing moves more predictable.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
