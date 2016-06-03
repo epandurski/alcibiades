@@ -146,6 +146,9 @@ impl Move {
     }
 
     /// Sets a particular bit in the "move score" field to `1`.
+    ///
+    /// Bits are numbered stating from `0` for the least significant
+    /// bit, and going upwards.
     #[inline]
     pub fn set_score_bit(&mut self, b: usize) {
         assert!(b <= 1);
@@ -153,6 +156,9 @@ impl Move {
     }
 
     /// Sets a particular bit in the "move score" field to `0`.
+    ///
+    /// Bits are numbered stating from `0` for the least significant
+    /// bit, and going upwards.
     #[inline]
     pub fn clear_score_bit(&mut self, b: usize) {
         assert!(b <= 1);
@@ -242,7 +248,7 @@ impl Move {
     }
 
     /// Decodes the promoted piece type from the raw value returned by
-    /// `aux_data()`.
+    /// `m.aux_data()`.
     #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         assert!(pp_code <= 3);
