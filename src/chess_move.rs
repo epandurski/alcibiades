@@ -105,7 +105,7 @@ impl Move {
         
         // We use the reserved field (2 bits) to properly order
         // "quiet" movies. Moves which destination square is more
-        // advanced into enemy's territory is tried first.
+        // advanced into enemy's territory are tried first.
         let reserved = if captured_piece == NO_PIECE {
             let rank = rank(dest_square);
             let advance = if us == WHITE {
