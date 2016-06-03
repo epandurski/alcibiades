@@ -241,8 +241,8 @@ impl Move {
                 })
     }
 
-    /// Decodes the promoted piece type from the raw value of "aux
-    /// data".
+    /// Decodes the promoted piece type from the raw value returned by
+    /// `aux_data()`.
     #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         assert!(pp_code <= 3);
