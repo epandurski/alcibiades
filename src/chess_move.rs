@@ -62,9 +62,10 @@ use castling_rights::*;
 /// corner is captured.)
 ///
 /// When "Captured piece" is stored, its bits are inverted, so that
-/// MVV-LVA (Most valuable victim -- least valuable aggressor) ordering
-/// of the moves is preserved, even when the "Move score" field stays
-/// the same.
+/// MVV-LVA (Most valuable victim -- least valuable aggressor)
+/// ordering of the moves is preserved, even when the "Move score"
+/// field stays the same. The "Reserved" field is used to make the
+/// ordering for non-capturing moves more predictable.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
