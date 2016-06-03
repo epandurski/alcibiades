@@ -102,12 +102,32 @@ impl Move {
         assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         assert!(en_passant_file <= 0b1000);
         assert!(promoted_piece_code <= 0b11);
+        
+        // We use the reserved field (2 bits) to properly order
+        // "quiet" movies. Moves which destination square is more
+        // advanced into enemy's territory is tried first.
+        let reserved = if captured_piece == NO_PIECE {
+            let rank = rank(dest_square);
+            let advance = if us == WHITE {
+                rank
+            } else {
+                7 - rank
+            };
+            match advance {
+                0 => 0,
+                x if x < 3 => 1,
+                x if x < 5 => 2,
+                _ => 3,
+            }
+        } else {
+            0
+        };
         let aux_data = match move_type {
             MOVE_PROMOTION => promoted_piece_code,
             _ => castling.get_for(us),
         };
         Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-              piece << M_SHIFT_PIECE |
+              reserved << M_SHIFT_RESERVED | piece << M_SHIFT_PIECE |
               castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
               en_passant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
