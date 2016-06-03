@@ -137,7 +137,7 @@ impl Move {
               aux_data << M_SHIFT_AUX_DATA) as u32)
     }
 
-    /// Sets the "move score" field to a particular value.
+    /// Assigns a new score for the move.
     #[inline]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= 0b11);
@@ -165,6 +165,10 @@ impl Move {
         self.0 &= !(1 << b << M_SHIFT_SCORE);
     }
 
+    /// Returns the assigned move score.
+    ///
+    /// Moves with higher score should be tried first during the
+    /// search. Ideally the best move should have the highest score.
     #[inline]
     pub fn score(&self) -> usize {
         ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
