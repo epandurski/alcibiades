@@ -153,7 +153,7 @@ pub struct DummyEngineFactory {
 
 impl DummyEngineFactory {
     pub fn new() -> DummyEngineFactory {
-        DummyEngineFactory { name: format!("Socrates {}", VERSION) }
+        DummyEngineFactory { name: format!("Alcibiades {}", VERSION) }
     }
 }
 
