@@ -1,4 +1,4 @@
-//! Defines what information a chess move should contain.
+//! Defines the information that a chess move contains.
 
 use basetypes::*;
 use castling_rights::*;
@@ -268,6 +268,20 @@ impl Move {
     #[inline]
     fn reserved(&self) -> usize {
         ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
+    }
+}
+
+
+/// Consumer of moves.
+pub trait MoveSink {
+    fn push_move(&mut self, m: Move);
+}
+
+
+impl MoveSink for Vec<Move> {
+    #[inline]
+    fn push_move(&mut self, m: Move) {
+        self.push(m);
     }
 }
 

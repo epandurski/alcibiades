@@ -467,7 +467,7 @@ impl Board {
     }
 
 
-    /// Generates pseudo-legal moves and write them to `move_stack`.
+    /// Generates pseudo-legal moves and pushes them to `move_sink`.
     ///
     /// When `all` is `true`, all pseudo-legal moves will be
     /// considered. When `all` is `false`, only captures, pawn
@@ -481,7 +481,7 @@ impl Board {
     /// the alpha-beta pruning will eliminate the need for this
     /// verification at all.
     #[inline]
-    pub fn generate_moves(&self, all: bool, move_stack: &mut Vec<Move>) {
+    pub fn generate_moves(&self, all: bool, move_sink: &mut MoveSink) {
         assert!(self.is_legal());
 
         let king_square = self.king_square();
@@ -551,10 +551,10 @@ impl Board {
                             0 => legal_dests,
                             _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
                         };
-                        self.write_piece_moves_to_stack(piece,
-                                                        from_square,
-                                                        piece_legal_dests,
-                                                        move_stack);
+                        self.push_piece_moves_to_sink(piece,
+                                                      from_square,
+                                                      piece_legal_dests,
+                                                      move_sink);
                     }
                 }
             }
@@ -584,10 +584,10 @@ impl Board {
                 let mut pinned_pawns = all_pawns & pinned;
                 let free_pawns = all_pawns ^ pinned_pawns;
                 if free_pawns != EMPTY_SET {
-                    self.write_pawn_moves_to_stack(free_pawns,
-                                                   en_passant_bb,
-                                                   pawn_legal_dests,
-                                                   move_stack);
+                    self.push_pawn_moves_to_sink(free_pawns,
+                                                 en_passant_bb,
+                                                 pawn_legal_dests,
+                                                 move_sink);
                 }
 
                 // Find pinned pawn moves pawn by pawn.
@@ -595,10 +595,10 @@ impl Board {
                     let pawn_bb = ls1b(pinned_pawns);
                     pinned_pawns ^= pawn_bb;
                     let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
-                    self.write_pawn_moves_to_stack(pawn_bb,
-                                                   en_passant_bb,
-                                                   pin_line & pawn_legal_dests,
-                                                   move_stack);
+                    self.push_pawn_moves_to_sink(pawn_bb,
+                                                 en_passant_bb,
+                                                 pin_line & pawn_legal_dests,
+                                                 move_sink);
                 }
             }
         }
@@ -608,7 +608,7 @@ impl Board {
         // is executed even when the king is in double check.
         {
             let king_legal_dests = if generate_all_moves {
-                self.write_castling_moves_to_stack(move_stack);
+                self.push_castling_moves_to_sink(move_sink);
                 !occupied_by_us
             } else {
                 // Reduce the set of legal destinations when searching
@@ -617,7 +617,7 @@ impl Board {
                 occupied_by_them
             };
 
-            self.write_piece_moves_to_stack(KING, king_square, king_legal_dests, move_stack);
+            self.push_piece_moves_to_sink(KING, king_square, king_legal_dests, move_sink);
         }
     }
 
@@ -743,14 +743,14 @@ impl Board {
     //
     // It finds all squares attacked by `piece` from square
     // `from_square`, and for each square that is within the
-    // `legal_dests` set writes a new move to `move_stack`. `piece`
-    // can not be a pawn.
+    // `legal_dests` set pushes a new move to `move_sink`. `piece` can
+    // not be a pawn.
     #[inline]
-    fn write_piece_moves_to_stack(&self,
-                                  piece: PieceType,
-                                  from_square: Square,
-                                  legal_dests: u64,
-                                  move_stack: &mut Vec<Move>) {
+    fn push_piece_moves_to_sink(&self,
+                                piece: PieceType,
+                                from_square: Square,
+                                legal_dests: u64,
+                                move_sink: &mut MoveSink) {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
         let mut dest_set = piece_attacks_from(self.geometry, self.occupied(), piece, from_square) &
@@ -760,16 +760,16 @@ impl Board {
             dest_set ^= dest_bb;
             let dest_square = bitscan_1bit(dest_bb);
             let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), dest_bb);
-            move_stack.push(Move::new(self.to_move,
-                                      0,
-                                      MOVE_NORMAL,
-                                      piece,
-                                      from_square,
-                                      dest_square,
-                                      captured_piece,
-                                      self.en_passant_file,
-                                      self.castling,
-                                      0));
+            move_sink.push_move(Move::new(self.to_move,
+                                          0,
+                                          MOVE_NORMAL,
+                                          piece,
+                                          from_square,
+                                          dest_square,
+                                          captured_piece,
+                                          self.en_passant_file,
+                                          self.castling,
+                                          0));
         }
     }
 
@@ -778,17 +778,17 @@ impl Board {
     //
     // It finds all all possible moves by the set of pawns given by
     // `pawns`, making sure all pawn move destinations are within the
-    // `legal_dests` set. Then it writes the resulting moves to
-    // `move_stack`. `en_passant_bb` represents the en-passant passing
+    // `legal_dests` set. Then it pushes the resulting moves to
+    // `move_sink`. `en_passant_bb` represents the en-passant passing
     // square, if there is one. This function also recognizes and
     // discards the very rare case of pseudo-legal en-passant capture
     // that leaves discovered check on the 4/5-th rank.
     #[inline]
-    fn write_pawn_moves_to_stack(&self,
-                                 pawns: u64,
-                                 en_passant_bb: u64,
-                                 legal_dests: u64,
-                                 move_stack: &mut Vec<Move>) {
+    fn push_pawn_moves_to_sink(&self,
+                               pawns: u64,
+                               en_passant_bb: u64,
+                               legal_dests: u64,
+                               move_sink: &mut MoveSink) {
 
         const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
         const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
@@ -839,51 +839,52 @@ impl Board {
                     // en-passant capture
                     x if x == en_passant_bb => {
                         if self.en_passant_special_check_ok(orig_square, dest_square) {
-                            move_stack.push(Move::new(self.to_move,
-                                                      0,
-                                                      MOVE_ENPASSANT,
-                                                      PAWN,
-                                                      orig_square,
-                                                      dest_square,
-                                                      PAWN,
-                                                      self.en_passant_file,
-                                                      self.castling,
-                                                      0));
+                            move_sink.push_move(Move::new(self.to_move,
+                                                          0,
+                                                          MOVE_ENPASSANT,
+                                                          PAWN,
+                                                          orig_square,
+                                                          dest_square,
+                                                          PAWN,
+                                                          self.en_passant_file,
+                                                          self.castling,
+                                                          0));
                         }
                     }
 
                     // pawn promotion
                     x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
-                            move_stack.push(Move::new(self.to_move,
-                                                      if Move::piece_from_aux_data(p) == QUEEN {
-                                                          1
-                                                      } else {
-                                                          0
-                                                      },
-                                                      MOVE_PROMOTION,
+                            move_sink.push_move(Move::new(self.to_move,
+                                                          if Move::piece_from_aux_data(p) ==
+                                                             QUEEN {
+                                                              1
+                                                          } else {
+                                                              0
+                                                          },
+                                                          MOVE_PROMOTION,
+                                                          PAWN,
+                                                          orig_square,
+                                                          dest_square,
+                                                          captured_piece,
+                                                          self.en_passant_file,
+                                                          self.castling,
+                                                          p));
+                        }
+                    }
+
+                    // normal pawn move (push or plain capture)
+                    _ => {
+                        move_sink.push_move(Move::new(self.to_move,
+                                                      0,
+                                                      MOVE_NORMAL,
                                                       PAWN,
                                                       orig_square,
                                                       dest_square,
                                                       captured_piece,
                                                       self.en_passant_file,
                                                       self.castling,
-                                                      p));
-                        }
-                    }
-
-                    // normal pawn move (push or plain capture)
-                    _ => {
-                        move_stack.push(Move::new(self.to_move,
-                                                  0,
-                                                  MOVE_NORMAL,
-                                                  PAWN,
-                                                  orig_square,
-                                                  dest_square,
-                                                  captured_piece,
-                                                  self.en_passant_file,
-                                                  self.castling,
-                                                  0));
+                                                      0));
                     }
                 }
             }
@@ -894,9 +895,9 @@ impl Board {
     /// A helper method for `generate_moves`.
     ///
     /// It figures out which castling moves are pseudo-legal and
-    /// writes them to `move_stack`.
+    /// pushes them to `move_sink`.
     #[inline]
-    fn write_castling_moves_to_stack(&self, move_stack: &mut Vec<Move>) {
+    fn push_castling_moves_to_sink(&self, move_sink: &mut MoveSink) {
 
         // can not castle if in check
         if self.checkers() == EMPTY_SET {
@@ -911,19 +912,19 @@ impl Board {
                     // passing or final squares are attacked, but
                     // we do not care about that, because this
                     // will be verified in "do_move()".
-                    move_stack.push(Move::new(self.to_move,
-                                              0,
-                                              MOVE_CASTLING,
-                                              KING,
-                                              self.king_square(),
-                                              unsafe {
-                                                  *[[C1, C8], [G1, G8]][side]
-                                                       .get_unchecked(self.to_move)
-                                              },
-                                              NO_PIECE,
-                                              self.en_passant_file,
-                                              self.castling,
-                                              0));
+                    move_sink.push_move(Move::new(self.to_move,
+                                                  0,
+                                                  MOVE_CASTLING,
+                                                  KING,
+                                                  self.king_square(),
+                                                  unsafe {
+                                                      *[[C1, C8], [G1, G8]][side]
+                                                           .get_unchecked(self.to_move)
+                                                  },
+                                                  NO_PIECE,
+                                                  self.en_passant_file,
+                                                  self.castling,
+                                                  0));
                 }
             }
         }
@@ -1046,7 +1047,7 @@ impl Board {
     }
 
 
-    /// A helper method for `write_pawn_moves_to_stack`.
+    /// A helper method for `push_pawn_moves_to_sink`.
     ///
     /// It tests for the special case when an en-passant capture
     /// discovers check on 4/5-th rank. This is the very rare occasion
