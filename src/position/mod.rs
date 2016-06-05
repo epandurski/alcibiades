@@ -92,7 +92,14 @@ impl Position {
     /// pending tactical threats, this function will return a grossly
     /// incorrect evaluation. Therefore, if should be relied upon only
     /// for reasonably "quiet" positions.
-    pub fn evaluate_static(&self) -> Value {
+    /// 
+    /// `lower_bound` and `upper_bound` together give the interval
+    /// within which an as precise as possible evaluation is
+    /// required. If during the calculation it is determined that the
+    /// evaluation is outside this interval, this method may return
+    /// any value outside of the interval (including the bounds), but
+    /// always staying on the correct side of the interval.
+    pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         0
     }
 
@@ -102,9 +109,16 @@ impl Position {
     /// The purpose of the "quiescence search" is to only evaluate
     /// "quiet" positions (positions where there are no winning
     /// tactical moves to be made).
+    /// 
+    /// `lower_bound` and `upper_bound` together give the interval
+    /// within which an as precise as possible evaluation is
+    /// required. If during the calculation it is determined that the
+    /// evaluation is outside this interval, this method may return
+    /// any value outside of the interval (including the bounds), but
+    /// always staying on the correct side of the interval.
     ///
     /// TODO: Add more details for the algorithm used.
-    pub fn evaluate(&self) -> Value {
+    pub fn evaluate(&self, lower_bound: Value, upper_bound: Value) -> Value {
         0
     }
 
