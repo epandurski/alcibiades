@@ -17,6 +17,7 @@ use self::board::{Board, IllegalBoard};
 
 const MOVE_STACK_CAPACITY: usize = 4096;
 
+const PIECE_VALUES: [Value; 6] = [10000, 975, 500, 325, 325, 100];
 
 pub type Value = i16;
 
@@ -238,8 +239,9 @@ impl Position {
         let length_at_start = move_stack.len();
         self.board.borrow().generate_moves(false, move_stack);
 
-        // Try all generated moves one by one. The moves with higher
-        // scores are tried before the moves with lower scores.
+        // Try all generated moves one by one. Moves with higher
+        // scores are tried before moves with lower scores.
+        let pruning_threshold = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
         let mut i = length_at_start;
         while i < move_stack.len() {
             unsafe {
@@ -256,10 +258,23 @@ impl Position {
                     j += 1;
                 }
                 i += 1;
-                
+
+                // Check if the material gain from this move is big
+                // enough to warrant trying the move.
+                let material_gain = PIECE_VALUES[next_move.captured_piece()] +
+                                    if next_move.move_type() == MOVE_PROMOTION {
+                    PIECE_VALUES[Move::piece_from_aux_data(next_move.aux_data())] -
+                    PIECE_VALUES[PAWN]
+                } else {
+                    0
+                };
+                if material_gain < pruning_threshold {
+                    continue;
+                }
+
                 // Recursively call `qsearch` for the next move.
                 if !self.board.borrow_mut().do_move(next_move) {
-                    continue;
+                    continue;  // illegal move
                 }
                 let value = -self.qsearch(-upper_bound, -lower_bound, move_stack, eval_func);
                 self.board.borrow_mut().undo_move(next_move);
@@ -276,7 +291,7 @@ impl Position {
             }
         }
 
-        // Restore the move stack to its original size and return.
+        // Restore the move stack to its original length and return.
         move_stack.truncate(length_at_start);
         lower_bound
     }
@@ -286,13 +301,13 @@ impl Position {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::PIECE_VALUES;
 
     // This is a very simple evaluation function used for the testing
     // of `qsearch`.
     fn simple_eval(p: &Position, lower_bound: Value, upper_bound: Value) -> Value {
         use basetypes::*;
         use bitsets::*;
-        const VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
         let board = p.board.borrow();
         let piece_type = board.piece_type();
         let color = board.color();
@@ -300,7 +315,7 @@ mod tests {
         let them = 1 ^ us;
         let mut result = 0;
         for piece in QUEEN..NO_PIECE {
-            result += VALUE[piece] *
+            result += PIECE_VALUES[piece] *
                       (pop_count(piece_type[piece] & color[us]) as i16 -
                        pop_count(piece_type[piece] & color[them]) as i16);
         }
@@ -385,7 +400,7 @@ mod tests {
 
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
         assert_eq!(p.evaluate(-1000, 1000), 0);
-        
+
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
         assert_eq!(p.evaluate(-1000, 1000), -100);
     }
