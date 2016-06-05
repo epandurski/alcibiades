@@ -108,7 +108,6 @@ impl Position {
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         // TODO: Implement a real evaluation.
 
-        const VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
         let board = self.board.borrow();
         let piece_type = board.piece_type();
         let color = board.color();
@@ -116,7 +115,7 @@ impl Position {
         let them = 1 ^ us;
         let mut result = 0;
         for piece in QUEEN..NO_PIECE {
-            result += VALUE[piece] *
+            result += PIECE_VALUES[piece] *
                       (pop_count(piece_type[piece] & color[us]) as i16 -
                        pop_count(piece_type[piece] & color[them]) as i16);
         }
