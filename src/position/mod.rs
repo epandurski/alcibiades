@@ -9,6 +9,7 @@ pub mod board;
 
 // use notation;
 use basetypes::*;
+use bitsets::*;
 use chess_move::*;
 use self::board::{Board, IllegalBoard};
 
@@ -100,7 +101,20 @@ impl Position {
     /// any value outside of the interval (including the bounds), but
     /// always staying on the correct side of the interval.
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
-        0
+        // TODO: Implement a real evaluation.
+
+        const VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
+        let piece_type = self.board.piece_type();
+        let color = self.board.color();
+        let us = self.board.to_move();
+        let them = 1 ^ us;
+        let mut result = 0;
+        for piece in QUEEN..NO_PIECE {
+            result += VALUE[piece] *
+                      (pop_count(piece_type[piece] & color[us]) as i16 -
+                       pop_count(piece_type[piece] & color[them]) as i16);
+        }
+        result
     }
 
 
@@ -247,5 +261,13 @@ mod tests {
         assert!(Position::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_err());
         assert!(Position::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
         assert!(Position::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
+    }
+
+    #[test]
+    fn test_evaluate_static_parsing() {
+        assert_eq!(Position::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
+                       .ok().unwrap()
+                       .evaluate_static(-1000, 1000),
+                   -100);
     }
 }
