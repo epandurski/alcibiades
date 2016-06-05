@@ -1,3 +1,4 @@
+use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
 use castling_rights::*;
@@ -806,7 +807,7 @@ impl Board {
         // this separation is that knowing the destination square and
         // the pawn move type (the index in the destination sets
         // array) is enough to recover the origin square.
-        let mut dest_sets: [u64; 4] = unsafe { ::std::mem::uninitialized() };
+        let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
         for i in 0..4 {
             dest_sets[i] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[i], shifts[i]) &
                            not_occupied_by_us &
@@ -1145,7 +1146,6 @@ impl Board {
         // performance. Therefore we probably have to switch to
         // unchecked array indexing.
 
-        use std::mem::uninitialized;
         use std::cmp::max;
         static VALUE: [i16; 6] = [10000, 975, 500, 325, 325, 100];
 

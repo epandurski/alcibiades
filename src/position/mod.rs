@@ -4,6 +4,8 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use std::mem::uninitialized;
+
 pub mod board_geometry;
 pub mod board;
 
@@ -142,10 +144,9 @@ impl Position {
             static MOVE_STACK: RefCell<Vec<Move>> = RefCell::new(
                 Vec::with_capacity(MOVE_STACK_CAPACITY))
         );
-        MOVE_STACK.with(|ref_cell| {
+        MOVE_STACK.with(|x| {
+            let mut move_stack = x.borrow_mut();
             let mut board = self.board.borrow_mut();
-            let mut move_stack = ref_cell.borrow_mut();
-            move_stack.clear();
             self.qsearch(lower_bound, upper_bound, &mut move_stack, &mut board)
         })
     }
@@ -218,34 +219,69 @@ impl Position {
                move_stack: &mut Vec<Move>,
                board: &mut Board)
                -> Value {
-        // At the beginning of quiescence, the position's evaluation
-        // is used to establish a lower bound on the score
-        // (`stand_pat`). This is theoretically sound because we can
-        // usually assume that there is at least one move that can
-        // either match or beat the lower bound.
         let stand_pat = self.evaluate_static(lower_bound, upper_bound);
 
+        // At the beginning of quiescence, the position's evaluation
+        // is used to establish a lower bound on the score
+        // (`stand_pat`). We assume that even if none of the capturing
+        // moves can improve over the stand pat, there will be at
+        // least one "quiet" move that will at least preserve the
+        // stand pat value.
         if stand_pat > upper_bound {
             return upper_bound;  // fail-high
         }
-
-        if lower_bound < stand_pat {
-            // We assume that even if none of the capturing moves can
-            // improve over the stand pat, there will we at least one
-            // "quiet" move that will at least preserve the stand pat
-            // value.
+        if stand_pat > lower_bound {
             lower_bound = stand_pat;
         }
 
-        let first_move = move_stack.len();
-        // board.generate_moves(false, move_stack);
-        for m in &move_stack[first_move..] {
-            if board.do_move(*m) {
-                // let value = self.qsearch(-upper_bound, -lower_bound, move_stack, board);
-                board.undo_move(*m);
+        let length_at_start = move_stack.len();
+        board.generate_moves(false, move_stack);
+        let mut i = length_at_start;
+        while i < move_stack.len() {
+            let m = unsafe { *move_stack.get_unchecked(i) };
+            i += 1;
+            if !board.do_move(m) {
+                continue;
+            }
+            let score = -self.qsearch(-upper_bound, -lower_bound, move_stack, board);
+            board.undo_move(m);
+            if score >= upper_bound {
+                return upper_bound;  // fail-high
+            }
+            if score > lower_bound {
+                lower_bound = score;
             }
         }
-        0
+        move_stack.truncate(length_at_start);
+        lower_bound
+    }
+}
+
+
+struct MoveList {
+    moves: [Move; 128],
+    count: usize,
+}
+
+
+impl MoveList {
+    fn new() -> MoveList {
+        MoveList {
+            moves: unsafe { uninitialized() },
+            count: 0,
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.count
+    }
+}
+
+
+impl MoveSink for MoveList {
+    fn push_move(&mut self, m: Move) {
+        self.moves[self.count] = m;
+        self.count += 1;
     }
 }
 
