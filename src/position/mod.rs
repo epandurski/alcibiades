@@ -228,7 +228,7 @@ impl Position {
         // moves can improve over the stand pat, there will be at
         // least one "quiet" move that will at least preserve the
         // stand pat value.
-        if stand_pat > upper_bound {
+        if stand_pat >= upper_bound {
             return upper_bound;
         }
         if stand_pat > lower_bound {
