@@ -220,6 +220,7 @@ impl Position {
                move_stack: &mut Vec<Move>,
                eval_func: &Fn(&Position, Value, Value) -> Value)
                -> Value {
+        assert!(lower_bound <= upper_bound);
         let stand_pat = eval_func(self, lower_bound, upper_bound);
 
         // At the beginning of quiescence, the position's evaluation
