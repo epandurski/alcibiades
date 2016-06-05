@@ -4,8 +4,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use std::mem::uninitialized;
-
 pub mod board_geometry;
 pub mod board;
 
@@ -146,8 +144,10 @@ impl Position {
         );
         MOVE_STACK.with(|x| {
             let mut move_stack = x.borrow_mut();
-            let mut board = self.board.borrow_mut();
-            self.qsearch(lower_bound, upper_bound, &mut move_stack, &mut board)
+            self.qsearch(lower_bound,
+                         upper_bound,
+                         &mut move_stack,
+                         &Position::evaluate_static)
         })
     }
 
@@ -217,9 +217,9 @@ impl Position {
                mut lower_bound: Value,
                upper_bound: Value,
                move_stack: &mut Vec<Move>,
-               board: &mut Board)
+               eval_func: &Fn(&Position, Value, Value) -> Value)
                -> Value {
-        let stand_pat = self.evaluate_static(lower_bound, upper_bound);
+        let stand_pat = eval_func(self, lower_bound, upper_bound);
 
         // At the beginning of quiescence, the position's evaluation
         // is used to establish a lower bound on the score
@@ -228,7 +228,7 @@ impl Position {
         // least one "quiet" move that will at least preserve the
         // stand pat value.
         if stand_pat > upper_bound {
-            return upper_bound;  // fail-high
+            return upper_bound;
         }
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
@@ -236,7 +236,7 @@ impl Position {
 
         // Generate all non-quiet moves.
         let length_at_start = move_stack.len();
-        board.generate_moves(false, move_stack);
+        self.board.borrow().generate_moves(false, move_stack);
 
         // Try all generated moves one by one. The moves with higher
         // scores are tried before the moves with lower scores.
@@ -256,18 +256,19 @@ impl Position {
                     j += 1;
                 }
                 i += 1;
-
+                
                 // Recursively call `qsearch` for the next move.
-                if !board.do_move(next_move) {
+                if !self.board.borrow_mut().do_move(next_move) {
                     continue;
                 }
-                let value = -self.qsearch(-upper_bound, -lower_bound, move_stack, board);
-                board.undo_move(next_move);
+                let value = -self.qsearch(-upper_bound, -lower_bound, move_stack, eval_func);
+                self.board.borrow_mut().undo_move(next_move);
 
                 // Update the lower bound according to the recursively
                 // calculated value.
                 if value >= upper_bound {
-                    return upper_bound;  // fail-high
+                    lower_bound = upper_bound;
+                    break;
                 }
                 if value > lower_bound {
                     lower_bound = value;
@@ -282,37 +283,29 @@ impl Position {
 }
 
 
-struct MoveList {
-    moves: [Move; 128],
-    count: usize,
-}
-
-
-impl MoveList {
-    fn new() -> MoveList {
-        MoveList {
-            moves: unsafe { uninitialized() },
-            count: 0,
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.count
-    }
-}
-
-
-impl MoveSink for MoveList {
-    fn push_move(&mut self, m: Move) {
-        self.moves[self.count] = m;
-        self.count += 1;
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // This is a very simple evaluation function used for the testing
+    // of `qsearch`.
+    fn simple_eval(p: &Position, lower_bound: Value, upper_bound: Value) -> Value {
+        use basetypes::*;
+        use bitsets::*;
+        const VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
+        let board = p.board.borrow();
+        let piece_type = board.piece_type();
+        let color = board.color();
+        let us = board.to_move();
+        let them = 1 ^ us;
+        let mut result = 0;
+        for piece in QUEEN..NO_PIECE {
+            result += VALUE[piece] *
+                      (pop_count(piece_type[piece] & color[us]) as i16 -
+                       pop_count(piece_type[piece] & color[them]) as i16);
+        }
+        result
+    }
 
     #[test]
     fn test_fen_parsing() {
@@ -380,5 +373,20 @@ mod tests {
                        .unwrap()
                        .evaluate_static(-1000, 1000),
                    -100);
+    }
+
+    #[test]
+    fn test_qsearch() {
+        let p = Position::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1").ok().unwrap();
+        assert_eq!(p.evaluate(-1000, 1000), 0);
+
+        let p = Position::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1").ok().unwrap();
+        assert_eq!(p.evaluate(-1000, 1000), 225);
+
+        let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
+        assert_eq!(p.evaluate(-1000, 1000), 0);
+        
+        let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
+        assert_eq!(p.evaluate(-1000, 1000), -100);
     }
 }
