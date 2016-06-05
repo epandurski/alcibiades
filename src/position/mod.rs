@@ -234,24 +234,48 @@ impl Position {
             lower_bound = stand_pat;
         }
 
+        // Generate all non-quiet moves.
         let length_at_start = move_stack.len();
         board.generate_moves(false, move_stack);
+
+        // Try all generated moves one by one. The moves with higher
+        // scores are tried before the moves with lower scores.
         let mut i = length_at_start;
         while i < move_stack.len() {
-            let m = unsafe { *move_stack.get_unchecked(i) };
-            i += 1;
-            if !board.do_move(m) {
-                continue;
-            }
-            let score = -self.qsearch(-upper_bound, -lower_bound, move_stack, board);
-            board.undo_move(m);
-            if score >= upper_bound {
-                return upper_bound;  // fail-high
-            }
-            if score > lower_bound {
-                lower_bound = score;
+            unsafe {
+                // Find the move with the best score among the
+                // remaining moves, so as to try that move next.
+                let mut next_move = *move_stack.get_unchecked(i);
+                let mut j = i;
+                while j < move_stack.len() {
+                    if *move_stack.get_unchecked(j) > next_move {
+                        *move_stack.get_unchecked_mut(i) = *move_stack.get_unchecked_mut(j);
+                        *move_stack.get_unchecked_mut(j) = next_move;
+                        next_move = *move_stack.get_unchecked(i);
+                    }
+                    j += 1;
+                }
+                i += 1;
+
+                // Recursively call `qsearch` for the next move.
+                if !board.do_move(next_move) {
+                    continue;
+                }
+                let value = -self.qsearch(-upper_bound, -lower_bound, move_stack, board);
+                board.undo_move(next_move);
+
+                // Update the lower bound according to the recursively
+                // calculated value.
+                if value >= upper_bound {
+                    return upper_bound;  // fail-high
+                }
+                if value > lower_bound {
+                    lower_bound = value;
+                }
             }
         }
+
+        // Restore the move stack to its original size and return.
         move_stack.truncate(length_at_start);
         lower_bound
     }
