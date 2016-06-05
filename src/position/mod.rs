@@ -229,7 +229,7 @@ impl Position {
         // least one "quiet" move that will at least preserve the
         // stand pat value.
         if stand_pat >= upper_bound {
-            return upper_bound;
+            return stand_pat;
         }
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
@@ -282,7 +282,7 @@ impl Position {
                 // Update the lower bound according to the recursively
                 // calculated value.
                 if value >= upper_bound {
-                    lower_bound = upper_bound;
+                    lower_bound = value;
                     break;
                 }
                 if value > lower_bound {
