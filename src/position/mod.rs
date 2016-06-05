@@ -8,10 +8,14 @@ pub mod board_geometry;
 pub mod board;
 
 // use notation;
+use std::cell::RefCell;
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
 use self::board::{Board, IllegalBoard};
+
+
+const MOVE_STACK_CAPACITY: usize = 4096;
 
 
 pub type Value = i16;
@@ -31,7 +35,7 @@ pub struct IllegalPosition;
 /// nodes. `Position` can also fabricate a "null move" that can be
 /// used to aggressively prune the search tree.
 pub struct Position {
-    board: Board,
+    board: RefCell<Board>,
     halfmove_clock: u32,
     fullmove_number: u32, /* move_stack
                            * move_history (including fullmove_number?)
@@ -49,7 +53,7 @@ impl Position {
 
         if parts.len() == 6 {
             let p = Position {
-                board: try!(Board::from_fen(fen)),
+                board: RefCell::new(try!(Board::from_fen(fen))),
                 halfmove_clock: try!(parts[4].parse::<u32>().map_err(|_| IllegalBoard)),
                 fullmove_number: try!(parts[5].parse::<u32>().map_err(|_| IllegalBoard)),
             };
@@ -104,9 +108,10 @@ impl Position {
         // TODO: Implement a real evaluation.
 
         const VALUE: [Value; 6] = [10000, 975, 500, 325, 325, 100];
-        let piece_type = self.board.piece_type();
-        let color = self.board.color();
-        let us = self.board.to_move();
+        let board = self.board.borrow();
+        let piece_type = board.piece_type();
+        let color = board.color();
+        let us = board.to_move();
         let them = 1 ^ us;
         let mut result = 0;
         for piece in QUEEN..NO_PIECE {
@@ -133,7 +138,16 @@ impl Position {
     ///
     /// TODO: Add more details for the algorithm used.
     pub fn evaluate(&self, lower_bound: Value, upper_bound: Value) -> Value {
-        0
+        thread_local!(
+            static MOVE_STACK: RefCell<Vec<Move>> = RefCell::new(
+                Vec::with_capacity(MOVE_STACK_CAPACITY))
+        );
+        MOVE_STACK.with(|ref_cell| {
+            let mut board = self.board.borrow_mut();
+            let mut move_stack = ref_cell.borrow_mut();
+            move_stack.clear();
+            self.qsearch(lower_bound, upper_bound, &mut move_stack, &mut board)
+        })
     }
 
 
@@ -196,6 +210,42 @@ impl Position {
                   8, // no en-passant file
                   CastlingRights::new(),
                   0)
+    }
+
+    fn qsearch(&self,
+               mut lower_bound: Value,
+               upper_bound: Value,
+               move_stack: &mut Vec<Move>,
+               board: &mut Board)
+               -> Value {
+        // At the beginning of quiescence, the position's evaluation
+        // is used to establish a lower bound on the score
+        // (`stand_pat`). This is theoretically sound because we can
+        // usually assume that there is at least one move that can
+        // either match or beat the lower bound.
+        let stand_pat = self.evaluate_static(lower_bound, upper_bound);
+
+        if stand_pat > upper_bound {
+            return upper_bound;  // fail-high
+        }
+
+        if lower_bound < stand_pat {
+            // We assume that even if none of the capturing moves can
+            // improve over the stand pat, there will we at least one
+            // "quiet" move that will at least preserve the stand pat
+            // value.
+            lower_bound = stand_pat;
+        }
+
+        let first_move = move_stack.len();
+        // board.generate_moves(false, move_stack);
+        for m in &move_stack[first_move..] {
+            if board.do_move(*m) {
+                // let value = self.qsearch(-upper_bound, -lower_bound, move_stack, board);
+                board.undo_move(*m);
+            }
+        }
+        0
     }
 }
 
@@ -266,7 +316,8 @@ mod tests {
     #[test]
     fn test_evaluate_static_parsing() {
         assert_eq!(Position::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
-                       .ok().unwrap()
+                       .ok()
+                       .unwrap()
                        .evaluate_static(-1000, 1000),
                    -100);
     }
