@@ -103,7 +103,7 @@ impl Move {
         assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         assert!(en_passant_file <= 0b1000);
         assert!(promoted_piece_code <= 0b11);
-        
+
         // We use the reserved field (2 bits) to properly order
         // "quiet" movies. Moves which destination square is more
         // advanced into enemy's territory are tried first.
@@ -123,7 +123,7 @@ impl Move {
         } else {
             0
         };
-        
+
         let aux_data = match move_type {
             MOVE_PROMOTION => promoted_piece_code,
             _ => castling.get_for(us),
@@ -249,6 +249,20 @@ impl Move {
                     MOVE_PROMOTION => ["q", "r", "b", "n"][self.aux_data()],
                     _ => "",
                 })
+    }
+
+    /// Returns `true` if the move is a pawn advance or a capture,
+    /// `false` otherwise.
+    /// 
+    /// The half-move clock is the number of half-moves since the last
+    /// pawn advance or capture. It is used to determine if a draw can
+    /// be claimed under the fifty-move rule.
+    #[inline]
+    pub fn resets_half_move_clock(&self) -> bool {
+        // We use clever bit manipulations to avoid branches.
+        const P: u32 = (!(PAWN as u32) & 0b111) << M_SHIFT_PIECE;
+        const C: u32 = (!(NO_PIECE as u32) & 0b111) << M_SHIFT_CAPTURED_PIECE;
+        (self.0 & M_MASK_PIECE | C) ^ (self.0 & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
     }
 
     /// Decodes the promoted piece type from the raw value returned by
@@ -405,5 +419,7 @@ mod tests {
         assert_eq!(n3.aux_data(), 1);
         assert_eq!(n1.reserved(), 0);
         assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
+        assert!(m.resets_half_move_clock());
+        assert!(!n2.resets_half_move_clock());
     }
 }

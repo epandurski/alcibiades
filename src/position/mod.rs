@@ -38,13 +38,17 @@ pub struct IllegalPosition;
 pub struct Position {
     board: RefCell<Board>,
     halfmove_clock: u32,
-    fullmove_number: u32, /* move_stack
-                           * move_history (including fullmove_number?)
-                           * ply
-                           * hply?
-                           * various hash tables
-                           * first_move_index[usize; MAX_PLY]
-                           * undo_move data stack */
+    fullmove_number: u32,
+    // hash_stack: Vec<u64>,
+    // history_stack: Vec<StateInfo>,
+    
+    /* move_stack
+     * move_history (including fullmove_number?)
+     * ply
+     * hply?
+     * various hash tables
+     * first_move_index[usize; MAX_PLY]
+     * undo_move data stack */
 }
 
 
