@@ -183,6 +183,8 @@ impl Board {
     /// pruning. The move returned from this function will be invalid
     /// if the king is in check. In this case
     /// `board.do_move(board.null_move())` will return `false`.
+    ///
+    /// TODO: This method probably belongs to `Position`.
     #[inline]
     pub fn null_move(&self) -> Move {
         let king_square = self.king_square();

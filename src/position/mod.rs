@@ -39,8 +39,8 @@ pub struct Position {
     board: RefCell<Board>,
     halfmove_clock: u32,
     fullmove_number: u32,
-    // hash_stack: Vec<u64>,
-    // history_stack: Vec<StateInfo>,
+    // encountered_boards: Vec<u64>,
+    // state_stack: Vec<StateInfo>,
     
     /* move_stack
      * move_history (including fullmove_number?)
