@@ -17,7 +17,7 @@ use self::board::{Board, IllegalBoard};
 
 const MOVE_STACK_CAPACITY: usize = 4096;
 
-const PIECE_VALUES: [Value; 6] = [10000, 975, 500, 325, 325, 100];
+const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
 pub type Value = i16;
 
