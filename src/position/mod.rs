@@ -63,12 +63,6 @@ impl Position {
     }
 
 
-    #[inline(always)]
-    fn state_info_mut(&mut self) -> &mut StateInfo {
-        self.state_stack.last_mut().unwrap()
-    }
-
-
     #[inline]
     fn is_repeated(&self) -> bool {
         let halfmove_clock = self.state_info().halfmove_clock as usize;
@@ -147,8 +141,8 @@ impl Position {
     pub fn halfmove_count(&self) -> u16 {
         self.halfmove_count
     }
-    
-    
+
+
     /// Returns the current move number.
     ///
     /// At the beginning of the game it starts at `1`, and is
@@ -158,7 +152,7 @@ impl Position {
         1 + (self.halfmove_count >> 1)
     }
 
-    
+
     /// Evaluates a final position.
     ///
     /// In final positions this method is guaranteed to return the
@@ -263,13 +257,35 @@ impl Position {
     /// is in check.
     #[inline]
     pub fn do_move(&mut self, m: Move) -> bool {
-        false
+        let mut board = self.board.borrow_mut();
+        if board.do_move(m) {
+            let new_halfmove_clock = if m.is_pawn_advance_or_capure() {
+                0
+            } else {
+                self.state_info().halfmove_clock + 1
+            };
+            self.halfmove_count += 1;
+            self.encountered_boards.push(board.hash());
+            self.state_stack.push(StateInfo {
+                halfmove_clock: new_halfmove_clock,
+                last_move: m,
+            });
+            true
+        } else {
+            false
+        }
     }
 
 
     /// Takes back the last played move.
     #[inline]
-    pub fn undo_move(&mut self) {}
+    pub fn undo_move(&mut self) {
+        assert!(self.state_stack.len() > 1);
+        self.board.borrow_mut().undo_move(self.state_info().last_move);
+        self.halfmove_count -= 1;
+        self.encountered_boards.pop();
+        self.state_stack.pop();
+    }
 
 
     /// Generates pseudo-legal moves.
@@ -481,8 +497,16 @@ mod tests {
         assert!(Position::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
         assert!(Position::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
         assert!(Position::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
-        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 11").ok().unwrap().fullmove_number(), 11);
-        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K b - - 0 11").ok().unwrap().fullmove_number(), 11);
+        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 11")
+                       .ok()
+                       .unwrap()
+                       .fullmove_number(),
+                   11);
+        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K b - - 0 11")
+                       .ok()
+                       .unwrap()
+                       .fullmove_number(),
+                   11);
     }
 
     #[test]
