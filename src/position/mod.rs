@@ -8,7 +8,7 @@ pub mod board_geometry;
 pub mod board;
 
 use std::cmp;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
@@ -27,10 +27,15 @@ pub type Value = i16;
 pub struct IllegalPosition;
 
 
+// move_stack
+// move_history (including fullmove_number?)
+// ply
+// hply?
+// various hash tables
+// first_move_index[usize; MAX_PLY]
+// undo_move data stack
 struct StateInfo {
     halfmove_clock: u32,
-    fullmove_number: u32,
-    draw_by_repetition: Cell<bool>,
     last_move: Move,
 }
 
@@ -46,14 +51,9 @@ struct StateInfo {
 /// used to aggressively prune the search tree.
 pub struct Position {
     board: RefCell<Board>,
+    fullmove_number: u32,
     state_stack: Vec<StateInfo>,
-    encountered_boards: Vec<u64>, /* move_stack
-                                   * move_history (including fullmove_number?)
-                                   * ply
-                                   * hply?
-                                   * various hash tables
-                                   * first_move_index[usize; MAX_PLY]
-                                   * undo_move data stack */
+    encountered_boards: Vec<u64>,
 }
 
 
@@ -98,11 +98,10 @@ impl Position {
                                                    castling,
                                                    en_passant_square)
                                          .map_err(|_| IllegalPosition))),
+            fullmove_number: fullmove_number,
             encountered_boards: vec![],
             state_stack: vec![StateInfo {
                                   halfmove_clock: halfmove_clock,
-                                  fullmove_number: fullmove_number,
-                                  draw_by_repetition: Cell::new(false),
                                   last_move: Move::from_u32(0),
                               }],
         })
