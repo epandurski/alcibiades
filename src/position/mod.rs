@@ -7,12 +7,13 @@
 pub mod board_geometry;
 pub mod board;
 
-// use notation;
-use std::cell::RefCell;
+use std::cmp;
+use std::cell::{Cell, RefCell};
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
-use self::board::{Board, IllegalBoard};
+use notation;
+use self::board::Board;
 
 
 const MOVE_STACK_CAPACITY: usize = 4096;
@@ -26,6 +27,14 @@ pub type Value = i16;
 pub struct IllegalPosition;
 
 
+struct StateInfo {
+    halfmove_clock: u32,
+    fullmove_number: u32,
+    draw_by_repetition: Cell<bool>,
+    last_move: Move,
+}
+
+
 /// Represents a chess position.
 ///
 /// `Position` can generate all possible moves in the current
@@ -37,35 +46,66 @@ pub struct IllegalPosition;
 /// used to aggressively prune the search tree.
 pub struct Position {
     board: RefCell<Board>,
-    halfmove_clock: u32,
-    fullmove_number: u32,
-    // encountered_boards: Vec<u64>,
-    // state_stack: Vec<StateInfo>,
-    
-    /* move_stack
-     * move_history (including fullmove_number?)
-     * ply
-     * hply?
-     * various hash tables
-     * first_move_index[usize; MAX_PLY]
-     * undo_move data stack */
+    state_stack: Vec<StateInfo>,
+    encountered_boards: Vec<u64>, /* move_stack
+                                   * move_history (including fullmove_number?)
+                                   * ply
+                                   * hply?
+                                   * various hash tables
+                                   * first_move_index[usize; MAX_PLY]
+                                   * undo_move data stack */
 }
 
 
 impl Position {
-    fn from_fen(fen: &str) -> Result<Position, IllegalBoard> {
-        let parts: Vec<_> = fen.split_whitespace().collect();
+    #[inline(always)]
+    fn state_info(&self) -> &StateInfo {
+        self.state_stack.last().unwrap()
+    }
 
-        if parts.len() == 6 {
-            let p = Position {
-                board: RefCell::new(try!(Board::from_fen(fen))),
-                halfmove_clock: try!(parts[4].parse::<u32>().map_err(|_| IllegalBoard)),
-                fullmove_number: try!(parts[5].parse::<u32>().map_err(|_| IllegalBoard)),
-            };
-            Ok(p)
-        } else {
-            Err(IllegalBoard)
+
+    #[inline(always)]
+    fn state_info_mut(&mut self) -> &mut StateInfo {
+        self.state_stack.last_mut().unwrap()
+    }
+
+
+    #[inline]
+    fn is_repeated(&self) -> bool {
+        let mut i = self.encountered_boards.len();
+        let last_index = cmp::max(0, i - self.state_info().halfmove_clock as usize);
+        let board_hash = self.board.borrow().hash();
+        loop {
+            i -= 2;
+            if i < last_index {
+                break;
+            }
+            if board_hash == unsafe { *self.encountered_boards.get_unchecked(i) } {
+                return true;
+            }
         }
+        false
+    }
+
+
+    fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
+        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
+            try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
+
+        Ok(Position {
+            board: RefCell::new(try!(Board::create(placement,
+                                                   to_move,
+                                                   castling,
+                                                   en_passant_square)
+                                         .map_err(|_| IllegalPosition))),
+            encountered_boards: vec![],
+            state_stack: vec![StateInfo {
+                                  halfmove_clock: halfmove_clock,
+                                  fullmove_number: fullmove_number,
+                                  draw_by_repetition: Cell::new(false),
+                                  last_move: Move::from_u32(0),
+                              }],
+        })
     }
 
 
@@ -73,11 +113,29 @@ impl Position {
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
     /// starting position. `moves` should be an iterator over all the
-    /// moves that were played from that position.
+    /// moves that were played from that position. The move format is
+    /// in long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
+    /// (white short castling), `e7e8q` (for promotion).
     pub fn from_history(fen: &str,
                         moves: &mut Iterator<Item = &str>)
                         -> Result<Position, IllegalPosition> {
-        Err(IllegalPosition)
+        let mut p = try!(Position::from_fen(fen));
+        let mut move_stack = vec![];
+        'played_move: for played_move in moves {
+            p.generate_moves(&mut move_stack);
+            while let Some(m) = move_stack.pop() {
+                if played_move == m.notation() {
+                    if p.do_move(m) {
+                        move_stack.clear();
+                        continue 'played_move;
+                    } else {
+                        return Err(IllegalPosition);
+                    }
+                }
+            }
+            return Err(IllegalPosition);
+        }
+        Ok(p)
     }
 
 
@@ -91,7 +149,11 @@ impl Position {
     /// legal, then the position is guaranteed to be a final
     /// position).
     pub fn evaluate_final(&self) -> Value {
-        0
+        if self.is_repeated() || self.board.borrow().checkers() == 0 {
+            0
+        } else {
+            -20000
+        }
     }
 
 
@@ -176,14 +238,14 @@ impl Position {
     /// them `do_move(m)` will return `false` if and only if the king
     /// is in check.
     #[inline]
-    pub fn do_move(&self, m: Move) -> bool {
+    pub fn do_move(&mut self, m: Move) -> bool {
         false
     }
 
 
     /// Takes back the last played move.
     #[inline]
-    pub fn undo_move(&self) {}
+    pub fn undo_move(&mut self) {}
 
 
     /// Generates pseudo-legal moves and pushes them to `move_sink`.
@@ -193,7 +255,11 @@ impl Position {
     /// them), then it is guaranteed that the position is final, and
     /// `evaluate_final()` will return its correct value.
     #[inline]
-    pub fn generate_moves(&self, move_sink: &mut MoveSink) {}
+    pub fn generate_moves(&self, move_sink: &mut MoveSink) {
+        if !self.is_repeated() {
+            self.board.borrow_mut().generate_moves(true, move_sink);
+        }
+    }
 
 
     /// Returns a null move.

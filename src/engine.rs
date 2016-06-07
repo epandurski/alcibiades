@@ -56,7 +56,7 @@ impl UciEngine for DummyEngine {
         };
         let s = &mut self.move_stack;
         let b = &mut self.board;
-        'played_move: for played_move in moves.into_iter() {
+        'played_move: for played_move in moves {
             b.generate_moves(true, s);
             while let Some(m) = s.pop() {
                 if played_move == m.notation() {
