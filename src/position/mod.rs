@@ -50,7 +50,7 @@ struct StateInfo {
 /// used to aggressively prune the search tree.
 pub struct Position {
     board: RefCell<Board>,
-    halfmove_number: u16,
+    halfmove_count: u16,
     state_stack: Vec<StateInfo>,
     encountered_boards: Vec<u64>,
 }
@@ -69,18 +69,6 @@ impl Position {
     }
 
 
-    #[inline(always)]
-    pub fn halfmove_number(&self) -> u16 {
-        self.halfmove_number
-    }
-    
-    
-    #[inline(always)]
-    pub fn fullmove_number(&self) -> u16 {
-        1 + (self.halfmove_number >> 1)
-    }
-
-    
     #[inline]
     fn is_repeated(&self) -> bool {
         let halfmove_clock = self.state_info().halfmove_clock as usize;
@@ -110,7 +98,7 @@ impl Position {
                                                    castling,
                                                    en_passant_square)
                                          .map_err(|_| IllegalPosition))),
-            halfmove_number: ((fullmove_number - 1) << 1) + to_move as u16,
+            halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
             encountered_boards: vec![0; halfmove_clock as usize],
             state_stack: vec![StateInfo {
                                   halfmove_clock: halfmove_clock,
@@ -150,6 +138,27 @@ impl Position {
     }
 
 
+    /// Returns the count of half-moves since the beginning of the
+    /// game.
+    ///
+    /// At the beginning of the game it starts at `0`, and is
+    /// incremented after anyone's move.
+    #[inline(always)]
+    pub fn halfmove_count(&self) -> u16 {
+        self.halfmove_count
+    }
+    
+    
+    /// Returns the current move number.
+    ///
+    /// At the beginning of the game it starts at `1`, and is
+    /// incremented after black's move.
+    #[inline]
+    pub fn fullmove_number(&self) -> u16 {
+        1 + (self.halfmove_count >> 1)
+    }
+
+    
     /// Evaluates a final position.
     ///
     /// In final positions this method is guaranteed to return the
