@@ -50,7 +50,7 @@ struct StateInfo {
 /// used to aggressively prune the search tree.
 pub struct Position {
     board: RefCell<Board>,
-    fullmove_number: u16,
+    ply: u16,
     state_stack: Vec<StateInfo>,
     encountered_boards: Vec<u64>,
 }
@@ -68,6 +68,11 @@ impl Position {
         self.state_stack.last_mut().unwrap()
     }
 
+
+    #[inline(always)]
+    fn fullmove_number(&self) -> u16 {
+        1 + (self.ply >> 1)
+    }
 
     #[inline]
     fn is_repeated(&self) -> bool {
@@ -98,7 +103,7 @@ impl Position {
                                                    castling,
                                                    en_passant_square)
                                          .map_err(|_| IllegalPosition))),
-            fullmove_number: fullmove_number,
+            ply: ((fullmove_number - 1) << 1) + to_move as u16,
             encountered_boards: vec![0; halfmove_clock as usize],
             state_stack: vec![StateInfo {
                                   halfmove_clock: halfmove_clock,
@@ -450,6 +455,8 @@ mod tests {
         assert!(Position::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
         assert!(Position::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
         assert!(Position::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
+        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 11").ok().unwrap().fullmove_number(), 11);
+        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K b - - 0 11").ok().unwrap().fullmove_number(), 11);
     }
 
     #[test]
