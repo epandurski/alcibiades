@@ -281,9 +281,9 @@ impl Position {
     /// correct value.
     ///
     /// **Important note:** Repeating positions are considered final
-    /// (a draw) after the first repetition, not after the second one
-    /// as the official chess rules prescribe. This is done in the
-    /// sake of efficiency.
+    /// (and therefore, this method generates no moves) after the
+    /// first repetition, not after the second one as the official
+    /// chess rules prescribe. This is done in the sake of efficiency.
     #[inline]
     pub fn generate_moves(&self, move_sink: &mut MoveSink) {
         if !self.is_repeated() {
