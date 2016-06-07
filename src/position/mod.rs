@@ -16,27 +16,20 @@ use self::board::Board;
 
 
 const MOVE_STACK_CAPACITY: usize = 4096;
-
 const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
+
+
+struct StateInfo {
+    halfmove_clock: u8,
+    last_move: Move,
+}
+
 
 pub type Value = i16;
 
 
 /// Represents an illegal possiton error.
 pub struct IllegalPosition;
-
-
-// move_stack
-// move_history (including fullmove_number?)
-// ply
-// hply?
-// various hash tables
-// first_move_index[usize; MAX_PLY]
-// undo_move data stack
-struct StateInfo {
-    halfmove_clock: u8,
-    last_move: Move,
-}
 
 
 /// Represents a chess position.
@@ -57,25 +50,6 @@ pub struct Position {
 
 
 impl Position {
-    fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
-        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
-            try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
-
-        Ok(Position {
-            board: UnsafeCell::new(try!(Board::create(placement,
-                                                      to_move,
-                                                      castling,
-                                                      en_passant_square)
-                                            .map_err(|_| IllegalPosition))),
-            halfmove_count: UnsafeCell::new(((fullmove_number - 1) << 1) + to_move as u16),
-            encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
-            state_stack: UnsafeCell::new(vec![StateInfo {
-                                                  halfmove_clock: halfmove_clock,
-                                                  last_move: Move::from_u32(0),
-                                              }]),
-        })
-    }
-
     /// Creates a new instance.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
@@ -278,7 +252,7 @@ impl Position {
     }
 
     // Returns `true` if the current position is a repetition of a
-    // previously encountered position.
+    // previously encountered position, `false` otherwise.
     #[inline]
     fn is_repeated(&self) -> bool {
         let halfmove_clock = self.state().halfmove_clock as usize;
@@ -295,6 +269,26 @@ impl Position {
             }
         }
         false
+    }
+
+    // A helper method for `Position::from_history`.
+    fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
+        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
+            try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
+
+        Ok(Position {
+            board: UnsafeCell::new(try!(Board::create(placement,
+                                                      to_move,
+                                                      castling,
+                                                      en_passant_square)
+                                            .map_err(|_| IllegalPosition))),
+            halfmove_count: UnsafeCell::new(((fullmove_number - 1) << 1) + to_move as u16),
+            encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
+            state_stack: UnsafeCell::new(vec![StateInfo {
+                                                  halfmove_clock: halfmove_clock,
+                                                  last_move: Move::from_u32(0),
+                                              }]),
+        })
     }
 
     // A helper method for `do_move` and `qsearch`. It is needed
