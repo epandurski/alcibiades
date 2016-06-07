@@ -7,7 +7,7 @@
 pub mod board_geometry;
 pub mod board;
 
-use std::cell::RefCell;
+use std::cell::{RefCell, UnsafeCell};
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
@@ -49,30 +49,53 @@ struct StateInfo {
 /// nodes. `Position` can also fabricate a "null move" that can be
 /// used to aggressively prune the search tree.
 pub struct Position {
-    board: RefCell<Board>,
-    halfmove_count: u16,
-    state_stack: Vec<StateInfo>,
-    encountered_boards: Vec<u64>,
+    board: UnsafeCell<Board>,
+    halfmove_count: UnsafeCell<u16>,
+    state_stack: UnsafeCell<Vec<StateInfo>>,
+    encountered_boards: UnsafeCell<Vec<u64>>,
 }
 
 
 impl Position {
     #[inline(always)]
-    fn state_info(&self) -> &StateInfo {
-        self.state_stack.last().unwrap()
+    fn board_mut(&self) -> &mut Board {
+        unsafe { &mut *self.board.get() }
+    }
+
+    #[inline(always)]
+    fn halfmove_count_mut(&self) -> &mut u16 {
+        unsafe { &mut *self.halfmove_count.get() }
+    }
+
+
+    #[inline(always)]
+    fn state_stack_mut(&self) -> &mut Vec<StateInfo> {
+        unsafe { &mut *self.state_stack.get() }
+    }
+
+
+    #[inline(always)]
+    fn encountered_boards_mut(&self) -> &mut Vec<u64> {
+        unsafe { &mut *self.encountered_boards.get() }
+    }
+
+
+    #[inline(always)]
+    fn state(&self) -> &StateInfo {
+        self.state_stack_mut().last().unwrap()
     }
 
 
     #[inline]
     fn is_repeated(&self) -> bool {
-        let halfmove_clock = self.state_info().halfmove_clock as usize;
-        assert!(self.encountered_boards.len() >= halfmove_clock);
+        let halfmove_clock = self.state().halfmove_clock as usize;
+        assert!(self.encountered_boards_mut().len() >= halfmove_clock);
         if halfmove_clock >= 4 {
-            let board_hash = self.board.borrow().hash();
-            let last_index = self.encountered_boards.len() - halfmove_clock;
-            let mut i = self.encountered_boards.len() - 4;
+            let board_hash = self.board_mut().hash();
+            let last_index = self.encountered_boards_mut().len() - halfmove_clock;
+            let mut i = self.encountered_boards_mut().len() - 4;
             while i >= last_index {
-                if board_hash == unsafe { *self.encountered_boards.get_unchecked(i) } {
+                if board_hash == unsafe { *self.encountered_boards_mut().get_unchecked(i) } {
                     return true;
                 }
                 i -= 2;
@@ -87,17 +110,17 @@ impl Position {
             try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
 
         Ok(Position {
-            board: RefCell::new(try!(Board::create(placement,
-                                                   to_move,
-                                                   castling,
-                                                   en_passant_square)
-                                         .map_err(|_| IllegalPosition))),
-            halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
-            encountered_boards: vec![0; halfmove_clock as usize],
-            state_stack: vec![StateInfo {
-                                  halfmove_clock: halfmove_clock,
-                                  last_move: Move::from_u32(0),
-                              }],
+            board: UnsafeCell::new(try!(Board::create(placement,
+                                                      to_move,
+                                                      castling,
+                                                      en_passant_square)
+                                            .map_err(|_| IllegalPosition))),
+            halfmove_count: UnsafeCell::new(((fullmove_number - 1) << 1) + to_move as u16),
+            encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
+            state_stack: UnsafeCell::new(vec![StateInfo {
+                                                  halfmove_clock: halfmove_clock,
+                                                  last_move: Move::from_u32(0),
+                                              }]),
         })
     }
 
@@ -137,9 +160,9 @@ impl Position {
     ///
     /// At the beginning of the game it starts at `0`, and is
     /// incremented after anyone's move.
-    #[inline(always)]
-    pub fn halfmove_count(&self) -> u16 {
-        self.halfmove_count
+    #[inline]
+    fn halfmove_count(&self) -> u16 {
+        *self.halfmove_count_mut()
     }
 
 
@@ -149,7 +172,7 @@ impl Position {
     /// incremented after black's move.
     #[inline]
     pub fn fullmove_number(&self) -> u16 {
-        1 + (self.halfmove_count >> 1)
+        1 + (self.halfmove_count() >> 1)
     }
 
 
@@ -166,8 +189,9 @@ impl Position {
     /// (a draw) after the first repetition, not after the second one
     /// as the official chess rules prescribe. This is done in the
     /// sake of efficiency.
+    #[inline]
     pub fn evaluate_final(&self) -> Value {
-        if self.is_repeated() || self.board.borrow().checkers() == 0 {
+        if self.is_repeated() || self.board_mut().checkers() == 0 {
             0
         } else {
             -20000
@@ -192,7 +216,7 @@ impl Position {
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         // TODO: Implement a real evaluation.
 
-        let board = self.board.borrow();
+        let board = self.board_mut();
         let piece_type = board.piece_type();
         let color = board.color();
         let us = board.to_move();
@@ -257,16 +281,33 @@ impl Position {
     /// is in check.
     #[inline]
     pub fn do_move(&mut self, m: Move) -> bool {
-        let mut board = self.board.borrow_mut();
+        unsafe {
+            self.do_move_unsafe(m)
+        }
+    }
+    
+
+    /// Takes back the last played move.
+    #[inline]
+    pub fn undo_move(&mut self) {
+        unsafe {
+            self.undo_move_unsafe()
+        }
+    }
+    
+    
+    #[inline]
+    unsafe fn do_move_unsafe(&self, m: Move) -> bool {
+        let board = self.board_mut();
         if board.do_move(m) {
             let new_halfmove_clock = if m.is_pawn_advance_or_capure() {
                 0
             } else {
-                self.state_info().halfmove_clock + 1
+                self.state().halfmove_clock + 1
             };
-            self.halfmove_count += 1;
-            self.encountered_boards.push(board.hash());
-            self.state_stack.push(StateInfo {
+            *self.halfmove_count_mut() += 1;
+            self.encountered_boards_mut().push(board.hash());
+            self.state_stack_mut().push(StateInfo {
                 halfmove_clock: new_halfmove_clock,
                 last_move: m,
             });
@@ -277,14 +318,13 @@ impl Position {
     }
 
 
-    /// Takes back the last played move.
     #[inline]
-    pub fn undo_move(&mut self) {
-        assert!(self.state_stack.len() > 1);
-        self.board.borrow_mut().undo_move(self.state_info().last_move);
-        self.halfmove_count -= 1;
-        self.encountered_boards.pop();
-        self.state_stack.pop();
+    unsafe fn undo_move_unsafe(&self) {
+        assert!(self.state_stack_mut().len() > 1);
+        self.board_mut().undo_move(self.state().last_move);
+        *self.halfmove_count_mut() -= 1;
+        self.encountered_boards_mut().pop();
+        self.state_stack_mut().pop();
     }
 
 
@@ -303,7 +343,7 @@ impl Position {
     #[inline]
     pub fn generate_moves(&self, move_sink: &mut MoveSink) {
         if !self.is_repeated() {
-            self.board.borrow_mut().generate_moves(true, move_sink);
+            self.board_mut().generate_moves(true, move_sink);
         }
     }
 
@@ -354,7 +394,8 @@ impl Position {
 
         // Generate all non-quiet moves.
         let length_at_start = move_stack.len();
-        self.board.borrow().generate_moves(false, move_stack);
+        let board = self.board_mut();
+        board.generate_moves(false, move_stack);
 
         // Try all generated moves one by one. Moves with higher
         // scores are tried before moves with lower scores.
@@ -390,11 +431,11 @@ impl Position {
                 }
 
                 // Recursively call `qsearch` for the next move.
-                if !self.board.borrow_mut().do_move(next_move) {
+                if !self.do_move_unsafe(next_move) {
                     continue;  // illegal move
                 }
                 let value = -self.qsearch(-upper_bound, -lower_bound, move_stack, eval_func);
-                self.board.borrow_mut().undo_move(next_move);
+                self.undo_move_unsafe();
 
                 // Update the lower bound according to the recursively
                 // calculated value.
@@ -425,7 +466,7 @@ mod tests {
     fn simple_eval(p: &Position, lower_bound: Value, upper_bound: Value) -> Value {
         use basetypes::*;
         use bitsets::*;
-        let board = p.board.borrow();
+        let board = p.board_mut();
         let piece_type = board.piece_type();
         let color = board.color();
         let us = board.to_move();
