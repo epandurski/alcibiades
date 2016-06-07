@@ -13,7 +13,7 @@ pub struct ParseError;
 pub struct PiecesPlacement {
     /// An array of bitboards indexed by piece type.
     pub piece_type: [u64; 6],
-    
+
     /// An array of bitboards indexed by color.
     pub color: [u64; 2],
 }
@@ -65,7 +65,10 @@ pub fn parse_fen
             try!(parse_fen_castling_rights(fileds[2])),
             try!(parse_fen_enpassant_square(fileds[3])),
             try!(fileds[4].parse::<u8>().map_err(|_| ParseError)),
-            try!(fileds[5].parse::<u16>().map_err(|_| ParseError))))
+            match try!(fileds[5].parse::<u16>().map_err(|_| ParseError)) {
+            0 => return Err(ParseError),
+            x => x,
+        }))
     } else {
         Err(ParseError)
     }
