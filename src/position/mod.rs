@@ -277,41 +277,6 @@ impl Position {
                   0)
     }
 
-    #[inline(always)]
-    unsafe fn board_mut(&self) -> &mut Board {
-        &mut *self.board.get()
-    }
-
-    #[inline(always)]
-    unsafe fn halfmove_count_mut(&self) -> &mut u16 {
-        &mut *self.halfmove_count.get()
-    }
-
-    #[inline(always)]
-    unsafe fn state_stack_mut(&self) -> &mut Vec<StateInfo> {
-        &mut *self.state_stack.get()
-    }
-
-    #[inline(always)]
-    unsafe fn encountered_boards_mut(&self) -> &mut Vec<u64> {
-        &mut *self.encountered_boards.get()
-    }
-
-    #[inline(always)]
-    fn board(&self) -> &Board {
-        unsafe { &*self.board.get() }
-    }
-
-    #[inline(always)]
-    fn state(&self) -> &StateInfo {
-        unsafe { (&*self.state_stack.get()).last().unwrap() }
-    }
-
-    #[inline(always)]
-    fn encountered_boards(&self) -> &Vec<u64> {
-        unsafe { &*self.encountered_boards.get() }
-    }
-
     // Returns `true` if the current position is a repetition of a
     // previously encountered position.
     #[inline]
@@ -450,6 +415,41 @@ impl Position {
         // Restore the move stack to its original length and return.
         move_stack.truncate(length_at_start);
         lower_bound
+    }
+
+    #[inline(always)]
+    fn board(&self) -> &Board {
+        unsafe { &*self.board.get() }
+    }
+
+    #[inline(always)]
+    fn state(&self) -> &StateInfo {
+        unsafe { (&*self.state_stack.get()).last().unwrap() }
+    }
+
+    #[inline(always)]
+    fn encountered_boards(&self) -> &Vec<u64> {
+        unsafe { &*self.encountered_boards.get() }
+    }
+    
+    #[inline(always)]
+    unsafe fn board_mut(&self) -> &mut Board {
+        &mut *self.board.get()
+    }
+
+    #[inline(always)]
+    unsafe fn halfmove_count_mut(&self) -> &mut u16 {
+        &mut *self.halfmove_count.get()
+    }
+
+    #[inline(always)]
+    unsafe fn state_stack_mut(&self) -> &mut Vec<StateInfo> {
+        &mut *self.state_stack.get()
+    }
+
+    #[inline(always)]
+    unsafe fn encountered_boards_mut(&self) -> &mut Vec<u64> {
+        &mut *self.encountered_boards.get()
     }
 }
 
