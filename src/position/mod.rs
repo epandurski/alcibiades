@@ -76,7 +76,6 @@ impl Position {
         })
     }
 
-
     /// Creates a new instance.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
@@ -106,7 +105,6 @@ impl Position {
         Ok(p)
     }
 
-
     /// Returns the count of half-moves since the beginning of the
     /// game.
     ///
@@ -126,7 +124,6 @@ impl Position {
     pub fn fullmove_number(&self) -> u16 {
         1 + (self.halfmove_count() >> 1)
     }
-
 
     /// Evaluates a final position.
     ///
@@ -149,7 +146,6 @@ impl Position {
             -20000
         }
     }
-
 
     /// Statically evaluates the position.
     ///
@@ -182,7 +178,6 @@ impl Position {
         result
     }
 
-
     /// Performs "quiescence search" and returns an evaluation.
     ///
     /// The purpose of the "quiescence search" is to only evaluate
@@ -213,13 +208,11 @@ impl Position {
         })
     }
 
-
     /// Returns an almost unique hash value for the position.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
         self.board().hash()
     }
-
 
     /// Plays a move on the board.
     ///
@@ -238,13 +231,11 @@ impl Position {
         unsafe { self.do_move_unsafe(m) }
     }
 
-
     /// Takes back the last played move.
     #[inline]
     pub fn undo_move(&mut self) {
         unsafe { self.undo_move_unsafe() }
     }
-
 
     /// Generates pseudo-legal moves.
     ///
@@ -264,7 +255,6 @@ impl Position {
             self.board().generate_moves(true, move_sink);
         }
     }
-
 
     /// Returns a null move.
     ///
@@ -287,49 +277,43 @@ impl Position {
                   0)
     }
 
-
     #[inline(always)]
     unsafe fn board_mut(&self) -> &mut Board {
         &mut *self.board.get()
     }
-
 
     #[inline(always)]
     unsafe fn halfmove_count_mut(&self) -> &mut u16 {
         &mut *self.halfmove_count.get()
     }
 
-
     #[inline(always)]
     unsafe fn state_stack_mut(&self) -> &mut Vec<StateInfo> {
         &mut *self.state_stack.get()
     }
-
 
     #[inline(always)]
     unsafe fn encountered_boards_mut(&self) -> &mut Vec<u64> {
         &mut *self.encountered_boards.get()
     }
 
-
     #[inline(always)]
     fn board(&self) -> &Board {
         unsafe { &*self.board.get() }
     }
-
 
     #[inline(always)]
     fn state(&self) -> &StateInfo {
         unsafe { (&*self.state_stack.get()).last().unwrap() }
     }
 
-
     #[inline(always)]
     fn encountered_boards(&self) -> &Vec<u64> {
         unsafe { &*self.encountered_boards.get() }
     }
 
-
+    // Returns `true` if the current position is a repetition of a
+    // previously encountered position.
     #[inline]
     fn is_repeated(&self) -> bool {
         let halfmove_clock = self.state().halfmove_clock as usize;
@@ -348,7 +332,9 @@ impl Position {
         false
     }
 
-
+    // A helper method for `do_move` and `qsearch`. It is needed
+    // because`qsearch` plays moves and undoes them without having a
+    // mutable reference to `self`.
     #[inline]
     unsafe fn do_move_unsafe(&self, m: Move) -> bool {
         let board = self.board_mut();
@@ -370,7 +356,9 @@ impl Position {
         }
     }
 
-
+    // A helper method for `do_move` and `qsearch`. It is needed
+    // because`qsearch` plays moves and undoes them without having a
+    // mutable reference to `self`.
     #[inline]
     unsafe fn undo_move_unsafe(&self) {
         assert!(self.state_stack_mut().len() > 1);
@@ -380,7 +368,9 @@ impl Position {
         self.state_stack_mut().pop();
     }
 
-
+    // A helper method for `evaluate`. It is needed because`qsearch`
+    // should be able to call itself recursively, which should not
+    // complicate `evaluate`'s public-facing interface.
     #[inline]
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
