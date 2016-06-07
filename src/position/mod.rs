@@ -7,7 +7,6 @@
 pub mod board_geometry;
 pub mod board;
 
-use std::cmp;
 use std::cell::RefCell;
 use basetypes::*;
 use bitsets::*;
@@ -72,16 +71,17 @@ impl Position {
 
     #[inline]
     fn is_repeated(&self) -> bool {
-        let mut i = self.encountered_boards.len();
-        let last_index = cmp::max(0, i - self.state_info().halfmove_clock as usize);
-        let board_hash = self.board.borrow().hash();
-        loop {
-            i -= 2;
-            if i < last_index {
-                break;
-            }
-            if board_hash == unsafe { *self.encountered_boards.get_unchecked(i) } {
-                return true;
+        let halfmove_clock = self.state_info().halfmove_clock as usize;
+        assert!(self.encountered_boards.len() >= halfmove_clock);
+        if halfmove_clock >= 4 {
+            let board_hash = self.board.borrow().hash();
+            let last_index = self.encountered_boards.len() - halfmove_clock;
+            let mut i = self.encountered_boards.len() - 4;
+            while i >= last_index {
+                if board_hash == unsafe { *self.encountered_boards.get_unchecked(i) } {
+                    return true;
+                }
+                i -= 2;
             }
         }
         false
@@ -99,7 +99,7 @@ impl Position {
                                                    en_passant_square)
                                          .map_err(|_| IllegalPosition))),
             fullmove_number: fullmove_number,
-            encountered_boards: vec![],
+            encountered_boards: vec![0; halfmove_clock as usize],
             state_stack: vec![StateInfo {
                                   halfmove_clock: halfmove_clock,
                                   last_move: Move::from_u32(0),
