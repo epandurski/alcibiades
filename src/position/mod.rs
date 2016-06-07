@@ -35,7 +35,7 @@ pub struct IllegalPosition;
 // first_move_index[usize; MAX_PLY]
 // undo_move data stack
 struct StateInfo {
-    halfmove_clock: u32,
+    halfmove_clock: u8,
     last_move: Move,
 }
 
@@ -51,7 +51,7 @@ struct StateInfo {
 /// used to aggressively prune the search tree.
 pub struct Position {
     board: RefCell<Board>,
-    fullmove_number: u32,
+    fullmove_number: u16,
     state_stack: Vec<StateInfo>,
     encountered_boards: Vec<u64>,
 }
