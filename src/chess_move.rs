@@ -75,10 +75,11 @@ pub struct Move(u32);
 impl Move {
     /// Creates a new instance of `Move`.
     ///
-    /// `us` is the side that makes the move. `castling` are the
-    /// castling rights before the move was played. `en_passant_file`
-    /// is the file on which there were a passing pawn before the move
-    /// was played (or `8` if there was no passing
+    /// `us` is the side that makes the move. `score` is the assigned
+    /// move score (between 0 and 3). `castling` are the castling
+    /// rights before the move was played. `en_passant_file` is the
+    /// file on which there were a passing pawn before the move was
+    /// played (or `8` if there was no passing
     /// pawn). `promoted_piece_code` should be a number between `0`
     /// and `3` and is used only when the `move_type` is a pawn
     /// promotion, otherwise it is ignored.
@@ -137,7 +138,13 @@ impl Move {
               aux_data << M_SHIFT_AUX_DATA) as u32)
     }
 
-    /// Assigns a new score for the move.
+    /// Creates a new instance of `Move` from a raw `u32` value.
+    #[inline]
+    pub fn from_u32(value: u32) -> Move {
+        Move(value)
+    }
+                          
+    /// Assigns a new score for the move (between 0 and 3).
     #[inline]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= 0b11);
@@ -166,34 +173,38 @@ impl Move {
     }
 
     /// Returns the assigned move score.
-    ///
-    /// Moves with higher score should be tried first during the
-    /// search. Ideally the best move should have the highest score.
     #[inline]
     pub fn score(&self) -> usize {
         ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
     }
 
+    /// Returns the move type.
     #[inline]
     pub fn move_type(&self) -> MoveType {
         ((self.0 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE) as MoveType
     }
 
+    /// Returns the played piece type.
+    ///
+    /// Castling is considered as a king's move.
     #[inline]
     pub fn piece(&self) -> PieceType {
         ((self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE) as PieceType
     }
 
+    /// Returns the origin square of the played piece.
     #[inline]
     pub fn orig_square(&self) -> Square {
         ((self.0 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE) as Square
     }
 
+    /// Returns the destination square for the played piece.
     #[inline]
     pub fn dest_square(&self) -> Square {
         ((self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square
     }
 
+    /// Returns the captured piece type.
     #[inline]
     pub fn captured_piece(&self) -> PieceType {
         ((!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE) as PieceType
@@ -206,24 +217,41 @@ impl Move {
         ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as File
     }
 
-    /// Returns a 2-bit value representing the castling rights for the
-    /// side that does not make the move, as they were before the move
-    /// was played.
+    /// Returns a value between 0 and 3 representing the castling
+    /// rights for the side that does not make the move, as they were
+    /// before the move was played.
     #[inline(always)]
     pub fn castling_data(&self) -> usize {
         ((self.0 & M_MASK_CASTLING_DATA) >> M_SHIFT_CASTLING_DATA) as usize
     }
 
-    /// Returns 2-bit value representing auxiliary data.
+    /// Returns a value between 0 and 3 representing the auxiliary
+    /// data.
     ///
-    /// When the move type is pawn promotion, "aux data" holds the
-    /// promoted piece type encoded with a value from 0 to 3. For all
-    /// other move types "aux data" holds the castling rights for the
-    /// side that makes the move, as they were before the move was
-    /// played.
+    /// When the move type is pawn promotion, "aux data" encodes the
+    /// promoted piece type. For all other move types "aux data"
+    /// represents the castling rights for the side that makes the
+    /// move, as they were before the move was played.
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
+    }
+
+    /// Returns a value between 0 and 3 representing the reserved
+    /// field.
+    #[inline]
+    pub fn reserved(&self) -> usize {
+        ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
+    }
+
+    /// Returns `true` if the move is a pawn advance or a capture,
+    /// `false` otherwise.
+    #[inline]
+    pub fn is_pawn_advance_or_capure(&self) -> bool {
+        // We use clever bit manipulations to avoid branches.
+        const P: u32 = (!(PAWN as u32) & 0b111) << M_SHIFT_PIECE;
+        const C: u32 = (!(NO_PIECE as u32) & 0b111) << M_SHIFT_CAPTURED_PIECE;
+        (self.0 & M_MASK_PIECE | C) ^ (self.0 & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
     }
 
     /// Returns the least significant 16 bits of the raw move value.
@@ -251,20 +279,6 @@ impl Move {
                 })
     }
 
-    /// Returns `true` if the move is a pawn advance or a capture,
-    /// `false` otherwise.
-    /// 
-    /// The half-move clock is the number of half-moves since the last
-    /// pawn advance or capture. It is used to determine if a draw can
-    /// be claimed under the fifty-move rule.
-    #[inline]
-    pub fn resets_half_move_clock(&self) -> bool {
-        // We use clever bit manipulations to avoid branches.
-        const P: u32 = (!(PAWN as u32) & 0b111) << M_SHIFT_PIECE;
-        const C: u32 = (!(NO_PIECE as u32) & 0b111) << M_SHIFT_CAPTURED_PIECE;
-        (self.0 & M_MASK_PIECE | C) ^ (self.0 & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
-    }
-
     /// Decodes the promoted piece type from the raw value returned by
     /// `m.aux_data()`.
     #[inline]
@@ -276,12 +290,6 @@ impl Move {
             2 => BISHOP,
             _ => KNIGHT,
         }
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    fn reserved(&self) -> usize {
-        ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
     }
 }
 
@@ -395,6 +403,26 @@ mod tests {
                            NO_ENPASSANT_FILE,
                            CastlingRights::new(),
                            1);
+        let n4 = Move::new(WHITE,
+                           0,
+                           MOVE_NORMAL,
+                           BISHOP,
+                           F2,
+                           E3,
+                           KNIGHT,
+                           NO_ENPASSANT_FILE,
+                           CastlingRights::new(),
+                           0);
+        let n5 = Move::new(WHITE,
+                           0,
+                           MOVE_NORMAL,
+                           PAWN,
+                           F2,
+                           E3,
+                           KNIGHT,
+                           NO_ENPASSANT_FILE,
+                           CastlingRights::new(),
+                           0);
         assert!(n1 > m);
         assert!(n2 < m);
         assert_eq!(m.score(), 2);
@@ -419,7 +447,9 @@ mod tests {
         assert_eq!(n3.aux_data(), 1);
         assert_eq!(n1.reserved(), 0);
         assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
-        assert!(m.resets_half_move_clock());
-        assert!(!n2.resets_half_move_clock());
+        assert!(m.is_pawn_advance_or_capure());
+        assert!(!n2.is_pawn_advance_or_capure());
+        assert!(n4.is_pawn_advance_or_capure());
+        assert!(n5.is_pawn_advance_or_capure());
     }
 }
