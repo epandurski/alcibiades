@@ -76,7 +76,6 @@ impl Board {
         }
     }
 
-
     /// Creates a new board instance from a FEN string.
     ///
     /// A FEN (Forsyth–Edwards Notation) string defines a particular
@@ -90,14 +89,12 @@ impl Board {
         Board::create(placement, to_move, castling, en_passant_square)
     }
 
-
     /// Returns a reference to a properly initialized `BoardGeometry`
     /// object.
     #[inline]
     pub fn geometry(&self) -> &BoardGeometry {
         self.geometry
     }
-
 
     /// Returns an array of 6 occupation bitboards -- one for each
     /// piece type.
@@ -106,7 +103,6 @@ impl Board {
         self.piece_type
     }
 
-
     /// Returns an array of 2 occupation bitboards -- one for each
     /// side (color).
     #[inline]
@@ -114,13 +110,11 @@ impl Board {
         self.color
     }
 
-
     /// Returns the side to move.
     #[inline]
     pub fn to_move(&self) -> Color {
         self.to_move
     }
-
 
     /// Returns the castling rights.
     #[inline]
@@ -128,20 +122,17 @@ impl Board {
         self.castling
     }
 
-
     /// Returns the en-passant file or `NO_ENPASSANT_FILE`.
     #[inline]
     pub fn en_passant_file(&self) -> usize {
         self.en_passant_file
     }
 
-
     /// Returns a bitboard of all occupied squares.
     #[inline]
     pub fn occupied(&self) -> u64 {
         self._occupied
     }
-
 
     /// Returns the Zobrist hash value for the current board.
     ///
@@ -160,7 +151,6 @@ impl Board {
         self._hash
     }
 
-
     /// Returns a bitboard of all checkers that are attacking the
     /// king.
     ///
@@ -172,7 +162,6 @@ impl Board {
         }
         self._checkers.get()
     }
-
 
     /// Returns a null move.
     ///
@@ -200,7 +189,6 @@ impl Board {
                   self.castling,
                   0)
     }
-
 
     /// Plays a move on the board.
     ///
@@ -351,7 +339,6 @@ impl Board {
         true
     }
 
-
     /// Takes back a previously played move.
     ///
     /// The move passed to this method **must** be the last move passed
@@ -468,7 +455,6 @@ impl Board {
 
         assert!(self.is_legal());
     }
-
 
     /// Generates pseudo-legal moves and pushes them to `move_sink`.
     ///
@@ -624,7 +610,6 @@ impl Board {
         }
     }
 
-
     /// Returns all attackers of a given color to a given square.
     #[inline]
     pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
@@ -653,7 +638,6 @@ impl Board {
         (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
-
 
     /// Analyzes the board and decides if it is a legal board.
     ///
@@ -741,7 +725,6 @@ impl Board {
         }
     }
 
-
     // A helper method for `generate_moves`.
     //
     // It finds all squares attacked by `piece` from square
@@ -775,7 +758,6 @@ impl Board {
                                           0));
         }
     }
-
 
     // A helper method for `generate_moves()`.
     //
@@ -894,7 +876,6 @@ impl Board {
         }
     }
 
-
     /// A helper method for `generate_moves`.
     ///
     /// It figures out which castling moves are pseudo-legal and
@@ -932,7 +913,6 @@ impl Board {
             }
         }
     }
-
 
     /// A helper method for `generate_moves`.
     ///
@@ -983,7 +963,6 @@ impl Board {
         }
     }
 
-
     /// A helper method for `generate_moves`.
     ///
     /// It returns a bitboard representing the en-passant passing
@@ -1002,7 +981,6 @@ impl Board {
         }
     }
 
-
     /// A helper method used by various other methods.
     ///
     /// It returns the square that the king of the side to move
@@ -1015,7 +993,6 @@ impl Board {
         }
         self._king_square.get()
     }
-
 
     /// A helper method for `do_move`.
     ///
@@ -1049,7 +1026,6 @@ impl Board {
         }
     }
 
-
     /// A helper method for `push_pawn_moves_to_sink`.
     ///
     /// It tests for the special case when an en-passant capture
@@ -1080,7 +1056,6 @@ impl Board {
         }
     }
 
-
     /// A helper method for `create`.
     ///
     /// It calculates the Zobrist hash for the board.
@@ -1105,7 +1080,6 @@ impl Board {
         }
         hash
     }
-
 
     /// Calculates the SSE value of a capture.
     ///
@@ -1198,7 +1172,7 @@ impl Board {
         gain[0]
     }
 
-
+    #[allow(dead_code)]
     fn pretty_string(&self) -> String {
         let mut s = String::new();
         for rank in (0..8).rev() {

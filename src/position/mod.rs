@@ -1,9 +1,6 @@
 //! Implements the rules of chess and static position evaluation
 //! logic.
 
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 pub mod board_geometry;
 pub mod board;
 
@@ -63,7 +60,7 @@ impl Position {
         let mut p = try!(Position::from_fen(fen));
         let mut move_stack = vec![];
         'played_move: for played_move in moves {
-            p.generate_moves(&mut move_stack);
+            p.board().generate_moves(true, &mut move_stack);
             while let Some(m) = move_stack.pop() {
                 if played_move == m.notation() {
                     if p.do_move(m) {
@@ -87,16 +84,6 @@ impl Position {
     #[inline]
     pub fn halfmove_count(&self) -> u16 {
         unsafe { *self.halfmove_count.get() }
-    }
-
-
-    /// Returns the current move number.
-    ///
-    /// At the beginning of the game it starts at `1`, and is
-    /// incremented after black's move.
-    #[inline]
-    pub fn fullmove_number(&self) -> u16 {
-        1 + (self.halfmove_count() >> 1)
     }
 
     /// Evaluates a final position.
@@ -135,6 +122,7 @@ impl Position {
     /// evaluation is outside this interval, this method may return
     /// any value outside of the interval (including the bounds), but
     /// always staying on the correct side of the interval.
+    #[allow(unused_variables)]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         // TODO: Implement a real evaluation.
 
@@ -251,6 +239,15 @@ impl Position {
                   0)
     }
 
+    // Returns the current move number.
+    //
+    // At the beginning of the game it starts at `1`, and is
+    // incremented after black's move.
+    #[inline]
+    fn fullmove_number(&self) -> u16 {
+        1 + (self.halfmove_count() >> 1)
+    }
+
     // Returns `true` if the current position is a repetition of a
     // previously encountered position, `false` otherwise.
     #[inline]
@@ -258,11 +255,10 @@ impl Position {
         let halfmove_clock = self.state().halfmove_clock as usize;
         assert!(self.encountered_boards().len() >= halfmove_clock);
         if halfmove_clock >= 4 {
-            let board_hash = self.board().hash();
             let last_index = self.encountered_boards().len() - halfmove_clock;
             let mut i = self.encountered_boards().len() - 4;
             while i >= last_index {
-                if board_hash == unsafe { *self.encountered_boards().get_unchecked(i) } {
+                if self.board().hash() == unsafe { *self.encountered_boards().get_unchecked(i) } {
                     return true;
                 }
                 i -= 2;
@@ -275,7 +271,6 @@ impl Position {
     fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
-
         Ok(Position {
             board: UnsafeCell::new(try!(Board::create(placement,
                                                       to_move,
@@ -297,21 +292,21 @@ impl Position {
     #[inline]
     unsafe fn do_move_unsafe(&self, m: Move) -> bool {
         let board = self.board_mut();
-        if board.do_move(m) {
+        let old_board_hash = board.hash();
+        board.do_move(m) &&
+        {
             let new_halfmove_clock = if m.is_pawn_advance_or_capure() {
                 0
             } else {
                 self.state().halfmove_clock + 1
             };
             *self.halfmove_count_mut() += 1;
-            self.encountered_boards_mut().push(board.hash());
+            self.encountered_boards_mut().push(old_board_hash);
             self.state_stack_mut().push(StateInfo {
                 halfmove_clock: new_halfmove_clock,
                 last_move: m,
             });
             true
-        } else {
-            false
         }
     }
 
@@ -425,7 +420,7 @@ impl Position {
     fn encountered_boards(&self) -> &Vec<u64> {
         unsafe { &*self.encountered_boards.get() }
     }
-    
+
     #[inline(always)]
     unsafe fn board_mut(&self) -> &mut Board {
         &mut *self.board.get()
@@ -455,6 +450,8 @@ mod tests {
 
     // This is a very simple evaluation function used for the testing
     // of `qsearch`.
+    #[allow(dead_code)]
+    #[allow(unused_variables)]
     fn simple_eval(p: &Position, lower_bound: Value, upper_bound: Value) -> Value {
         use basetypes::*;
         use bitsets::*;
