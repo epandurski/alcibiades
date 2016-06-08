@@ -74,12 +74,6 @@ impl Position {
             }
             return Err(IllegalPosition);
         }
-        unsafe {
-            // Because we assign a draw score on the first repetition
-            // of the same position, we have to remove all positions
-            // that occurred only once from `self.encountered_boards`.
-            set_non_repeating_values(p.encountered_boards_mut(), 0);
-        }
         p.declare_as_root();
         Ok(p)
     }
@@ -417,6 +411,11 @@ impl Position {
             *self.encountered_boards_mut() = self.encountered_boards_mut().split_off(last_irrev);
             self.state_stack_mut().reserve(32);
             self.encountered_boards_mut().reserve(32);
+            
+            // Because we assign a draw score on the first repetition
+            // of the same position, we have to remove all positions
+            // that occurred only once from `self.encountered_boards`.
+            set_non_repeating_values(self.encountered_boards_mut(), 0);
         }
     }
 
