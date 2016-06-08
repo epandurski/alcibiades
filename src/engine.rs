@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
 use chess_move::*;

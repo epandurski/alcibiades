@@ -51,6 +51,28 @@ impl Position {
     /// Creates a new instance.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
+    /// starting position.
+    fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
+        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
+            try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
+        Ok(Position {
+            board: UnsafeCell::new(try!(Board::create(placement,
+                                                      to_move,
+                                                      castling,
+                                                      en_passant_square)
+                                            .map_err(|_| IllegalPosition))),
+            halfmove_count: UnsafeCell::new(((fullmove_number - 1) << 1) + to_move as u16),
+            encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
+            state_stack: UnsafeCell::new(vec![StateInfo {
+                                                  halfmove_clock: halfmove_clock,
+                                                  last_move: Move::from_u32(0),
+                                              }]),
+        })
+    }
+
+    /// Creates a new instance.
+    ///
+    /// `fen` should be the Forsyth–Edwards Notation of a legal
     /// starting position. `moves` should be an iterator over all the
     /// moves that were played from that position. The move format is
     /// in long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
@@ -259,25 +281,6 @@ impl Position {
             }
         }
         false
-    }
-
-    // A helper method for `Position::from_history`.
-    fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
-        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
-            try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
-        Ok(Position {
-            board: UnsafeCell::new(try!(Board::create(placement,
-                                                      to_move,
-                                                      castling,
-                                                      en_passant_square)
-                                            .map_err(|_| IllegalPosition))),
-            halfmove_count: UnsafeCell::new(((fullmove_number - 1) << 1) + to_move as u16),
-            encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
-            state_stack: UnsafeCell::new(vec![StateInfo {
-                                                  halfmove_clock: halfmove_clock,
-                                                  last_move: Move::from_u32(0),
-                                              }]),
-        })
     }
 
     // A helper method for `do_move` and `qsearch`. It is needed
