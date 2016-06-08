@@ -73,6 +73,12 @@ impl Position {
             }
             return Err(IllegalPosition);
         }
+        unsafe {
+            // Because we assign a draw score on the first repetition
+            // of the same position, we have to remove all positions
+            // that occurred only once from `self.encountered_boards`.
+            set_non_repeating_values(p.encountered_boards_mut(), 0);
+        }
         Ok(p)
     }
 
@@ -249,6 +255,9 @@ impl Position {
             while i >= last_index {
                 if self.board().hash() == unsafe { *self.encountered_boards().get_unchecked(i) } {
                     return true;
+                }
+                if i < 2 {
+                    break;
                 }
                 i -= 2;
             }
@@ -432,6 +441,29 @@ impl Position {
 }
 
 
+// Helper function for `Posittion::from_history`. It sets all unique
+// (non-repeating) values in `slice` to `value`.
+fn set_non_repeating_values<T>(slice: &mut [T], value: T)
+    where T: Copy + Ord
+{
+    let mut repeated = vec![];
+    let mut v = slice.to_vec();
+    v.sort();
+    let mut prev = value;
+    for curr in v {
+        if curr != value && curr == prev {
+            repeated.push(curr);
+        }
+        prev = curr;
+    }
+    for x in slice.iter_mut() {
+        if repeated.binary_search(x).is_err() {
+            *x = value;
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -562,5 +594,21 @@ mod tests {
         p.generate_moves(&mut v);
         assert_eq!(v.len(), 0);
         assert_eq!(p.evaluate_final(), 0);
+
+        let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4"];
+        let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
+                    .ok()
+                    .unwrap();
+        let mut v = Vec::new();
+        p.generate_moves(&mut v);
+        assert_eq!(v.len(), 5);
+    }
+
+    #[test]
+    fn test_set_non_repeating_values() {
+        use super::set_non_repeating_values;
+        let mut v = vec![0, 1, 2, 7, 9, 0, 0, 1, 2];
+        set_non_repeating_values(&mut v, 0);
+        assert_eq!(v, vec![0, 1, 2, 0, 0, 0, 0, 1, 2]);
     }
 }
