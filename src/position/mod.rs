@@ -4,7 +4,7 @@
 pub mod board_geometry;
 pub mod board;
 
-use std::cell::{RefCell, UnsafeCell};
+use std::cell::UnsafeCell;
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
@@ -81,7 +81,7 @@ impl Position {
     ///
     /// At the beginning of the game it starts at `0`, and is
     /// incremented after anyone's move.
-    #[inline]
+    #[inline(always)]
     pub fn halfmove_count(&self) -> u16 {
         unsafe { *self.halfmove_count.get() }
     }
@@ -156,15 +156,14 @@ impl Position {
     /// TODO: Add more details for the algorithm used.
     pub fn evaluate(&self, lower_bound: Value, upper_bound: Value) -> Value {
         thread_local!(
-            static MOVE_STACK: RefCell<Vec<Move>> = RefCell::new(
+            static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
                 Vec::with_capacity(MOVE_STACK_CAPACITY))
         );
         MOVE_STACK.with(|x| {
-            let mut move_stack = x.borrow_mut();
             unsafe {
                 self.qsearch(lower_bound,
                              upper_bound,
-                             &mut move_stack,
+                             &mut *x.get(),
                              &Position::evaluate_static)
             }
         })
@@ -226,17 +225,7 @@ impl Position {
     /// check.
     #[inline]
     pub fn null_move(&self) -> Move {
-        use castling_rights::CastlingRights;
-        Move::new(WHITE,
-                  0,
-                  MOVE_NORMAL,
-                  KING,
-                  0,
-                  0,
-                  NO_PIECE,
-                  8, // no en-passant file
-                  CastlingRights::new(),
-                  0)
+        self.board().null_move()
     }
 
     // Returns the current move number.
@@ -561,5 +550,17 @@ mod tests {
 
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
         assert_eq!(p.evaluate(-1000, 1000), -100);
+    }
+
+    #[test]
+    fn test_from_history_and_do_move() {
+        let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4", "f1g1"];
+        let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
+                    .ok()
+                    .unwrap();
+        let mut v = Vec::new();
+        p.generate_moves(&mut v);
+        assert_eq!(v.len(), 0);
+        assert_eq!(p.evaluate_final(), 0);
     }
 }
