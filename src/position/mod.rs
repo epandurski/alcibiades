@@ -52,7 +52,7 @@ impl Position {
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
     /// starting position.
-    fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
+    pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
         Ok(Position {
@@ -414,7 +414,7 @@ impl Position {
             *self.encountered_boards_mut() = self.encountered_boards_mut().split_off(last_irrev);
             self.state_stack_mut().reserve(32);
             self.encountered_boards_mut().reserve(32);
-            
+
             // Because we assign a draw score on the first repetition
             // of the same position, we have to remove all positions
             // that occurred only once from `self.encountered_boards`.
