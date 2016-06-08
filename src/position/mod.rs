@@ -16,6 +16,7 @@ const MOVE_STACK_CAPACITY: usize = 4096;
 const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
 
+#[derive(Clone, Copy)]
 struct StateInfo {
     halfmove_clock: u16,
     last_move: Move,
@@ -79,6 +80,7 @@ impl Position {
             // that occurred only once from `self.encountered_boards`.
             set_non_repeating_values(p.encountered_boards_mut(), 0);
         }
+        p.declare_as_root();
         Ok(p)
     }
 
@@ -402,6 +404,18 @@ impl Position {
         // Restore the move stack to its original length and return.
         move_stack.truncate(length_at_start);
         lower_bound
+    }
+
+    // A helper method for `Position::from_history`. It removes all
+    // states but the current one from `state_stack`. It also forgets
+    // all encountered boards before the last irreversible one.
+    fn declare_as_root(&mut self) {
+        let state = *self.state();
+        let last_irrev = self.encountered_boards().len() - state.halfmove_clock as usize;
+        unsafe {
+            *self.state_stack_mut() = vec![state];
+            *self.encountered_boards_mut() = self.encountered_boards()[last_irrev..].to_vec();
+        }
     }
 
     #[inline(always)]
