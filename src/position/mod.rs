@@ -59,7 +59,7 @@ impl Position {
                         moves: &mut Iterator<Item = &str>)
                         -> Result<Position, IllegalPosition> {
         let mut p = try!(Position::from_fen(fen));
-        let mut move_stack = vec![];
+        let mut move_stack = Vec::with_capacity(128);
         'played_move: for played_move in moves {
             p.board().generate_moves(true, &mut move_stack);
             while let Some(m) = move_stack.pop() {
@@ -414,7 +414,9 @@ impl Position {
         let last_irrev = self.encountered_boards().len() - state.halfmove_clock as usize;
         unsafe {
             *self.state_stack_mut() = vec![state];
-            *self.encountered_boards_mut() = self.encountered_boards()[last_irrev..].to_vec();
+            *self.encountered_boards_mut() = self.encountered_boards_mut().split_off(last_irrev);
+            self.state_stack_mut().reserve(32);
+            self.encountered_boards_mut().reserve(32);
         }
     }
 
