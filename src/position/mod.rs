@@ -254,14 +254,12 @@ impl Position {
         let halfmove_clock = self.state().halfmove_clock as usize;
         assert!(self.encountered_boards().len() >= halfmove_clock);
         if halfmove_clock >= 4 {
-            let last_index = self.encountered_boards().len() - halfmove_clock;
-            let mut i = self.encountered_boards().len() - 4;
-            while i >= last_index {
-                if self.board().hash() == unsafe { *self.encountered_boards().get_unchecked(i) } {
+            let boards = self.encountered_boards();
+            let last_irrev = (boards.len() - halfmove_clock) as isize;
+            let mut i = (boards.len() - 4) as isize;
+            while i >= last_irrev {
+                if self.board().hash() == unsafe { *boards.get_unchecked(i as usize) } {
                     return true;
-                }
-                if i < 2 {
-                    break;
                 }
                 i -= 2;
             }
