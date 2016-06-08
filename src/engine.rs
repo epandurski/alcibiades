@@ -1,5 +1,5 @@
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
-use position::board::Board;
+use position::Position;
 use chess_move::*;
 use rand;
 use rand::distributions::{Sample, Range};
@@ -9,7 +9,7 @@ pub const VERSION: &'static str = "0.1";
 
 
 pub struct DummyEngine {
-    board: Board,
+    position: Position,
     replies: Vec<EngineReply>,
     is_thinking: bool,
     infinite: bool,
@@ -22,9 +22,11 @@ pub struct DummyEngine {
 impl DummyEngine {
     pub fn new() -> DummyEngine {
         DummyEngine {
-            board: Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1")
-                       .ok()
-                       .unwrap(),
+            position: Position::from_history("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
+                                              - 0 1",
+                                             &mut vec![].into_iter())
+                          .ok()
+                          .unwrap(),
             replies: vec![],
             is_thinking: false,
             infinite: false,
@@ -50,26 +52,7 @@ impl UciEngine for DummyEngine {
         if self.is_thinking {
             return;
         }
-        self.board = match Board::from_fen(fen) {
-            Ok(x) => x,
-            Err(_) => return,
-        };
-        let s = &mut self.move_stack;
-        let b = &mut self.board;
-        'played_move: for played_move in moves {
-            b.generate_moves(true, s);
-            while let Some(m) = s.pop() {
-                if played_move == m.notation() {
-                    s.clear();
-                    if b.do_move(m) {
-                        continue 'played_move;
-                    } else {
-                        break 'played_move;
-                    }
-                }
-            }
-            break 'played_move;
-        }
+        self.position = Position::from_history(fen, moves).ok().unwrap();
     }
 
     #[allow(unused_variables)]
@@ -90,18 +73,28 @@ impl UciEngine for DummyEngine {
             return;
         }
         let s = &mut self.move_stack;
-        let b = &mut self.board;
-        b.generate_moves(true, s);
-        let mut legal_moves = vec![];
+        let p = &mut self.position;
+        p.generate_moves(s);
+        // let mut legal_moves = vec![];
+        let mut best_score = -20000;
         while let Some(m) = s.pop() {
-            if b.do_move(m) {
-                b.undo_move(m);
-                legal_moves.push(m.notation());
+            if p.do_move(m) {
+                let score = - p.evaluate(-20000, 20000);
+                if score > best_score {
+                    best_score = score;
+                    // self.replies.push(EngineReply::Info(vec![("info".to_string(),
+                    //                                           format!("{} -> {}",
+                    //                                                   m.notation(),
+                    //                                                   score))]));
+                    self.best_move = m.notation();
+                }
+                p.undo_move();
+                // legal_moves.push(m.notation());
             }
         }
-        let mut rng = rand::thread_rng();
-        let mut between = Range::new(0, legal_moves.len());
-        self.best_move = legal_moves[between.sample(&mut rng)].clone();
+        // let mut rng = rand::thread_rng();
+        // let mut between = Range::new(0, legal_moves.len());
+        // self.best_move = legal_moves[between.sample(&mut rng)].clone();
 
         self.ponder = ponder;
         self.infinite = infinite;
