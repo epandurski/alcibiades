@@ -17,7 +17,7 @@ const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
 
 struct StateInfo {
-    halfmove_clock: u8,
+    halfmove_clock: u16,
     last_move: Move,
 }
 
