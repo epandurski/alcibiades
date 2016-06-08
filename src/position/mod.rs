@@ -59,7 +59,7 @@ impl Position {
                         moves: &mut Iterator<Item = &str>)
                         -> Result<Position, IllegalPosition> {
         let mut p = try!(Position::from_fen(fen));
-        let mut move_stack = vec![];
+        let mut move_stack = Vec::with_capacity(128);
         'played_move: for played_move in moves {
             p.board().generate_moves(true, &mut move_stack);
             while let Some(m) = move_stack.pop() {
@@ -131,6 +131,7 @@ impl Position {
     /// any value outside of the interval (including the bounds), but
     /// always staying on the correct side of the interval.
     #[allow(unused_variables)]
+    #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         // TODO: Implement a real evaluation.
 
@@ -162,6 +163,7 @@ impl Position {
     /// always staying on the correct side of the interval.
     ///
     /// TODO: Add more details for the algorithm used.
+    #[inline]
     pub fn evaluate(&self, lower_bound: Value, upper_bound: Value) -> Value {
         thread_local!(
             static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
@@ -414,7 +416,9 @@ impl Position {
         let last_irrev = self.encountered_boards().len() - state.halfmove_clock as usize;
         unsafe {
             *self.state_stack_mut() = vec![state];
-            *self.encountered_boards_mut() = self.encountered_boards()[last_irrev..].to_vec();
+            *self.encountered_boards_mut() = self.encountered_boards_mut().split_off(last_irrev);
+            self.state_stack_mut().reserve(32);
+            self.encountered_boards_mut().reserve(32);
         }
     }
 
@@ -600,6 +604,14 @@ mod tests {
 
     #[test]
     fn test_from_history_and_do_move() {
+        let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1"];
+        let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
+                    .ok()
+                    .unwrap();
+        let mut v = Vec::new();
+        p.generate_moves(&mut v);
+        assert_eq!(v.len(), 8);
+
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4", "f1g1"];
         let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
                     .ok()
