@@ -122,7 +122,9 @@ impl Position {
     /// **Important note:** Repeating positions are considered final
     /// (a draw) after the first repetition, not after the second one
     /// as the official chess rules prescribe. This is done in the
-    /// sake of efficiency.
+    /// sake of efficiency. In order to compensate for that
+    /// `Position::from_history` "forgets" all positions that have
+    /// occurred exactly once.
     #[inline]
     pub fn evaluate_final(&self) -> Value {
         if self.is_repeated() || self.board().checkers() == 0 {
@@ -180,7 +182,7 @@ impl Position {
     ///
     /// TODO: Add more details for the algorithm used.
     #[inline]
-    pub fn evaluate(&self, lower_bound: Value, upper_bound: Value) -> Value {
+    pub fn evaluate_quiescence(&self, lower_bound: Value, upper_bound: Value) -> Value {
         thread_local!(
             static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
                 Vec::with_capacity(MOVE_STACK_CAPACITY))
@@ -236,6 +238,8 @@ impl Position {
     /// (and therefore, this method generates no moves) after the
     /// first repetition, not after the second one as the official
     /// chess rules prescribe. This is done in the sake of efficiency.
+    /// In order to compensate for that `Position::from_history`
+    /// "forgets" all positions that have occurred exactly once.
     #[inline]
     pub fn generate_moves(&self, move_sink: &mut MoveSink) {
         if !self.is_repeated() {
@@ -590,16 +594,16 @@ mod tests {
     #[test]
     fn test_qsearch() {
         let p = Position::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate(-1000, 1000), 0);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
 
         let p = Position::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate(-1000, 1000), 225);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000), 225);
 
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate(-1000, 1000), 0);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
 
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate(-1000, 1000), -100);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000), -100);
     }
 
     #[test]
