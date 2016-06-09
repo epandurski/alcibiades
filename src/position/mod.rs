@@ -169,9 +169,17 @@ impl Position {
 
     /// Performs "quiescence search" and returns an evaluation.
     ///
-    /// The purpose of the "quiescence search" is to only evaluate
-    /// "quiet" positions (positions where there are no winning
-    /// tactical moves to be made).
+    /// The goal of the "quiescence search" is to statically evaluate
+    /// only "quiet" positions (positions where there are no winning
+    /// tactical moves to be made). In order to do that, without
+    /// analyzing too much nodes, it considers only captures, pawn
+    /// promotions, and check evasions. Even then, the search tree can
+    /// get quite large quickly. So, static exchange evaluation
+    /// heuristics is used to eliminate those captures that are likely
+    /// to lead to a material loss. Although "quiescence search" can
+    /// cheaply and correctly resolve many tactical issues, it is
+    /// particularly blind to other simple tactical threads like all
+    /// kinds of forks, checks, and even a checkmate in one move.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
@@ -179,8 +187,6 @@ impl Position {
     /// evaluation is outside this interval, this method may return
     /// any value outside of the interval (including the bounds), but
     /// always staying on the correct side of the interval.
-    ///
-    /// TODO: Add more details for the algorithm used.
     #[inline]
     pub fn evaluate_quiescence(&self, lower_bound: Value, upper_bound: Value) -> Value {
         thread_local!(
