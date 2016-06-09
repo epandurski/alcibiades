@@ -1,5 +1,4 @@
-//! Implements the rules of chess and static position evaluation
-//! logic.
+//! Implements the rules of chess and position evaluation logic.
 
 pub mod board_geometry;
 pub mod board;
@@ -12,10 +11,6 @@ use notation;
 use self::board::Board;
 
 
-const MOVE_STACK_CAPACITY: usize = 4096;
-const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
-
-
 #[derive(Clone, Copy)]
 struct StateInfo {
     halfmove_clock: u16,
@@ -23,6 +18,16 @@ struct StateInfo {
 }
 
 
+/// Evaluation value in centipawns.
+///
+/// Positive values mean that the position is favorable for the side
+/// to move. Negative values mean the position is favorable for the
+/// other side (not to move). A value of `0` means that the chances
+/// are equal. For example: a value of `100` might mean that the side
+/// to move is a pawn ahead.
+///
+/// Values over `20000` and under `-20000` designate a certain
+/// win/loss.
 pub type Value = i16;
 
 
@@ -32,13 +37,16 @@ pub struct IllegalPosition;
 
 /// Represents a chess position.
 ///
-/// `Position` can generate all possible moves in the current
-/// position, play a selected move, and take it back. It can also
-/// statically (without doing extensive tree-searching) evaluate the
-/// chances of the sides, so that tree-searching algorithms can use
-/// this evaluation to assign realistic game outcomes to their leaf
-/// nodes. `Position` can also fabricate a "null move" that can be
-/// used to aggressively prune the search tree.
+/// `Position` is intended as a convenient interface for the
+/// tree-searching algorithm. It encapsulates most of the
+/// chess-specific knowledge like the chess rules, values of pieces,
+/// king safety, pawn structure etc. `Position` can be instantiated
+/// from a FEN string, can generate the all possible moves (plus a
+/// "null move") in the current position, play a selected move and
+/// take it back. It can also approximately (without doing extensive
+/// tree-searching) evaluate the chances of the sides, so that
+/// tree-searching algorithms can use this evaluation to assign
+/// realistic game outcomes to their leaf nodes.
 pub struct Position {
     board: UnsafeCell<Board>,
     halfmove_count: UnsafeCell<u16>,
@@ -139,7 +147,7 @@ impl Position {
     /// This method considers only static material and positional
     /// properties of the position. If the position is dynamic, with
     /// pending tactical threats, this function will return a grossly
-    /// incorrect evaluation. Therefore, if should be relied upon only
+    /// incorrect evaluation. Therefore, it should be relied upon only
     /// for reasonably "quiet" positions.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
@@ -151,6 +159,7 @@ impl Position {
     #[allow(unused_variables)]
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
+        assert!(lower_bound <= upper_bound);
         // TODO: Implement a real evaluation.
 
         let board = self.board();
@@ -189,6 +198,7 @@ impl Position {
     /// always staying on the correct side of the interval.
     #[inline]
     pub fn evaluate_quiescence(&self, lower_bound: Value, upper_bound: Value) -> Value {
+        assert!(lower_bound <= upper_bound);
         thread_local!(
             static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
                 Vec::with_capacity(MOVE_STACK_CAPACITY))
@@ -468,6 +478,14 @@ impl Position {
         &mut *self.encountered_boards.get()
     }
 }
+
+
+// This should be big enough to contain all the moves generated for
+// the quiescence search. In this case it is 32 plys * 128 moves.
+const MOVE_STACK_CAPACITY: usize = 4096;
+
+// Teh material value of pieces.
+const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
 
 // Helper function for `Posittion::from_history`. It sets all unique
