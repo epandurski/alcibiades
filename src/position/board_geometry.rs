@@ -155,7 +155,7 @@ pub struct BoardGeometry {
 }
 
 impl BoardGeometry {
-    /// Creates a new instance.
+    /// Creates and initializes a new instance.
     pub fn new() -> BoardGeometry {
         // We use 10x12 grid (8x8 with guarding markers, 2 at top and
         // bottom, 1 at the sides), so that we can detect out-of-board
