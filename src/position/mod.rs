@@ -222,6 +222,7 @@ impl Position {
             unsafe {
                 self.qsearch(lower_bound,
                              upper_bound,
+                             0,
                              &mut *x.get(),
                              &Position::evaluate_static)
             }
@@ -362,6 +363,7 @@ impl Position {
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
+                      mut recapture_squares: u64,
                       move_stack: &mut Vec<Move>,
                       eval_func: &Fn(&Position, Value, Value) -> Value)
                       -> Value {
@@ -421,21 +423,27 @@ impl Position {
             // whether to try the move.
             let captured_piece = next_move.captured_piece();
             if captured_piece < NO_PIECE && move_type != MOVE_PROMOTION {
+                let dest_square = next_move.dest_square();
                 let see = self.calc_see(self.board().to_move(),
                                         next_move.piece(),
                                         next_move.orig_square(),
-                                        next_move.dest_square(),
+                                        dest_square,
                                         captured_piece);
-                if see < 0 {
+                if see < 0 && (recapture_squares & (1 << dest_square) == 0) {
                     continue;
                 }
+                recapture_squares |= 1 << dest_square;
             }
 
             // Recursively call `qsearch` for the next move.
             if !self.do_move_unsafe(next_move) {
                 continue;  // illegal move
             }
-            let value = -self.qsearch(-upper_bound, -lower_bound, move_stack, eval_func);
+            let value = -self.qsearch(-upper_bound,
+                                      -lower_bound,
+                                      recapture_squares,
+                                      move_stack,
+                                      eval_func);
             self.undo_move_unsafe();
 
             // Update the lower bound according to the recursively
@@ -805,6 +813,24 @@ mod tests {
 
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
         assert_eq!(p.evaluate_quiescence(-1000, 1000), -100);
+
+        let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP2PPP/R2QKB1R w - \
+                                    - 5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
+
+        let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2PPP/R2QKB1R b - - \
+                                    5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.evaluate_quiescence(-1000, 1000), -100);
+
+        let p = Position::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PPP/R1BKQB1R w - - \
+                                    5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
     }
 
     #[test]
