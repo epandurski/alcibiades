@@ -457,11 +457,11 @@ impl Board {
     ///
     /// When `all` is `true`, all pseudo-legal moves will be
     /// considered. When `all` is `false`, only captures, pawn
-    /// promotions, and check evasions will be considered.  It is
-    /// guaranteed, that all generated moves with pieces other than
-    /// the king are legal. It is possible that some of the king's
-    /// moves are illegal because the destination square is under
-    /// check, or when castling, king's passing square is
+    /// promotions to queen, and check evasions will be considered.
+    /// It is guaranteed, that all generated moves with pieces other
+    /// than the king are legal. It is possible that some of the
+    /// king's moves are illegal because the destination square is
+    /// under check, or when castling, king's passing square is
     /// attacked. This is because verifying that these squares are not
     /// under attack is quite expensive, and therefore we hope that
     /// the alpha-beta pruning will eliminate the need for this
@@ -518,8 +518,8 @@ impl Board {
             // Find queen, rook, bishop, and knight moves.
             {
                 // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions, and check
-                // evasions.
+                // only for captures, pawn promotions to queen, and
+                // check evasions.
                 let legal_dests = if generate_all_moves {
                     legal_dests
                 } else {
@@ -548,8 +548,8 @@ impl Board {
             // Find pawn moves.
             {
                 // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions, and check
-                // evasions.
+                // only for captures, pawn promotions to queen, and
+                // check evasions.
                 let legal_dests = if generate_all_moves {
                     legal_dests
                 } else {
@@ -600,8 +600,8 @@ impl Board {
                 !occupied_by_us
             } else {
                 // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions, and check
-                // evasions.
+                // only for captures, pawn promotions to queen, and
+                // check evasions.
                 occupied_by_them
             };
 

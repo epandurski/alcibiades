@@ -182,13 +182,14 @@ impl Position {
     /// only "quiet" positions (positions where there are no winning
     /// tactical moves to be made). In order to do that, without
     /// analyzing too much nodes, it considers only captures, pawn
-    /// promotions, and check evasions. Even then, the search tree can
-    /// get quite large quickly. So, static exchange evaluation
-    /// heuristics is used to eliminate those captures that are likely
-    /// to lead to a material loss. Although "quiescence search" can
-    /// cheaply and correctly resolve many tactical issues, it is
-    /// particularly blind to other simple tactical threads like all
-    /// kinds of forks, checks, and even a checkmate in one move.
+    /// promotions to queen, and check evasions. Even then, the search
+    /// tree can get quite large quickly. So, static exchange
+    /// evaluation heuristics is used to eliminate those captures that
+    /// are likely to lead to material loss. Although "quiescence
+    /// search" can cheaply and correctly resolve many tactical
+    /// issues, it is particularly blind to other simple tactical
+    /// threads like all kinds of forks, checks, and even a checkmate
+    /// in one move.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
