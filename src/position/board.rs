@@ -99,15 +99,15 @@ impl Board {
     /// Returns an array of 6 occupation bitboards -- one for each
     /// piece type.
     #[inline]
-    pub fn piece_type(&self) -> [u64; 6] {
-        self.piece_type
+    pub fn piece_type(&self) -> &[u64; 6] {
+        &self.piece_type
     }
 
     /// Returns an array of 2 occupation bitboards -- one for each
     /// side (color).
     #[inline]
-    pub fn color(&self) -> [u64; 2] {
-        self.color
+    pub fn color(&self) -> &[u64; 2] {
+        &self.color
     }
 
     /// Returns the side to move.
@@ -1083,97 +1083,6 @@ impl Board {
         hash
     }
 
-    /// Calculates the SSE value of a capture.
-    ///
-    /// A Static Exchange Evaluation (SEE) examines the consequence of
-    /// a series of exchanges on a single square after a given move,
-    /// and calculates the likely evaluation change (material) to be
-    /// lost or gained, Donald Michie coined the term swap-off
-    /// value. A positive static exchange indicates a "winning"
-    /// move. For example, PxQ will always be a win, since the Pawn
-    /// side can choose to stop the exchange after its Pawn is
-    /// recaptured, and still be ahead.
-    ///
-    /// The impemented algorithm creates a swap-list of best case
-    /// material gains by traversing a square attacked/defended by set
-    /// in least valuable piece order from pawn, knight, bishop, rook,
-    /// queen until king, with alternating sides. The swap-list, an
-    /// unary tree since there are no branches but just a series of
-    /// captures, is negamaxed for a final static exchange evaluation.
-    ///
-    /// The returned value is the material that is expected to be
-    /// gained in the exchange by the attacking side
-    /// (`attacking_color`), when capturing the `target_piece` on the
-    /// `target_square`. The `from_square` specifies the square from
-    /// which the `attacking_piece` makes the capture.
-    ///
-    /// TODO: This method does not belong to `Board`. Find it a better
-    /// owner.
-    #[inline]
-    pub fn calc_see(&self,
-                    mut attacking_color: Color,
-                    from_square: Square,
-                    mut attacking_piece: PieceType,
-                    to_square: Square,
-                    target_piece: PieceType)
-                    -> i16 {
-
-        // TODO: This method (and the functions it calls) does a lot
-        // of array access and therefore, lots of array boundary
-        // check. Also I expect this code to be crucial for the
-        // performance. Therefore we probably have to switch to
-        // unchecked array indexing.
-
-        use std::cmp::max;
-        static VALUE: [i16; 6] = [10000, 975, 500, 325, 325, 100];
-
-        let mut occupied = self.occupied();
-        let mut depth = 0;
-        let mut attackers_and_defenders = self.attacks_to(WHITE, to_square) |
-                                          self.attacks_to(BLACK, to_square);
-        let mut from_square_bb = 1 << from_square;
-
-        // "may_xray" pieces may block x-ray attacks from other
-        // pieces, so we must consider adding new attackers/defenders
-        // every time a "may_xray"-piece makes a capture.
-        let may_xray = self.piece_type[PAWN] | self.piece_type[BISHOP] | self.piece_type[ROOK] |
-                       self.piece_type[QUEEN];
-
-        let mut gain: [i16; 33] = unsafe { uninitialized() };
-        gain[depth] = VALUE[target_piece];
-        while from_square_bb != EMPTY_SET {
-            depth += 1;  // next depth
-            attacking_color ^= 1;  // next side
-            gain[depth] = VALUE[attacking_piece] - gain[depth - 1];  // speculative store, if defended
-            if max(-gain[depth - 1], gain[depth]) < 0 {
-                break;  // pruning does not influence the outcome
-            }
-            attackers_and_defenders ^= from_square_bb;
-            occupied ^= from_square_bb;
-            if from_square_bb & may_xray != EMPTY_SET {
-                attackers_and_defenders |= consider_xrays(self.geometry,
-                                                          &self.piece_type,
-                                                          occupied,
-                                                          to_square,
-                                                          bitscan_forward(from_square_bb));
-            }
-            assert_eq!(occupied | attackers_and_defenders, occupied);
-
-            // find the next piece in the exchange
-            let next_attack = get_least_valuable_piece_in_a_set(&self.piece_type,
-                                                                attackers_and_defenders &
-                                                                self.color[attacking_color]);
-            attacking_piece = next_attack.0;
-            from_square_bb = next_attack.1;
-        }
-        depth -= 1;  // discard the speculative store
-        while depth > 0 {
-            gain[depth - 1] = -max(-gain[depth - 1], gain[depth]);
-            depth -= 1;
-        }
-        gain[0]
-    }
-
     #[allow(dead_code)]
     fn pretty_string(&self) -> String {
         let mut s = String::new();
@@ -1227,7 +1136,7 @@ static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 /// bitboard. `geometry` supplies the look-up tables needed to perform
 /// the calculation.
 #[inline]
-fn piece_attacks_from(geometry: &BoardGeometry,
+pub fn piece_attacks_from(geometry: &BoardGeometry,
                       occupied: u64,
                       piece: PieceType,
                       square: Square)
@@ -1272,46 +1181,6 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
         x if x & piece_type_array[KING] != 0 => KING,
         _ => panic!("invalid board"),
     }
-}
-
-
-/// A helper function for `calc_see`.
-///
-/// It returns a bitboard describing all pieces that can attack
-/// `target_square` once `xrayed_square` becomes vacant.
-#[inline]
-fn consider_xrays(geometry: &BoardGeometry,
-                  piece_type_array: &[u64; 6],
-                  occupied: u64,
-                  target_square: Square,
-                  xrayed_square: Square)
-                  -> u64 {
-    let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
-    let diag_attackers = piece_attacks_from(geometry, candidates, BISHOP, target_square) &
-                         (piece_type_array[QUEEN] | piece_type_array[BISHOP]);
-    let line_attackers = piece_attacks_from(geometry, candidates, ROOK, target_square) &
-                         (piece_type_array[QUEEN] | piece_type_array[ROOK]);
-    assert_eq!(diag_attackers & line_attackers, EMPTY_SET);
-    assert_eq!(ls1b(candidates & diag_attackers),
-               candidates & diag_attackers);
-    assert_eq!(ls1b(candidates & line_attackers),
-               candidates & line_attackers);
-    candidates & (diag_attackers | line_attackers)
-}
-
-
-/// A helper function for `calc_see`.
-///
-/// It returns the least valuble piece in the subset `set`.
-#[inline]
-fn get_least_valuable_piece_in_a_set(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
-    for p in (0..6).rev() {
-        let piece_subset = piece_type_array[p] & set;
-        if piece_subset != EMPTY_SET {
-            return (p, ls1b(piece_subset));
-        }
-    }
-    (NO_PIECE, EMPTY_SET)
 }
 
 
@@ -1379,15 +1248,6 @@ mod tests {
         assert_eq!(BISHOP, 3);
         assert_eq!(KNIGHT, 4);
         assert_eq!(PAWN, 5);
-    }
-
-    #[test]
-    fn test_static_exchange_evaluation() {
-        let b = Board::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1").ok().unwrap();
-        assert_eq!(b.calc_see(BLACK, E5, QUEEN, E3, PAWN), 100);
-        assert_eq!(b.calc_see(BLACK, E5, QUEEN, D4, PAWN), -875);
-        assert_eq!(b.calc_see(WHITE, G3, PAWN, F4, PAWN), 100);
-        assert_eq!(b.calc_see(BLACK, A3, KING, A2, PAWN), -9900);
     }
 
     #[test]

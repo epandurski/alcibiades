@@ -3,12 +3,15 @@
 pub mod board_geometry;
 pub mod board;
 
+use std::mem;
+use std::cmp::max;
 use std::cell::UnsafeCell;
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
 use notation;
-use self::board::Board;
+use self::board::{Board, piece_attacks_from};
+use self::board_geometry::*;
 
 
 #[derive(Clone, Copy)]
@@ -436,6 +439,106 @@ impl Position {
         lower_bound
     }
 
+    // Calculates the SSE value of a capture.
+    //
+    // The Static Exchange Evaluation (SEE) examines the consequence
+    // of a series of exchanges on a single square after a given move,
+    // and calculates the likely evaluation change (material) to be
+    // lost or gained, Donald Michie coined the term swap-off value. A
+    // positive static exchange indicates a "winning" move. For
+    // example, PxQ will always be a win, since the Pawn side can
+    // choose to stop the exchange after its Pawn is recaptured, and
+    // still be ahead.
+    //
+    // The impemented algorithm creates a swap-list of best case
+    // material gains by traversing a square attacked/defended by set
+    // in least valuable piece order from pawn, knight, bishop, rook,
+    // queen until king, with alternating sides. The swap-list, an
+    // unary tree since there are no branches but just a series of
+    // captures, is negamaxed for a final static exchange evaluation.
+    //
+    // The returned value is the material that is expected to be
+    // gained in the exchange by the attacking side (`us`), when
+    // capturing the `captured_piece` on the `dest_square`. The
+    // `orig_square` specifies the square from which the `piece` makes
+    // the capture.
+    #[inline]
+    fn calc_see(&self,
+                mut us: Color,
+                mut piece: PieceType,
+                orig_square: Square,
+                dest_square: Square,
+                captured_piece: PieceType)
+                -> Value {
+        assert!(us <= 1);
+        assert!(piece < NO_PIECE);
+        assert!(orig_square <= 63);
+        assert!(dest_square <= 63);
+        assert!(captured_piece < NO_PIECE);
+        let board = self.board();
+        let mut occupied = board.occupied();
+        let mut orig_square_bb = 1 << orig_square;
+        let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
+                                          board.attacks_to(BLACK, dest_square);
+        // `may_xray` holds the set of pieces that may block x-ray
+        // attacks from other pieces, so we must consider adding new
+        // attackers/defenders every time a piece from the `may_xray`
+        // set makes a capture.
+        let may_xray = board.piece_type()[PAWN] | board.piece_type()[BISHOP] |
+                       board.piece_type()[ROOK] | board.piece_type()[QUEEN];
+        unsafe {
+            let mut gain: [Value; 33] = mem::uninitialized();
+            let mut depth = 0;
+            *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(captured_piece);
+            while orig_square_bb != EMPTY_SET {
+                // Change the side to move and the depth.
+                us ^= 1;
+                depth += 1;
+
+                // Store a speculative value that will be used if the
+                // captured piece happens to be defended.
+                *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(piece) -
+                                                 *gain.get_unchecked(depth - 1);
+                // Prune if possible. Based on the fact that the next
+                // side to move can back off from further exchange if
+                // it gained material already.
+                if max(-*gain.get_unchecked(depth - 1), *gain.get_unchecked(depth)) < 0 {
+                    break;
+                }
+                // Update attackers and defenders.
+                attackers_and_defenders ^= orig_square_bb;
+                occupied ^= orig_square_bb;
+                if orig_square_bb & may_xray != EMPTY_SET {
+                    attackers_and_defenders |= consider_xrays(board.geometry(),
+                                                              &board.piece_type(),
+                                                              occupied,
+                                                              dest_square,
+                                                              bitscan_forward(orig_square_bb));
+                }
+                // Find the next piece to enter the exchange.
+                let next_attacker = get_least_valuable_piece(board.piece_type(),
+                                                             attackers_and_defenders &
+                                                             *board.color().get_unchecked(us));
+                piece = next_attacker.0;
+                orig_square_bb = next_attacker.1;
+            }
+
+            // Discard the speculative store -- the last attacker can
+            // never be captured.
+            depth -= 1;
+
+            // Collapse the all values to one. Again, use the fact
+            // that the side to move can back off from further
+            // exchange if it is not favorable.
+            while depth > 0 {
+                *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
+                                                          *gain.get_unchecked(depth));
+                depth -= 1;
+            }
+            gain[0]
+        }
+    }
+
     // A helper method for `Position::from_history`. It removes all
     // states but the current one from `state_stack`. It also forgets
     // all encountered boards before the last irreversible one.
@@ -497,7 +600,7 @@ impl Position {
 const MOVE_STACK_CAPACITY: usize = 4096;
 
 // Teh material value of pieces.
-const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
+const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
 
 // Helper function for `Posittion::from_history`. It sets all unique
@@ -523,10 +626,56 @@ fn set_non_repeating_values<T>(slice: &mut [T], value: T)
 }
 
 
+// A helper function for `calc_see`.
+//
+// It returns a bitboard describing all pieces that can attack
+// `target_square` once `xrayed_square` becomes vacant.
+#[inline]
+fn consider_xrays(geometry: &BoardGeometry,
+                  piece_type_array: &[u64; 6],
+                  occupied: u64,
+                  target_square: Square,
+                  xrayed_square: Square)
+                  -> u64 {
+    let candidates = occupied &
+                     unsafe {
+        *geometry.squares_behind_blocker
+                 .get_unchecked(target_square)
+                 .get_unchecked(xrayed_square)
+    };
+    // Try the straight sliders first.
+    let straight_slider_bb = piece_attacks_from(geometry, candidates, ROOK, target_square) &
+                             candidates &
+                             (piece_type_array[QUEEN] | piece_type_array[ROOK]);
+    if straight_slider_bb != EMPTY_SET {
+        return straight_slider_bb;
+    }
+    // Then the diagonal sliders.
+    piece_attacks_from(geometry, candidates, BISHOP, target_square) & candidates &
+    (piece_type_array[QUEEN] | piece_type_array[BISHOP])
+}
+
+
+// A helper function for `calc_see`.
+//
+// It returns the least valuble piece in the subset `set`.
+#[inline]
+fn get_least_valuable_piece(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
+    for p in (KING..NO_PIECE).rev() {
+        let piece_subset = piece_type_array[p] & set;
+        if piece_subset != EMPTY_SET {
+            return (p, ls1b(piece_subset));
+        }
+    }
+    (NO_PIECE, EMPTY_SET)
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use super::PIECE_VALUES;
+    use basetypes::*;
 
     // This is a very simple evaluation function used for the testing
     // of `qsearch`.
@@ -677,5 +826,14 @@ mod tests {
         let mut v = vec![0, 1, 2, 7, 9, 0, 0, 1, 2];
         set_non_repeating_values(&mut v, 0);
         assert_eq!(v, vec![0, 1, 2, 0, 0, 0, 0, 1, 2]);
+    }
+
+    #[test]
+    fn test_static_exchange_evaluation() {
+        let p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1").ok().unwrap();
+        assert_eq!(p.calc_see(BLACK, QUEEN, E5, E3, PAWN), 100);
+        assert_eq!(p.calc_see(BLACK, QUEEN, E5, D4, PAWN), -875);
+        assert_eq!(p.calc_see(WHITE, PAWN, G3, F4, PAWN), 100);
+        assert_eq!(p.calc_see(BLACK, KING, A3, A2, PAWN), -9900);
     }
 }
