@@ -404,16 +404,31 @@ impl Position {
             }
             i += 1;
 
-            // Check if the material gain from this move is big
-            // enough to warrant trying the move.
+            // Check if the best-case material gain from this move is
+            // big enough to warrant trying the move.
+            let move_type = next_move.move_type();
             let material_gain = PIECE_VALUES[next_move.captured_piece()] +
-                                if next_move.move_type() == MOVE_PROMOTION {
+                                if move_type == MOVE_PROMOTION {
                 PIECE_VALUES[Move::piece_from_aux_data(next_move.aux_data())] - PIECE_VALUES[PAWN]
             } else {
                 0
             };
             if material_gain < pruning_threshold {
                 continue;
+            }
+
+            // Calcluate the static exchange evaluation, and decide
+            // whether to try the move.
+            let captured_piece = next_move.captured_piece();
+            if captured_piece < NO_PIECE && move_type != MOVE_PROMOTION {
+                let see = self.calc_see(self.board().to_move(),
+                                        next_move.piece(),
+                                        next_move.orig_square(),
+                                        next_move.dest_square(),
+                                        captured_piece);
+                if see < 0 {
+                    continue;
+                }
             }
 
             // Recursively call `qsearch` for the next move.
