@@ -31,6 +31,17 @@ struct StateInfo {
 pub type Value = i16;
 
 
+// /// Level of uncertainty in an evaluation.
+// ///
+// /// The definition of "uncertainty" is a bit loose. The rule is that
+// /// bigger values mean more uncertain evaluation, needing a deeper
+// /// search. Lower values mean more certain evaluation. The general
+// /// idea is that the search algorithm must be adjusted to understand
+// /// and act upon whatever uncertainty values the evaluation function
+// /// returns.
+// pub type Uncertainty = u8;
+
+
 /// Represents an illegal possiton error.
 pub struct IllegalPosition;
 
