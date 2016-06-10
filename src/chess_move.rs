@@ -281,6 +281,9 @@ impl Move {
 
     /// Decodes the promoted piece type from the raw value returned by
     /// `m.aux_data()`.
+    ///
+    /// The interpretation of the raw value is: `0` -- queen, `1` --
+    /// rook, `2` -- bishop, `3` -- knight.
     #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         assert!(pp_code <= 3);

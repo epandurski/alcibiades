@@ -573,6 +573,7 @@ impl Board {
                     self.push_pawn_moves_to_sink(free_pawns,
                                                  en_passant_bb,
                                                  pawn_legal_dests,
+                                                 !generate_all_moves,
                                                  move_sink);
                 }
 
@@ -584,6 +585,7 @@ impl Board {
                     self.push_pawn_moves_to_sink(pawn_bb,
                                                  en_passant_bb,
                                                  pin_line & pawn_legal_dests,
+                                                 !generate_all_moves,
                                                  move_sink);
                 }
             }
@@ -770,6 +772,7 @@ impl Board {
                                pawns: u64,
                                en_passant_bb: u64,
                                legal_dests: u64,
+                               only_queen_promotions: bool,
                                move_sink: &mut MoveSink) {
 
         const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
@@ -838,11 +841,10 @@ impl Board {
                     x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
                             move_sink.push_move(Move::new(self.to_move,
-                                                          if Move::piece_from_aux_data(p) ==
-                                                             QUEEN {
-                                                              1
+                                                          if p == 0 {
+                                                              1  // queen
                                                           } else {
-                                                              0
+                                                              0  // other piece
                                                           },
                                                           MOVE_PROMOTION,
                                                           PAWN,
@@ -852,6 +854,9 @@ impl Board {
                                                           self.en_passant_file,
                                                           self.castling,
                                                           p));
+                            if only_queen_promotions {
+                                break;
+                            }
                         }
                     }
 
