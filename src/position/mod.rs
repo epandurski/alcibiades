@@ -376,10 +376,9 @@ impl Position {
         // least one "quiet" move that will at least preserve the
         // stand pat value. (Note that this is not true if the the
         // side to move is in check!)
-        let stand_pat = if not_in_check {
-            eval_func(self, lower_bound, upper_bound)
-        } else {
-            lower_bound
+        let stand_pat = match not_in_check {
+            true => eval_func(self, lower_bound, upper_bound),
+            false => lower_bound,
         };
         if stand_pat >= upper_bound {
             return stand_pat;
