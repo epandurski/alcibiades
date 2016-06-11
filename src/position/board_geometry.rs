@@ -1,3 +1,5 @@
+//! Generates fundamental look-up tables.
+
 use rand::{Rng, SeedableRng};
 use rand::isaac::Isaac64Rng;
 use basetypes::*;

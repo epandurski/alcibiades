@@ -1,3 +1,5 @@
+//! Implements the rules of chess.
+
 use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
