@@ -394,18 +394,7 @@ impl Position {
         // scores are tried before moves with lower scores.
         let mut i = length_at_start;
         while i < move_stack.len() {
-            // Find the move with the best score among the remaining
-            // moves, so as to try that move next.
-            let mut next_move = *move_stack.get_unchecked(i);
-            let mut j = i;
-            while j < move_stack.len() {
-                if *move_stack.get_unchecked(j) > next_move {
-                    *move_stack.get_unchecked_mut(i) = *move_stack.get_unchecked_mut(j);
-                    *move_stack.get_unchecked_mut(j) = next_move;
-                    next_move = *move_stack.get_unchecked(i);
-                }
-                j += 1;
-            }
+            let next_move = pull_best_score_move(move_stack, i);
             i += 1;
 
             // Check if the best-case material gain from this move is
@@ -658,6 +647,28 @@ fn set_non_repeating_values<T>(slice: &mut [T], value: T)
         if repeated.binary_search(x).is_err() {
             *x = value;
         }
+    }
+}
+
+
+// Helper function for `Position::qsearch`. It searches in
+// `move_stack`, starting at index `i` for the move with the best
+// score and returns it. `move_stack` is changed so that the returned
+// move is moved to index `i`. (The move that was originally at index
+// `i` takes the place of the returned move.)
+fn pull_best_score_move(move_stack: &mut [Move], i: usize) -> Move {
+    unsafe {
+        let mut next_move = *move_stack.get_unchecked(i);
+        let mut j = i;
+        while j < move_stack.len() {
+            if *move_stack.get_unchecked(j) > next_move {
+                *move_stack.get_unchecked_mut(i) = *move_stack.get_unchecked_mut(j);
+                *move_stack.get_unchecked_mut(j) = next_move;
+                next_move = *move_stack.get_unchecked(i);
+            }
+            j += 1;
+        }
+        next_move
     }
 }
 
