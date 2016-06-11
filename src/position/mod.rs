@@ -367,14 +367,20 @@ impl Position {
                       eval_func: &Fn(&Position, Value, Value) -> Value)
                       -> Value {
         assert!(lower_bound <= upper_bound);
-        let stand_pat = eval_func(self, lower_bound, upper_bound);
+        let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
         // is used to establish a lower bound on the score
         // (`stand_pat`). We assume that even if none of the capturing
         // moves can improve over the stand pat, there will be at
         // least one "quiet" move that will at least preserve the
-        // stand pat value.
+        // stand pat value. (Note that this is not true if the the
+        // side to move is in check!)
+        let stand_pat = if not_in_check {
+            eval_func(self, lower_bound, upper_bound)
+        } else {
+            lower_bound
+        };
         if stand_pat >= upper_bound {
             return stand_pat;
         }
@@ -410,10 +416,10 @@ impl Position {
                 continue;
             }
 
-            // Calcluate the static exchange evaluation, and decide
+            // Calculate the static exchange evaluation, and decide
             // whether to try the move. (But first, make sure that we
-            // are dealing with a "pure" capture move.)
-            if captured_piece < NO_PIECE && move_type != MOVE_PROMOTION {
+            // are dealing with a proper capture move.)
+            if not_in_check && move_type != MOVE_PROMOTION {
                 let dest_square = next_move.dest_square();
                 let dest_square_bb = 1 << dest_square;
 
@@ -854,6 +860,12 @@ mod tests {
                     .ok()
                     .unwrap();
         assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
+        
+        let p = Position::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
+        assert!(p.evaluate_quiescence(-10000, 10000) <= -10000);
+        
+        let p = Position::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
+        assert!(p.evaluate_quiescence(-10000, 10000) >= 10000);
     }
 
     #[test]
