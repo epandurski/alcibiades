@@ -218,6 +218,10 @@ impl Position {
     #[inline]
     pub fn evaluate_quiescence(&self, lower_bound: Value, upper_bound: Value) -> Value {
         // TODO: Use unsafe array for speed.
+        
+        // TODO: Check if passing `1 <<
+        // self.state().last_move.dest_square()` is a good idea.
+
         assert!(lower_bound <= upper_bound);
         thread_local!(
             static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
