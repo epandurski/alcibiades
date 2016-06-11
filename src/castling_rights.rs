@@ -80,7 +80,9 @@ impl CastlingRights {
     /// 
     /// Returns a bitboard with the set of squares that should be
     /// vacant in order for the specified (`color`, `side`) castling
-    /// move to be possible.
+    /// move to be possible. If `color` can never castle on `side`,
+    /// because the king or the rook had moved, this method returns
+    /// `UNIVERSAL_SET`.
     #[inline]
     pub fn obstacles(&self, color: Color, side: CastlingSide) -> u64 {
         const OBSTACLES: [[u64; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
