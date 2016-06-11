@@ -202,7 +202,7 @@ impl Position {
     /// are likely to lead to material loss. Although "quiescence
     /// search" can cheaply and correctly resolve many tactical
     /// issues, it is particularly blind to other simple tactical
-    /// threads like all kinds of forks, checks, and even a checkmate
+    /// threads like most kinds of forks, checks, and even a checkmate
     /// in one move.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
@@ -222,6 +222,7 @@ impl Position {
             unsafe {
                 self.qsearch(lower_bound,
                              upper_bound,
+                             0,
                              0,
                              &mut *x.get(),
                              &Position::evaluate_static)
@@ -364,6 +365,7 @@ impl Position {
                       mut lower_bound: Value,
                       upper_bound: Value,
                       mut recapture_squares: u64,
+                      ply: u8,
                       move_stack: &mut Vec<Move>,
                       eval_func: &Fn(&Position, Value, Value) -> Value)
                       -> Value {
@@ -409,7 +411,8 @@ impl Position {
             // Check if the best-case material gain from this move is
             // big enough to warrant trying the move.
             let move_type = next_move.move_type();
-            let material_gain = PIECE_VALUES[next_move.captured_piece()] +
+            let captured_piece = next_move.captured_piece();
+            let material_gain = PIECE_VALUES[captured_piece] +
                                 if move_type == MOVE_PROMOTION {
                 PIECE_VALUES[Move::piece_from_aux_data(next_move.aux_data())] - PIECE_VALUES[PAWN]
             } else {
@@ -420,19 +423,25 @@ impl Position {
             }
 
             // Calcluate the static exchange evaluation, and decide
-            // whether to try the move.
-            let captured_piece = next_move.captured_piece();
+            // whether to try the move. (But first, make sure that we
+            // are dealing with a "pure" capture move.)
             if captured_piece < NO_PIECE && move_type != MOVE_PROMOTION {
                 let dest_square = next_move.dest_square();
-                let see = self.calc_see(self.board().to_move(),
+                let dest_square_bb = 1 << dest_square;
+                
+                // Make sure this is not a recapture. (Recaptures at
+                // the same square are tried, no matter the SSE.)
+                if recapture_squares & dest_square_bb == 0 {
+                    match self.calc_see(self.board().to_move(),
                                         next_move.piece(),
                                         next_move.orig_square(),
                                         dest_square,
-                                        captured_piece);
-                if see < 0 && (recapture_squares & (1 << dest_square) == 0) {
-                    continue;
+                                        captured_piece) {
+                        x if x < 0 => continue,
+                        0 if ply >= SSE_EXCHANGE_MAX_PLY => continue,
+                        _ => recapture_squares |= dest_square_bb,
+                    }
                 }
-                recapture_squares |= 1 << dest_square;
             }
 
             // Recursively call `qsearch` for the next move.
@@ -442,6 +451,7 @@ impl Position {
             let value = -self.qsearch(-upper_bound,
                                       -lower_bound,
                                       recapture_squares,
+                                      ply + 1,
                                       move_stack,
                                       eval_func);
             self.undo_move_unsafe();
@@ -622,8 +632,11 @@ impl Position {
 // the quiescence search. In this case it is 32 plys * 128 moves.
 const MOVE_STACK_CAPACITY: usize = 4096;
 
-// Teh material value of pieces.
+// The material value of pieces.
 const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
+
+// Do not try exchanges with SSE==0 once this ply has been reached.
+const SSE_EXCHANGE_MAX_PLY: u8 = 2;
 
 
 // Helper function for `Posittion::from_history`. It sets all unique
