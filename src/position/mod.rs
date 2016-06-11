@@ -399,7 +399,7 @@ impl Position {
             let next_move = pull_best_score_move(move_stack, i);
             i += 1;
 
-            // Check if the best-case material gain from this move is
+            // Check if the potential material gain from this move is
             // big enough to warrant trying the move.
             let move_type = next_move.move_type();
             let captured_piece = next_move.captured_piece();
