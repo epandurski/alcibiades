@@ -217,6 +217,7 @@ impl Position {
     /// always staying on the correct side of the interval.
     #[inline]
     pub fn evaluate_quiescence(&self, lower_bound: Value, upper_bound: Value) -> Value {
+        // TODO: Use unsafe array for speed.
         assert!(lower_bound <= upper_bound);
         thread_local!(
             static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
