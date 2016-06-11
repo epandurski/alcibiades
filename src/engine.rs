@@ -78,10 +78,12 @@ impl UciEngine for DummyEngine {
         let p = &mut self.position;
         p.generate_moves(s);
         // let mut legal_moves = vec![];
+        let mut rng = rand::thread_rng();
+        let mut between = Range::new(0, 10);
         let mut best_score = -20000;
         while let Some(m) = s.pop() {
             if p.do_move(m) {
-                let score = -p.evaluate_quiescence(-20000, 20000);
+                let score = -p.evaluate_quiescence(-20000, 20000) + between.sample(&mut rng);
                 if score >= best_score {
                     best_score = score;
                     // self.replies.push(EngineReply::Info(vec![("info".to_string(),
