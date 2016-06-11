@@ -220,7 +220,8 @@ impl Position {
         // TODO: Use unsafe array for speed.
         
         // TODO: Check if passing `1 <<
-        // self.state().last_move.dest_square()` is a good idea.
+        // self.state().last_move.dest_square()` as a third parameter
+        // to `qsearch` is a good idea.
 
         assert!(lower_bound <= upper_bound);
         thread_local!(
@@ -231,7 +232,7 @@ impl Position {
             unsafe {
                 self.qsearch(lower_bound,
                              upper_bound,
-                             1 << self.state().last_move.dest_square(),
+                             0,
                              0,
                              &mut *x.get(),
                              &Position::evaluate_static)
