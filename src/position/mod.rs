@@ -227,7 +227,7 @@ impl Position {
             unsafe {
                 self.qsearch(lower_bound,
                              upper_bound,
-                             0,
+                             1 << self.state().last_move.dest_square(),
                              0,
                              &mut *x.get(),
                              &Position::evaluate_static)
