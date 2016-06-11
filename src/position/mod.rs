@@ -62,6 +62,10 @@ pub struct IllegalPosition;
 /// tree-searching algorithms can use this evaluation to assign
 /// realistic game outcomes to their leaf nodes.
 pub struct Position {
+    // We use `UnsafeCell` for all the members, because evaluation
+    // methods logically are non-mutating, but internally they try
+    // moves on the board and then undoes them, making sure to leave
+    // everything the way it was.
     board: UnsafeCell<Board>,
     halfmove_count: UnsafeCell<u16>,
     state_stack: UnsafeCell<Vec<StateInfo>>,
@@ -292,17 +296,9 @@ impl Position {
         self.board().null_move()
     }
 
-    // Returns the current move number.
-    //
-    // At the beginning of the game it starts at `1`, and is
-    // incremented after black's move.
-    #[inline]
-    fn fullmove_number(&self) -> u16 {
-        1 + (self.halfmove_count() >> 1)
-    }
-
-    // Returns `true` if the current position is a repetition of a
-    // previously encountered position, `false` otherwise.
+    // A helper method. Returns `true` if the current position is a
+    // repetition of a previously encountered position, `false`
+    // otherwise.
     #[inline]
     fn is_repeated(&self) -> bool {
         let halfmove_clock = self.state().halfmove_clock as usize;
@@ -461,23 +457,23 @@ impl Position {
         lower_bound
     }
 
-    // Calculates the SSE value of a capture.
+    // A helper method for `qsearch`. It calculates the SSE value of a
+    // capture.
     //
     // The Static Exchange Evaluation (SEE) examines the consequence
     // of a series of exchanges on a single square after a given move,
     // and calculates the likely evaluation change (material) to be
-    // lost or gained, Donald Michie coined the term swap-off value. A
-    // positive static exchange indicates a "winning" move. For
-    // example, PxQ will always be a win, since the Pawn side can
-    // choose to stop the exchange after its Pawn is recaptured, and
-    // still be ahead.
+    // lost or gained. A positive static exchange indicates a
+    // "winning" move. For example, PxQ will always be a win, since
+    // the pawn side can choose to stop the exchange after its pawn is
+    // recaptured, and still be ahead.
     //
     // The impemented algorithm creates a swap-list of best case
-    // material gains by traversing a square attacked/defended by set
-    // in least valuable piece order from pawn, knight, bishop, rook,
-    // queen until king, with alternating sides. The swap-list, an
-    // unary tree since there are no branches but just a series of
-    // captures, is negamaxed for a final static exchange evaluation.
+    // material gains by traversing a "square attacked/defended by"
+    // set in least valuable piece order from pawn, knight, bishop,
+    // rook, queen until king, with alternating sides. The swap-list
+    // (an unary tree since there are no branches but just a series of
+    // captures) is negamaxed for a final static exchange evaluation.
     //
     // The returned value is the material that is expected to be
     // gained in the exchange by the attacking side (`us`), when
@@ -502,18 +498,23 @@ impl Position {
         let mut orig_square_bb = 1 << orig_square;
         let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
                                           board.attacks_to(BLACK, dest_square);
+
         // `may_xray` holds the set of pieces that may block x-ray
         // attacks from other pieces, so we must consider adding new
         // attackers/defenders every time a piece from the `may_xray`
         // set makes a capture.
         let may_xray = board.piece_type()[PAWN] | board.piece_type()[BISHOP] |
                        board.piece_type()[ROOK] | board.piece_type()[QUEEN];
+
         unsafe {
-            let mut gain: [Value; 33] = mem::uninitialized();
             let mut depth = 0;
+            let mut gain: [Value; 33] = mem::uninitialized();
             *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(captured_piece);
-            while orig_square_bb != EMPTY_SET {
-                // Change the side to move and the depth.
+
+            // Try each piece in `attackers_and_defenders` one by one,
+            // starting with `piece` at `orig_square`.
+            while orig_square_bb != 0 {
+                // Change the side to move.
                 us ^= 1;
                 depth += 1;
 
@@ -521,22 +522,25 @@ impl Position {
                 // captured piece happens to be defended.
                 *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(piece) -
                                                  *gain.get_unchecked(depth - 1);
-                // Prune if possible. Based on the fact that the next
-                // side to move can back off from further exchange if
-                // it gained material already.
+
+                // Stop here if possible. (Based on the fact that the
+                // next side to move can back off from further
+                // exchange if it already gained material.)
                 if max(-*gain.get_unchecked(depth - 1), *gain.get_unchecked(depth)) < 0 {
                     break;
                 }
+
                 // Update attackers and defenders.
                 attackers_and_defenders ^= orig_square_bb;
                 occupied ^= orig_square_bb;
-                if orig_square_bb & may_xray != EMPTY_SET {
+                if orig_square_bb & may_xray != 0 {
                     attackers_and_defenders |= consider_xrays(board.geometry(),
                                                               &board.piece_type(),
                                                               occupied,
                                                               dest_square,
                                                               bitscan_forward(orig_square_bb));
                 }
+
                 // Find the next piece to enter the exchange.
                 let next_attacker = get_least_valuable_piece(board.piece_type(),
                                                              attackers_and_defenders &
@@ -549,7 +553,7 @@ impl Position {
             // never be captured.
             depth -= 1;
 
-            // Collapse the all values to one. Again, use the fact
+            // Collapse the all values to one. Again, exploit the fact
             // that the side to move can back off from further
             // exchange if it is not favorable.
             while depth > 0 {
@@ -621,7 +625,8 @@ impl Position {
 // the quiescence search. In this case it is 32 plys * 128 moves.
 const MOVE_STACK_CAPACITY: usize = 4096;
 
-// The material value of pieces.
+// The material value of pieces. Zeroes are added to increase memory
+// safety.
 const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
 // Do not try exchanges with SSE==0 once this ply has been reached.
@@ -651,11 +656,12 @@ fn set_non_repeating_values<T>(slice: &mut [T], value: T)
 }
 
 
-// Helper function for `Position::qsearch`. It searches in
+// A helper function for `Position::qsearch`. It searches in
 // `move_stack`, starting at index `i` for the move with the best
 // score and returns it. `move_stack` is changed so that the returned
-// move is moved to index `i`. (The move that was originally at index
-// `i` takes the place of the returned move.)
+// move is moved to index `i`. The move that was originally at index
+// `i` takes the place of the returned move.
+#[inline]
 fn pull_best_score_move(move_stack: &mut [Move], i: usize) -> Move {
     unsafe {
         let mut next_move = *move_stack.get_unchecked(i);
@@ -673,10 +679,10 @@ fn pull_best_score_move(move_stack: &mut [Move], i: usize) -> Move {
 }
 
 
-// A helper function for `calc_see`.
-//
-// It returns a bitboard describing all pieces that can attack
-// `target_square` once `xrayed_square` becomes vacant.
+// A helper function for `calc_see`. It returns a bitboard describing
+// the position on the board of the piece that could attack
+// `target_square`, but only when `xrayed_square` becomes
+// vacant. Returns `0` if there is no such piece.
 #[inline]
 fn consider_xrays(geometry: &BoardGeometry,
                   piece_type_array: &[u64; 6],
@@ -690,22 +696,24 @@ fn consider_xrays(geometry: &BoardGeometry,
                  .get_unchecked(target_square)
                  .get_unchecked(xrayed_square)
     };
-    // Try the straight sliders first.
+
+    // Try the straight sliders first, if not, the diagonal sliders.
     let straight_slider_bb = piece_attacks_from(geometry, candidates, ROOK, target_square) &
                              candidates &
                              (piece_type_array[QUEEN] | piece_type_array[ROOK]);
-    if straight_slider_bb != EMPTY_SET {
-        return straight_slider_bb;
+    if straight_slider_bb != 0 {
+        straight_slider_bb
+    } else {
+        piece_attacks_from(geometry, candidates, BISHOP, target_square) & candidates &
+        (piece_type_array[QUEEN] | piece_type_array[BISHOP])
     }
-    // Then the diagonal sliders.
-    piece_attacks_from(geometry, candidates, BISHOP, target_square) & candidates &
-    (piece_type_array[QUEEN] | piece_type_array[BISHOP])
+
 }
 
 
-// A helper function for `calc_see`.
-//
-// It returns the least valuble piece in the subset `set`.
+// A helper function for `calc_see`. It takes a subset of pieces
+// `set`, and returns the type of the least valuable piece, and a
+// bitboard describing its position on the board.
 #[inline]
 fn get_least_valuable_piece(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
     for p in (KING..NO_PIECE).rev() {
@@ -714,7 +722,7 @@ fn get_least_valuable_piece(piece_type_array: &[u64; 6], set: u64) -> (PieceType
             return (p, ls1b(piece_subset));
         }
     }
-    (NO_PIECE, EMPTY_SET)
+    (NO_PIECE, 0)
 }
 
 
@@ -803,16 +811,6 @@ mod tests {
         assert!(Position::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
         assert!(Position::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
         assert!(Position::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
-        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 11")
-                       .ok()
-                       .unwrap()
-                       .fullmove_number(),
-                   11);
-        assert_eq!(Position::from_fen("k7/8/8/8/8/8/8/7K b - - 0 11")
-                       .ok()
-                       .unwrap()
-                       .fullmove_number(),
-                   11);
     }
 
     #[test]
