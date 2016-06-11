@@ -82,7 +82,7 @@ impl UciEngine for DummyEngine {
         while let Some(m) = s.pop() {
             if p.do_move(m) {
                 let score = -p.evaluate_quiescence(-20000, 20000);
-                if score > best_score {
+                if score >= best_score {
                     best_score = score;
                     // self.replies.push(EngineReply::Info(vec![("info".to_string(),
                     //                                           format!("{} -> {}",
