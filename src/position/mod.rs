@@ -384,6 +384,7 @@ impl Position {
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
         }
+        let material_gain_threshold = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
 
         // Generate all non-quiet moves.
         let length_at_start = move_stack.len();
@@ -391,11 +392,10 @@ impl Position {
 
         // Try all generated moves one by one. Moves with higher
         // scores are tried before moves with lower scores.
-        let pruning_threshold = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
         let mut i = length_at_start;
         while i < move_stack.len() {
-            // Find the move with the best score among the
-            // remaining moves, so as to try that move next.
+            // Find the move with the best score among the remaining
+            // moves, so as to try that move next.
             let mut next_move = *move_stack.get_unchecked(i);
             let mut j = i;
             while j < move_stack.len() {
@@ -412,13 +412,15 @@ impl Position {
             // big enough to warrant trying the move.
             let move_type = next_move.move_type();
             let captured_piece = next_move.captured_piece();
-            let material_gain = PIECE_VALUES[captured_piece] +
-                                if move_type == MOVE_PROMOTION {
-                PIECE_VALUES[Move::piece_from_aux_data(next_move.aux_data())] - PIECE_VALUES[PAWN]
-            } else {
-                0
+            let material_gain = *PIECE_VALUES.get_unchecked(captured_piece) +
+                                match move_type {
+                MOVE_PROMOTION => {
+                    PIECE_VALUES[Move::piece_from_aux_data(next_move.aux_data())] -
+                    PIECE_VALUES[PAWN]
+                }
+                _ => 0,
             };
-            if material_gain < pruning_threshold {
+            if material_gain < material_gain_threshold {
                 continue;
             }
 
@@ -428,9 +430,9 @@ impl Position {
             if captured_piece < NO_PIECE && move_type != MOVE_PROMOTION {
                 let dest_square = next_move.dest_square();
                 let dest_square_bb = 1 << dest_square;
-                
+
                 // Make sure this is not a recapture. (Recaptures at
-                // the same square are tried, no matter the SSE.)
+                // the capture square are tried, no matter the SSE.)
                 if recapture_squares & dest_square_bb == 0 {
                     match self.calc_see(self.board().to_move(),
                                         next_move.piece(),
@@ -444,26 +446,24 @@ impl Position {
                 }
             }
 
-            // Recursively call `qsearch` for the next move.
-            if !self.do_move_unsafe(next_move) {
-                continue;  // illegal move
-            }
-            let value = -self.qsearch(-upper_bound,
-                                      -lower_bound,
-                                      recapture_squares,
-                                      ply + 1,
-                                      move_stack,
-                                      eval_func);
-            self.undo_move_unsafe();
-
-            // Update the lower bound according to the recursively
-            // calculated value.
-            if value >= upper_bound {
-                lower_bound = value;
-                break;
-            }
-            if value > lower_bound {
-                lower_bound = value;
+            // Recursively call `qsearch` for the next move and update
+            // the lower bound according to the recursively calculated
+            // value.
+            if self.do_move_unsafe(next_move) {
+                let value = -self.qsearch(-upper_bound,
+                                          -lower_bound,
+                                          recapture_squares,
+                                          ply + 1,
+                                          move_stack,
+                                          eval_func);
+                self.undo_move_unsafe();
+                if value >= upper_bound {
+                    lower_bound = value;
+                    break;
+                }
+                if value > lower_bound {
+                    lower_bound = value;
+                }
             }
         }
 
