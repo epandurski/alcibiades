@@ -384,7 +384,7 @@ impl Position {
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
         }
-        let material_gain_threshold = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
+        let obligatory_material_gain = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
 
         // Generate all non-quiet moves.
         let length_at_start = move_stack.len();
@@ -409,7 +409,7 @@ impl Position {
                 }
                 _ => 0,
             };
-            if material_gain < material_gain_threshold {
+            if material_gain < obligatory_material_gain {
                 continue;
             }
 
