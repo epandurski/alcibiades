@@ -437,6 +437,7 @@ impl Position {
                                         captured_piece) {
                         x if x < 0 => continue,
                         0 if ply >= SSE_EXCHANGE_MAX_PLY => continue,
+                        0 => (),
                         _ => recapture_squares |= dest_square_bb,
                     }
                 }
