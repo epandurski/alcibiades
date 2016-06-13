@@ -429,6 +429,9 @@ impl Position {
 
                 // Make sure this is not a recapture. (Recaptures at
                 // the capture square are tried, no matter the SSE.)
+                //
+                // TODO: Experiment with `recapture_squares`, for
+                // example, try `recapture_squares = dest_square_bb`.
                 if recapture_squares & dest_square_bb == 0 {
                     match self.calc_see(self.board().to_move(),
                                         next_move.piece(),
