@@ -218,7 +218,7 @@ impl Position {
     #[inline]
     pub fn evaluate_quiescence(&self, lower_bound: Value, upper_bound: Value) -> Value {
         // TODO: Use unsafe array for speed.
-        
+
         // TODO: Check if passing `1 <<
         // self.state().last_move.dest_square()` as a third parameter
         // to `qsearch` is a good idea.
@@ -366,7 +366,7 @@ impl Position {
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
-                      mut recapture_squares: u64,
+                      recapture_squares: u64,
                       ply: u8,
                       move_stack: &mut Vec<Move>,
                       eval_func: &Fn(&Position, Value, Value) -> Value)
@@ -420,18 +420,16 @@ impl Position {
                 continue;
             }
 
+            let dest_square = next_move.dest_square();
+            let dest_square_bb = 1 << dest_square;
+
             // Calculate the static exchange evaluation, and decide
             // whether to try the move. (But first, make sure that we
             // are dealing with a proper capture move.)
             if not_in_check && move_type != MOVE_PROMOTION {
-                let dest_square = next_move.dest_square();
-                let dest_square_bb = 1 << dest_square;
 
                 // Make sure this is not a recapture. (Recaptures at
                 // the capture square are tried, no matter the SSE.)
-                //
-                // TODO: Experiment with `recapture_squares`, for
-                // example, try `recapture_squares = dest_square_bb`.
                 if recapture_squares & dest_square_bb == 0 {
                     match self.calc_see(self.board().to_move(),
                                         next_move.piece(),
@@ -440,8 +438,7 @@ impl Position {
                                         captured_piece) {
                         x if x < 0 => continue,
                         0 if ply >= SSE_EXCHANGE_MAX_PLY => continue,
-                        0 => (),
-                        _ => recapture_squares |= dest_square_bb,
+                        _ => (),
                     }
                 }
             }
@@ -449,10 +446,13 @@ impl Position {
             // Recursively call `qsearch` for the next move and update
             // the lower bound according to the recursively calculated
             // value.
+            //
+            // TODO: Experiment with `recapture_squares`. For example,
+            // try `recapture_squares & dest_square_bb ^ dest_square_bb`.
             if self.do_move_unsafe(next_move) {
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
-                                          recapture_squares,
+                                          recapture_squares ^ dest_square_bb,
                                           ply + 1,
                                           move_stack,
                                           eval_func);
@@ -868,10 +868,10 @@ mod tests {
                     .ok()
                     .unwrap();
         assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
-        
+
         let p = Position::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
         assert!(p.evaluate_quiescence(-10000, 10000) <= -10000);
-        
+
         let p = Position::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
         assert!(p.evaluate_quiescence(-10000, 10000) >= 10000);
     }
