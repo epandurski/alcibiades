@@ -366,7 +366,7 @@ impl Position {
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
-                      recapture_squares: u64,
+                      mut recapture_squares: u64,
                       ply: u8,
                       move_stack: &mut Vec<Move>,
                       eval_func: &Fn(&Position, Value, Value) -> Value)
@@ -425,11 +425,12 @@ impl Position {
 
             // Calculate the static exchange evaluation, and decide
             // whether to try the move. (But first, make sure that we
-            // are dealing with a proper capture move.)
-            if not_in_check && move_type != MOVE_PROMOTION {
+            // are dealing with a normal capture move.)
+            if not_in_check && move_type == MOVE_NORMAL {
 
-                // Make sure this is not a recapture. (Recaptures at
-                // the capture square are tried, no matter the SSE.)
+                // Verify if this is a mandatory recapture. (At least
+                // one recapture at the capture square is tried, no
+                // matter the SSE.)
                 if recapture_squares & dest_square_bb == 0 {
                     match self.calc_see(self.board().to_move(),
                                         next_move.piece(),
@@ -446,9 +447,6 @@ impl Position {
             // Recursively call `qsearch` for the next move and update
             // the lower bound according to the recursively calculated
             // value.
-            //
-            // TODO: Experiment with `recapture_squares`. For example,
-            // try `recapture_squares & dest_square_bb ^ dest_square_bb`.
             if self.do_move_unsafe(next_move) {
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
@@ -464,6 +462,9 @@ impl Position {
                 if value > lower_bound {
                     lower_bound = value;
                 }
+
+                // Mark that a recapture at this field had been tried.
+                recapture_squares &= !dest_square_bb;
             }
         }
 
