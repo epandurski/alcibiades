@@ -640,28 +640,28 @@ impl Board {
          self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
-    /// Analyzes the board and decides if it is a legal board.
-    ///
-    /// In addition to the obviously wrong boards (that for example
-    /// declare some pieces having no or more than one color), there
-    /// are many chess boards that are impossible to create from the
-    /// starting chess position. Here we are interested to detect and
-    /// guard against only those of the cases that have a chance of
-    /// disturbing some of our explicit and unavoidably, implicit
-    /// presumptions about what a chess position is when writing the
-    /// code.
-    ///
-    /// Invalid boards: 1. having more or less than 1 king from each
-    /// color; 2. having more than 8 pawns of a color; 3. having more
-    /// than 16 pieces (and pawns) of one color; 4. having the side not
-    /// to move in check; 5. having pawns on ranks 1 or 8; 6. having
-    /// castling rights when the king or the corresponding rook is not
-    /// on its initial square; 7. having an en-passant square that is
-    /// not having a pawn of corresponding color before, and an empty
-    /// square on it and behind it; 8. having an en-passant square
-    /// while the wrong side is to move; 9. having an en-passant square
-    /// while the king is in check not from the passing pawn and not
-    /// from a checker that was discovered by the passing pawn.
+    // Analyzes the board and decides if it is a legal board.
+    //
+    // In addition to the obviously wrong boards (that for example
+    // declare some pieces having no or more than one color), there
+    // are many chess boards that are impossible to create from the
+    // starting chess position. Here we are interested to detect and
+    // guard against only those of the cases that have a chance of
+    // disturbing some of our explicit and unavoidably, implicit
+    // presumptions about what a chess position is when writing the
+    // code.
+    //
+    // Invalid boards: 1. having more or less than 1 king from each
+    // color; 2. having more than 8 pawns of a color; 3. having more
+    // than 16 pieces (and pawns) of one color; 4. having the side not
+    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
+    // castling rights when the king or the corresponding rook is not
+    // on its initial square; 7. having an en-passant square that is
+    // not having a pawn of corresponding color before, and an empty
+    // square on it and behind it; 8. having an en-passant square
+    // while the wrong side is to move; 9. having an en-passant square
+    // while the king is in check not from the passing pawn and not
+    // from a checker that was discovered by the passing pawn.
     fn is_legal(&self) -> bool {
         if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
             return false;
@@ -880,10 +880,10 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves`.
-    ///
-    /// It figures out which castling moves are pseudo-legal and
-    /// pushes them to `move_sink`.
+    // A helper method for `generate_moves`.
+    //
+    // It figures out which castling moves are pseudo-legal and pushes
+    // them to `move_sink`.
     #[inline]
     fn push_castling_moves_to_sink(&self, move_sink: &mut MoveSink) {
 
@@ -918,10 +918,10 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves`.
-    ///
-    /// It returns all pinned pieces belonging to the side to
-    /// move. This is a relatively expensive operation.
+    // A helper method for `generate_moves`.
+    //
+    // It returns all pinned pieces belonging to the side to
+    // move. This is a relatively expensive operation.
     #[inline]
     fn find_pinned(&self) -> u64 {
         let king_square = self.king_square();
@@ -967,10 +967,10 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves`.
-    ///
-    /// It returns a bitboard representing the en-passant passing
-    /// square if there is one.
+    // A helper method for `generate_moves`.
+    //
+    // It returns a bitboard representing the en-passant passing
+    // square if there is one.
     #[inline]
     fn en_passant_bb(&self) -> u64 {
         assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
@@ -985,11 +985,11 @@ impl Board {
         }
     }
 
-    /// A helper method used by various other methods.
-    ///
-    /// It returns the square that the king of the side to move
-    /// occupies. The value is lazily calculated and saved for future
-    /// use.
+    // A helper method used by various other methods.
+    //
+    // It returns the square that the king of the side to move
+    // occupies. The value is lazily calculated and saved for future
+    // use.
     #[inline]
     fn king_square(&self) -> Square {
         if self._king_square.get() > 63 {
@@ -998,10 +998,10 @@ impl Board {
         self._king_square.get()
     }
 
-    /// A helper method for `do_move`.
-    ///
-    /// It returns `true` if had our king moved to square `square` it
-    /// would be in check, and `false` otherwise.
+    // A helper method for `do_move`.
+    //
+    // It returns `true` if had our king moved to square `square` it
+    // would be in check, and `false` otherwise.
     #[inline]
     fn king_would_be_in_check(&self, square: Square) -> bool {
         let them = 1 ^ self.to_move;
@@ -1030,15 +1030,15 @@ impl Board {
         }
     }
 
-    /// A helper method for `push_pawn_moves_to_sink`.
-    ///
-    /// It tests for the special case when an en-passant capture
-    /// discovers check on 4/5-th rank. This is the very rare occasion
-    /// when the two pawns participating in en-passant capture,
-    /// disappearing in one move, discover an unexpected check along
-    /// the horizontal (rank 4 of 5). `orig_square` and `dist_square`
-    /// are the origin square and the destination square of the
-    /// capturing pawn.
+    // A helper method for `push_pawn_moves_to_sink`.
+    //
+    // It tests for the special case when an en-passant capture
+    // discovers check on 4/5-th rank. This is the very rare occasion
+    // when the two pawns participating in en-passant capture,
+    // disappearing in one move, discover an unexpected check along
+    // the horizontal (rank 4 of 5). `orig_square` and `dist_square`
+    // are the origin square and the destination square of the
+    // capturing pawn.
     #[inline]
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
@@ -1060,9 +1060,9 @@ impl Board {
         }
     }
 
-    /// A helper method for `create`.
-    ///
-    /// It calculates the Zobrist hash for the board.
+    // A helper method for `create`.
+    //
+    // It calculates the Zobrist hash for the board.
     fn calc_hash(&self) -> u64 {
         let g = self.geometry;
         let mut hash = 0;
