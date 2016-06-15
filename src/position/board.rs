@@ -1486,19 +1486,24 @@ mod tests {
         let mut stack = Vec::new();
 
         let mut b = Board::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
+        let hash = b.hash();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         stack.clear();
         let m = b.null_move();
         assert_eq!(b.do_move(m), true);
+        assert!(hash != b.hash());
         b.undo_move(m);
+        assert_eq!(hash, b.hash());
         b.generate_moves(true, &mut stack);
         assert_eq!(count, stack.len());
         stack.clear();
 
         let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
+        let hash = b.hash();
         let m = b.null_move();
         assert_eq!(b.do_move(m), false);
+        assert_eq!(hash, b.hash());
     }
 
     #[test]
