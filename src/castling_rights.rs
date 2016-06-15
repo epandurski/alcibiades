@@ -6,17 +6,17 @@ use basetypes::*;
 /// Holds information about which player is allowed to castle on which
 /// side.
 ///
-/// The castling rights are held in a `usize` value. The lowest 4 bits
-/// of the value contain the whole needed information. It is laid out
-/// in the following way:
+/// The castling rights are held in a `u8` value. The lowest 4 bits of
+/// the value contain the whole needed information. It is laid out in
+/// the following way:
 ///
 /// ```text
-///  usize                                             3           0
-///  +-----------------------------------------------+---+---+---+---+
-///  |                                               |   |   |   |   |
-///  |                   Unused                      |Castling flags |
-///  |                                               |   |   |   |   |
-///  +-----------------------------------------------+---+---+---+---+
+///  7                 3           0
+///  +---------------+---+---+---+---+
+///  |               |   |   |   |   |
+///  |    Unused     |Castling flags |
+///  |               |   |   |   |   |
+///  +---------------+---+---+---+---+
 ///
 ///  bit 0 -- if set, white can castle on queen-side;
 ///  bit 1 -- if set, white can castle on king-side;
@@ -25,7 +25,7 @@ use basetypes::*;
 /// ```
 #[derive(Debug)]
 #[derive(Clone, Copy)]
-pub struct CastlingRights(usize);
+pub struct CastlingRights(u8);
 
 
 impl CastlingRights {
@@ -38,7 +38,7 @@ impl CastlingRights {
 
     /// Returns the contained raw value.
     #[inline]
-    pub fn value(&self) -> usize {
+    pub fn value(&self) -> u8 {
         self.0
     }
 
@@ -48,7 +48,7 @@ impl CastlingRights {
     /// `mask` is bit-wise OR-ed with the previous value.
     ///
     /// Returns which bits were zero before, and were turned to one.
-    pub fn grant(&mut self, mask: usize) -> usize {
+    pub fn grant(&mut self, mask: u8) -> u8 {
         if mask > 0b1111 {
             panic!("invalid mask");
         }
@@ -62,7 +62,7 @@ impl CastlingRights {
     ///
     /// `mask` is bit-wise AND-ed with the previous value.
     #[inline]
-    pub fn update_with_mask(&mut self, mask: usize) {
+    pub fn update_with_mask(&mut self, mask: u8) {
         self.0 &= mask;
     }
 
@@ -97,21 +97,21 @@ impl CastlingRights {
     }
 
 
-    /// Returns a 2-bit value representing the castling rights for a
-    /// given player.
+    /// Returns a value from 0 to 3 representing the castling rights
+    /// for a given player.
     #[inline]
     pub fn get_for(&self, color: Color) -> usize {
         assert!(color <= 1);
         if color == WHITE {
-            self.0 & 0b0011
+            self.0 as usize & 0b0011
         } else {
-            self.0 >> 2
+            self.0 as usize >> 2
         }
     }
 
 
-    /// Sets the castling rights for a given player with a 2-bit
-    /// value.
+    /// Sets the castling rights for a given player with a value from
+    /// 0 to 3.
     #[inline]
     pub fn set_for(&mut self, color: Color, rights: usize) {
         assert!(color <= 1);
@@ -123,9 +123,9 @@ impl CastlingRights {
             panic!("invalid castling rights");
         }
         self.0 = if color == WHITE {
-            self.0 & 0b1100 | rights
+            self.0 & 0b1100 | (rights as u8)
         } else {
-            self.0 & 0b0011 | rights << 2
+            self.0 & 0b0011 | (rights as u8) << 2
         }
     }
 }
@@ -141,16 +141,16 @@ pub const QUEENSIDE: CastlingSide = 0;
 pub const KINGSIDE: CastlingSide = 1;
 
 /// White can castle on the queen-side.
-pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
+pub const CASTLE_WHITE_QUEENSIDE: u8 = 1 << 0;
 
 /// White can castle on the king-side.
-pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
+pub const CASTLE_WHITE_KINGSIDE: u8 = 1 << 1;
 
 /// Black can castle on the queen-side.
-pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
+pub const CASTLE_BLACK_QUEENSIDE: u8 = 1 << 2;
 
 /// Black can castle on the king-side.
-pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
+pub const CASTLE_BLACK_KINGSIDE: u8 = 1 << 3;
 
 
 #[cfg(test)]
