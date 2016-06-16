@@ -152,26 +152,6 @@ impl Move {
         self.0 |= (score << M_SHIFT_SCORE) as u32;
     }
 
-    /// Sets a particular bit in the "move score" field to `1`.
-    ///
-    /// Bits are numbered stating from `0` for the least significant
-    /// bit, and going upwards.
-    #[inline]
-    pub fn set_score_bit(&mut self, b: usize) {
-        assert!(b <= 1);
-        self.0 |= 1 << b << M_SHIFT_SCORE;
-    }
-
-    /// Sets a particular bit in the "move score" field to `0`.
-    ///
-    /// Bits are numbered stating from `0` for the least significant
-    /// bit, and going upwards.
-    #[inline]
-    pub fn clear_score_bit(&mut self, b: usize) {
-        assert!(b <= 1);
-        self.0 &= !(1 << b << M_SHIFT_SCORE);
-    }
-
     /// Returns the assigned move score.
     #[inline]
     pub fn score(&self) -> usize {
@@ -452,9 +432,6 @@ mod tests {
         m.set_score(3);
         assert_eq!(m.score(), 3);
         assert!(m > m2);
-        m.clear_score_bit(0);
-        assert_eq!(m, m2);
-        m.set_score_bit(0);
         assert_eq!(m.score(), 3);
         m.set_score(0);
         assert_eq!(m.score(), 0);
