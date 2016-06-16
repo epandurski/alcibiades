@@ -64,8 +64,8 @@ use castling_rights::*;
 /// When "Captured piece" is stored, its bits are inverted, so that
 /// MVV-LVA (Most valuable victim -- least valuable aggressor)
 /// ordering of the moves is preserved, even when the "Move score"
-/// field stays the same. The "Reserved" field is used to make the
-/// ordering of non-capturing moves more predictable.
+/// field stays the same. The "Reserved" field is used to improve the
+/// ordering of non-capturing moves.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
@@ -118,8 +118,8 @@ impl Move {
             match advance {
                 0 => 0,
                 x if x < 3 => 1,
-                x if x < 5 => 2,
-                _ => 3,
+                _ => 2,
+                // `3` is used for "killer" moves
             }
         } else {
             0
@@ -143,7 +143,7 @@ impl Move {
     pub fn from_u32(value: u32) -> Move {
         Move(value)
     }
-                          
+
     /// Assigns a new score for the move (between 0 and 3).
     #[inline]
     pub fn set_score(&mut self, score: usize) {
@@ -242,6 +242,17 @@ impl Move {
     #[inline]
     pub fn reserved(&self) -> usize {
         ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
+    }
+
+    /// Sets the value of the reserved field to `3` ("killer" flag).
+    ///
+    /// A "killer" move is a quiet move which caused a beta-cutoff in
+    /// a sibling node, or any other earlier branch in the tree with
+    /// the same distance to the root. Killer moves are sorted
+    /// directly after all captures.
+    #[inline]
+    pub fn set_killer_flag(&mut self) {
+        self.0 |= M_MASK_RESERVED;
     }
 
     /// Returns `true` if the move is a pawn advance or a capture,
@@ -376,16 +387,16 @@ mod tests {
                               NO_ENPASSANT_FILE,
                               cr,
                               0);
-        let n1 = Move::new(WHITE,
-                           2,
-                           MOVE_NORMAL,
-                           PAWN,
-                           F3,
-                           E4,
-                           KNIGHT,
-                           NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
-                           0);
+        let mut n1 = Move::new(WHITE,
+                               2,
+                               MOVE_NORMAL,
+                               PAWN,
+                               F3,
+                               E4,
+                               KNIGHT,
+                               NO_ENPASSANT_FILE,
+                               CastlingRights::new(),
+                               0);
         let n2 = Move::new(WHITE,
                            2,
                            MOVE_NORMAL,
@@ -449,6 +460,8 @@ mod tests {
         assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
         assert_eq!(n1.reserved(), 0);
+        n1.set_killer_flag();
+        assert_eq!(n1.reserved(), 3);
         assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
         assert!(m.is_pawn_advance_or_capure());
         assert!(!n2.is_pawn_advance_or_capure());
