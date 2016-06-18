@@ -74,7 +74,7 @@ pub fn search(tt: &TranspositionTable,
         }
         moves.restore();
         if no_moves_yet {
-            // This is a final position.
+            // No legal moves -- this is a final position.
             Ok(p.evaluate_final())
         } else {
             Ok(alpha)
