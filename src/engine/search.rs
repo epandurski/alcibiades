@@ -26,6 +26,8 @@ pub fn search(tt: &TranspositionTable,
     } else {
         moves.save();
         p.generate_moves(moves);
+        // TODO: Consult `tt` here.
+
         let mut bound_type = BOUND_UPPER;
         let mut move16 = 0;
         let mut no_moves_yet = true;
@@ -83,7 +85,9 @@ pub fn search(tt: &TranspositionTable,
             // No legal moves -- this is a final position.
             alpha = p.evaluate_final();
         }
-        tt.store(p.hash(), EntryData::new(alpha, bound_type, depth, move16, 0));
+        // TODO: Do not store values with too small `depth`.
+        tt.store(p.hash(),
+                 EntryData::new(alpha, bound_type, depth, move16, 0));
         Ok(alpha)
     }
 }
