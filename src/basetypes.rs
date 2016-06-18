@@ -19,6 +19,10 @@ pub type File = usize;  // from 0 to 7
 /// From 0 to 63 (0 is A1, 63 is H8).
 pub type Square = usize;  // from 0 to 63
 
+/// Number of searched positions.
+pub type NodeCount = u64;
+    
+
 // Color
 pub const WHITE: Color = 0;
 pub const BLACK: Color = 1;

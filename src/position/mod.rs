@@ -216,7 +216,10 @@ impl Position {
     /// any value outside of the interval (including the bounds), but
     /// always staying on the correct side of the interval.
     #[inline]
-    pub fn evaluate_quiescence(&self, lower_bound: Value, upper_bound: Value) -> Value {
+    pub fn evaluate_quiescence(&self,
+                               lower_bound: Value,
+                               upper_bound: Value)
+                               -> (Value, NodeCount) {
         // TODO: Use unsafe array for speed.
 
         assert!(lower_bound <= upper_bound);
@@ -224,16 +227,19 @@ impl Position {
             static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
                 Vec::with_capacity(MOVE_STACK_CAPACITY))
         );
-        MOVE_STACK.with(|x| {
+        let mut node_count: NodeCount = 0;
+        let value = MOVE_STACK.with(|x| {
             unsafe {
                 self.qsearch(lower_bound,
                              upper_bound,
                              0,
                              0,
                              &mut *x.get(),
-                             &Position::evaluate_static)
+                             &Position::evaluate_static,
+                             &mut node_count)
             }
-        })
+        });
+        (value, node_count)
     }
 
     /// Returns an almost unique hash value for the position.
@@ -365,7 +371,8 @@ impl Position {
                       mut recapture_squares: u64,
                       ply: u8,
                       move_stack: &mut Vec<Move>,
-                      eval_func: &Fn(&Position, Value, Value) -> Value)
+                      eval_func: &Fn(&Position, Value, Value) -> Value,
+                      node_count: &mut NodeCount)
                       -> Value {
         assert!(lower_bound <= upper_bound);
         let not_in_check = self.board().checkers() == 0;
@@ -444,12 +451,14 @@ impl Position {
             // the lower bound according to the recursively calculated
             // value.
             if self.do_move_unsafe(next_move) {
+                *node_count += 1;
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
                                           recapture_squares ^ dest_square_bb,
                                           ply + 1,
                                           move_stack,
-                                          eval_func);
+                                          eval_func,
+                                          node_count);
                 self.undo_move_unsafe();
                 if value >= upper_bound {
                     lower_bound = value;
@@ -837,40 +846,40 @@ mod tests {
     #[test]
     fn test_qsearch() {
         let p = Position::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000).0, 0);
 
         let p = Position::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(-1000, 1000), 225);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000).0, 225);
 
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000).0, 0);
 
         let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(-1000, 1000), -100);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000).0, -100);
 
         let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP2PPP/R2QKB1R w - \
                                     - 5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000).0, 0);
 
         let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2PPP/R2QKB1R b - - \
                                     5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.evaluate_quiescence(-1000, 1000), -100);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000).0, -100);
 
         let p = Position::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PPP/R1BKQB1R w - - \
                                     5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.evaluate_quiescence(-1000, 1000), 0);
+        assert_eq!(p.evaluate_quiescence(-1000, 1000).0, 0);
 
         let p = Position::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
-        assert!(p.evaluate_quiescence(-10000, 10000) <= -10000);
+        assert!(p.evaluate_quiescence(-10000, 10000).0 <= -10000);
 
         let p = Position::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
-        assert!(p.evaluate_quiescence(-10000, 10000) >= 10000);
+        assert!(p.evaluate_quiescence(-10000, 10000).0 >= 10000);
     }
 
     #[test]
