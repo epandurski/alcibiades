@@ -1,5 +1,6 @@
 //! Defines the information that a chess move contains.
 
+use std::slice;
 use basetypes::*;
 use castling_rights::*;
 
@@ -298,6 +299,85 @@ impl MoveSink for Vec<Move> {
     #[inline]
     fn push_move(&mut self, m: Move) {
         self.push(m);
+    }
+}
+
+
+/// Stores a list of moves for each position in a given line of play.
+pub struct MoveStack {
+    moves: Vec<Move>,
+    savepoints: Vec<(usize, usize)>,
+    first_move_index: usize,
+}
+
+
+impl MoveStack {
+    /// Creates a new (empty) instance.
+    #[inline]
+    pub fn new() -> MoveStack {
+        MoveStack {
+            moves: Vec::with_capacity(32 * 64),
+            savepoints: Vec::with_capacity(32),
+            first_move_index: 0,
+        }
+    }
+
+    /// Clears the current move list, saving it so that it can be
+    /// restored.
+    #[inline]
+    pub fn save(&mut self) {
+        self.savepoints.push((self.first_move_index, self.moves.len()));
+        self.first_move_index = self.moves.len();
+    }
+
+    /// Restores the last saved move list.
+    #[inline]
+    pub fn restore(&mut self) {
+        let savepoint = self.savepoints.pop().unwrap();
+        self.first_move_index = savepoint.0;
+        self.moves.truncate(savepoint.1);
+    }
+
+    /// Returns an iterator that allows modifying each move in the
+    /// current move list.
+    #[inline]
+    pub fn iter_mut(&mut self) -> slice::IterMut<Move> {
+        self.moves[self.first_move_index..].iter_mut()
+    }
+
+    /// Returns the move with the best score and removes it from the
+    /// current move list.
+    #[inline]
+    pub fn remove_best_move(&mut self) -> Option<Move> {
+        let moves = &mut self.moves;
+        let i = self.first_move_index;
+        let mut m = match moves.get(i) {
+            Some(x) => *x,
+            None => return None,
+        };
+        unsafe {
+            let mut j = i;
+            while j < moves.len() {
+                // The current best move candidate is moved to index
+                // `i` (swapped with the previous candidate).
+                if *moves.get_unchecked(j) > m {
+                    *moves.get_unchecked_mut(i) = *moves.get_unchecked_mut(j);
+                    *moves.get_unchecked_mut(j) = m;
+                    m = *moves.get_unchecked(i);
+                }
+                j += 1;
+            }
+            self.first_move_index += 1;
+            Some(m)
+        }
+    }
+}
+
+
+impl MoveSink for MoveStack {
+    #[inline]
+    fn push_move(&mut self, m: Move) {
+        self.moves.push(m);
     }
 }
 
