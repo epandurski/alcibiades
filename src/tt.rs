@@ -18,19 +18,33 @@
 use std;
 use std::cell::UnsafeCell;
 use std::mem::transmute;
+use basetypes::Value;
 
 
-/// The value is void.
-pub const BOUND_NONE: u8 = 0;
+/// Strictness of an evaluation.
+///
+/// Should be `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or
+/// `BOUND_NONE`.
+///
+/// `BOUND_EXACT` means that the evaluation is exact. `BOUND_LOWER`
+/// means that the real value is greater or equal to the
+/// evaluation. `BOUND_UPPER` means that the real value is lesser or
+/// equal to the evaluation. `BOUND_NONE` means that the real value
+/// might be lesser, equal, or grater than the evaluation.
+pub type BoundType = u8;
 
-/// All-Node, the value is "Upper Bound".
-pub const BOUND_UPPER: u8 = 0b10;
 
-/// Cut-Node, the value is "Lower Bound".
-pub const BOUND_LOWER: u8 = 0b01;
+/// The evaluation is not bounded.
+pub const BOUND_NONE: BoundType = 0;
 
-/// PV-Node, the value is "Exact".
-pub const BOUND_EXACT: u8 = BOUND_UPPER | BOUND_LOWER;
+/// The evaluation is an upper bound.
+pub const BOUND_UPPER: BoundType = 0b10;
+
+/// The evaluation is a lower bound.
+pub const BOUND_LOWER: BoundType = 0b01;
+
+/// The evaluation is exact.
+pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 
 
 /// Stores information about a particular position.
@@ -51,9 +65,7 @@ impl EntryData {
     /// 
     /// * `value` -- the value assigned to the position,
     /// 
-    /// * `bound` -- the meaning of the assigned value (should be
-    ///   `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or
-    ///   `BOUND_NONE`),
+    /// * `bound` -- the meaning of the assigned value,
     /// 
     /// * `depth` -- the depth of search,
     /// 
@@ -61,7 +73,12 @@ impl EntryData {
     /// 
     /// * `eval_value` -- the calculated static evaluation for the
     ///   position.
-    pub fn new(value: i16, bound: u8, depth: u8, move16: u16, eval_value: i16) -> EntryData {
+    pub fn new(value: Value,
+               bound: BoundType,
+               depth: u8,
+               move16: u16,
+               eval_value: Value)
+               -> EntryData {
         assert!(bound <= 0b11);
         assert!(depth < 128);
         EntryData {
@@ -79,17 +96,17 @@ impl EntryData {
     }
 
     #[inline(always)]
-    pub fn value(&self) -> i16 {
+    pub fn value(&self) -> Value {
         self.value
     }
 
     #[inline(always)]
-    pub fn eval_value(&self) -> i16 {
+    pub fn eval_value(&self) -> Value {
         self.eval_value
     }
 
     #[inline(always)]
-    pub fn bound(&self) -> u8 {
+    pub fn bound(&self) -> BoundType {
         self.gen_bound & 0b11
     }
 
@@ -145,7 +162,7 @@ impl Entry {
     }
 
     // Updates entry's generation.
-    // 
+    //
     // Since the `key` is saved xored with the data, when we change
     // the data, we have to change the stored `key` as well.
     #[inline(always)]
@@ -258,7 +275,7 @@ impl TranspositionTable {
         // hashing method. Rather than to store two disjoint items,
         // the key is stored xored with data, while data is stored
         // additionally as usual.
-        
+
         data.gen_bound |= self.generation;  // Sets the generation.
         let mut cluster = unsafe { self.cluster_mut(key) };
         let mut replace_index = 0;

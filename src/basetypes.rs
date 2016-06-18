@@ -22,6 +22,18 @@ pub type Square = usize;  // from 0 to 63
 /// Number of searched positions.
 pub type NodeCount = u64;
     
+/// Evaluation value in centipawns.
+///
+/// Positive values mean that the position is favorable for the side
+/// to move. Negative values mean the position is favorable for the
+/// other side (not to move). A value of `0` means that the chances
+/// are equal. For example: a value of `100` might mean that the side
+/// to move is a pawn ahead.
+///
+/// Values over `20000` and under `-20000` designate a certain
+/// win/loss.
+pub type Value = i16;
+
 
 // Color
 pub const WHITE: Color = 0;

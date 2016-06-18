@@ -21,30 +21,6 @@ struct StateInfo {
 }
 
 
-/// Evaluation value in centipawns.
-///
-/// Positive values mean that the position is favorable for the side
-/// to move. Negative values mean the position is favorable for the
-/// other side (not to move). A value of `0` means that the chances
-/// are equal. For example: a value of `100` might mean that the side
-/// to move is a pawn ahead.
-///
-/// Values over `20000` and under `-20000` designate a certain
-/// win/loss.
-pub type Value = i16;
-
-
-// /// Level of uncertainty in an evaluation.
-// ///
-// /// The definition of "uncertainty" is a bit loose. The rule is that
-// /// bigger values mean more uncertain evaluation, needing a deeper
-// /// search. Lower values mean more certain evaluation. The general
-// /// idea is that the search algorithm must be adjusted to understand
-// /// and act upon whatever uncertainty values the evaluation function
-// /// returns.
-// pub type Uncertainty = u8;
-
-
 /// Represents an illegal possiton error.
 pub struct IllegalPosition;
 
@@ -373,7 +349,7 @@ impl Position {
                       eval_func: &Fn(&Position, Value, Value) -> Value,
                       node_count: &mut NodeCount)
                       -> Value {
-        assert!(lower_bound <= upper_bound);
+        assert!(lower_bound < upper_bound);
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation

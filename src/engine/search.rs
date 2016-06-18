@@ -1,7 +1,7 @@
 use basetypes::*;
 use chess_move::MoveStack;
 use tt::*;
-use position::{Position, Value};
+use position::Position;
 
 
 /// Represents a terminated search condition.
@@ -17,7 +17,7 @@ pub fn search(tt: &TranspositionTable,
               beta: Value, // upper bound
               depth: usize)
               -> Result<Value, TerminatedSearch> {
-    assert!(alpha <= beta);
+    assert!(alpha < beta);
     if depth == 0 {
         // On leaf nodes, do quiescence search.
         let (value, nodes) = p.evaluate_quiescence(alpha, beta);
@@ -26,6 +26,7 @@ pub fn search(tt: &TranspositionTable,
     } else {
         moves.save();
         p.generate_moves(moves);
+        let mut bound_type = BOUND_UPPER;
         let mut no_moves_yet = true;
         while let Some(m) = moves.remove_best_move() {
             if p.do_move(m) {
@@ -58,17 +59,19 @@ pub fn search(tt: &TranspositionTable,
                 };
                 no_moves_yet = false;
                 p.undo_move();
-                
+
                 if value >= beta {
                     // This move is too good, so that the opponent
                     // will not allow this line of play to
                     // happen. Therefore we can stop here.
-                    alpha = value;
+                    alpha = beta;
+                    bound_type = BOUND_LOWER;
                     break;
                 }
                 if value > alpha {
                     // We found ourselves a new favorite.
                     alpha = value;
+                    bound_type = BOUND_EXACT;
                 }
             }
         }
