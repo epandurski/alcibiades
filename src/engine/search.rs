@@ -15,7 +15,7 @@ pub fn search(tt: &TranspositionTable,
               report: &Fn(NodeCount) -> Result<(), TerminatedSearch>,
               mut alpha: Value, // lower bound
               beta: Value, // upper bound
-              depth: usize)
+              depth: u8)
               -> Result<Value, TerminatedSearch> {
     assert!(alpha < beta);
     if depth == 0 {
@@ -27,6 +27,7 @@ pub fn search(tt: &TranspositionTable,
         moves.save();
         p.generate_moves(moves);
         let mut bound_type = BOUND_UPPER;
+        let mut move16 = 0;
         let mut no_moves_yet = true;
         while let Some(m) = moves.remove_best_move() {
             if p.do_move(m) {
@@ -46,12 +47,12 @@ pub fn search(tt: &TranspositionTable,
                     -try!(search(tt, p, moves, nc, report, -beta, -alpha, depth - 1))
                 } else {
                     // For the next moves we first try to prove that
-                    // they are not better than our current
-                    // favorite. For this purpose we analyze them with
-                    // a null window (alpha, alpha + 1). This is
-                    // faster than a full window search. Only when we
-                    // are certain that the move is better than our
-                    // current favorite, we do a full-window search.
+                    // they are not better than our current best
+                    // move. For this purpose we analyze them with a
+                    // null window (alpha, alpha + 1). This is faster
+                    // than a full window search. Only when we are
+                    // certain that the move is better than our
+                    // current best move, we do a full-window search.
                     match -try!(search(tt, p, moves, nc, report, -alpha - 1, -alpha, depth - 1)) {
                         x if x <= alpha => x,
                         _ => -try!(search(tt, p, moves, nc, report, -beta, -alpha, depth - 1)),
@@ -66,22 +67,24 @@ pub fn search(tt: &TranspositionTable,
                     // happen. Therefore we can stop here.
                     alpha = beta;
                     bound_type = BOUND_LOWER;
+                    move16 = m.move16();
                     break;
                 }
                 if value > alpha {
-                    // We found ourselves a new favorite.
+                    // We found ourselves a new best move.
                     alpha = value;
                     bound_type = BOUND_EXACT;
+                    move16 = m.move16();
                 }
             }
         }
         moves.restore();
         if no_moves_yet {
             // No legal moves -- this is a final position.
-            Ok(p.evaluate_final())
-        } else {
-            Ok(alpha)
+            alpha = p.evaluate_final();
         }
+        tt.store(p.hash(), EntryData::new(alpha, bound_type, depth, move16, 0));
+        Ok(alpha)
     }
 }
 

@@ -69,7 +69,7 @@ impl EntryData {
     /// 
     /// * `depth` -- the depth of search,
     /// 
-    /// * `move16` -- best or refutation move,
+    /// * `move16` -- best or refutation move (`0` if no move is available),
     /// 
     /// * `eval_value` -- the calculated static evaluation for the
     ///   position.
