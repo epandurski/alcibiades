@@ -10,6 +10,7 @@ pub fn search(tt: &TranspositionTable,
               beta: Value, // upper bound
               depth: usize,
               node_count: &mut NodeCount,
+              move_stack: &mut MoveStack,
               report_node_count: &Fn(NodeCount) -> bool)
               -> Value {
     if depth == 0 {
@@ -17,12 +18,10 @@ pub fn search(tt: &TranspositionTable,
         *node_count += nodes;
         value
     } else {
-        // TODO: use something faster than `Vec`.
-        let mut move_stack = MoveStack::new();
         move_stack.save();
-        p.generate_moves(&mut move_stack);
-        while let Some(next_move) = move_stack.remove_best_move() {
-            if p.do_move(next_move) {
+        p.generate_moves(move_stack);
+        while let Some(m) = move_stack.remove_best_move() {
+            if p.do_move(m) {
                 *node_count += 1;
                 let value = -search(tt,
                                     p,
@@ -30,6 +29,7 @@ pub fn search(tt: &TranspositionTable,
                                     -alpha,
                                     depth - 1,
                                     node_count,
+                                    move_stack,
                                     report_node_count);
                 p.undo_move();
                 if value >= beta {

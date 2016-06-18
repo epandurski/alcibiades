@@ -324,6 +324,10 @@ impl MoveStack {
 
     /// Clears the current move list, saving it so that it can be
     /// restored.
+    ///
+    /// This method can be called many times. At each call the current
+    /// move list will be cleared, and saved to the stack of states
+    /// that can later be restored.
     #[inline]
     pub fn save(&mut self) {
         self.savepoints.push((self.first_move_index, self.moves.len()));
