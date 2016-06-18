@@ -335,6 +335,8 @@ impl MoveStack {
     }
 
     /// Restores the last saved move list.
+    ///
+    /// The current move list is permanently lost.
     #[inline]
     pub fn restore(&mut self) {
         let savepoint = self.savepoints.pop().unwrap();

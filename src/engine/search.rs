@@ -6,40 +6,50 @@ use position::{Position, Value};
 
 pub fn search(tt: &TranspositionTable,
               p: &mut Position,
+              moves: &mut MoveStack,
+              nc: &mut NodeCount,
+              report_nc: &Fn(NodeCount) -> bool,
               mut alpha: Value, // lower bound
               beta: Value, // upper bound
-              depth: usize,
-              node_count: &mut NodeCount,
-              move_stack: &mut MoveStack,
-              report_node_count: &Fn(NodeCount) -> bool)
+              depth: usize)
               -> Value {
     if depth == 0 {
         let (value, nodes) = p.evaluate_quiescence(alpha, beta);
-        *node_count += nodes;
+        *nc += nodes;
         value
     } else {
-        move_stack.save();
-        p.generate_moves(move_stack);
-        while let Some(m) = move_stack.remove_best_move() {
+        moves.save();
+        p.generate_moves(moves);
+        let mut no_moves_yet = true;
+        while let Some(m) = moves.remove_best_move() {
             if p.do_move(m) {
-                *node_count += 1;
-                let value = -search(tt,
-                                    p,
-                                    -beta,
-                                    -alpha,
-                                    depth - 1,
-                                    node_count,
-                                    move_stack,
-                                    report_node_count);
+                let value = if no_moves_yet {
+                    -search(tt, p, moves, nc, report_nc, -beta, -alpha, depth - 1)
+                } else {
+                    match -search(tt, p, moves, nc, report_nc, -alpha - 1, -alpha, depth - 1) {
+                        x if x > alpha => {
+                            -search(tt, p, moves, nc, report_nc, -beta, -alpha, depth - 1)
+                        }
+                        x => x,
+                    }
+                };
                 p.undo_move();
+                *nc += 1;
+                no_moves_yet = false;
                 if value >= beta {
                     alpha = value;
                     break;
                 }
+                if value > alpha {
+                    alpha = value;
+                }
             }
-
         }
-        move_stack.restore();
-        alpha
+        moves.restore();
+        if no_moves_yet {
+            p.evaluate_final()
+        } else {
+            alpha
+        }
     }
 }
