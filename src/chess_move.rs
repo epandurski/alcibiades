@@ -427,12 +427,12 @@ const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use basetypes::*;
     use castling_rights::CastlingRights;
+    const NO_ENPASSANT_FILE: File = 8;
 
     #[test]
     fn test_move() {
-        use basetypes::*;
-        const NO_ENPASSANT_FILE: File = 8;
 
         let mut cr = CastlingRights::new();
         cr.set_for(WHITE, 0b10);
@@ -524,5 +524,35 @@ mod tests {
         assert!(!n2.is_pawn_advance_or_capure());
         assert!(n4.is_pawn_advance_or_capure());
         assert!(n5.is_pawn_advance_or_capure());
+    }
+
+    #[test]
+    fn test_move_stack() {
+        let m = Move::new(WHITE,
+                          2,
+                          MOVE_NORMAL,
+                          PAWN,
+                          E2,
+                          E4,
+                          NO_PIECE,
+                          NO_ENPASSANT_FILE,
+                          CastlingRights::new(),
+                          0);
+        let mut s = MoveStack::new();
+        assert!(s.remove_best_move().is_none());
+        s.save();
+        s.push_move(m);
+        assert_eq!(s.remove_best_move().unwrap(), m);
+        assert!(s.remove_best_move().is_none());
+        s.restore();
+        assert!(s.remove_best_move().is_none());
+        s.push_move(m);
+        s.push_move(m);
+        s.save();
+        s.push_move(m);
+        s.restore();
+        assert_eq!(s.remove_best_move().unwrap(), m);
+        assert_eq!(s.remove_best_move().unwrap(), m);
+        assert!(s.remove_best_move().is_none());
     }
 }
