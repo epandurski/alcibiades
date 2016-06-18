@@ -224,8 +224,7 @@ impl Position {
 
         assert!(lower_bound <= upper_bound);
         thread_local!(
-            static MOVE_STACK: UnsafeCell<Vec<Move>> = UnsafeCell::new(
-                Vec::with_capacity(MOVE_STACK_CAPACITY))
+            static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
         );
         let mut node_count: NodeCount = 0;
         let value = MOVE_STACK.with(|x| {
@@ -370,7 +369,7 @@ impl Position {
                       upper_bound: Value,
                       mut recapture_squares: u64,
                       ply: u8,
-                      move_stack: &mut Vec<Move>,
+                      move_stack: &mut MoveStack,
                       eval_func: &Fn(&Position, Value, Value) -> Value,
                       node_count: &mut NodeCount)
                       -> Value {
@@ -397,16 +396,12 @@ impl Position {
         let obligatory_material_gain = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
 
         // Generate all non-quiet moves.
-        let length_at_start = move_stack.len();
+        move_stack.save();
         self.board().generate_moves(false, move_stack);
 
         // Try all generated moves one by one. Moves with higher
         // scores are tried before moves with lower scores.
-        let mut i = length_at_start;
-        while i < move_stack.len() {
-            let next_move = pull_best_score_move(move_stack, i);
-            i += 1;
-
+        while let Some(next_move) = move_stack.remove_best_move() {
             // Check if the potential material gain from this move is
             // big enough to warrant trying the move.
             let move_type = next_move.move_type();
@@ -473,8 +468,8 @@ impl Position {
             }
         }
 
-        // Restore the move stack to its original length and return.
-        move_stack.truncate(length_at_start);
+        // Restore the move stack and return.
+        move_stack.restore();
         lower_bound
     }
 
@@ -642,10 +637,6 @@ impl Position {
 }
 
 
-// This should be big enough to contain all the moves generated for
-// the quiescence search. In this case it is 32 plys * 128 moves.
-const MOVE_STACK_CAPACITY: usize = 4096;
-
 // The material value of pieces. Zeroes are added to increase memory
 // safety.
 const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
@@ -673,29 +664,6 @@ fn set_non_repeating_values<T>(slice: &mut [T], value: T)
         if repeated.binary_search(x).is_err() {
             *x = value;
         }
-    }
-}
-
-
-// A helper function for `Position::qsearch`. It searches in
-// `move_stack`, starting at index `i` for the move with the best
-// score and returns it. `move_stack` is changed so that the returned
-// move is moved to index `i`. The move that was originally at index
-// `i` takes the place of the returned move.
-#[inline]
-fn pull_best_score_move(move_stack: &mut [Move], i: usize) -> Move {
-    unsafe {
-        let mut next_move = *move_stack.get_unchecked(i);
-        let mut j = i;
-        while j < move_stack.len() {
-            if *move_stack.get_unchecked(j) > next_move {
-                *move_stack.get_unchecked_mut(i) = *move_stack.get_unchecked_mut(j);
-                *move_stack.get_unchecked_mut(j) = next_move;
-                next_move = *move_stack.get_unchecked(i);
-            }
-            j += 1;
-        }
-        next_move
     }
 }
 
