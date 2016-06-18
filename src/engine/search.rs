@@ -4,52 +4,83 @@ use tt::*;
 use position::{Position, Value};
 
 
+/// Represents a terminated search condition.
+pub struct TerminatedSearch;
+
+
 pub fn search(tt: &TranspositionTable,
               p: &mut Position,
               moves: &mut MoveStack,
               nc: &mut NodeCount,
-              report_nc: &Fn(NodeCount) -> bool,
+              report: &Fn(NodeCount) -> Result<(), TerminatedSearch>,
               mut alpha: Value, // lower bound
               beta: Value, // upper bound
               depth: usize)
-              -> Value {
+              -> Result<Value, TerminatedSearch> {
+    assert!(alpha <= beta);
     if depth == 0 {
+        // On leaf nodes, do quiescence search.
         let (value, nodes) = p.evaluate_quiescence(alpha, beta);
         *nc += nodes;
-        value
+        Ok(value)
     } else {
         moves.save();
         p.generate_moves(moves);
         let mut no_moves_yet = true;
         while let Some(m) = moves.remove_best_move() {
             if p.do_move(m) {
+                // From time to time, we report how many nodes had
+                // been searched since the last report. This also
+                // gives an opportunity for the search to be
+                // terminated.
+                *nc += 1;
+                if *nc > NODE_COUNT_REPORT_INTERVAL {
+                    try!(report(*nc));
+                    *nc = 0;
+                }
+
                 let value = if no_moves_yet {
-                    -search(tt, p, moves, nc, report_nc, -beta, -alpha, depth - 1)
+                    // The first move we analyze with a fully open
+                    // window (alpha, beta).
+                    -try!(search(tt, p, moves, nc, report, -beta, -alpha, depth - 1))
                 } else {
-                    match -search(tt, p, moves, nc, report_nc, -alpha - 1, -alpha, depth - 1) {
-                        x if x > alpha => {
-                            -search(tt, p, moves, nc, report_nc, -beta, -alpha, depth - 1)
-                        }
-                        x => x,
+                    // For the next moves we first try to prove that
+                    // they are not better than our current
+                    // favorite. For this purpose we analyze them with
+                    // a null window (alpha, alpha + 1). This is
+                    // faster than a full window search. Only when we
+                    // are certain that the move is better than our
+                    // current favorite, we do a full-window search.
+                    match -try!(search(tt, p, moves, nc, report, -alpha - 1, -alpha, depth - 1)) {
+                        x if x <= alpha => x,
+                        _ => -try!(search(tt, p, moves, nc, report, -beta, -alpha, depth - 1)),
                     }
                 };
-                p.undo_move();
-                *nc += 1;
                 no_moves_yet = false;
+                p.undo_move();
+                
                 if value >= beta {
+                    // This move is too good, so that the opponent
+                    // will not allow this line of play to
+                    // happen. Therefore we can stop here.
                     alpha = value;
                     break;
                 }
                 if value > alpha {
+                    // We found ourselves a new favorite.
                     alpha = value;
                 }
             }
         }
         moves.restore();
         if no_moves_yet {
-            p.evaluate_final()
+            // This is a final position.
+            Ok(p.evaluate_final())
         } else {
-            alpha
+            Ok(alpha)
         }
     }
 }
+
+
+const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
