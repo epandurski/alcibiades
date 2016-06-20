@@ -192,3 +192,42 @@ fn search(tt: &TranspositionTable,
 
 
 const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::search;
+    use basetypes::*;
+    use chess_move::*;
+    use tt::*;
+    use position::Position;
+
+    #[test]
+    fn test_search() {
+        let mut p = Position::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1").ok().unwrap();
+        let value = search(&TranspositionTable::new(),
+                           &mut p,
+                           &mut MoveStack::new(),
+                           &mut 0,
+                           &mut |_| Ok(()),
+                           -20000,
+                           20000,
+                           2)
+                        .ok()
+                        .unwrap();
+        assert!(value < -300);
+        let value = search(&TranspositionTable::new(),
+                           &mut p,
+                           &mut MoveStack::new(),
+                           &mut 0,
+                           &mut |_| Ok(()),
+                           -20000,
+                           20000,
+                           3)
+                        .ok()
+                        .unwrap();
+        assert!(value >= 20000);
+    }
+}
