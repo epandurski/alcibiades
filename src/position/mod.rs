@@ -822,7 +822,7 @@ mod tests {
 
         let p = Position::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
         assert!(p.evaluate_quiescence(-10000, 10000).0 >= 10000);
-        assert_eq!(p.evaluate_quiescence(-10000, 10000).1, 100);
+        assert_eq!(p.evaluate_quiescence(-10000, 10000).1, 1);
     }
 
     #[test]
