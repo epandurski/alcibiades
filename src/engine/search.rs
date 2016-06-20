@@ -55,33 +55,39 @@ pub fn run(tt: &TranspositionTable,
             match command {
                 Command::Search(mut params) => {
                     let search_id = params.id;
-                    let mut searched_nodes = 0;
+                    let mut reported_nodes = 0;
+                    let mut unreported_nodes = 0;
+                    let value = search(tt,
+                                       &mut params.position,
+                                       move_stack,
+                                       &mut unreported_nodes,
+                                       &mut |n| {
+                                           reported_nodes += n;
+                                           reports.send(Progress {
+                                               search_id: search_id,
+                                               searched_nodes: reported_nodes,
+                                           });
+                                           match commands.try_recv() {
+                                               Ok(x) => {
+                                                   // There is a new command pending -- we
+                                                   // should terminate the current search.
+                                                   pending_command = Some(x);
+                                                   Err(TerminatedSearch)
+                                               }
+                                               Err(_) => Ok(()),
+                                           }
+                                       },
+                                       params.lower_bound,
+                                       params.upper_bound,
+                                       params.depth)
+                                    .ok();
+                    reports.send(Progress {
+                        search_id: search_id,
+                        searched_nodes: reported_nodes + unreported_nodes,
+                    });
                     results.send(Done {
                         search_id: search_id,
-                        value: search(tt,
-                                      &mut params.position,
-                                      move_stack,
-                                      &mut 0,
-                                      &mut |nc| {
-                                          searched_nodes += nc;
-                                          reports.send(Progress {
-                                              search_id: search_id,
-                                              searched_nodes: searched_nodes,
-                                          });
-                                          match commands.try_recv() {
-                                              Ok(x) => {
-                                                  // There is a new command pending -- we
-                                                  // should terminate the current search.
-                                                  pending_command = Some(x);
-                                                  Err(TerminatedSearch)
-                                              }
-                                              Err(_) => Ok(()),
-                                          }
-                                      },
-                                      params.lower_bound,
-                                      params.upper_bound,
-                                      params.depth)
-                                   .ok(),
+                        value: value,
                     });
                     move_stack.clear();
                 }
