@@ -203,16 +203,14 @@ impl Position {
             static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
         );
         let mut node_count: NodeCount = 0;
-        let value = MOVE_STACK.with(|x| {
-            unsafe {
-                self.qsearch(lower_bound,
-                             upper_bound,
-                             0,
-                             0,
-                             &mut *x.get(),
-                             &Position::evaluate_static,
-                             &mut node_count)
-            }
+        let value = MOVE_STACK.with(|x| unsafe {
+            self.qsearch(lower_bound,
+                         upper_bound,
+                         0,
+                         0,
+                         &mut *x.get(),
+                         &Position::evaluate_static,
+                         &mut node_count)
         });
         (value, node_count)
     }
