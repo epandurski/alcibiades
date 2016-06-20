@@ -2,6 +2,7 @@
 pub mod search;
 
 
+use self::search::*;
 use std::thread;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError, TryRecvError};
@@ -37,7 +38,9 @@ impl DummyEngine {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let (results_tx, results_rx) = channel();
-        let tt = Arc::new(TranspositionTable::new());
+        let mut tt = TranspositionTable::new();
+        tt.resize(16);
+        let tt = Arc::new(tt);
         DummyEngine {
             position: Position::from_history("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
                                               - 0 1",
@@ -122,6 +125,14 @@ impl UciEngine for DummyEngine {
         // let mut between = Range::new(0, legal_moves.len());
         // self.best_move = legal_moves[between.sample(&mut rng)].clone();
 
+        self.commands.send(search::Command::Search(search::Parameters {
+            id: 0,
+            position: self.position,
+            depth: 3,
+            lower_bound: -20000,
+            upper_bound: 20000,
+        })).unwrap();
+        
         self.ponder = ponder;
         self.infinite = infinite;
         self.is_thinking = infinite | ponder;

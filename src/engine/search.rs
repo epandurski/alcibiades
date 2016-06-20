@@ -7,11 +7,11 @@ use position::Position;
 
 
 pub struct Parameters {
-    id: usize,
-    position: Position,
-    depth: u8,
-    lower_bound: Value,
-    upper_bound: Value,
+    pub id: usize,
+    pub position: Position,
+    pub depth: u8,
+    pub lower_bound: Value,
+    pub upper_bound: Value,
 }
 
 
@@ -23,14 +23,14 @@ pub enum Command {
 
 
 pub struct Progress {
-    search_id: usize,
-    searched_nodes: NodeCount,
+    pub search_id: usize,
+    pub searched_nodes: NodeCount,
 }
 
 
 pub struct Done {
-    search_id: usize,
-    value: Option<Value>,
+    pub search_id: usize,
+    pub value: Option<Value>,
 }
 
 
