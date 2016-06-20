@@ -1,5 +1,5 @@
 use std::cell::UnsafeCell;
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use basetypes::*;
 use chess_move::MoveStack;
 use tt::*;
@@ -45,13 +45,26 @@ pub fn run(tt: &TranspositionTable,
         while let Ok(command) = commands.recv() {
             match command {
                 Command::Search(mut p) => {
+                    let search_id = p.id;
+                    let mut node_count = 0;
                     results.send(Done {
                         search_id: p.id,
                         value: search(tt,
                                       &mut p.position,
                                       &mut *move_stack.get(),
                                       &mut 0,
-                                      &|x| Ok(()),
+                                      &mut |nc| {
+                                          node_count += nc;
+                                          reports.send(Progress {
+                                              search_id: search_id,
+                                              node_count: node_count,
+                                          });
+                                          match commands.try_recv() {
+                                              Err(TryRecvError::Empty) => Ok(()),
+                                              Err(TryRecvError::Disconnected) => Err(TerminatedSearch),
+                                              Ok(_) => Err(TerminatedSearch),
+                                          }
+                                      },
                                       p.alpha,
                                       p.beta,
                                       p.depth)
@@ -74,7 +87,7 @@ pub fn search(tt: &TranspositionTable,
               p: &mut Position,
               moves: &mut MoveStack,
               nc: &mut NodeCount,
-              report: &Fn(NodeCount) -> Result<(), TerminatedSearch>,
+              report: &mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
               mut alpha: Value, // lower bound
               beta: Value, // upper bound
               depth: u8)
