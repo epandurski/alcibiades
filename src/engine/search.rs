@@ -24,7 +24,7 @@ pub enum Command {
 
 pub struct Progress {
     search_id: usize,
-    node_count: NodeCount,
+    searched_nodes: NodeCount,
 }
 
 
@@ -42,32 +42,37 @@ pub fn run(tt: &TranspositionTable,
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
     MOVE_STACK.with(|move_stack| {
+        let mut move_stack = unsafe { &mut *move_stack.get() };
         let mut pending_command = None;
         loop {
+            // If there is a pending command, we take it, otherwise we
+            // block and wait to receive a new one.
             let command = pending_command.take()
                                          .unwrap_or(commands.recv()
                                                             .or::<RecvError>(Ok(Command::Exit))
                                                             .unwrap());
             match command {
                 Command::Search(mut params) => {
+                    move_stack.save();
                     let search_id = params.id;
-                    let mut node_count = 0;
+                    let mut searched_nodes = 0;
                     results.send(Done {
                         search_id: search_id,
                         value: search(tt,
                                       &mut params.position,
-                                      unsafe { &mut *move_stack.get() },
+                                      move_stack,
                                       &mut 0,
                                       &mut |nc| {
-                                          node_count += nc;
+                                          searched_nodes += nc;
                                           reports.send(Progress {
                                               search_id: search_id,
-                                              node_count: node_count,
+                                              searched_nodes: searched_nodes,
                                           });
                                           match commands.try_recv() {
                                               Ok(x) => {
+                                                  // There is a new command pending -- we
+                                                  // should terminate the current search.
                                                   pending_command = Some(x);
-                                                  // *pending_command.borrow_mut() = Some(x);
                                                   Err(TerminatedSearch)
                                               }
                                               Err(_) => Ok(()),
@@ -78,6 +83,7 @@ pub fn run(tt: &TranspositionTable,
                                       params.depth)
                                    .ok(),
                     });
+                    move_stack.restore();
                 }
                 Command::Stop => continue,
                 Command::Exit => break,
