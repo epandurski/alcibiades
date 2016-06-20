@@ -22,6 +22,7 @@ pub struct IllegalBoard;
 /// king. It can also fabricate a speculative "null move" that can be
 /// used to aggressively prune the search tree. `Board` does not know
 /// anything about chess strategy or tactics.
+#[derive(Clone)]
 pub struct Board {
     geometry: &'static BoardGeometry,
     piece_type: [u64; 6],

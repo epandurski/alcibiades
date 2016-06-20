@@ -611,6 +611,20 @@ impl Position {
 }
 
 
+impl Clone for Position {
+    fn clone(&self) -> Self {
+        unsafe {
+            Position {
+                board: UnsafeCell::new((*self.board.get()).clone()),
+                halfmove_count: UnsafeCell::new(*self.halfmove_count.get()),
+                encountered_boards: UnsafeCell::new((*self.encountered_boards.get()).clone()),
+                state_stack: UnsafeCell::new((*self.state_stack.get()).clone()),
+            }
+        }
+    }
+}
+
+
 // The material value of pieces. Zeroes are added to increase memory
 // safety.
 const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
