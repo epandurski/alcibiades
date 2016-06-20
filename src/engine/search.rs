@@ -53,7 +53,6 @@ pub fn run(tt: &TranspositionTable,
                                                             .unwrap());
             match command {
                 Command::Search(mut params) => {
-                    move_stack.save();
                     let search_id = params.id;
                     let mut searched_nodes = 0;
                     results.send(Done {
@@ -83,7 +82,7 @@ pub fn run(tt: &TranspositionTable,
                                       params.depth)
                                    .ok(),
                     });
-                    move_stack.restore();
+                    move_stack.clear();
                 }
                 Command::Stop => continue,
                 Command::Exit => break,
