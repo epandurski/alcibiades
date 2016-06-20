@@ -1,7 +1,45 @@
+use std::cell::UnsafeCell;
 use basetypes::*;
 use chess_move::MoveStack;
 use tt::*;
 use position::Position;
+
+
+pub struct Parameters {
+    id: usize,
+    position: Position,
+    depth: u8,
+    alpha: Value,
+    beta: Value,
+}
+
+
+pub enum Command {
+    Search(Parameters),
+    Stop,
+    Exit,
+}
+
+
+pub struct Progress {
+    search_id: usize,
+    node_count: NodeCount,
+}
+
+
+pub struct Done {
+    search_id: usize,
+    value: Value,
+}
+
+
+pub fn run(tt: &TranspositionTable) {
+    thread_local!(
+        static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
+    );
+    MOVE_STACK.with(|x| unsafe {
+    })
+}
 
 
 /// Represents a terminated search condition.
