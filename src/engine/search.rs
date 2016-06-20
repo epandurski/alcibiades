@@ -1,5 +1,5 @@
-use std::cell::UnsafeCell;
-use std::sync::mpsc::{Sender, Receiver, TryRecvError};
+use std::cell::{UnsafeCell, RefCell, Ref};
+use std::sync::mpsc::{Sender, Receiver, RecvError, TryRecvError};
 use basetypes::*;
 use chess_move::MoveStack;
 use tt::*;
@@ -42,15 +42,21 @@ pub fn run(tt: &TranspositionTable,
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
     MOVE_STACK.with(|move_stack| unsafe {
-        while let Ok(command) = commands.recv() {
+        let mut pending_command = RefCell::new(None);
+        loop {
+            let command = pending_command.borrow_mut()
+                                         .take()
+                                         .unwrap_or(commands.recv()
+                                                            .or::<RecvError>(Ok(Command::Exit))
+                                                            .unwrap());
             match command {
-                Command::Search(mut p) => {
-                    let search_id = p.id;
+                Command::Search(mut params) => {
+                    let search_id = params.id;
                     let mut node_count = 0;
                     results.send(Done {
-                        search_id: p.id,
+                        search_id: search_id,
                         value: search(tt,
-                                      &mut p.position,
+                                      &mut params.position,
                                       &mut *move_stack.get(),
                                       &mut 0,
                                       &mut |nc| {
@@ -60,14 +66,16 @@ pub fn run(tt: &TranspositionTable,
                                               node_count: node_count,
                                           });
                                           match commands.try_recv() {
-                                              Err(TryRecvError::Empty) => Ok(()),
-                                              Err(TryRecvError::Disconnected) => Err(TerminatedSearch),
-                                              Ok(_) => Err(TerminatedSearch),
+                                              Ok(x) => {
+                                                  *pending_command.borrow_mut() = Some(x);
+                                                  Err(TerminatedSearch)
+                                              },
+                                              Err(_) => Ok(()),
                                           }
                                       },
-                                      p.alpha,
-                                      p.beta,
-                                      p.depth)
+                                      params.alpha,
+                                      params.beta,
+                                      params.depth)
                                    .ok(),
                     });
                 }
