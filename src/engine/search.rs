@@ -10,8 +10,8 @@ pub struct Parameters {
     id: usize,
     position: Position,
     depth: u8,
-    alpha: Value,
-    beta: Value,
+    lower_bound: Value,
+    upper_bound: Value,
 }
 
 
@@ -34,6 +34,7 @@ pub struct Done {
 }
 
 
+#[allow(unused_must_use)]
 pub fn run(tt: &TranspositionTable,
            commands: Receiver<Command>,
            reports: Sender<Progress>,
@@ -41,8 +42,8 @@ pub fn run(tt: &TranspositionTable,
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
-    MOVE_STACK.with(|move_stack| {
-        let mut move_stack = unsafe { &mut *move_stack.get() };
+    MOVE_STACK.with(|s| {
+        let mut move_stack = unsafe { &mut *s.get() };
         let mut pending_command = None;
         loop {
             // If there is a pending command, we take it, otherwise we
@@ -77,8 +78,8 @@ pub fn run(tt: &TranspositionTable,
                                               Err(_) => Ok(()),
                                           }
                                       },
-                                      params.alpha,
-                                      params.beta,
+                                      params.lower_bound,
+                                      params.upper_bound,
                                       params.depth)
                                    .ok(),
                     });
@@ -92,19 +93,22 @@ pub fn run(tt: &TranspositionTable,
 }
 
 
-/// Represents a terminated search condition.
-pub struct TerminatedSearch;
+// Represents a terminated search condition.
+struct TerminatedSearch;
 
 
-pub fn search(tt: &TranspositionTable,
-              p: &mut Position,
-              moves: &mut MoveStack,
-              nc: &mut NodeCount,
-              report: &mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
-              mut alpha: Value, // lower bound
-              beta: Value, // upper bound
-              depth: u8)
-              -> Result<Value, TerminatedSearch> {
+// Helper function for `run()`. It implements the principal variation
+// search algorithm. When returning `Err(TerminatedSearch)`, this
+// function may leave un-restored move lists in `moves`.
+fn search(tt: &TranspositionTable,
+          p: &mut Position,
+          moves: &mut MoveStack,
+          nc: &mut NodeCount,
+          report: &mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
+          mut alpha: Value, // lower bound
+          beta: Value, // upper bound
+          depth: u8)
+          -> Result<Value, TerminatedSearch> {
     assert!(alpha < beta);
     if depth == 0 {
         // On leaf nodes, do quiescence search.
