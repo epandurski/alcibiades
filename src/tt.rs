@@ -328,6 +328,9 @@ impl TranspositionTable {
 }
 
 
+unsafe impl Sync for TranspositionTable {}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

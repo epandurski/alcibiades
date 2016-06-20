@@ -2,9 +2,13 @@
 pub mod search;
 
 
+use std::thread;
+use std::sync::Arc;
+use std::sync::mpsc::{channel, Sender, Receiver, RecvError, TryRecvError};
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
 use chess_move::*;
+use tt::TranspositionTable;
 use rand;
 use rand::distributions::{Sample, Range};
 
@@ -20,11 +24,20 @@ pub struct DummyEngine {
     ponder: bool,
     best_move: String,
     move_stack: Vec<Move>,
+    tt: Arc<TranspositionTable>,
+    commands: Sender<search::Command>,
+    reports: Receiver<search::Progress>,
+    results: Receiver<search::Done>,
+    searcher: thread::JoinHandle<()>,
 }
 
 
 impl DummyEngine {
     pub fn new() -> DummyEngine {
+        let (commands_tx, commands_rx) = channel();
+        let (reports_tx, reports_rx) = channel();
+        let (results_tx, results_rx) = channel();
+        let tt = Arc::new(TranspositionTable::new());
         DummyEngine {
             position: Position::from_history("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
                                               - 0 1",
@@ -37,6 +50,13 @@ impl DummyEngine {
             ponder: false,
             best_move: "0000".to_string(),
             move_stack: Vec::new(),
+            tt: tt.clone(),
+            commands: commands_tx,
+            reports: reports_rx,
+            results: results_rx,
+            searcher: thread::spawn(move || {
+                search::run(&tt, commands_rx, reports_tx, results_tx);
+            }),
         }
     }
 }
