@@ -1,4 +1,5 @@
 use std::cell::UnsafeCell;
+use std::sync::mpsc::{Sender, Receiver};
 use basetypes::*;
 use chess_move::MoveStack;
 use tt::*;
@@ -29,15 +30,38 @@ pub struct Progress {
 
 pub struct Done {
     search_id: usize,
-    value: Value,
+    value: Option<Value>,
 }
 
 
-pub fn run(tt: &TranspositionTable) {
+pub fn run(tt: &TranspositionTable,
+           commands: Receiver<Command>,
+           reports: Sender<Progress>,
+           results: Sender<Done>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
-    MOVE_STACK.with(|x| unsafe {
+    MOVE_STACK.with(|move_stack| unsafe {
+        while let Ok(command) = commands.recv() {
+            match command {
+                Command::Search(mut p) => {
+                    results.send(Done {
+                        search_id: p.id,
+                        value: search(tt,
+                                      &mut p.position,
+                                      &mut *move_stack.get(),
+                                      &mut 0,
+                                      &|x| Ok(()),
+                                      p.alpha,
+                                      p.beta,
+                                      p.depth)
+                                   .ok(),
+                    });
+                }
+                Command::Stop => continue,
+                Command::Exit => break,
+            }
+        }
     })
 }
 
