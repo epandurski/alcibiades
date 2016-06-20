@@ -6,6 +6,7 @@ use self::search::*;
 use std::thread;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError, TryRecvError};
+use basetypes::*;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
 use chess_move::*;
@@ -99,10 +100,11 @@ impl UciEngine for DummyEngine {
         if self.is_thinking {
             return;
         }
+
+        // Get some legal move
         let s = &mut self.move_stack;
         let p = &mut self.position;
         p.generate_moves(s);
-        // let mut legal_moves = vec![];
         let mut rng = rand::thread_rng();
         let mut between = Range::new(0, 10);
         let mut best_score = -20000;
@@ -118,52 +120,36 @@ impl UciEngine for DummyEngine {
                     self.best_move = m.notation();
                 }
                 p.undo_move();
-                // legal_moves.push(m.notation());
             }
         }
-        // let mut rng = rand::thread_rng();
-        // let mut between = Range::new(0, legal_moves.len());
-        // self.best_move = legal_moves[between.sample(&mut rng)].clone();
 
-        self.commands.send(search::Command::Search(search::Parameters {
-            id: 0,
-            position: p.clone(),
-            depth: 3,
-            lower_bound: -20000,
-            upper_bound: 20000,
-        })).unwrap();
-        
+        // Start a new search
+        self.commands
+            .send(search::Command::Search(search::Parameters {
+                id: 0,
+                position: p.clone(),
+                depth: 3,
+                lower_bound: -20000,
+                upper_bound: 20000,
+            }))
+            .unwrap();
         self.ponder = ponder;
         self.infinite = infinite;
-        self.is_thinking = infinite | ponder;
-        if !self.is_thinking {
-            self.replies.push(EngineReply::BestMove {
-                best_move: self.best_move.clone(),
-                ponder_move: None,
-            });
-            self.best_move = "0000".to_string();
-        }
+        self.is_thinking = true;
     }
 
     fn ponder_hit(&mut self) {
         if self.is_thinking && self.ponder {
             self.ponder = false;
-            if !self.infinite {
-                self.stop()
-            }
         }
     }
 
     fn stop(&mut self) {
-        if !self.is_thinking {
-            return;
+        if self.is_thinking {
+            self.commands.send(search::Command::Stop).unwrap();
+            self.ponder = false;
+            self.infinite = false;
         }
-        self.replies.push(EngineReply::BestMove {
-            best_move: self.best_move.clone(),
-            ponder_move: None,
-        });
-        self.best_move = "0000".to_string();
-        self.is_thinking = false;
     }
 
     fn is_thinking(&self) -> bool {
@@ -171,7 +157,47 @@ impl UciEngine for DummyEngine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
+        if !self.ponder {
+            if let Ok(_) = self.results.try_recv() {
+                self.try_to_get_best_move_from_tt();
+                self.replies.push(EngineReply::BestMove {
+                    best_move: self.best_move.clone(),
+                    ponder_move: None,
+                });
+                self.best_move = "0000".to_string();
+                self.is_thinking = false;
+            }
+        }
         self.replies.pop()
+    }
+}
+
+
+impl DummyEngine {
+    fn try_to_get_best_move_from_tt(&mut self) {
+        if let Some(entry) = self.tt.probe(self.position.hash()) {
+            let m = entry.move16();
+            if m != 0 {
+                let move_type = ((m & 0b1100000000000000) >> 14) as MoveType;
+                let orig_square = ((m & 0b0011111100000000) >> 8) as Square;
+                let dest_square = ((m & 0b0000000011111100) >> 2) as Square;
+                let promoted_piece = match m & 0b11 {
+                    0 => "q",
+                    1 => "r",
+                    2 => "b",
+                    3 => "n",
+                    _ => panic!("invalid promoted piece code"),
+                };
+                self.best_move = format!("{}{}{}",
+                                         notation(orig_square),
+                                         notation(dest_square),
+                                         if move_type == MOVE_PROMOTION {
+                                             promoted_piece
+                                         } else {
+                                             ""
+                                         })
+            }
+        }
     }
 }
 
