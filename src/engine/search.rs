@@ -1,4 +1,4 @@
-use std::cell::{UnsafeCell, RefCell, Ref};
+use std::cell::UnsafeCell;
 use std::sync::mpsc::{Sender, Receiver, RecvError, TryRecvError};
 use basetypes::*;
 use chess_move::MoveStack;
@@ -41,11 +41,10 @@ pub fn run(tt: &TranspositionTable,
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
-    MOVE_STACK.with(|move_stack| unsafe {
-        let mut pending_command = RefCell::new(None);
+    MOVE_STACK.with(|move_stack| {
+        let mut pending_command = None;
         loop {
-            let command = pending_command.borrow_mut()
-                                         .take()
+            let command = pending_command.take()
                                          .unwrap_or(commands.recv()
                                                             .or::<RecvError>(Ok(Command::Exit))
                                                             .unwrap());
@@ -57,7 +56,7 @@ pub fn run(tt: &TranspositionTable,
                         search_id: search_id,
                         value: search(tt,
                                       &mut params.position,
-                                      &mut *move_stack.get(),
+                                      unsafe { &mut *move_stack.get() },
                                       &mut 0,
                                       &mut |nc| {
                                           node_count += nc;
@@ -67,9 +66,10 @@ pub fn run(tt: &TranspositionTable,
                                           });
                                           match commands.try_recv() {
                                               Ok(x) => {
-                                                  *pending_command.borrow_mut() = Some(x);
+                                                  pending_command = Some(x);
+                                                  // *pending_command.borrow_mut() = Some(x);
                                                   Err(TerminatedSearch)
-                                              },
+                                              }
                                               Err(_) => Ok(()),
                                           }
                                       },
