@@ -21,16 +21,18 @@ use std::mem::transmute;
 use basetypes::Value;
 
 
-/// Strictness of an evaluation.
+/// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.
 ///
-/// Should be `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or
-/// `BOUND_NONE`.
+/// * `BOUND_EXACT` means that the evaluation is exact.
 ///
-/// `BOUND_EXACT` means that the evaluation is exact. `BOUND_LOWER`
-/// means that the real value is greater or equal to the
-/// evaluation. `BOUND_UPPER` means that the real value is lesser or
-/// equal to the evaluation. `BOUND_NONE` means that the real value
-/// might be lesser, equal, or grater than the evaluation.
+/// * `BOUND_LOWER` means that the real value is greater or equal to
+///    the evaluation.
+///
+/// * `BOUND_UPPER` means that the real value is lesser or equal to
+///   the evaluation.
+///
+/// * `BOUND_NONE` means that the real value might be lesser, equal,
+///   or grater than the evaluation.
 pub type BoundType = u8;
 
 
