@@ -154,11 +154,7 @@ pub struct BoardGeometry {
     
     /// Used in calculating the Zobrist hash function.
     pub zobrist_to_move: u64,
-    
-    /// Used in calculating the Zobrist hash function.
-    pub zobrist_halfmove_clock: [u64; 64],
 }
-
 
 impl BoardGeometry {
     /// Creates and initializes a new instance.
@@ -205,7 +201,6 @@ impl BoardGeometry {
             zobrist_castling_rook_move: [[0; 2]; 2],
             zobrist_en_passant: [0; 16],
             zobrist_to_move: 0,
-            zobrist_halfmove_clock: [0; 64],
         };
 
         bg.fill_attack_and_blockers_and_beyond_arrays();
@@ -217,9 +212,11 @@ impl BoardGeometry {
         bg
     }
 
+
     fn grid_index(&self, i: Square) -> usize {
         grid_index_from_square(i)
     }
+
 
     fn fill_attack_and_blockers_and_beyond_arrays(&mut self) {
         for piece in 0..5 {
@@ -252,6 +249,7 @@ impl BoardGeometry {
             }
         }
     }
+
 
     fn fill_squares_between_including_and_squares_behind_blocker_arrays(&mut self) {
         for attacker in 0..64 {
@@ -308,6 +306,7 @@ impl BoardGeometry {
         }
     }
 
+
     fn fill_squares_at_line_array(&mut self) {
         for a in 0..64 {
             for b in 0..64 {
@@ -318,6 +317,7 @@ impl BoardGeometry {
         }
     }
 
+
     fn fill_castling_relation(&mut self) {
         self.castling_relation[A1] = !CASTLE_WHITE_QUEENSIDE;
         self.castling_relation[H1] = !CASTLE_WHITE_KINGSIDE;
@@ -326,6 +326,7 @@ impl BoardGeometry {
         self.castling_relation[H8] = !CASTLE_BLACK_KINGSIDE;
         self.castling_relation[E8] = !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE);
     }
+
 
     fn fill_zobrist_arrays(&mut self) {
         let seed: &[_] = &[1, 2, 3, 4];
@@ -352,10 +353,8 @@ impl BoardGeometry {
             self.zobrist_en_passant[file] = rng.gen();
         }
         self.zobrist_to_move = rng.gen();
-        for n in 0..64 {
-            self.zobrist_halfmove_clock[n] = rng.gen();
-        }
     }
+
 
     fn fill_castling_rook_mask(&mut self) {
         self.castling_rook_mask[WHITE][QUEENSIDE] = 1 << A1 | 1 << D1;
