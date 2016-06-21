@@ -217,13 +217,14 @@ impl<'a, F, E> Server<'a, F, E>
                         // The UCI specification states that the
                         // "Hash" `setoption` command, should be the
                         // first command passed to the engine.
-                        let hash_size_mb = match cmd {
-                            UciCommand::SetOption(ref p) if p.name == "Hash" => {
-                                p.value.parse::<usize>().ok()
+                        if let UciCommand::SetOption(ref params) = cmd {
+                            if params.name == "Hash" {
+                                self.engine = Some(self.engine_factory
+                                                       .create(params.value.parse::<usize>().ok()));
+                                continue;
                             }
-                            _ => None,
-                        };
-                        self.engine = Some(self.engine_factory.create(hash_size_mb));
+                        }
+                        self.engine = Some(self.engine_factory.create(None));
                         self.engine.as_mut().unwrap()
                     }
                     Some(ref mut x) => x,
