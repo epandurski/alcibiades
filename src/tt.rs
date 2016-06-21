@@ -63,15 +63,20 @@ pub struct EntryData {
 impl EntryData {
     /// Creates a new instance.
     ///
-    /// The following information can be stored:
-    /// 
     /// * `value` -- the value assigned to the position,
     /// 
     /// * `bound` -- the meaning of the assigned value,
     /// 
     /// * `depth` -- the depth of search,
     /// 
-    /// * `move16` -- best or refutation move (`0` if no move is available),
+    /// * `move16` -- best or refutation move (`0` if no move is
+    ///   available).
+    ///
+    ///   These are the least significant 16 bits of the corresponding
+    ///   `Move`. They contain the whole information about the played
+    ///   move itself.  The only missing information is the move
+    ///   ordering information and the information stored so as to be
+    ///   able undo the move.
     /// 
     /// * `eval_value` -- the calculated static evaluation for the
     ///   position.
