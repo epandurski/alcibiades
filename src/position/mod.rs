@@ -16,7 +16,7 @@ use self::board_geometry::*;
 
 #[derive(Clone, Copy)]
 struct StateInfo {
-    halfmove_clock: u16,
+    halfmove_clock: u8,
     last_move: Move,
 }
 

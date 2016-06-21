@@ -56,7 +56,7 @@ pub struct PiecesPlacement {
 ///    and is incremented after Black's move.
 pub fn parse_fen
     (s: &str)
-     -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u16, u16), ParseError> {
+     -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), ParseError> {
 
     let fileds: Vec<_> = s.split_whitespace().collect();
     if fileds.len() == 6 {
@@ -64,7 +64,7 @@ pub fn parse_fen
             try!(parse_fen_active_color(fileds[1])),
             try!(parse_fen_castling_rights(fileds[2])),
             try!(parse_fen_enpassant_square(fileds[3])),
-            try!(fileds[4].parse::<u16>().map_err(|_| ParseError)),
+            try!(fileds[4].parse::<u8>().map_err(|_| ParseError)),
             match try!(fileds[5].parse::<u16>().map_err(|_| ParseError)) {
             0 => return Err(ParseError),
             x => x,
