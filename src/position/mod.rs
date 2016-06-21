@@ -155,7 +155,7 @@ impl Position {
     #[allow(unused_variables)]
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
-        assert!(lower_bound <= upper_bound);
+        assert!(lower_bound < upper_bound);
         if self.state().halfmove_clock < 100 {
             evaluate_board(self.board(), lower_bound, upper_bound)
         } else {
@@ -189,7 +189,7 @@ impl Position {
                                lower_bound: Value,
                                upper_bound: Value)
                                -> (Value, NodeCount) {
-        assert!(lower_bound <= upper_bound);
+        assert!(lower_bound < upper_bound);
         thread_local!(
             static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
         );
@@ -336,7 +336,7 @@ impl Position {
                       ply: u8,
                       move_stack: &mut MoveStack,
                       eval_func: &Fn(&Position, Value, Value) -> Value,
-                      node_count: &mut NodeCount)
+                      searched_nodes: &mut NodeCount)
                       -> Value {
         assert!(lower_bound < upper_bound);
         let not_in_check = self.board().checkers() == 0;
@@ -411,14 +411,14 @@ impl Position {
             // the lower bound according to the recursively calculated
             // value.
             if self.do_move_unsafe(next_move) {
-                *node_count += 1;
+                *searched_nodes += 1;
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
                                           recapture_squares ^ dest_square_bb,
                                           ply + 1,
                                           move_stack,
                                           eval_func,
-                                          node_count);
+                                          searched_nodes);
                 self.undo_move_unsafe();
                 if value >= upper_bound {
                     lower_bound = value;
@@ -432,8 +432,6 @@ impl Position {
                 recapture_squares &= !dest_square_bb;
             }
         }
-
-        // Restore the move stack and return.
         move_stack.restore();
         lower_bound
     }
@@ -548,7 +546,7 @@ impl Position {
 
     // A helper method for `Position::from_history`. It removes all
     // states but the current one from `state_stack`. It also forgets
-    // all encountered boards before the last irreversible one.
+    // all encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
         let state = *self.state();
         let last_irrev = self.encountered_boards().len() - state.halfmove_clock as usize;
