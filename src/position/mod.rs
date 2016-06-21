@@ -154,7 +154,10 @@ impl Position {
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         assert!(lower_bound <= upper_bound);
-        // TODO: Implement a real evaluation.
+        // TODO: Implement a real evaluation. Also, this evaluation
+        // probably belongs to `Board`, because in order for the
+        // search to provably be stable positions with the same hash,
+        // should return the same static evaluation.
 
         let board = self.board();
         let piece_type = board.piece_type();
