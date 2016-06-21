@@ -214,7 +214,16 @@ impl<'a, F, E> Server<'a, F, E>
                 // Initialize the engine if necessery.
                 let engine = match self.engine {
                     None => {
-                        self.engine = Some(self.engine_factory.create());
+                        // The UCI specification states that the
+                        // "Hash" `setoption` command, should be the
+                        // first command passed to the engine.
+                        let hash_size_mb = match cmd {
+                            UciCommand::SetOption(ref p) if p.name == "Hash" => {
+                                p.value.parse::<usize>().ok()
+                            }
+                            _ => None,
+                        };
+                        self.engine = Some(self.engine_factory.create(hash_size_mb));
                         self.engine.as_mut().unwrap()
                     }
                     Some(ref mut x) => x,
@@ -339,7 +348,10 @@ pub trait UciEngineFactory<E: UciEngine> {
     fn options(&self) -> Vec<(OptionName, OptionDescription)>;
 
     /// Returns a fully initialized engine.
-    fn create(&self) -> E;
+    ///
+    /// `size_mb` is the preferred size of the transposition table in
+    /// Mbytes.
+    fn create(&self, hash_size_mb: Option<usize>) -> E;
 }
 
 

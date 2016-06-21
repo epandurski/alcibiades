@@ -35,12 +35,12 @@ pub struct DummyEngine {
 
 
 impl DummyEngine {
-    pub fn new() -> DummyEngine {
+    pub fn new(hash_size_mb: usize) -> DummyEngine {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let (results_tx, results_rx) = channel();
         let mut tt = TranspositionTable::new();
-        tt.resize(16);
+        tt.resize(hash_size_mb);
         let tt = Arc::new(tt);
         DummyEngine {
             position: Position::from_history("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
@@ -232,7 +232,7 @@ impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
         // ]
 
         vec![
-            ("Clear Hash".to_string(), OptionDescription::Button),
+            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
             ("Style".to_string(),
              OptionDescription::Combo {
                  default: "Normal".to_string(),
@@ -245,7 +245,7 @@ impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
         ]
     }
 
-    fn create(&self) -> DummyEngine {
-        DummyEngine::new()
+    fn create(&self, hash_size_mb: Option<usize>) -> DummyEngine {
+        DummyEngine::new(hash_size_mb.unwrap_or(16))
     }
 }
