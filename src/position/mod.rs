@@ -221,7 +221,16 @@ impl Position {
     /// Returns an almost unique hash value for the position.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
-        self.board().hash()
+        // We add `halmove_clock` to the hash mix, because we threat
+        // repeating positions as different, so we want them to have
+        // different hashes.
+        unsafe {
+            self.board().hash() ^
+            self.board()
+                .geometry()
+                .zobrist_halfmove_clock
+                .get_unchecked((self.state().halfmove_clock & 63) as usize)
+        }
     }
 
     /// Plays a move on the board.
