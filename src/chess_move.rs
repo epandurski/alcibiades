@@ -1,4 +1,4 @@
-//! Defines the information that a chess move contains.
+//! Defines data structures related to chess moves.
 
 use std::slice;
 use basetypes::*;

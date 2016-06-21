@@ -128,7 +128,7 @@ impl UciEngine for DummyEngine {
             .send(search::Command::Search(search::Parameters {
                 id: 0,
                 position: p.clone(),
-                depth: 3,
+                depth: 5,
                 lower_bound: -20000,
                 upper_bound: 20000,
             }))
