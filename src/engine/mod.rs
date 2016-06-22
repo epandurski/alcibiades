@@ -19,6 +19,70 @@ use tt::TranspositionTable;
 const VERSION: &'static str = "0.1";
 
 
+struct DeepeningSearcher {
+    depth: u8,
+    position: Option<Position>,
+    positions: Sender<Option<Position>>,
+    master: thread::JoinHandle<()>,
+    slave: thread::JoinHandle<()>,
+}
+
+
+impl DeepeningSearcher {
+    fn new(tt: Arc<TranspositionTable>) -> DeepeningSearcher {
+        let (positions_tx, positions_rx) = channel();
+        let (commands_tx, commands_rx) = channel();
+        let (reports_tx, reports_rx) = channel();
+        let (results_tx, results_rx) = channel();
+        DeepeningSearcher {
+            depth: 0,
+            position: None,
+            positions: positions_tx,
+            master: thread::spawn(move || {
+                while let Some(position) = positions_rx.recv().unwrap() {
+                    for depth in 1.. {
+                        commands_tx.send(search::Command::Search(search::Parameters {
+                            id: 0,
+                            position: position.clone(),
+                            depth: depth,
+                            lower_bound: -20000,
+                            upper_bound: 20000,
+                        }));
+                        // reports_rx.recv().unwrap()
+                    }
+
+                }
+            }),
+            slave: thread::spawn(move || {
+                search::run(&tt, commands_rx, reports_tx, results_tx);
+            }),
+        }
+    }
+
+    fn start(&mut self, p: &Position) {
+        if self.depth == 0 {
+            self.depth += 1;
+            // self.commands
+            //     .send(search::Command::Search(search::Parameters {
+            //         id: 0,
+            //         position: p.clone(),
+            //         depth: self.depth,
+            //         lower_bound: -20000,
+            //         upper_bound: 20000,
+            //     }))
+            //     .unwrap();
+        }
+    }
+
+    fn stop(&mut self) {
+        if self.depth > 0 {
+            // self.commands.send(search::Command::Stop).unwrap();
+            self.depth = 0;
+        }
+    }
+}
+
+
 /// Implements `UciEngine` trait.
 pub struct Engine {
     position: Position,
