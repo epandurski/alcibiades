@@ -215,8 +215,9 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        // TODO: do interactive deepening instead.
-        if !self.is_pondering && self.started_thinking_at.elapsed().unwrap().as_secs() > 5 {
+        // TODO: implement real time management here.
+        if !self.is_pondering && !self.infinite &&
+           self.started_thinking_at.elapsed().unwrap().as_secs() > 5 {
             self.stop();
         }
 
