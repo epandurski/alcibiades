@@ -18,7 +18,7 @@ use rand::distributions::{Sample, Range};
 pub const VERSION: &'static str = "0.1";
 
 
-pub struct DummyEngine {
+pub struct Engine {
     position: Position,
     replies: Vec<EngineReply>,
     is_thinking: bool,
@@ -34,15 +34,15 @@ pub struct DummyEngine {
 }
 
 
-impl DummyEngine {
-    pub fn new(hash_size_mb: usize) -> DummyEngine {
+impl Engine {
+    pub fn new(hash_size_mb: usize) -> Engine {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let (results_tx, results_rx) = channel();
         let mut tt = TranspositionTable::new();
         tt.resize(hash_size_mb);
         let tt = Arc::new(tt);
-        DummyEngine {
+        Engine {
             position: Position::from_history("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
                                               - 0 1",
                                              &mut vec![].into_iter())
@@ -66,7 +66,7 @@ impl DummyEngine {
 }
 
 
-impl UciEngine for DummyEngine {
+impl UciEngine for Engine {
     #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {
         self.replies.push(EngineReply::Info(vec![("string".to_string(),
@@ -173,7 +173,7 @@ impl UciEngine for DummyEngine {
 }
 
 
-impl DummyEngine {
+impl Engine {
     fn try_to_get_best_move_from_tt(&mut self) {
         if let Some(entry) = self.tt.probe(self.position.hash()) {
             let m = entry.move16();
@@ -202,19 +202,19 @@ impl DummyEngine {
 }
 
 
-pub struct DummyEngineFactory {
+pub struct EngineFactory {
     name: String,
 }
 
 
-impl DummyEngineFactory {
-    pub fn new() -> DummyEngineFactory {
-        DummyEngineFactory { name: format!("Alcibiades {}", VERSION) }
+impl EngineFactory {
+    pub fn new() -> EngineFactory {
+        EngineFactory { name: format!("Alcibiades {}", VERSION) }
     }
 }
 
 
-impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
+impl UciEngineFactory<Engine> for EngineFactory {
     fn name(&self) -> &str {
         self.name.as_str()
     }
@@ -248,7 +248,7 @@ impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
         ]
     }
 
-    fn create(&self, hash_size_mb: Option<usize>) -> DummyEngine {
-        DummyEngine::new(hash_size_mb.unwrap_or(16))
+    fn create(&self, hash_size_mb: Option<usize>) -> Engine {
+        Engine::new(hash_size_mb.unwrap_or(16))
     }
 }
