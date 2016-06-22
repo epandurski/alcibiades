@@ -34,7 +34,6 @@ pub enum Report {
 }
 
 
-#[allow(unused_must_use)]
 pub fn run_search(tt: Arc<TranspositionTable>,
                   commands: Receiver<Command>,
                   reports: Sender<Report>) {
@@ -62,9 +61,10 @@ pub fn run_search(tt: Arc<TranspositionTable>,
                                        &mut |n| {
                                            reported_nodes += n;
                                            reports.send(Report::Progress {
-                                               search_id: search_id,
-                                               searched_nodes: reported_nodes,
-                                           });
+                                                      search_id: search_id,
+                                                      searched_nodes: reported_nodes,
+                                                  })
+                                                  .ok();
                                            match commands.try_recv() {
                                                Ok(x) => {
                                                    pending_command = Some(x);
@@ -79,14 +79,16 @@ pub fn run_search(tt: Arc<TranspositionTable>,
                                     .ok();
                     reported_nodes += unreported_nodes;
                     reports.send(Report::Progress {
-                        search_id: search_id,
-                        searched_nodes: reported_nodes,
-                    });
+                               search_id: search_id,
+                               searched_nodes: reported_nodes,
+                           })
+                           .ok();
                     reports.send(Report::Done {
-                        search_id: search_id,
-                        searched_nodes: reported_nodes,
-                        value: value,
-                    });
+                               search_id: search_id,
+                               searched_nodes: reported_nodes,
+                               value: value,
+                           })
+                           .ok();
                     move_stack.clear();
                 }
                 Command::Stop => continue,
