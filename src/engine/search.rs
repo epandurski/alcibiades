@@ -1,5 +1,5 @@
 use std::cell::UnsafeCell;
-use std::sync::mpsc::{Sender, Receiver, RecvError, TryRecvError};
+use std::sync::mpsc::{Sender, Receiver, RecvError};
 use basetypes::*;
 use chess_move::MoveStack;
 use tt::*;
@@ -197,9 +197,7 @@ const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::search;
-    use basetypes::*;
     use chess_move::*;
     use tt::*;
     use position::Position;

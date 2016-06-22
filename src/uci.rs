@@ -335,10 +335,10 @@ impl<'a, F, E> Server<'a, F, E>
 /// UCI-compatible chess engine factory.
 pub trait UciEngineFactory<E: UciEngine> {
     /// Returns the name of the engine.
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
 
     /// Returns the author of the engine.
-    fn author(&self) -> &str;
+    fn author(&self) -> String;
 
     /// Returns all configuration options supported by the engine.
     ///
@@ -350,8 +350,8 @@ pub trait UciEngineFactory<E: UciEngine> {
 
     /// Returns a fully initialized engine.
     ///
-    /// `size_mb` is the preferred size of the transposition table in
-    /// Mbytes.
+    /// `hash_size_mb` is the preferred total size of the hash tables
+    /// in Mbytes.
     fn create(&self, hash_size_mb: Option<usize>) -> E;
 }
 

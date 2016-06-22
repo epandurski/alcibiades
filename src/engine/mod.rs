@@ -1,11 +1,9 @@
-#![allow(unused_imports)]
 pub mod search;
 
 
-use self::search::*;
 use std::thread;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender, Receiver, RecvError, TryRecvError};
+use std::sync::mpsc::{channel, Sender, Receiver};
 use basetypes::*;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
@@ -15,9 +13,10 @@ use rand;
 use rand::distributions::{Sample, Range};
 
 
-pub const VERSION: &'static str = "0.1";
+const VERSION: &'static str = "0.1";
 
 
+/// Implements `UciEngine` trait.
 pub struct Engine {
     position: Position,
     replies: Vec<EngineReply>,
@@ -35,12 +34,16 @@ pub struct Engine {
 
 
 impl Engine {
-    pub fn new(hash_size_mb: usize) -> Engine {
+    /// Creates a new instance.
+    ///
+    /// `tt_size_mb` is the preferred size of the transposition
+    /// table in Mbytes.
+    pub fn new(tt_size_mb: usize) -> Engine {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let (results_tx, results_rx) = channel();
         let mut tt = TranspositionTable::new();
-        tt.resize(hash_size_mb);
+        tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
         Engine {
             position: Position::from_history("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
@@ -202,44 +205,20 @@ impl Engine {
 }
 
 
-pub struct EngineFactory {
-    name: String,
-}
-
-
-impl EngineFactory {
-    pub fn new() -> EngineFactory {
-        EngineFactory { name: format!("Alcibiades {}", VERSION) }
-    }
-}
+/// Implements `UciEngineFactory` trait.
+pub struct EngineFactory;
 
 
 impl UciEngineFactory<Engine> for EngineFactory {
-    fn name(&self) -> &str {
-        self.name.as_str()
+    fn name(&self) -> String {
+        format!("Alcibiades {}", VERSION)
     }
 
-    fn author(&self) -> &str {
-        "Evgeni Pandurski"
+    fn author(&self) -> String {
+        "Evgeni Pandurski".to_string()
     }
 
     fn options(&self) -> Vec<(OptionName, OptionDescription)> {
-        // vec![
-        //     ("Nullmove".to_string(), OptionDescription::Check { default: true }),
-        //     ("Selectivity".to_string(), OptionDescription::Spin { default: 2, min: 0, max: 4 }),
-        //     ("NalimovPath".to_string(), OptionDescription::String { default: "c:\\".to_string() }),
-        //     ("Clear Hash".to_string(), OptionDescription::Button),
-        //     ("Style".to_string(),
-        //         OptionDescription::Combo {
-        //            default: "Normal".to_string(),
-        //            list: vec![
-        //                "Solid".to_string(),
-        //                "Normal".to_string(),
-        //                "Risky".to_string()
-        //            ]
-        //         }
-        //     ),
-        // ]
         vec![
             // TODO: Calculate a sane limit for the hash size.
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),

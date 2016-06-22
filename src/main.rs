@@ -17,7 +17,7 @@ use std::process::exit;
 use engine::EngineFactory;
 
 fn main() {
-    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(&EngineFactory::new()) {
+    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(&EngineFactory) {
         match uci_loop.serve() {
             Ok(_) => {
                 exit(0);
