@@ -19,6 +19,8 @@ const VERSION: &'static str = "0.1";
 /// Implements `UciEngine` trait.
 pub struct Engine {
     position: Position,
+    pondering_is_allowed: bool,
+    multi_pv: usize,
     replies: Vec<EngineReply>,
     is_thinking: bool,
     infinite: bool,
@@ -46,13 +48,14 @@ impl Engine {
         tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
         Engine {
-            position: Position::from_history("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
-                                              - 0 1",
-                                             &mut vec![].into_iter())
+            position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
+                                          1")
                           .ok()
                           .unwrap(),
-            replies: vec![],
+            pondering_is_allowed: false,
+            multi_pv: 1,
             is_thinking: false,
+            replies: vec![],
             infinite: false,
             ponder: false,
             best_move: "0000".to_string(),
@@ -72,18 +75,46 @@ impl Engine {
 impl UciEngine for Engine {
     #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {
-        self.replies.push(EngineReply::Info(vec![("string".to_string(),
-                                                  format!("{} -> {}", name, value))]));
+        match name {
+            // We do not support re-sizing of the transposition table
+            // once the engine had started, so we do nothing.
+            "Hash" => (),
+
+            // Tells the engine that it will be allowed to ponder.
+            // This option is needed because the engine might change
+            // its time management algorithm when pondering is
+            // allowed.
+            "Ponder" => {
+                self.pondering_is_allowed = value == "true";
+            }
+
+            // Tells the engine to output multiple best lines.
+            // the default value is `1`.)
+            "MultiPV" => {
+                self.multi_pv = value.parse::<usize>().ok().unwrap_or(1);
+            }
+
+            // An invalid option.
+            _ => {
+                self.replies.push(EngineReply::Info(vec![("string".to_string(),
+                                                          format!("Invalid option \"{}\"", name))]));
+            }
+        }
     }
 
-    fn new_game(&mut self) {}
+    fn new_game(&mut self) {
+        // Clearing the transposition table would not change anything,
+        // so we do nothing.
+    }
 
     #[allow(unused_variables)]
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
         if self.is_thinking {
             return;
         }
-        self.position = Position::from_history(fen, moves).ok().unwrap();
+        if let Ok(p) = Position::from_history(fen, moves) {
+            self.position = p;
+        }
     }
 
     #[allow(unused_variables)]
