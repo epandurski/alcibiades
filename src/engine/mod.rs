@@ -21,10 +21,10 @@ pub struct Engine {
     position: Position,
     pondering_is_allowed: bool,
     multi_pv: usize,
-    replies: Vec<EngineReply>,
     is_thinking: bool,
+    is_pondering: bool,
+    replies: Vec<EngineReply>,
     infinite: bool,
-    ponder: bool,
     best_move: String,
     move_stack: Vec<Move>,
     tt: Arc<TranspositionTable>,
@@ -55,9 +55,9 @@ impl Engine {
             pondering_is_allowed: false,
             multi_pv: 1,
             is_thinking: false,
+            is_pondering: false,
             replies: vec![],
             infinite: false,
-            ponder: false,
             best_move: "0000".to_string(),
             move_stack: Vec::new(),
             tt: tt.clone(),
@@ -164,22 +164,21 @@ impl UciEngine for Engine {
                 upper_bound: 20000,
             }))
             .unwrap();
-        self.ponder = ponder;
-        self.infinite = infinite;
         self.is_thinking = true;
+        self.is_pondering = ponder;
+        self.infinite = infinite;
     }
 
     fn ponder_hit(&mut self) {
-        if self.is_thinking && self.ponder {
-            self.ponder = false;
+        if self.is_thinking && self.is_pondering {
+            self.is_pondering = false;
         }
     }
 
     fn stop(&mut self) {
         if self.is_thinking {
             self.commands.send(search::Command::Stop).unwrap();
-            self.ponder = false;
-            self.infinite = false;
+            self.is_pondering = false;  // TODO: search the TT here instead.
         }
     }
 
@@ -188,7 +187,7 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        if !self.ponder {
+        if !self.is_pondering {
             if let Ok(_) = self.results.try_recv() {
                 self.try_to_get_best_move_from_tt();
                 self.replies.push(EngineReply::BestMove {
