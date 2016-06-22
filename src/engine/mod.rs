@@ -9,8 +9,6 @@ use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescriptio
 use position::Position;
 use chess_move::*;
 use tt::TranspositionTable;
-use rand;
-use rand::distributions::{Sample, Range};
 
 
 const VERSION: &'static str = "0.1";
@@ -25,8 +23,6 @@ pub struct Engine {
     is_pondering: bool,
     replies: Vec<EngineReply>,
     infinite: bool,
-    best_move: String,
-    move_stack: Vec<Move>,
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
     reports: Receiver<search::Progress>,
@@ -58,8 +54,6 @@ impl Engine {
             is_pondering: false,
             replies: vec![],
             infinite: false,
-            best_move: "0000".to_string(),
-            move_stack: Vec::new(),
             tt: tt.clone(),
             commands: commands_tx,
             reports: reports_rx,
@@ -132,33 +126,17 @@ impl UciEngine for Engine {
             return;
         }
 
-        // Get some legal move
-        let s = &mut self.move_stack;
-        let p = &mut self.position;
-        p.generate_moves(s);
-        let mut rng = rand::thread_rng();
-        let mut between = Range::new(0, 10);
-        let mut best_score = -20000;
-        while let Some(m) = s.pop() {
-            if p.do_move(m) {
-                let score = -p.evaluate_quiescence(-20000, 20000).0 + between.sample(&mut rng);
-                if score >= best_score {
-                    best_score = score;
-                    // self.replies.push(EngineReply::Info(vec![("info".to_string(),
-                    //                                           format!("{} -> {}",
-                    //                                                   m.notation(),
-                    //                                                   score))]));
-                    self.best_move = m.notation();
-                }
-                p.undo_move();
-            }
-        }
+        // use rand;
+        // use rand::distributions::{Sample, Range};
+        // let mut rng = rand::thread_rng();
+        // let mut between = Range::new(0, 10);
+        // let x = between.sample(&mut rng);
 
         // Start a new search
         self.commands
             .send(search::Command::Search(search::Parameters {
                 id: 0,
-                position: p.clone(),
+                position: self.position.clone(),
                 depth: 5,
                 lower_bound: -20000,
                 upper_bound: 20000,
@@ -178,7 +156,12 @@ impl UciEngine for Engine {
     fn stop(&mut self) {
         if self.is_thinking {
             self.commands.send(search::Command::Stop).unwrap();
-            self.is_pondering = false;  // TODO: search the TT here instead.
+            let best_move = self.get_best_move();
+            self.replies.push(EngineReply::BestMove {
+                best_move: best_move,
+                ponder_move: None,
+            });
+            self.is_thinking = false;
         }
     }
 
@@ -187,46 +170,60 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
+        // TODO: do interactive deepening instead.
         if !self.is_pondering {
             if let Ok(_) = self.results.try_recv() {
-                self.try_to_get_best_move_from_tt();
-                self.replies.push(EngineReply::BestMove {
-                    best_move: self.best_move.clone(),
-                    ponder_move: None,
-                });
-                self.best_move = "0000".to_string();
-                self.is_thinking = false;
+                self.stop();
             }
         }
+        
         self.replies.pop()
     }
 }
 
 
 impl Engine {
-    fn try_to_get_best_move_from_tt(&mut self) {
-        if let Some(entry) = self.tt.probe(self.position.hash()) {
-            let m = entry.move16();
-            if m != 0 {
-                let move_type = ((m & 0b1100000000000000) >> 14) as MoveType;
-                let orig_square = ((m & 0b0011111100000000) >> 8) as Square;
-                let dest_square = ((m & 0b0000000011111100) >> 2) as Square;
-                let promoted_piece = match m & 0b11 {
-                    0 => "q",
-                    1 => "r",
-                    2 => "b",
-                    3 => "n",
-                    _ => panic!("invalid promoted piece code"),
-                };
-                self.best_move = format!("{}{}{}",
-                                         notation(orig_square),
-                                         notation(dest_square),
-                                         if move_type == MOVE_PROMOTION {
-                                             promoted_piece
-                                         } else {
-                                             ""
-                                         })
+    fn get_best_move(&mut self) -> String {
+        let mut m = match self.tt.probe(self.position.hash()) {
+            Some(entry) => entry.move16(),
+            None => 0,
+        };
+        if m == 0 {
+            // Pick the first legal move.
+            let mut first_legal_move = Move::from_u32(0);
+            let mut v = Vec::with_capacity(128);
+            self.position.generate_moves(&mut v);
+            while let Some(x) = v.pop() {
+                if self.position.do_move(x) {
+                    self.position.undo_move();
+                    first_legal_move = x;
+                    break;
+                }
             }
+            m = first_legal_move.move16();
+        }
+        if m != 0 {
+            let move_type = ((m & 0b1100000000000000) >> 14) as MoveType;
+            let orig_square = ((m & 0b0011111100000000) >> 8) as Square;
+            let dest_square = ((m & 0b0000000011111100) >> 2) as Square;
+            let promoted_piece = match m & 0b11 {
+                0 => "q",
+                1 => "r",
+                2 => "b",
+                3 => "n",
+                _ => panic!("invalid promoted piece code"),
+            };
+            format!("{}{}{}",
+                    notation(orig_square),
+                    notation(dest_square),
+                    if move_type == MOVE_PROMOTION {
+                        promoted_piece
+                    } else {
+                        ""
+                    })
+
+        } else {
+            "0000".to_string()
         }
     }
 }
