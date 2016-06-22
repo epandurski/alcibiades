@@ -2,7 +2,7 @@ pub mod search;
 
 use std::thread;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender, RecvError};
+use std::sync::mpsc::{channel, Sender};
 use std::time::SystemTime;
 use basetypes::*;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
@@ -20,32 +20,37 @@ use tt::TranspositionTable;
 const VERSION: &'static str = "0.1";
 
 
+enum Order {
+    Search(Position),
+    Stop,
+    Exit,
+}
+
+
 struct DeepeningSearcher {
-    positions: Sender<Option<Position>>,
-    master: thread::JoinHandle<Result<(), RecvError>>,
-    slave: thread::JoinHandle<()>,
+    orders: Sender<Order>,
 }
 
 
 impl DeepeningSearcher {
     fn new(tt: Arc<TranspositionTable>) -> DeepeningSearcher {
-        let (positions_tx, positions_rx) = channel();
+        let (orders_tx, orders_rx) = channel();
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
-        DeepeningSearcher {
-            positions: positions_tx,
-            master: thread::spawn(move || {
-                let mut pending_position = None;
-                loop {
-                    // If there is a pending position, we take it,
-                    // otherwise we block and wait to receive a new
-                    // one.
-                    if let Some(p) = pending_position.take()
-                                                     .unwrap_or(positions_rx.recv().unwrap()) {
+        thread::spawn(move || {
+            search::run(&tt, commands_rx, reports_tx);
+        });
+        thread::spawn(move || {
+            let mut pending_order = None;
+            loop {
+                // If there is a pending order, we take it, otherwise
+                // we block and wait to receive a new one.
+                match pending_order.take().unwrap_or(orders_rx.recv().unwrap()) {
+                    Order::Search(position) => {
                         'depthloop: for depth in 1.. {
                             commands_tx.send(search::Command::Search {
                                            search_id: 0,
-                                           position: p.clone(),
+                                           position: position.clone(),
                                            depth: depth,
                                            lower_bound: -20000,
                                            upper_bound: 20000,
@@ -54,10 +59,10 @@ impl DeepeningSearcher {
                             loop {
                                 match reports_rx.recv().unwrap() {
                                     search::Report::Progress { .. } => {
-                                        if let Ok(x) = positions_rx.try_recv() {
+                                        if let Ok(x) = orders_rx.try_recv() {
                                             // There is a new position pending -- we
                                             // should terminate the current search.
-                                            pending_position = Some(x);
+                                            pending_order = Some(x);
                                             break 'depthloop;
                                         }
                                     }
@@ -66,20 +71,28 @@ impl DeepeningSearcher {
                             }
                         }
                     }
+                    Order::Stop => continue,
+                    Order::Exit => break,
                 }
-            }),
-            slave: thread::spawn(move || {
-                search::run(&tt, commands_rx, reports_tx);
-            }),
-        }
+            }
+            commands_tx.send(search::Command::Exit).unwrap();
+        });
+        DeepeningSearcher { orders: orders_tx }
     }
 
-    fn start(&mut self, p: &Position) {
-        self.positions.send(Some(p.clone())).unwrap();
+    fn search(&mut self, p: &Position) {
+        self.orders.send(Order::Search(p.clone())).unwrap();
     }
 
     fn stop(&mut self) {
-        self.positions.send(None).unwrap();
+        self.orders.send(Order::Stop).unwrap();
+    }
+}
+
+
+impl Drop for DeepeningSearcher {
+    fn drop(&mut self) {
+        self.orders.send(Order::Exit).unwrap();
     }
 }
 
@@ -184,7 +197,7 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking {
-            self.searcher.start(&self.position);
+            self.searcher.search(&self.position);
             self.is_thinking = true;
             self.is_pondering = ponder;
             self.infinite = infinite;
