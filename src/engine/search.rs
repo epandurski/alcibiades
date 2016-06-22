@@ -35,7 +35,9 @@ pub enum Report {
 
 
 #[allow(unused_must_use)]
-pub fn run(tt: &TranspositionTable, commands: Receiver<Command>, reports: Sender<Report>) {
+pub fn run_search(tt: Arc<TranspositionTable>,
+                  commands: Receiver<Command>,
+                  reports: Sender<Report>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -53,7 +55,7 @@ pub fn run(tt: &TranspositionTable, commands: Receiver<Command>, reports: Sender
                 Command::Search { search_id, mut position, depth, lower_bound, upper_bound } => {
                     let mut reported_nodes = 0;
                     let mut unreported_nodes = 0;
-                    let value = search(tt,
+                    let value = search(&tt,
                                        &mut position,
                                        move_stack,
                                        &mut unreported_nodes,
@@ -65,12 +67,10 @@ pub fn run(tt: &TranspositionTable, commands: Receiver<Command>, reports: Sender
                                            });
                                            match commands.try_recv() {
                                                Ok(x) => {
-                                                   // There is a new command pending -- we
-                                                   // should terminate the current search.
                                                    pending_command = Some(x);
                                                    Err(TerminatedSearch)
                                                }
-                                               Err(_) => Ok(()),
+                                               _ => Ok(()),
                                            }
                                        },
                                        lower_bound,
@@ -103,7 +103,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
     let (slave_commands_tx, slave_commands_rx) = channel();
     let (slave_reports_tx, slave_reports_rx) = channel();
     let slave = thread::spawn(move || {
-        run(&tt, slave_commands_rx, slave_reports_tx);
+        run_search(tt, slave_commands_rx, slave_reports_tx);
     });
     let mut pending_command = None;
     loop {
