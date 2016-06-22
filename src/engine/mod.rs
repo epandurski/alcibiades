@@ -1,6 +1,5 @@
 pub mod search;
 
-
 use std::thread;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
@@ -9,6 +8,12 @@ use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescriptio
 use position::Position;
 use chess_move::*;
 use tt::TranspositionTable;
+
+// use rand;
+// use rand::distributions::{Sample, Range};
+// let mut rng = rand::thread_rng();
+// let mut between = Range::new(0, 10);
+// let x = between.sample(&mut rng);
 
 
 const VERSION: &'static str = "0.1";
@@ -122,29 +127,20 @@ impl UciEngine for Engine {
           mate: Option<u64>,
           movetime: Option<u64>,
           infinite: bool) {
-        if self.is_thinking {
-            return;
+        if !self.is_thinking {
+            self.commands
+                .send(search::Command::Search(search::Parameters {
+                    id: 0,
+                    position: self.position.clone(),
+                    depth: 5,
+                    lower_bound: -20000,
+                    upper_bound: 20000,
+                }))
+                .unwrap();
+            self.is_thinking = true;
+            self.is_pondering = ponder;
+            self.infinite = infinite;
         }
-
-        // use rand;
-        // use rand::distributions::{Sample, Range};
-        // let mut rng = rand::thread_rng();
-        // let mut between = Range::new(0, 10);
-        // let x = between.sample(&mut rng);
-
-        // Start a new search
-        self.commands
-            .send(search::Command::Search(search::Parameters {
-                id: 0,
-                position: self.position.clone(),
-                depth: 5,
-                lower_bound: -20000,
-                upper_bound: 20000,
-            }))
-            .unwrap();
-        self.is_thinking = true;
-        self.is_pondering = ponder;
-        self.infinite = infinite;
     }
 
     fn ponder_hit(&mut self) {
@@ -176,7 +172,7 @@ impl UciEngine for Engine {
                 self.stop();
             }
         }
-        
+
         self.replies.pop()
     }
 }
