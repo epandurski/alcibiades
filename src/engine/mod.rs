@@ -73,7 +73,6 @@ impl Engine {
 
 
 impl UciEngine for Engine {
-    #[allow(unused_variables)]
     fn set_option(&mut self, name: &str, value: &str) {
         match name {
             // We do not support re-sizing of the transposition table
@@ -107,13 +106,11 @@ impl UciEngine for Engine {
         // so we do nothing.
     }
 
-    #[allow(unused_variables)]
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if self.is_thinking {
-            return;
-        }
-        if let Ok(p) = Position::from_history(fen, moves) {
-            self.position = p;
+        if !self.is_thinking {
+            if let Ok(p) = Position::from_history(fen, moves) {
+                self.position = p;
+            }
         }
     }
 
