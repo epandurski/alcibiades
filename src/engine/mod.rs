@@ -2,7 +2,8 @@ pub mod search;
 
 use std::thread;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
+use std::sync::mpsc::{channel, Sender, RecvError};
+use std::time::SystemTime;
 use basetypes::*;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
@@ -93,9 +94,8 @@ pub struct Engine {
     replies: Vec<EngineReply>,
     infinite: bool,
     tt: Arc<TranspositionTable>,
-    commands: Sender<search::Command>,
-    reports: Receiver<search::Report>,
-    searcher: thread::JoinHandle<()>,
+    searcher: DeepeningSearcher,
+    started_thinking_at: SystemTime,
 }
 
 
@@ -105,8 +105,6 @@ impl Engine {
     /// `tt_size_mb` is the preferred size of the transposition
     /// table in Mbytes.
     pub fn new(tt_size_mb: usize) -> Engine {
-        let (commands_tx, commands_rx) = channel();
-        let (reports_tx, reports_rx) = channel();
         let mut tt = TranspositionTable::new();
         tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
@@ -122,11 +120,8 @@ impl Engine {
             replies: vec![],
             infinite: false,
             tt: tt.clone(),
-            commands: commands_tx,
-            reports: reports_rx,
-            searcher: thread::spawn(move || {
-                search::run(&tt, commands_rx, reports_tx);
-            }),
+            searcher: DeepeningSearcher::new(tt),
+            started_thinking_at: SystemTime::now(),
         }
     }
 }
@@ -189,18 +184,11 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking {
-            self.commands
-                .send(search::Command::Search {
-                    search_id: 0,
-                    position: self.position.clone(),
-                    depth: 5,
-                    lower_bound: -20000,
-                    upper_bound: 20000,
-                })
-                .unwrap();
+            self.searcher.start(&self.position);
             self.is_thinking = true;
             self.is_pondering = ponder;
             self.infinite = infinite;
+            self.started_thinking_at = SystemTime::now();
         }
     }
 
@@ -212,7 +200,7 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking {
-            self.commands.send(search::Command::Stop).unwrap();
+            self.searcher.stop();
             let best_move = self.get_best_move();
             self.replies.push(EngineReply::BestMove {
                 best_move: best_move,
@@ -228,10 +216,8 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         // TODO: do interactive deepening instead.
-        if !self.is_pondering {
-            if let Ok(search::Report::Done { .. }) = self.reports.try_recv() {
-                self.stop();
-            }
+        if !self.is_pondering && self.started_thinking_at.elapsed().unwrap().as_secs() > 5 {
+            self.stop();
         }
 
         self.replies.pop()
