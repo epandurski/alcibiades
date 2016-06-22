@@ -20,60 +20,6 @@ use tt::TranspositionTable;
 const VERSION: &'static str = "0.1";
 
 
-enum Order {
-    Search(Position),
-    Stop,
-    Exit,
-}
-
-
-fn run_deepening(tt: Arc<TranspositionTable>, orders_rx: Receiver<Order>) {
-    thread::spawn(move || {
-        let (commands_tx, commands_rx) = channel();
-        let (reports_tx, reports_rx) = channel();
-        let slave = thread::spawn(move || {
-            search::run(&tt, commands_rx, reports_tx);
-        });
-        let mut pending_order = None;
-        loop {
-            // If there is a pending order, we take it, otherwise
-            // we block and wait to receive a new one.
-            match pending_order.take().unwrap_or(orders_rx.recv().unwrap()) {
-                Order::Search(position) => {
-                    'depthloop: for depth in 1.. {
-                        commands_tx.send(search::Command::Search {
-                                       search_id: 0,
-                                       position: position.clone(),
-                                       depth: depth,
-                                       lower_bound: -20000,
-                                       upper_bound: 20000,
-                                   })
-                                   .unwrap();
-                        loop {
-                            match reports_rx.recv().unwrap() {
-                                search::Report::Progress { .. } => {
-                                    if let Ok(x) = orders_rx.try_recv() {
-                                        // There is a new position pending -- we
-                                        // should terminate the current search.
-                                        pending_order = Some(x);
-                                        break 'depthloop;
-                                    }
-                                }
-                                search::Report::Done { .. } => break,
-                            }
-                        }
-                    }
-                }
-                Order::Stop => continue,
-                Order::Exit => break,
-            }
-        }
-        commands_tx.send(search::Command::Exit).unwrap();
-        slave.join().unwrap();
-    });
-}
-
-
 /// Implements `UciEngine` trait.
 pub struct Engine {
     position: Position,
@@ -84,7 +30,8 @@ pub struct Engine {
     replies: Vec<EngineReply>,
     infinite: bool,
     tt: Arc<TranspositionTable>,
-    searcher: Sender<Order>,
+    commands: Sender<search::Command>,
+    reports: Receiver<search::Report>,
     started_thinking_at: SystemTime,
 }
 
@@ -98,10 +45,11 @@ impl Engine {
         let mut tt = TranspositionTable::new();
         tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
-        let (orders_tx, orders_rx) = channel();
+        let (commands_tx, commands_rx) = channel();
+        let (reports_tx, reports_rx) = channel();
         let tt2 = tt.clone();
         thread::spawn(move || {
-            run_deepening(tt2, orders_rx);
+            search::run_deepening(tt2, commands_rx, reports_tx);
         });
 
         Engine {
@@ -116,7 +64,8 @@ impl Engine {
             replies: vec![],
             infinite: false,
             tt: tt,
-            searcher: orders_tx,
+            commands: commands_tx,
+            reports: reports_rx,
             started_thinking_at: SystemTime::now(),
         }
     }
@@ -180,7 +129,15 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking {
-            self.searcher.send(Order::Search(self.position.clone())).unwrap();
+            self.commands
+                .send(search::Command::Search {
+                    search_id: 0,
+                    position: self.position.clone(),
+                    depth: 128,
+                    lower_bound: -20000,
+                    upper_bound: 20000,
+                })
+                .unwrap();
             self.is_thinking = true;
             self.is_pondering = ponder;
             self.infinite = infinite;
@@ -196,7 +153,7 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking {
-            self.searcher.send(Order::Stop).unwrap();
+            self.commands.send(search::Command::Stop).unwrap();
             let best_move = self.get_best_move();
             self.replies.push(EngineReply::BestMove {
                 best_move: best_move,

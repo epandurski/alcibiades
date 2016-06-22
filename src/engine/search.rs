@@ -1,5 +1,7 @@
+use std::thread;
 use std::cell::UnsafeCell;
-use std::sync::mpsc::{Sender, Receiver, RecvError};
+use std::sync::Arc;
+use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
 use chess_move::MoveStack;
 use tt::*;
@@ -89,6 +91,61 @@ pub fn run(tt: &TranspositionTable, commands: Receiver<Command>, reports: Sender
             }
         }
     })
+}
+
+
+pub fn run_deepening(tt: Arc<TranspositionTable>,
+                     commands: Receiver<Command>,
+                     reports: Sender<Report>) {
+    let (slave_commands_tx, slave_commands_rx) = channel();
+    let (slave_reports_tx, slave_reports_rx) = channel();
+    let slave = thread::spawn(move || {
+        run(&tt, slave_commands_rx, slave_reports_tx);
+    });
+    let mut pending_command = None;
+    loop {
+        // If there is a pending command, we take it, otherwise we
+        // block and wait to receive a new one.
+        match pending_command.take().unwrap_or(commands.recv().unwrap()) {
+            Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
+                'depthloop: for d in 1..depth {
+                    slave_commands_tx.send(Command::Search {
+                                         search_id: search_id,
+                                         position: position.clone(),
+                                         depth: d,
+                                         lower_bound: lower_bound,
+                                         upper_bound: upper_bound,
+                                     })
+                                     .unwrap();
+                    loop {
+                        match slave_reports_rx.recv().unwrap() {
+                            Report::Progress { .. } => {
+                                if let Ok(x) = commands.try_recv() {
+                                    // There is a new position pending -- we
+                                    // should terminate the current search.
+                                    pending_command = Some(x);
+                                    break 'depthloop;
+                                }
+                            }
+                            Report::Done { .. } => break,
+                        }
+                    }
+                }
+                // reports.send(Report::Progress {
+                //     search_id: search_id,
+                //     searched_nodes: reported_nodes + unreported_nodes,
+                // });
+                // reports.send(Report::Done {
+                //     search_id: search_id,
+                //     value: value,
+                // });
+            }
+            Command::Stop => continue,
+            Command::Exit => break,
+        }
+    }
+    slave_commands_tx.send(Command::Exit).unwrap();
+    slave.join().unwrap();
 }
 
 
