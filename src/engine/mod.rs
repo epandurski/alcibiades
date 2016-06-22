@@ -229,19 +229,22 @@ impl UciEngineFactory<DummyEngine> for DummyEngineFactory {
         //     ("Selectivity".to_string(), OptionDescription::Spin { default: 2, min: 0, max: 4 }),
         //     ("NalimovPath".to_string(), OptionDescription::String { default: "c:\\".to_string() }),
         //     ("Clear Hash".to_string(), OptionDescription::Button),
+        //     ("Style".to_string(),
+        //         OptionDescription::Combo {
+        //            default: "Normal".to_string(),
+        //            list: vec![
+        //                "Solid".to_string(),
+        //                "Normal".to_string(),
+        //                "Risky".to_string()
+        //            ]
+        //         }
+        //     ),
         // ]
-
         vec![
+            // TODO: Calculate a sane limit for the hash size.
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
-            ("Style".to_string(),
-             OptionDescription::Combo {
-                 default: "Normal".to_string(),
-                 list: vec![
-                     "Solid".to_string(),
-                     "Normal".to_string(),
-                     "Risky".to_string()
-                 ]
-             }),
+            ("Ponder".to_string(), OptionDescription::Check { default: false }),
+            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 32, default: 1 }),
         ]
     }
 
