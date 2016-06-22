@@ -34,9 +34,7 @@ pub enum Report {
 }
 
 
-pub fn run_search(tt: Arc<TranspositionTable>,
-                  commands: Receiver<Command>,
-                  reports: Sender<Report>) {
+pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -105,7 +103,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
     let (slave_commands_tx, slave_commands_rx) = channel();
     let (slave_reports_tx, slave_reports_rx) = channel();
     let slave = thread::spawn(move || {
-        run_search(tt, slave_commands_rx, slave_reports_tx);
+        run(tt, slave_commands_rx, slave_reports_tx);
     });
     let mut pending_command = None;
     loop {
