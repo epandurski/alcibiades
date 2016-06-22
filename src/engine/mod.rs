@@ -2,7 +2,7 @@ pub mod search;
 
 use std::thread;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
@@ -20,10 +20,8 @@ const VERSION: &'static str = "0.1";
 
 
 struct DeepeningSearcher {
-    depth: u8,
-    position: Option<Position>,
     positions: Sender<Option<Position>>,
-    master: thread::JoinHandle<()>,
+    master: thread::JoinHandle<Result<(), RecvError>>,
     slave: thread::JoinHandle<()>,
 }
 
@@ -34,22 +32,39 @@ impl DeepeningSearcher {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         DeepeningSearcher {
-            depth: 0,
-            position: None,
             positions: positions_tx,
             master: thread::spawn(move || {
-                while let Some(position) = positions_rx.recv().unwrap() {
-                    for depth in 1.. {
-                        commands_tx.send(search::Command::Search {
-                            search_id: 0,
-                            position: position.clone(),
-                            depth: depth,
-                            lower_bound: -20000,
-                            upper_bound: 20000,
-                        });
-                        // reports_rx.recv().unwrap()
+                let mut pending_position = None;
+                loop {
+                    // If there is a pending position, we take it,
+                    // otherwise we block and wait to receive a new
+                    // one.
+                    if let Some(p) = pending_position.take()
+                                                     .unwrap_or(positions_rx.recv().unwrap()) {
+                        'depthloop: for depth in 1.. {
+                            commands_tx.send(search::Command::Search {
+                                           search_id: 0,
+                                           position: p.clone(),
+                                           depth: depth,
+                                           lower_bound: -20000,
+                                           upper_bound: 20000,
+                                       })
+                                       .unwrap();
+                            loop {
+                                match reports_rx.recv().unwrap() {
+                                    search::Report::Progress { .. } => {
+                                        if let Ok(x) = positions_rx.try_recv() {
+                                            // There is a new position pending -- we
+                                            // should terminate the current search.
+                                            pending_position = Some(x);
+                                            break 'depthloop;
+                                        }
+                                    }
+                                    search::Report::Done { .. } => break,
+                                }
+                            }
+                        }
                     }
-
                 }
             }),
             slave: thread::spawn(move || {
@@ -59,25 +74,11 @@ impl DeepeningSearcher {
     }
 
     fn start(&mut self, p: &Position) {
-        if self.depth == 0 {
-            self.depth += 1;
-            // self.commands
-            //     .send(search::Command::Search(search::Parameters {
-            //         id: 0,
-            //         position: p.clone(),
-            //         depth: self.depth,
-            //         lower_bound: -20000,
-            //         upper_bound: 20000,
-            //     }))
-            //     .unwrap();
-        }
+        self.positions.send(Some(p.clone())).unwrap();
     }
 
     fn stop(&mut self) {
-        if self.depth > 0 {
-            // self.commands.send(search::Command::Stop).unwrap();
-            self.depth = 0;
-        }
+        self.positions.send(None).unwrap();
     }
 }
 
@@ -228,7 +229,7 @@ impl UciEngine for Engine {
     fn get_reply(&mut self) -> Option<EngineReply> {
         // TODO: do interactive deepening instead.
         if !self.is_pondering {
-            if let Ok(search::Report::Done{..}) = self.reports.try_recv() {
+            if let Ok(search::Report::Done { .. }) = self.reports.try_recv() {
                 self.stop();
             }
         }
