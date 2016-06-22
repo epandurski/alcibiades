@@ -111,7 +111,9 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
     loop {
         // If there is a pending command, we take it, otherwise we
         // block and wait to receive a new one.
-        match pending_command.take().unwrap_or(commands.recv().unwrap()) {
+        match pending_command.take().unwrap_or(commands.recv()
+                                                       .or::<RecvError>(Ok(Command::Exit))
+                                                       .unwrap()) {
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                 let mut searched_nodes_final = 0;
                 let mut value_final = None;
@@ -132,7 +134,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                            search_id: search_id,
                                            searched_nodes: searched_nodes_final + searched_nodes,
                                        })
-                                       .unwrap();
+                                       .ok();
                                 if pending_command.is_none() {
                                     pending_command = match commands.try_recv() {
                                         Ok(cmd) => {
@@ -162,7 +164,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                            searched_nodes: searched_nodes_final,
                            value: value_final,
                        })
-                       .unwrap();
+                       .ok();
             }
             Command::Stop => {
                 slave_commands_tx.send(Command::Stop).unwrap();
