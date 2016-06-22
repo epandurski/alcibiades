@@ -28,6 +28,7 @@ pub enum Report {
     },
     Done {
         search_id: usize,
+        searched_nodes: NodeCount,
         value: Option<Value>,
     },
 }
@@ -76,12 +77,14 @@ pub fn run(tt: &TranspositionTable, commands: Receiver<Command>, reports: Sender
                                        upper_bound,
                                        depth)
                                     .ok();
+                    reported_nodes += unreported_nodes;
                     reports.send(Report::Progress {
                         search_id: search_id,
-                        searched_nodes: reported_nodes + unreported_nodes,
+                        searched_nodes: reported_nodes,
                     });
                     reports.send(Report::Done {
                         search_id: search_id,
+                        searched_nodes: reported_nodes,
                         value: value,
                     });
                     move_stack.clear();
@@ -108,44 +111,59 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
         // block and wait to receive a new one.
         match pending_command.take().unwrap_or(commands.recv().unwrap()) {
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                'depthloop: for d in 1..depth {
+                let mut searched_nodes_final = 0;
+                let mut value_final = None;
+                // TODO: May be use MIN_PLY..(depth+1).
+                'depthloop: for n in 1..(depth + 1) {
                     slave_commands_tx.send(Command::Search {
-                                         search_id: search_id,
-                                         position: position.clone(),
-                                         depth: d,
-                                         lower_bound: lower_bound,
-                                         upper_bound: upper_bound,
-                                     })
-                                     .unwrap();
+                        search_id: n as usize,
+                        position: position.clone(),
+                        depth: n,
+                        lower_bound: lower_bound,
+                        upper_bound: upper_bound,
+                    });
                     loop {
                         match slave_reports_rx.recv().unwrap() {
-                            Report::Progress { .. } => {
+                            Report::Progress { search_id, searched_nodes } => {
+                                reports.send(Report::Progress {
+                                    search_id: search_id,
+                                    searched_nodes: searched_nodes_final + searched_nodes,
+                                });
                                 if let Ok(x) = commands.try_recv() {
                                     // There is a new position pending -- we
                                     // should terminate the current search.
+                                    searched_nodes_final += searched_nodes;
                                     pending_command = Some(x);
                                     break 'depthloop;
                                 }
                             }
-                            Report::Done { .. } => break,
+                            Report::Done { search_id, searched_nodes, value } => {
+                                searched_nodes_final += searched_nodes;
+                                if search_id == depth as usize {
+                                    value_final = value;
+                                }
+                                break;
+                            }
                         }
                     }
                 }
-                // reports.send(Report::Progress {
-                //     search_id: search_id,
-                //     searched_nodes: reported_nodes + unreported_nodes,
-                // });
-                // reports.send(Report::Done {
-                //     search_id: search_id,
-                //     value: value,
-                // });
+                reports.send(Report::Done {
+                    search_id: search_id,
+                    searched_nodes: searched_nodes_final,
+                    value: value_final,
+                });
             }
-            Command::Stop => continue,
-            Command::Exit => break,
+            Command::Stop => {
+                slave_commands_tx.send(Command::Stop);
+                continue;
+            }
+            Command::Exit => {
+                slave_commands_tx.send(Command::Exit);
+                break;
+            }
         }
     }
-    slave_commands_tx.send(Command::Exit).unwrap();
-    slave.join().unwrap();
+    slave.join();
 }
 
 
