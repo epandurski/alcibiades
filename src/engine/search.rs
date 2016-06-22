@@ -25,6 +25,7 @@ pub enum Report {
     Progress {
         search_id: usize,
         searched_nodes: NodeCount,
+        depth: u8,
     },
     Done {
         search_id: usize,
@@ -44,11 +45,9 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
         loop {
             // If there is a pending command, we take it, otherwise we
             // block and wait to receive a new one.
-            let command = pending_command.take()
-                                         .unwrap_or(commands.recv()
-                                                            .or::<RecvError>(Ok(Command::Exit))
-                                                            .unwrap());
-            match command {
+            match pending_command.take().unwrap_or(commands.recv()
+                                                           .or::<RecvError>(Ok(Command::Exit))
+                                                           .unwrap()) {
                 Command::Search { search_id, mut position, depth, lower_bound, upper_bound } => {
                     let mut reported_nodes = 0;
                     let mut unreported_nodes = 0;
@@ -61,6 +60,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                                            reports.send(Report::Progress {
                                                       search_id: search_id,
                                                       searched_nodes: reported_nodes,
+                                                      depth: depth,
                                                   })
                                                   .ok();
                                            match commands.try_recv() {
@@ -79,6 +79,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                     reports.send(Report::Progress {
                                search_id: search_id,
                                searched_nodes: reported_nodes,
+                               depth: depth,
                            })
                            .ok();
                     reports.send(Report::Done {
@@ -115,7 +116,6 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                 let mut searched_nodes_final = 0;
                 let mut value_final = None;
-                // TODO: May be use MIN_PLY..(depth+1).
                 'depthloop: for n in 1..(depth + 1) {
                     slave_commands_tx.send(Command::Search {
                                          search_id: n as usize,
@@ -131,6 +131,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                 reports.send(Report::Progress {
                                            search_id: search_id,
                                            searched_nodes: searched_nodes_final + searched_nodes,
+                                           depth: n,
                                        })
                                        .ok();
                                 if pending_command.is_none() {
