@@ -6,39 +6,33 @@ use tt::*;
 use position::Position;
 
 
-pub struct Parameters {
-    pub id: usize,
-    pub position: Position,
-    pub depth: u8,
-    pub lower_bound: Value,
-    pub upper_bound: Value,
-}
-
-
 pub enum Command {
-    Search(Parameters),
+    Search {
+        search_id: usize,
+        position: Position,
+        depth: u8,
+        lower_bound: Value,
+        upper_bound: Value,
+    },
     Stop,
     Exit,
 }
 
 
-pub struct Progress {
-    pub search_id: usize,
-    pub searched_nodes: NodeCount,
-}
-
-
-pub struct Done {
-    pub search_id: usize,
-    pub value: Option<Value>,
+pub enum Report {
+    Progress {
+        search_id: usize,
+        searched_nodes: NodeCount,
+    },
+    Done {
+        search_id: usize,
+        value: Option<Value>,
+    },
 }
 
 
 #[allow(unused_must_use)]
-pub fn run(tt: &TranspositionTable,
-           commands: Receiver<Command>,
-           reports: Sender<Progress>,
-           results: Sender<Done>) {
+pub fn run(tt: &TranspositionTable, commands: Receiver<Command>, reports: Sender<Report>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -53,17 +47,16 @@ pub fn run(tt: &TranspositionTable,
                                                             .or::<RecvError>(Ok(Command::Exit))
                                                             .unwrap());
             match command {
-                Command::Search(mut params) => {
-                    let search_id = params.id;
+                Command::Search { search_id, mut position, depth, lower_bound, upper_bound } => {
                     let mut reported_nodes = 0;
                     let mut unreported_nodes = 0;
                     let value = search(tt,
-                                       &mut params.position,
+                                       &mut position,
                                        move_stack,
                                        &mut unreported_nodes,
                                        &mut |n| {
                                            reported_nodes += n;
-                                           reports.send(Progress {
+                                           reports.send(Report::Progress {
                                                search_id: search_id,
                                                searched_nodes: reported_nodes,
                                            });
@@ -77,15 +70,15 @@ pub fn run(tt: &TranspositionTable,
                                                Err(_) => Ok(()),
                                            }
                                        },
-                                       params.lower_bound,
-                                       params.upper_bound,
-                                       params.depth)
+                                       lower_bound,
+                                       upper_bound,
+                                       depth)
                                     .ok();
-                    reports.send(Progress {
+                    reports.send(Report::Progress {
                         search_id: search_id,
                         searched_nodes: reported_nodes + unreported_nodes,
                     });
-                    results.send(Done {
+                    reports.send(Report::Done {
                         search_id: search_id,
                         value: value,
                     });

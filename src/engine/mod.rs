@@ -33,7 +33,6 @@ impl DeepeningSearcher {
         let (positions_tx, positions_rx) = channel();
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
-        let (results_tx, results_rx) = channel();
         DeepeningSearcher {
             depth: 0,
             position: None,
@@ -41,20 +40,20 @@ impl DeepeningSearcher {
             master: thread::spawn(move || {
                 while let Some(position) = positions_rx.recv().unwrap() {
                     for depth in 1.. {
-                        commands_tx.send(search::Command::Search(search::Parameters {
-                            id: 0,
+                        commands_tx.send(search::Command::Search {
+                            search_id: 0,
                             position: position.clone(),
                             depth: depth,
                             lower_bound: -20000,
                             upper_bound: 20000,
-                        }));
+                        });
                         // reports_rx.recv().unwrap()
                     }
 
                 }
             }),
             slave: thread::spawn(move || {
-                search::run(&tt, commands_rx, reports_tx, results_tx);
+                search::run(&tt, commands_rx, reports_tx);
             }),
         }
     }
@@ -94,8 +93,7 @@ pub struct Engine {
     infinite: bool,
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
-    reports: Receiver<search::Progress>,
-    results: Receiver<search::Done>,
+    reports: Receiver<search::Report>,
     searcher: thread::JoinHandle<()>,
 }
 
@@ -108,7 +106,6 @@ impl Engine {
     pub fn new(tt_size_mb: usize) -> Engine {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
-        let (results_tx, results_rx) = channel();
         let mut tt = TranspositionTable::new();
         tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
@@ -126,9 +123,8 @@ impl Engine {
             tt: tt.clone(),
             commands: commands_tx,
             reports: reports_rx,
-            results: results_rx,
             searcher: thread::spawn(move || {
-                search::run(&tt, commands_rx, reports_tx, results_tx);
+                search::run(&tt, commands_rx, reports_tx);
             }),
         }
     }
@@ -193,13 +189,13 @@ impl UciEngine for Engine {
           infinite: bool) {
         if !self.is_thinking {
             self.commands
-                .send(search::Command::Search(search::Parameters {
-                    id: 0,
+                .send(search::Command::Search {
+                    search_id: 0,
                     position: self.position.clone(),
                     depth: 5,
                     lower_bound: -20000,
                     upper_bound: 20000,
-                }))
+                })
                 .unwrap();
             self.is_thinking = true;
             self.is_pondering = ponder;
@@ -232,7 +228,7 @@ impl UciEngine for Engine {
     fn get_reply(&mut self) -> Option<EngineReply> {
         // TODO: do interactive deepening instead.
         if !self.is_pondering {
-            if let Ok(_) = self.results.try_recv() {
+            if let Ok(search::Report::Done{..}) = self.reports.try_recv() {
                 self.stop();
             }
         }
