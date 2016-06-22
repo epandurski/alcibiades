@@ -116,54 +116,63 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                 // TODO: May be use MIN_PLY..(depth+1).
                 'depthloop: for n in 1..(depth + 1) {
                     slave_commands_tx.send(Command::Search {
-                        search_id: n as usize,
-                        position: position.clone(),
-                        depth: n,
-                        lower_bound: lower_bound,
-                        upper_bound: upper_bound,
-                    });
+                                         search_id: n as usize,
+                                         position: position.clone(),
+                                         depth: n,
+                                         lower_bound: lower_bound,
+                                         upper_bound: upper_bound,
+                                     })
+                                     .unwrap();
                     loop {
                         match slave_reports_rx.recv().unwrap() {
-                            Report::Progress { search_id, searched_nodes } => {
+                            Report::Progress { searched_nodes, .. } => {
                                 reports.send(Report::Progress {
-                                    search_id: search_id,
-                                    searched_nodes: searched_nodes_final + searched_nodes,
-                                });
-                                if let Ok(x) = commands.try_recv() {
-                                    // There is a new position pending -- we
-                                    // should terminate the current search.
-                                    searched_nodes_final += searched_nodes;
-                                    pending_command = Some(x);
-                                    break 'depthloop;
+                                           search_id: search_id,
+                                           searched_nodes: searched_nodes_final + searched_nodes,
+                                       })
+                                       .unwrap();
+                                if pending_command.is_none() {
+                                    pending_command = match commands.try_recv() {
+                                        Ok(cmd) => {
+                                            slave_commands_tx.send(Command::Stop).unwrap();
+                                            Some(cmd)
+                                        }
+                                        _ => None,
+                                    }
                                 }
                             }
-                            Report::Done { search_id, searched_nodes, value } => {
+                            Report::Done { searched_nodes, value, .. } => {
                                 searched_nodes_final += searched_nodes;
-                                if search_id == depth as usize {
+                                if n == depth {
                                     value_final = value;
                                 }
-                                break;
+                                if pending_command.is_none() {
+                                    break;
+                                } else {
+                                    break 'depthloop;
+                                }
                             }
                         }
                     }
                 }
                 reports.send(Report::Done {
-                    search_id: search_id,
-                    searched_nodes: searched_nodes_final,
-                    value: value_final,
-                });
+                           search_id: search_id,
+                           searched_nodes: searched_nodes_final,
+                           value: value_final,
+                       })
+                       .unwrap();
             }
             Command::Stop => {
-                slave_commands_tx.send(Command::Stop);
+                slave_commands_tx.send(Command::Stop).unwrap();
                 continue;
             }
             Command::Exit => {
-                slave_commands_tx.send(Command::Exit);
+                slave_commands_tx.send(Command::Exit).unwrap();
                 break;
             }
         }
     }
-    slave.join();
+    slave.join().unwrap();
 }
 
 
