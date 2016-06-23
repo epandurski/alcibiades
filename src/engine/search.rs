@@ -150,6 +150,8 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                     value_final = value;
                                 }
                                 if pending_command.is_none() {
+                                    // TODO: Consider stopping if the
+                                    // value is +-20000.
                                     break;
                                 } else {
                                     break 'depthloop;
