@@ -30,7 +30,7 @@ pub type NodeCount = u64;
 /// are equal. For example: a value of `100` might mean that the side
 /// to move is a pawn ahead.
 ///
-/// Values over `20000` and under `-20000` designate a certain
+/// Values over `19999` and under `-19999` designate a certain
 /// win/loss.
 pub type Value = i16;
 
