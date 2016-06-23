@@ -45,9 +45,12 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
         loop {
             // If there is a pending command, we take it, otherwise we
             // block and wait to receive a new one.
-            match pending_command.take().unwrap_or(commands.recv()
-                                                           .or::<RecvError>(Ok(Command::Exit))
-                                                           .unwrap()) {
+            let command = match pending_command.take() {
+                Some(cmd) => cmd,
+                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap()
+            };
+            
+            match command {
                 Command::Search { search_id, mut position, depth, lower_bound, upper_bound } => {
                     let mut reported_nodes = 0;
                     let mut unreported_nodes = 0;
@@ -110,9 +113,12 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
     loop {
         // If there is a pending command, we take it, otherwise we
         // block and wait to receive a new one.
-        match pending_command.take().unwrap_or(commands.recv()
-                                                       .or::<RecvError>(Ok(Command::Exit))
-                                                       .unwrap()) {
+        let command = match pending_command.take() {
+            Some(cmd) => cmd,
+            None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap()
+        };
+
+        match command {
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                 let mut searched_nodes_final = 0;
                 let mut value_final = None;
@@ -206,11 +212,11 @@ fn search(tt: &TranspositionTable,
     } else {
         moves.save();
         p.generate_moves(moves);
-        
+
         // TODO: Consult `tt` here.
         if let Some(entry) = tt.probe(p.hash()) {
             let move16 = entry.move16();
-            if  move16 != 0 {
+            if move16 != 0 {
                 for m in moves.iter_mut() {
                     if m.move16() == move16 {
                         m.set_score(0b11);
