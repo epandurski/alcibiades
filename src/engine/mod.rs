@@ -134,7 +134,7 @@ impl UciEngine for Engine {
                 .send(search::Command::Search {
                     search_id: 0,
                     position: self.position.clone(),
-                    depth: 128,
+                    depth: 127,
                     lower_bound: -20000,
                     upper_bound: 20000,
                 })
