@@ -131,10 +131,22 @@ impl Position {
     /// occurred exactly once.
     #[inline]
     pub fn evaluate_final(&self) -> Value {
-        if self.is_repeated() || self.board().checkers() == 0 {
-            0
+        if self.state().halfmove_clock < 100 {
+            if self.is_repeated() || self.board().checkers() == 0 {
+                // Repetition or stalemate.
+                0
+            } else {
+                // Checkmated.
+                -20000
+            }
         } else {
-            -20000
+            // A draw by the 50-moves rule. But before assigning the
+            // draw score, we have to make sure we are not checkmated.
+            if self.is_checkmate() {
+                -20000
+            } else {
+                0
+            }
         }
     }
 
@@ -156,11 +168,7 @@ impl Position {
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         assert!(lower_bound < upper_bound);
-        if self.state().halfmove_clock < 100 {
-            evaluate_board(self.board(), lower_bound, upper_bound)
-        } else {
-            0
-        }
+        evaluate_board(self.board(), lower_bound, upper_bound)
     }
 
     /// Performs "quiescence search" and returns an evaluation.
@@ -251,7 +259,7 @@ impl Position {
     /// "forgets" all positions that have occurred exactly once.
     #[inline]
     pub fn generate_moves(&self, move_sink: &mut MoveSink) {
-        if !self.is_repeated() {
+        if !self.is_repeated() && self.state().halfmove_clock < 100 {
             self.board().generate_moves(true, move_sink);
         }
     }
@@ -287,6 +295,31 @@ impl Position {
             }
         }
         false
+    }
+
+    // A helper method for `evaluate_final`. Returns `true` if the
+    // side to move is checkmated, `false` otherwise.
+    #[inline]
+    fn is_checkmate(&self) -> bool {
+        thread_local!(
+            static MOVES: UnsafeCell<Vec<Move>> = UnsafeCell::new(Vec::with_capacity(256))
+        );
+        self.board().checkers() != 0 &&
+        {
+            MOVES.with(|v| unsafe {
+                let moves = &mut *v.get();
+                let board = self.board_mut();
+                board.generate_moves(true, moves);
+                while let Some(m) = moves.pop() {
+                    if board.do_move(m) {
+                        board.undo_move(m);
+                        moves.clear();
+                        return false;
+                    }
+                }
+                true
+            })
+        }
     }
 
     // A helper method for `do_move` and `qsearch`. It is needed
@@ -871,5 +904,15 @@ mod tests {
         assert_eq!(p.calc_see(BLACK, QUEEN, E5, D4, PAWN), -875);
         assert_eq!(p.calc_see(WHITE, PAWN, G3, F4, PAWN), 100);
         assert_eq!(p.calc_see(BLACK, KING, A3, A2, PAWN), -9900);
+    }
+    
+    #[test]
+    fn test_is_checkmate() {
+        let p = Position::from_fen("8/8/8/8/8/7k/6pp/7K w - - 0 1").ok().unwrap();
+        assert!(p.is_checkmate());
+        let p = Position::from_fen("8/8/8/8/8/7k/7p/7K w - - 0 1").ok().unwrap();
+        assert!(!p.is_checkmate());
+        let p = Position::from_fen("8/8/8/8/8/7k/6p1/7K w - - 0 1").ok().unwrap();
+        assert!(!p.is_checkmate());
     }
 }
