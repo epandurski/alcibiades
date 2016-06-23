@@ -33,6 +33,7 @@ pub struct Engine {
     commands: Sender<search::Command>,
     reports: Receiver<search::Report>,
     started_thinking_at: SystemTime,
+    curr_depth: u8,
 }
 
 
@@ -67,6 +68,7 @@ impl Engine {
             commands: commands_tx,
             reports: reports_rx,
             started_thinking_at: SystemTime::now(),
+            curr_depth: 0,
         }
     }
 }
@@ -143,6 +145,7 @@ impl UciEngine for Engine {
             self.is_pondering = ponder;
             self.infinite = infinite;
             self.started_thinking_at = SystemTime::now();
+            self.curr_depth = 0;
         }
     }
 
@@ -170,15 +173,74 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         // TODO: implement real time management here.
-        if !self.is_pondering && !self.infinite &&
+        if self.is_thinking && !self.is_pondering && !self.infinite &&
            self.started_thinking_at.elapsed().unwrap().as_secs() > 3 {
             self.stop();
         }
-        
+
         // Empty the reports queue.
-        while let Ok(_) = self.reports.try_recv() {}
-        
-        self.replies.pop()
+        while let Ok(report) = self.reports.try_recv() {
+            // let rep_type = match report {
+            //     search::Report::Progress { searched_nodes, .. } => format!("progress {}", searched_nodes),
+            //     search::Report::Done { .. } => "done".to_string(),
+            // };
+            // self.replies.push(EngineReply::Info(vec![
+            //     ("string".to_string(), rep_type),
+            // ]));
+            if self.is_thinking {
+                match report {
+                    search::Report::Progress { searched_nodes, depth, .. } => {
+                        if self.curr_depth < depth {
+                            self.curr_depth = depth;
+                            let mut p = self.position.clone();
+                            let mut v = Vec::with_capacity(128);
+                            let mut pv = String::from("");
+                            let mut value = None;
+                            for _ in 0..depth {
+                                let m = match self.tt.probe(p.hash()) {
+                                    Some(entry) => {
+                                        if value.is_none() {
+                                            value = Some(entry.value());
+                                        }
+                                        entry.move16()
+                                    }
+                                    None => 0,
+                                };
+                                if m != 0 {
+                                    self.position.generate_moves(&mut v);
+                                    while let Some(x) = v.pop() {
+                                        if x.move16() == m && p.do_move(x) {
+                                            pv.push_str(&x.notation());
+                                            pv.push(' ');
+                                            v.clear();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            let duration = self.started_thinking_at.elapsed().unwrap();
+                            let elapsed_time_milis = 1000 * duration.as_secs() +
+                                                     (duration.subsec_nanos() / 1000000) as u64;
+                            self.replies.push(EngineReply::Info(vec![
+                            ("multipv".to_string(), "1".to_string()),
+                            ("depth".to_string(), format!("{}", depth)),
+                            ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
+                            ("nodes".to_string(), format!("{}", searched_nodes)),
+                            ("time".to_string(), format!("{}", elapsed_time_milis)),
+                            ("pv".to_string(), format!("{}", pv)),
+                        ]));
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        if self.replies.len() > 0 {
+            Some(self.replies.remove(0))
+        } else {
+            None
+        }
     }
 }
 
