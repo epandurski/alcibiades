@@ -170,10 +170,13 @@ impl UciEngine for Engine {
     fn get_reply(&mut self) -> Option<EngineReply> {
         // TODO: implement real time management here.
         if !self.is_pondering && !self.infinite &&
-           self.started_thinking_at.elapsed().unwrap().as_secs() > 5 {
+           self.started_thinking_at.elapsed().unwrap().as_secs() > 3 {
             self.stop();
         }
-
+        
+        // Empty the reports queue.
+        while let Ok(_) = self.reports.try_recv() {}
+        
         self.replies.pop()
     }
 }
