@@ -196,7 +196,7 @@ impl UciEngine for Engine {
                             let mut v = Vec::with_capacity(128);
                             let mut pv = String::from("");
                             let mut value = None;
-                            for _ in 0..depth {
+                            'depthloop: for _ in 0..depth {
                                 let m = match self.tt.probe(p.hash()) {
                                     Some(entry) => {
                                         if value.is_none() {
@@ -207,16 +207,17 @@ impl UciEngine for Engine {
                                     None => 0,
                                 };
                                 if m != 0 {
-                                    self.position.generate_moves(&mut v);
+                                    p.generate_moves(&mut v);
                                     while let Some(x) = v.pop() {
                                         if x.move16() == m && p.do_move(x) {
                                             pv.push_str(&x.notation());
                                             pv.push(' ');
                                             v.clear();
-                                            break;
+                                            continue 'depthloop;
                                         }
                                     }
                                 }
+                                break;
                             }
                             let duration = self.started_thinking_at.elapsed().unwrap();
                             let elapsed_time_milis = 1000 * duration.as_secs() +
