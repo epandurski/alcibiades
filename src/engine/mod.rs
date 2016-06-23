@@ -110,6 +110,7 @@ impl UciEngine for Engine {
         if !self.is_thinking {
             if let Ok(p) = Position::from_history(fen, moves) {
                 self.position = p;
+                self.tt.new_search();
             }
         }
     }

@@ -204,7 +204,18 @@ fn search(tt: &TranspositionTable,
     } else {
         moves.save();
         p.generate_moves(moves);
+        
         // TODO: Consult `tt` here.
+        if let Some(entry) = tt.probe(p.hash()) {
+            let move16 = entry.move16();
+            if  move16 != 0 {
+                for m in moves.iter_mut() {
+                    if m.move16() == move16 {
+                        m.set_score(0b11);
+                    }
+                }
+            }
+        }
 
         let mut bound_type = BOUND_UPPER;
         let mut move16 = 0;

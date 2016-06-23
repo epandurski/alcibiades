@@ -16,7 +16,7 @@
 //! about them.
 
 use std;
-use std::cell::UnsafeCell;
+use std::cell::{UnsafeCell, Cell};
 use std::mem::transmute;
 use basetypes::Value;
 
@@ -185,7 +185,7 @@ impl Entry {
 /// A large hash-table that stores results of previously performed
 /// searches.
 pub struct TranspositionTable {
-    generation: u8,
+    generation: Cell<u8>,
     cluster_count: usize,
     table: UnsafeCell<Vec<[Entry; 4]>>,
 }
@@ -199,20 +199,10 @@ impl TranspositionTable {
     /// on it, specifying the desired size.
     pub fn new() -> TranspositionTable {
         TranspositionTable {
-            generation: 0,
+            generation: Cell::new(0),
             cluster_count: 1,
             table: UnsafeCell::new(vec![Default::default()]),
         }
-    }
-
-    /// Signals that a new search is about to begin.
-    ///
-    /// Internally, the transposition table maintains a generation
-    /// counter that is used to implement an efficient replacement
-    /// strategy. This method increases this counter.
-    pub fn new_search(&mut self) {
-        self.generation += 0b100;  // Lower 2 bits are used by bound type
-        assert_eq!(self.generation & 0b11, 0);
     }
 
     /// Resizes the transpositon table.
@@ -253,6 +243,16 @@ impl TranspositionTable {
         self.table = UnsafeCell::new(vec![Default::default(); self.cluster_count]);
     }
 
+    /// Signals that a new search is about to begin.
+    ///
+    /// Internally, the transposition table maintains a generation
+    /// counter that is used to implement an efficient replacement
+    /// strategy. This method increases this counter.
+    pub fn new_search(&self) {
+        self.generation.set(self.generation.get() + 0b100);  // Lower 2 bits are used by bound type
+        assert_eq!(self.generation.get() & 0b11, 0);
+    }
+
     /// Probes for data by a specific key.
     #[inline]
     pub fn probe(&self, key: u64) -> Option<EntryData> {
@@ -264,7 +264,7 @@ impl TranspositionTable {
                 // this will yield in a mismatch of the above
                 // comparison (except for the rare and inherent key
                 // collisions).
-                entry.update_generation(self.generation);
+                entry.update_generation(self.generation.get());
                 return Some(entry.data);
             }
         }
@@ -283,7 +283,7 @@ impl TranspositionTable {
         // the key is stored xored with data, while data is stored
         // additionally as usual.
 
-        data.gen_bound |= self.generation;  // Sets the generation.
+        data.gen_bound |= self.generation.get();  // Sets the generation.
         let mut cluster = unsafe { self.cluster_mut(key) };
         let mut replace_index = 0;
         let mut replace_score = 0xff;
@@ -319,7 +319,7 @@ impl TranspositionTable {
     // the future.
     #[inline]
     fn calc_score(&self, entry: &Entry) -> u8 {
-        (if entry.generation() == self.generation {
+        (if entry.generation() == self.generation.get() {
             128
         } else {
             0
