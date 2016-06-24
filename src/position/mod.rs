@@ -137,7 +137,7 @@ impl Position {
     #[inline]
     pub fn evaluate_final(&self) -> Value {
         if self.state().halfmove_clock < 100 {
-            if self.is_repeated() || self.board().checkers() == 0 {
+            if self.state().is_repeated || self.board().checkers() == 0 {
                 // Repetition or stalemate.
                 0
             } else {
@@ -222,7 +222,12 @@ impl Position {
     /// Returns an almost unique hash value for the position.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
-        self.board().hash() ^ self.state().repeated_boards_hash
+        self.board().hash() ^ self.state().repeated_boards_hash ^
+        if self.state().is_repeated {
+            0
+        } else {
+            *NO_REPEATED_BOARDS_HASH
+        }
     }
 
     /// Plays a move on the board.
@@ -264,7 +269,7 @@ impl Position {
     /// "forgets" all positions that have occurred exactly once.
     #[inline]
     pub fn generate_moves(&self, move_sink: &mut MoveSink) {
-        if !self.is_repeated() && self.state().halfmove_clock < 100 {
+        if !self.state().is_repeated && self.state().halfmove_clock < 100 {
             self.board().generate_moves(true, move_sink);
         }
     }
@@ -279,27 +284,6 @@ impl Position {
     #[inline]
     pub fn null_move(&self) -> Move {
         self.board().null_move()
-    }
-
-    // A helper method. Returns `true` if the current position is a
-    // repetition of a previously encountered position, `false`
-    // otherwise.
-    #[inline]
-    fn is_repeated(&self) -> bool {
-        let halfmove_clock = self.state().halfmove_clock as usize;
-        assert!(self.encountered_boards().len() >= halfmove_clock);
-        if halfmove_clock >= 4 {
-            let boards = self.encountered_boards();
-            let last_irrev = (boards.len() - halfmove_clock) as isize;
-            let mut i = (boards.len() - 4) as isize;
-            while i >= last_irrev {
-                if self.board().hash() == unsafe { *boards.get_unchecked(i as usize) } {
-                    return true;
-                }
-                i -= 2;
-            }
-        }
-        false
     }
 
     // A helper method for `evaluate_final`. Returns `true` if the
@@ -336,39 +320,22 @@ impl Position {
         let old_board_hash = board.hash();
         board.do_move(m) &&
         {
-            let boards = self.encountered_boards_mut();
             let state = self.state();
-            let (new_halfmove_clock, repeated_boards_hash) = if m.is_pawn_advance_or_capure() {
+            let (new_halfmove_clock, new_repeated_boards_hash) = if m.is_pawn_advance_or_capure() {
                 (0, *NO_REPEATED_BOARDS_HASH)
             } else {
                 (state.halfmove_clock + 1, state.repeated_boards_hash)
             };
             *self.halfmove_count_mut() += 1;
-            boards.push(old_board_hash);
-            
-            
-            // assert!(self.encountered_boards().len() >= new_halfmove_clock as usize);
-            // let mut is_repeated = false;
-            // if new_halfmove_clock >= 4 {
-            //     let last_irrev = (boards.len() - new_halfmove_clock as usize) as isize;
-            //     let mut i = (boards.len() - 4) as isize;
-            //     while i >= last_irrev {
-            //         if self.board().hash() == *boards.get_unchecked(i as usize) {
-            //             is_repeated = true;
-            //             break;
-            //         }
-            //         i -= 2;
-            //     }
-            // }
-            
-            
-            
-            
+            self.encountered_boards_mut().push(old_board_hash);
+
             self.state_stack_mut().push(StateInfo {
                 halfmove_clock: new_halfmove_clock,
                 last_move: m,
-                is_repeated: false,
-                repeated_boards_hash: repeated_boards_hash,
+                is_repeated: is_repeated(self.board().hash(),
+                                         self.encountered_boards_mut(),
+                                         new_halfmove_clock),
+                repeated_boards_hash: new_repeated_boards_hash,
             });
             true
         }
@@ -610,29 +577,39 @@ impl Position {
     // all encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
         let mut state = *self.state();
-        let last_irrev = self.encountered_boards().len() - state.halfmove_clock as usize;
         unsafe {
-            *self.encountered_boards_mut() = self.encountered_boards_mut().split_off(last_irrev);
-            self.encountered_boards_mut().reserve(32);
+            // Forget all encountered boards before the last
+            // irreversible move.
+            let encountered_boards = self.encountered_boards_mut();
+            let last_irrev = encountered_boards.len() - state.halfmove_clock as usize;
+            *encountered_boards = encountered_boards.split_off(last_irrev);
+            encountered_boards.reserve(32);
 
             // Because we assign a draw score on the first repetition
             // of the same position, we have to remove all positions
             // that occurred only once from `self.encountered_boards`.
-            let repeated = set_non_repeated_values(self.encountered_boards_mut(), 0);
+            let repeated = set_non_repeated_values(encountered_boards, 0);
 
-            // Then we have to calculate a single hash value
-            // representing all repeated positions. We will XOR that
+            // We have to calculate a single hash value representing
+            // the set of previously repeated boards. We will XOR that
             // value with the board hash each time we calculate
             // position's hash. That way we guarantee that positions
-            // that have the same boards, but differ *significantly*
-            // in their history of repeated positions will have
-            // different hashes.
+            // that have the same boards, but differ in their set of
+            // previously repeated boards will have different hashes.
             let mut hasher = SipHasher::new();
             for x in repeated {
                 hasher.write_u64(x);
             }
             state.repeated_boards_hash = hasher.finish();
 
+            // We have to figure out again if the new root position is
+            // repeated, because we had removed some positions from
+            // `self.encountered_boards`.
+            state.is_repeated = is_repeated(self.board().hash(),
+                                            encountered_boards,
+                                            state.halfmove_clock);
+
+            // Remove all states but the last one from `state_stack`.
             *self.state_stack_mut() = vec![state];
             self.state_stack_mut().reserve(32);
         }
@@ -726,6 +703,25 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
         }
     }
     repeated
+}
+
+
+// Helper function. Returns `true` if the current position is a
+// repetition of a previously encountered position, `false` otherwise.
+#[inline]
+fn is_repeated(board_hash: u64, encountered_boards: &[u64], halfmove_clock: u8) -> bool {
+    assert!(encountered_boards.len() >= halfmove_clock as usize);
+    if halfmove_clock >= 4 {
+        let last_irrev = (encountered_boards.len() - (halfmove_clock as usize)) as isize;
+        let mut i = (encountered_boards.len() - 4) as isize;
+        while i >= last_irrev {
+            if board_hash == unsafe { *encountered_boards.get_unchecked(i as usize) } {
+                return true;
+            }
+            i -= 2;
+        }
+    }
+    false
 }
 
 
@@ -918,7 +914,7 @@ mod tests {
         let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
                     .ok()
                     .unwrap();
-        assert!(p.is_repeated());
+        assert!(p.state().is_repeated);
         let mut v = Vec::new();
         p.generate_moves(&mut v);
         assert_eq!(v.len(), 0);
@@ -928,7 +924,7 @@ mod tests {
         let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
                     .ok()
                     .unwrap();
-        assert!(!p.is_repeated());
+        assert!(!p.state().is_repeated);
         let mut v = Vec::new();
         p.generate_moves(&mut v);
         assert_eq!(v.len(), 8);
@@ -937,7 +933,7 @@ mod tests {
         let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
                     .ok()
                     .unwrap();
-        assert!(!p.is_repeated());
+        assert!(!p.state().is_repeated);
         let mut v = Vec::new();
         p.generate_moves(&mut v);
         assert_eq!(v.len(), 5);
