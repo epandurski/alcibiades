@@ -287,6 +287,7 @@ fn search(tt: &TranspositionTable,
         if no_moves_yet {
             // No legal moves -- this is a final position.
             alpha = p.evaluate_final();
+            bound_type = BOUND_EXACT;
         }
         // TODO: Do not store values with too small `depth`.
         tt.store(p.hash(),
