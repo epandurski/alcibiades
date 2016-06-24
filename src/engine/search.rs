@@ -47,9 +47,9 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
             // block and wait to receive a new one.
             let command = match pending_command.take() {
                 Some(cmd) => cmd,
-                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap()
+                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
             };
-            
+
             match command {
                 Command::Search { search_id, mut position, depth, lower_bound, upper_bound } => {
                     let mut reported_nodes = 0;
@@ -115,7 +115,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
         // block and wait to receive a new one.
         let command = match pending_command.take() {
             Some(cmd) => cmd,
-            None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap()
+            None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
         };
 
         match command {
@@ -155,13 +155,10 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                 if n == depth {
                                     value_final = value;
                                 }
-                                if pending_command.is_none() {
-                                    // TODO: Consider stopping if the
-                                    // value is +-20000.
-                                    break;
-                                } else {
+                                if pending_command.is_some() {
                                     break 'depthloop;
                                 }
+                                break;
                             }
                         }
                     }
@@ -224,7 +221,7 @@ fn search(tt: &TranspositionTable,
 
         moves.save();
         p.generate_moves(moves);
-        
+
         if hash_move != 0 {
             // Set the highest possible move score for the hash move.
             for m in moves.iter_mut() {

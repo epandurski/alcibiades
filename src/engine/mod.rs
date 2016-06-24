@@ -195,6 +195,7 @@ impl UciEngine for Engine {
                             let mut p = self.position.clone();
                             let mut v = Vec::with_capacity(128);
                             let mut pv = String::from("");
+                            let mut pv_length = 0;
                             let mut value = None;
                             'depthloop: for _ in 0..depth {
                                 let m = match self.tt.probe(p.hash()) {
@@ -210,6 +211,7 @@ impl UciEngine for Engine {
                                     p.generate_moves(&mut v);
                                     while let Some(x) = v.pop() {
                                         if x.move16() == m && p.do_move(x) {
+                                            pv_length += 1;
                                             pv.push_str(&x.notation());
                                             pv.push(' ');
                                             v.clear();
@@ -222,7 +224,7 @@ impl UciEngine for Engine {
                             let duration = self.started_thinking_at.elapsed().unwrap();
                             let elapsed_time_milis = 1000 * duration.as_secs() +
                                                      (duration.subsec_nanos() / 1000000) as u64;
-                            if searched_nodes > 0 {
+                            if searched_nodes > 0 && pv_length >= depth {
                                 self.replies.push(EngineReply::Info(vec![
                                     ("multipv".to_string(), "1".to_string()),
                                     ("depth".to_string(), format!("{}", depth)),
