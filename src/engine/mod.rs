@@ -222,14 +222,16 @@ impl UciEngine for Engine {
                             let duration = self.started_thinking_at.elapsed().unwrap();
                             let elapsed_time_milis = 1000 * duration.as_secs() +
                                                      (duration.subsec_nanos() / 1000000) as u64;
-                            self.replies.push(EngineReply::Info(vec![
-                            ("multipv".to_string(), "1".to_string()),
-                            ("depth".to_string(), format!("{}", depth)),
-                            ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
-                            ("nodes".to_string(), format!("{}", searched_nodes)),
-                            ("time".to_string(), format!("{}", elapsed_time_milis)),
-                            ("pv".to_string(), format!("{}", pv)),
-                        ]));
+                            if searched_nodes > 0 {
+                                self.replies.push(EngineReply::Info(vec![
+                                    ("multipv".to_string(), "1".to_string()),
+                                    ("depth".to_string(), format!("{}", depth)),
+                                    ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
+                                    ("nodes".to_string(), format!("{}", searched_nodes)),
+                                    ("time".to_string(), format!("{}", elapsed_time_milis)),
+                                    ("pv".to_string(), format!("{}", pv)),
+                                ]));
+                            }
                         }
                     }
                     _ => (),

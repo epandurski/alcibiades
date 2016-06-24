@@ -210,17 +210,26 @@ fn search(tt: &TranspositionTable,
         *nc += nodes;
         Ok(value)
     } else {
+        // Consult the transposition table.
+        let hash_move = if let Some(entry) = tt.probe(p.hash()) {
+            if entry.depth() >= depth && entry.bound() == BOUND_EXACT {
+                // We already know the exact value for this position
+                // for same depth or higher.
+                return Ok(entry.value());
+            }
+            entry.move16()
+        } else {
+            0
+        };
+
         moves.save();
         p.generate_moves(moves);
-
-        // TODO: Consult `tt` here.
-        if let Some(entry) = tt.probe(p.hash()) {
-            let move16 = entry.move16();
-            if move16 != 0 {
-                for m in moves.iter_mut() {
-                    if m.move16() == move16 {
-                        m.set_score(0b11);
-                    }
+        
+        if hash_move != 0 {
+            // Set the highest possible move score for the hash move.
+            for m in moves.iter_mut() {
+                if m.move16() == hash_move {
+                    m.set_score(3);
                 }
             }
         }
