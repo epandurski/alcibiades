@@ -18,6 +18,7 @@
 use std;
 use std::cell::{UnsafeCell, Cell};
 use std::mem::transmute;
+use std::num::Wrapping;
 use basetypes::Value;
 
 
@@ -249,7 +250,9 @@ impl TranspositionTable {
     /// counter that is used to implement an efficient replacement
     /// strategy. This method increases this counter.
     pub fn new_search(&self) {
-        self.generation.set(self.generation.get() + 0b100);  // Lower 2 bits are used by bound type
+        // The lower 2 bits of the `generation` field are used by
+        // bound type.
+        self.generation.set((Wrapping(self.generation.get()) + Wrapping(0b100)).0);
         assert_eq!(self.generation.get() & 0b11, 0);
     }
 
@@ -385,5 +388,17 @@ mod tests {
         tt.new_search();
         tt.probe(1);
         assert!(tt.probe(1).is_some());
+    }
+
+    #[test]
+    fn test_new_search() {
+        let tt = TranspositionTable::new();
+        assert_eq!(tt.generation.get(), 0 << 2);
+        tt.new_search();
+        assert_eq!(tt.generation.get(), 1 << 2);
+        for _ in 0..64 {
+            tt.new_search();
+        }
+        assert_eq!(tt.generation.get(), 1 << 2);
     }
 }
