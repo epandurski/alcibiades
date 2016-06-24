@@ -88,7 +88,7 @@ impl EntryData {
                eval_value: Value)
                -> EntryData {
         assert!(bound <= 0b11);
-        assert!(depth < 128);
+        assert!(depth < 127);
         EntryData {
             move16: move16,
             value: value,
@@ -250,7 +250,7 @@ impl TranspositionTable {
     /// counter that is used to implement an efficient replacement
     /// strategy. This method increases this counter.
     pub fn new_search(&self) {
-        // The lower 2 bits of the `generation` field are used by
+        // The lowest 2 bits of the `generation` field are used by
         // bound type.
         self.generation.set((Wrapping(self.generation.get()) + Wrapping(0b100)).0);
         assert_eq!(self.generation.get() & 0b11, 0);
@@ -322,11 +322,23 @@ impl TranspositionTable {
     // the future.
     #[inline]
     fn calc_score(&self, entry: &Entry) -> u8 {
+        // Positions from the current generation are always scored
+        // higher than positions from older generations.
         (if entry.generation() == self.generation.get() {
             128
         } else {
             0
-        }) + entry.data.depth
+        }) 
+            
+        // Positions with higher search depth are scored higher.
+        + entry.data.depth()
+            
+        // Positions with exact evaluation are given slight advantage.
+        + (if entry.data.bound() == BOUND_EXACT {
+            1
+        } else {
+            0
+        })
     }
 
     // A helper method for `probe` and `store`.
