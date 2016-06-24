@@ -901,6 +901,26 @@ mod tests {
     }
 
     #[test]
+    fn is_repeated() {
+        let mut p = Position::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2K w - - 0 1")
+                        .ok()
+                        .unwrap();
+        let mut v = Vec::new();
+        let mut count = 0;
+        for _ in 0..100 {
+            p.generate_moves(&mut v);
+            while let Some(m) = v.pop() {
+                if p.do_move(m) {
+                    count += 1;
+                    v.clear();
+                    break;
+                }
+            }
+        }
+        assert_eq!(count, 4);
+    }
+
+    #[test]
     fn test_static_exchange_evaluation() {
         let p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1").ok().unwrap();
         assert_eq!(p.calc_see(BLACK, QUEEN, E5, E3, PAWN), 100);
@@ -908,7 +928,7 @@ mod tests {
         assert_eq!(p.calc_see(WHITE, PAWN, G3, F4, PAWN), 100);
         assert_eq!(p.calc_see(BLACK, KING, A3, A2, PAWN), -9900);
     }
-    
+
     #[test]
     fn test_is_checkmate() {
         let p = Position::from_fen("8/8/8/8/8/7k/6pp/7K w - - 0 1").ok().unwrap();
