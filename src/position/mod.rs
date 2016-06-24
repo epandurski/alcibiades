@@ -863,27 +863,30 @@ mod tests {
 
     #[test]
     fn test_from_history_and_do_move() {
-        let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1"];
-        let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
-                    .ok()
-                    .unwrap();
-        let mut v = Vec::new();
-        p.generate_moves(&mut v);
-        assert_eq!(v.len(), 8);
-
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4", "f1g1"];
         let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
                     .ok()
                     .unwrap();
+        assert!(p.is_repeated());
         let mut v = Vec::new();
         p.generate_moves(&mut v);
         assert_eq!(v.len(), 0);
         assert_eq!(p.evaluate_final(), 0);
 
+        let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1"];
+        let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
+                    .ok()
+                    .unwrap();
+        assert!(!p.is_repeated());
+        let mut v = Vec::new();
+        p.generate_moves(&mut v);
+        assert_eq!(v.len(), 8);
+
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4"];
         let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
                     .ok()
                     .unwrap();
+        assert!(!p.is_repeated());
         let mut v = Vec::new();
         p.generate_moves(&mut v);
         assert_eq!(v.len(), 5);
