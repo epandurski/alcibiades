@@ -7,6 +7,7 @@ pub mod evaluation;
 use std::mem;
 use std::cmp::max;
 use std::cell::UnsafeCell;
+use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
@@ -20,6 +21,8 @@ use self::evaluation::evaluate_board;
 struct StateInfo {
     halfmove_clock: u8,
     last_move: Move,
+    is_repeated: bool,
+    repeated_boards_hash: u64,
 }
 
 
@@ -40,10 +43,10 @@ pub struct IllegalPosition;
 /// tree-searching algorithms can use this evaluation to assign
 /// realistic game outcomes to their leaf nodes.
 pub struct Position {
-    // We use `UnsafeCell` for all the members, because evaluation
-    // methods logically are non-mutating, but internally they try
-    // moves on the board and then undoes them, making sure to leave
-    // everything the way it was.
+    // We use `UnsafeCell` for the members, because evaluation methods
+    // logically are non-mutating, but internally they try moves on
+    // the board and then undoes them, making sure to leave everything
+    // the way it was.
     board: UnsafeCell<Board>,
     halfmove_count: UnsafeCell<u16>,
     state_stack: UnsafeCell<Vec<StateInfo>>,
@@ -70,6 +73,8 @@ impl Position {
             state_stack: UnsafeCell::new(vec![StateInfo {
                                                   halfmove_clock: halfmove_clock,
                                                   last_move: Move::from_u32(0),
+                                                  is_repeated: false,
+                                                  repeated_boards_hash: *NO_REPEATED_BOARDS_HASH,
                                               }]),
         })
     }
@@ -217,7 +222,7 @@ impl Position {
     /// Returns an almost unique hash value for the position.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
-        self.board().hash()
+        self.board().hash() ^ self.state().repeated_boards_hash
     }
 
     /// Plays a move on the board.
@@ -331,16 +336,39 @@ impl Position {
         let old_board_hash = board.hash();
         board.do_move(m) &&
         {
-            let new_halfmove_clock = if m.is_pawn_advance_or_capure() {
-                0
+            let boards = self.encountered_boards_mut();
+            let state = self.state();
+            let (new_halfmove_clock, repeated_boards_hash) = if m.is_pawn_advance_or_capure() {
+                (0, *NO_REPEATED_BOARDS_HASH)
             } else {
-                self.state().halfmove_clock + 1
+                (state.halfmove_clock + 1, state.repeated_boards_hash)
             };
             *self.halfmove_count_mut() += 1;
-            self.encountered_boards_mut().push(old_board_hash);
+            boards.push(old_board_hash);
+            
+            
+            // assert!(self.encountered_boards().len() >= new_halfmove_clock as usize);
+            // let mut is_repeated = false;
+            // if new_halfmove_clock >= 4 {
+            //     let last_irrev = (boards.len() - new_halfmove_clock as usize) as isize;
+            //     let mut i = (boards.len() - 4) as isize;
+            //     while i >= last_irrev {
+            //         if self.board().hash() == *boards.get_unchecked(i as usize) {
+            //             is_repeated = true;
+            //             break;
+            //         }
+            //         i -= 2;
+            //     }
+            // }
+            
+            
+            
+            
             self.state_stack_mut().push(StateInfo {
                 halfmove_clock: new_halfmove_clock,
                 last_move: m,
+                is_repeated: false,
+                repeated_boards_hash: repeated_boards_hash,
             });
             true
         }
@@ -581,18 +609,32 @@ impl Position {
     // states but the current one from `state_stack`. It also forgets
     // all encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
-        let state = *self.state();
+        let mut state = *self.state();
         let last_irrev = self.encountered_boards().len() - state.halfmove_clock as usize;
         unsafe {
-            *self.state_stack_mut() = vec![state];
             *self.encountered_boards_mut() = self.encountered_boards_mut().split_off(last_irrev);
-            self.state_stack_mut().reserve(32);
             self.encountered_boards_mut().reserve(32);
 
             // Because we assign a draw score on the first repetition
             // of the same position, we have to remove all positions
             // that occurred only once from `self.encountered_boards`.
-            set_non_repeating_values(self.encountered_boards_mut(), 0);
+            let repeated = set_non_repeated_values(self.encountered_boards_mut(), 0);
+
+            // Then we have to calculate a single hash value
+            // representing all repeated positions. We will XOR that
+            // value with the board hash each time we calculate
+            // position's hash. That way we guarantee that positions
+            // that have the same boards, but differ *significantly*
+            // in their history of repeated positions will have
+            // different hashes.
+            let mut hasher = SipHasher::new();
+            for x in repeated {
+                hasher.write_u64(x);
+            }
+            state.repeated_boards_hash = hasher.finish();
+
+            *self.state_stack_mut() = vec![state];
+            self.state_stack_mut().reserve(32);
         }
     }
 
@@ -655,9 +697,16 @@ const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 const SSE_EXCHANGE_MAX_PLY: u8 = 2;
 
 
+lazy_static! {
+    static ref NO_REPEATED_BOARDS_HASH: u64 = SipHasher::new().finish();
+}
+
+
 // Helper function for `Posittion::from_history`. It sets all unique
-// (non-repeating) values in `slice` to `value`.
-fn set_non_repeating_values<T>(slice: &mut [T], value: T)
+// (non-repeated) values in `slice` to `value`, and returns a sorted
+// vector containing a single value for each duplicated value in
+// `slice`.
+fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
     where T: Copy + Ord
 {
     let mut repeated = vec![];
@@ -670,11 +719,13 @@ fn set_non_repeating_values<T>(slice: &mut [T], value: T)
         }
         prev = curr;
     }
+    repeated.dedup();
     for x in slice.iter_mut() {
         if repeated.binary_search(x).is_err() {
             *x = value;
         }
     }
+    repeated
 }
 
 
@@ -893,11 +944,12 @@ mod tests {
     }
 
     #[test]
-    fn test_set_non_repeating_values() {
-        use super::set_non_repeating_values;
+    fn test_set_non_repeated_values() {
+        use super::set_non_repeated_values;
         let mut v = vec![0, 1, 2, 7, 9, 0, 0, 1, 2];
-        set_non_repeating_values(&mut v, 0);
+        let dups = set_non_repeated_values(&mut v, 0);
         assert_eq!(v, vec![0, 1, 2, 0, 0, 0, 0, 1, 2]);
+        assert_eq!(dups, vec![1, 2]);
     }
 
     #[test]
@@ -937,5 +989,28 @@ mod tests {
         assert!(!p.is_checkmate());
         let p = Position::from_fen("8/8/8/8/8/7k/6p1/7K w - - 0 1").ok().unwrap();
         assert!(!p.is_checkmate());
+    }
+
+    #[test]
+    fn test_repeated_boards_hash() {
+        let p1 = Position::from_fen("8/8/8/8/8/7k/8/7K w - - 0 1").ok().unwrap();
+        let moves: Vec<&str> = vec![];
+        let p2 = Position::from_history("8/8/8/8/8/7k/8/7K w - - 0 1", &mut moves.into_iter())
+                     .ok()
+                     .unwrap();
+        assert_eq!(p1.board().hash(), p2.board().hash());
+        assert_eq!(p1.hash(), p2.hash());
+        let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
+        let p2 = Position::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
+                     .ok()
+                     .unwrap();
+        assert_eq!(p1.board().hash(), p2.board().hash());
+        assert_eq!(p1.hash(), p2.hash());
+        let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
+        let p3 = Position::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
+                     .ok()
+                     .unwrap();
+        assert_eq!(p1.board().hash(), p2.board().hash());
+        assert!(p1.hash() != p3.hash());
     }
 }
