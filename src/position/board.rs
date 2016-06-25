@@ -640,7 +640,12 @@ impl Board {
         (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
          self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
-
+    
+    /// Returns if `m` is a null move.
+    pub fn is_null_move(m: Move) -> bool {
+        m.orig_square() == m.dest_square()
+    }
+    
     // Analyzes the board and decides if it is a legal board.
     //
     // In addition to the obviously wrong boards (that for example
