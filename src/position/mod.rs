@@ -627,14 +627,14 @@ impl Position {
             // position's hash. That way we guarantee that positions
             // that have the same boards, but differ in their set of
             // previously repeated boards will have different hashes.
-            self.repeated_boards_hash = if repeated.len() > 0 {
+            self.repeated_boards_hash = if repeated.is_empty() {
+                0
+            } else {
                 let mut hasher = SipHasher::new();
                 for x in repeated {
                     hasher.write_u64(x);
                 }
                 hasher.finish()
-            } else {
-                0
             };
             self.is_repeated.set(false);
             state.root_is_irreversible = false;
