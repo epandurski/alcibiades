@@ -36,5 +36,5 @@ pub fn evaluate_board(board: &Board, lower_bound: Value, upper_bound: Value) -> 
                   (pop_count(piece_type[piece] & color[us]) as i16 -
                    pop_count(piece_type[piece] & color[them]) as i16);
     }
-    result
+    result + (board.hash() >> 60) as i16
 }
