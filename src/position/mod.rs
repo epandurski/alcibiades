@@ -58,12 +58,12 @@ pub struct Position {
     // logically are non-mutating, but internally they try moves on
     // the board and then undoes them, making sure to leave everything
     // the way it was.
-    //
+
     // The current board.
     board: UnsafeCell<Board>,
 
     // The count of half-moves since the beginning of the game.
-    halfmove_count: UnsafeCell<u16>,
+    halfmove_count: Cell<u16>,
 
     // `true ` if the position is a draw by repetition.
     is_repeated: Cell<bool>,
@@ -90,7 +90,7 @@ impl Position {
                                                       castling,
                                                       en_passant_square)
                                             .map_err(|_| IllegalPosition))),
-            halfmove_count: UnsafeCell::new(((fullmove_number - 1) << 1) + to_move as u16),
+            halfmove_count: Cell::new(((fullmove_number - 1) << 1) + to_move as u16),
             is_repeated: Cell::new(false),
             encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
             state_stack: UnsafeCell::new(vec![StateInfo {
@@ -138,7 +138,7 @@ impl Position {
     /// incremented after anyone's move.
     #[inline(always)]
     pub fn halfmove_count(&self) -> u16 {
-        unsafe { *self.halfmove_count.get() }
+        self.halfmove_count.get()
     }
 
     /// Evaluates a final position.
@@ -332,7 +332,7 @@ impl Position {
             } else {
                 (state.halfmove_clock + 1, state.repeated_boards_hash)
             };
-            *self.halfmove_count_mut() += 1;
+            self.halfmove_count.set(self.halfmove_count.get() + 1);
             encountered_boards.push(old_board_hash);
             assert!(encountered_boards.len() >= new_halfmove_clock as usize);
 
@@ -366,7 +366,7 @@ impl Position {
     unsafe fn undo_move_unsafe(&self) {
         assert!(self.state_stack_mut().len() > 1);
         self.board_mut().undo_move(self.state().last_move);
-        *self.halfmove_count_mut() -= 1;
+        self.halfmove_count.set(self.halfmove_count.get() - 1);
         self.encountered_boards_mut().pop();
         self.is_repeated.set(false);
         self.state_stack_mut().pop();
@@ -646,11 +646,6 @@ impl Position {
     }
 
     #[inline(always)]
-    unsafe fn halfmove_count_mut(&self) -> &mut u16 {
-        &mut *self.halfmove_count.get()
-    }
-
-    #[inline(always)]
     unsafe fn state_stack_mut(&self) -> &mut Vec<StateInfo> {
         &mut *self.state_stack.get()
     }
@@ -667,7 +662,7 @@ impl Clone for Position {
         unsafe {
             Position {
                 board: UnsafeCell::new((*self.board.get()).clone()),
-                halfmove_count: UnsafeCell::new(*self.halfmove_count.get()),
+                halfmove_count: Cell::new(self.halfmove_count.get()),
                 is_repeated: Cell::new(self.is_repeated.get()),
                 encountered_boards: UnsafeCell::new((*self.encountered_boards.get()).clone()),
                 state_stack: UnsafeCell::new((*self.state_stack.get()).clone()),
