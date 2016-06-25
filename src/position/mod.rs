@@ -19,9 +19,17 @@ use self::evaluation::evaluate_board;
 
 #[derive(Clone, Copy)]
 struct StateInfo {
+    // The number of halfmoves since the last pawn advance or capture.
     halfmove_clock: u8,
+    
+    // The last played move.
     last_move: Move,
+
+    // `true ` if the position is a draw by repetition.
     is_repeated: bool,
+    
+    // A hash value for the set of boards that had occurred twice or
+    // more during the game.
     repeated_boards_hash: u64,
 }
 
