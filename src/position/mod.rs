@@ -853,11 +853,10 @@ mod tests {
 
     #[test]
     fn test_evaluate_static() {
-        assert_eq!(Position::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
-                       .ok()
-                       .unwrap()
-                       .evaluate_static(-1000, 1000),
-                   -100);
+        assert!(Position::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
+                    .ok()
+                    .unwrap()
+                    .evaluate_static(-1000, 1000) < -20);
     }
 
     #[test]
