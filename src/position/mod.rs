@@ -220,6 +220,10 @@ impl Position {
     }
 
     /// Returns an almost unique hash value for the position.
+    ///
+    /// **Important note:** Two positions having the same boards, but
+    /// differing in their set of previously repeated boards will have
+    /// different hashes.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
         self.board().hash() ^ self.state().repeated_boards_hash ^
