@@ -22,12 +22,12 @@ struct StateInfo {
     // The number of halfmoves since the last pawn advance or capture.
     halfmove_clock: u8,
 
+    // `true` if the root position can not be reached from this
+    // position.
+    root_is_irreversible: bool,
+
     // The last played move.
     last_move: Move,
-
-    // A hash value for the set of boards that had occurred twice or
-    // more during the game.
-    repeated_boards_hash: u64,
 }
 
 
@@ -58,7 +58,7 @@ pub struct Position {
     // logically are non-mutating, but internally they try moves on
     // the board and then undoes them, making sure to leave everything
     // the way it was.
-
+    //
     // The current board.
     board: UnsafeCell<Board>,
 
@@ -67,6 +67,10 @@ pub struct Position {
 
     // `true ` if the position is a draw by repetition.
     is_repeated: Cell<bool>,
+
+    // A hash value for the set of boards that had occurred at least
+    // twice before the root position. An empty set has a hash of `0`.
+    repeated_boards_hash: u64,
 
     // Information needed so as to be able to undo the played moves.
     state_stack: UnsafeCell<Vec<StateInfo>>,
@@ -92,11 +96,12 @@ impl Position {
                                             .map_err(|_| IllegalPosition))),
             halfmove_count: Cell::new(((fullmove_number - 1) << 1) + to_move as u16),
             is_repeated: Cell::new(false),
+            repeated_boards_hash: 0,
             encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
             state_stack: UnsafeCell::new(vec![StateInfo {
                                                   halfmove_clock: halfmove_clock,
                                                   last_move: Move::from_u32(0),
-                                                  repeated_boards_hash: *NO_REPEATED_BOARDS_HASH,
+                                                  root_is_irreversible: false,
                                               }]),
         })
     }
@@ -251,7 +256,11 @@ impl Position {
             // therefore we generate the same hash for them.
             1
         } else {
-            self.board().hash() ^ self.state().repeated_boards_hash
+            if self.state().root_is_irreversible {
+                self.board().hash()
+            } else {
+                self.board().hash() ^ self.repeated_boards_hash
+            }
         }
     }
 
@@ -327,19 +336,18 @@ impl Position {
         {
             let state = self.state();
             let encountered_boards = self.encountered_boards_mut();
-            let (new_halfmove_clock, new_repeated_boards_hash) = if m.is_pawn_advance_or_capure() {
-                (0, *NO_REPEATED_BOARDS_HASH)
+            let (halfmove_clock, root_is_irreversible) = if m.is_pawn_advance_or_capure() {
+                (0, true)
             } else {
-                (state.halfmove_clock + 1, state.repeated_boards_hash)
+                (state.halfmove_clock + 1, state.root_is_irreversible)
             };
             self.halfmove_count.set(self.halfmove_count.get() + 1);
             encountered_boards.push(old_board_hash);
-            assert!(encountered_boards.len() >= new_halfmove_clock as usize);
+            assert!(encountered_boards.len() >= halfmove_clock as usize);
 
             // Figure out if the new position is repeated.
-            if new_halfmove_clock >= 4 {
-                let last_irrev =
-                    (encountered_boards.len() - (new_halfmove_clock as usize)) as isize;
+            if halfmove_clock >= 4 {
+                let last_irrev = (encountered_boards.len() - (halfmove_clock as usize)) as isize;
                 let mut i = (encountered_boards.len() - 4) as isize;
                 while i >= last_irrev {
                     if board.hash() == *encountered_boards.get_unchecked(i as usize) {
@@ -351,9 +359,9 @@ impl Position {
             }
 
             self.state_stack_mut().push(StateInfo {
-                halfmove_clock: new_halfmove_clock,
+                halfmove_clock: halfmove_clock,
                 last_move: m,
-                repeated_boards_hash: new_repeated_boards_hash,
+                root_is_irreversible: root_is_irreversible,
             });
             true
         }
@@ -599,17 +607,19 @@ impl Position {
         unsafe {
             // Forget all encountered boards before the last
             // irreversible move.
-            let encountered_boards = self.encountered_boards_mut();
-            let last_irrev = encountered_boards.len() - state.halfmove_clock as usize;
-            *encountered_boards = encountered_boards.split_off(last_irrev);
-            encountered_boards.reserve(32);
+            {
+                let boards = self.encountered_boards_mut();
+                let last_irrev = boards.len() - state.halfmove_clock as usize;
+                *boards = boards.split_off(last_irrev);
+                boards.reserve(32);
+            }
 
             // Because we assign a draw score on the first repetition
             // of the same position, we have to remove all positions
             // that occurred only once from `self.encountered_boards`.
-            encountered_boards.push(self.board().hash());
-            let repeated = set_non_repeated_values(encountered_boards, 0);
-            encountered_boards.pop();
+            self.encountered_boards_mut().push(self.board().hash());
+            let repeated = set_non_repeated_values(self.encountered_boards_mut(), 0);
+            self.encountered_boards_mut().pop();
 
             // We calculate a single hash value representing the set
             // of all previously repeated boards. We will XOR that
@@ -617,12 +627,17 @@ impl Position {
             // position's hash. That way we guarantee that positions
             // that have the same boards, but differ in their set of
             // previously repeated boards will have different hashes.
-            let mut hasher = SipHasher::new();
-            for x in repeated {
-                hasher.write_u64(x);
-            }
-            state.repeated_boards_hash = hasher.finish();
+            self.repeated_boards_hash = if repeated.len() > 0 {
+                let mut hasher = SipHasher::new();
+                for x in repeated {
+                    hasher.write_u64(x);
+                }
+                hasher.finish()
+            } else {
+                0
+            };
             self.is_repeated.set(false);
+            state.root_is_irreversible = false;
 
             // Remove all states but the last one from `state_stack`.
             *self.state_stack_mut() = vec![state];
@@ -664,6 +679,7 @@ impl Clone for Position {
                 board: UnsafeCell::new((*self.board.get()).clone()),
                 halfmove_count: Cell::new(self.halfmove_count.get()),
                 is_repeated: Cell::new(self.is_repeated.get()),
+                repeated_boards_hash: self.repeated_boards_hash,
                 encountered_boards: UnsafeCell::new((*self.encountered_boards.get()).clone()),
                 state_stack: UnsafeCell::new((*self.state_stack.get()).clone()),
             }
@@ -678,11 +694,6 @@ const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
 // Do not try exchanges with SSE==0 once this ply has been reached.
 const SSE_EXCHANGE_MAX_PLY: u8 = 2;
-
-// A hash value for an empty set of repeated boards.
-lazy_static! {
-    static ref NO_REPEATED_BOARDS_HASH: u64 = SipHasher::new().finish();
-}
 
 
 // Helper function for `Posittion::from_history`. It sets all unique
