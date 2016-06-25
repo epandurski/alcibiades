@@ -172,7 +172,11 @@ impl Position {
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         assert!(lower_bound < upper_bound);
-        evaluate_board(self.board(), lower_bound, upper_bound)
+        if self.state().is_repeated {
+            0
+        } else {
+            evaluate_board(self.board(), lower_bound, upper_bound)
+        }
     }
 
     /// Performs "quiescence search" and returns an evaluation.
@@ -205,17 +209,21 @@ impl Position {
         thread_local!(
             static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
         );
-        let mut searched_nodes = 0;
-        let value = MOVE_STACK.with(|s| unsafe {
-            self.qsearch(lower_bound,
-                         upper_bound,
-                         0,
-                         0,
-                         &mut *s.get(),
-                         &Position::evaluate_static,
-                         &mut searched_nodes)
-        });
-        (value, searched_nodes)
+        if self.state().is_repeated {
+            (0, 0)
+        } else {
+            let mut searched_nodes = 0;
+            let value = MOVE_STACK.with(|s| unsafe {
+                self.qsearch(lower_bound,
+                             upper_bound,
+                             0,
+                             0,
+                             &mut *s.get(),
+                             &Position::evaluate_static,
+                             &mut searched_nodes)
+            });
+            (value, searched_nodes)
+        }
     }
 
     /// Returns an almost unique hash value for the position.
@@ -225,11 +233,13 @@ impl Position {
     /// different hashes.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
-        self.board().hash() ^ self.state().repeated_boards_hash ^
         if self.state().is_repeated {
-            *NO_REPEATED_BOARDS_HASH
+            // All repeated positions are evaluated as a draw, so for
+            // our purposes they can be considered equal, and
+            // therefore we generate the same hash for them.
+            1
         } else {
-            0
+            self.board().hash() ^ self.state().repeated_boards_hash
         }
     }
 
