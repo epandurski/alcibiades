@@ -169,7 +169,6 @@ impl Position {
     /// evaluation is outside this interval, this method may return
     /// any value outside of the interval (including the bounds), but
     /// always staying on the correct side of the interval.
-    #[allow(unused_variables)]
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         assert!(lower_bound < upper_bound);
@@ -228,9 +227,9 @@ impl Position {
     pub fn hash(&self) -> u64 {
         self.board().hash() ^ self.state().repeated_boards_hash ^
         if self.state().is_repeated {
-            0
-        } else {
             *NO_REPEATED_BOARDS_HASH
+        } else {
+            0
         }
     }
 
@@ -607,7 +606,9 @@ impl Position {
             // Because we assign a draw score on the first repetition
             // of the same position, we have to remove all positions
             // that occurred only once from `self.encountered_boards`.
+            encountered_boards.push(self.board().hash());
             let repeated = set_non_repeated_values(encountered_boards, 0);
+            encountered_boards.pop();
 
             // We calculate a single hash value representing the set
             // of all previously repeated boards. We will XOR that
