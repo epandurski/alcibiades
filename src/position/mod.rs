@@ -6,7 +6,7 @@ pub mod evaluation;
 
 use std::mem;
 use std::cmp::max;
-use std::cell::UnsafeCell;
+use std::cell::{Cell, UnsafeCell};
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use bitsets::*;
@@ -24,9 +24,6 @@ struct StateInfo {
 
     // The last played move.
     last_move: Move,
-
-    // `true ` if the position is a draw by repetition.
-    is_repeated: bool,
 
     // A hash value for the set of boards that had occurred twice or
     // more during the game.
@@ -68,6 +65,9 @@ pub struct Position {
     // The count of half-moves since the beginning of the game.
     halfmove_count: UnsafeCell<u16>,
 
+    // `true ` if the position is a draw by repetition.
+    is_repeated: Cell<bool>,
+
     // Information needed so as to be able to undo the played moves.
     state_stack: UnsafeCell<Vec<StateInfo>>,
 
@@ -91,11 +91,11 @@ impl Position {
                                                       en_passant_square)
                                             .map_err(|_| IllegalPosition))),
             halfmove_count: UnsafeCell::new(((fullmove_number - 1) << 1) + to_move as u16),
+            is_repeated: Cell::new(false),
             encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
             state_stack: UnsafeCell::new(vec![StateInfo {
                                                   halfmove_clock: halfmove_clock,
                                                   last_move: Move::from_u32(0),
-                                                  is_repeated: false,
                                                   repeated_boards_hash: *NO_REPEATED_BOARDS_HASH,
                                               }]),
         })
@@ -158,7 +158,7 @@ impl Position {
     /// occurred exactly once.
     #[inline]
     pub fn evaluate_final(&self) -> Value {
-        if self.state().is_repeated || self.board().checkers() == 0 {
+        if self.is_repeated.get() || self.board().checkers() == 0 {
             // Repetition or stalemate.
             0
         } else {
@@ -184,7 +184,7 @@ impl Position {
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         assert!(lower_bound < upper_bound);
-        if self.state().is_repeated {
+        if self.is_repeated.get() {
             0
         } else {
             evaluate_board(self.board(), lower_bound, upper_bound)
@@ -221,7 +221,7 @@ impl Position {
         thread_local!(
             static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
         );
-        if self.state().is_repeated {
+        if self.is_repeated.get() {
             (0, 0)
         } else {
             let mut searched_nodes = 0;
@@ -245,7 +245,7 @@ impl Position {
     /// different hashes.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
-        if self.state().is_repeated {
+        if self.is_repeated.get() {
             // All repeated positions are evaluated as a draw, so for
             // our purposes they can be considered equal, and
             // therefore we generate the same hash for them.
@@ -295,7 +295,7 @@ impl Position {
     /// "forgets" all positions that have occurred exactly once.
     #[inline]
     pub fn generate_moves(&self, move_sink: &mut MoveSink) {
-        if !self.state().is_repeated {
+        if !self.is_repeated.get() {
             self.board().generate_moves(true, move_sink);
         }
     }
@@ -318,14 +318,14 @@ impl Position {
     // mutable reference to `self`.
     #[inline]
     unsafe fn do_move_unsafe(&self, m: Move) -> bool {
-        let state = self.state();
-        if state.is_repeated && Board::is_null_move(m) {
+        if self.is_repeated.get() && Board::is_null_move(m) {
             return false;
         }
         let board = self.board_mut();
         let old_board_hash = board.hash();
         board.do_move(m) &&
         {
+            let state = self.state();
             let encountered_boards = self.encountered_boards_mut();
             let (new_halfmove_clock, new_repeated_boards_hash) = if m.is_pawn_advance_or_capure() {
                 (0, *NO_REPEATED_BOARDS_HASH)
@@ -337,14 +337,13 @@ impl Position {
             assert!(encountered_boards.len() >= new_halfmove_clock as usize);
 
             // Figure out if the new position is repeated.
-            let mut new_is_repeated = false;
             if new_halfmove_clock >= 4 {
                 let last_irrev =
                     (encountered_boards.len() - (new_halfmove_clock as usize)) as isize;
                 let mut i = (encountered_boards.len() - 4) as isize;
                 while i >= last_irrev {
                     if board.hash() == *encountered_boards.get_unchecked(i as usize) {
-                        new_is_repeated = true;
+                        self.is_repeated.set(true);
                         break;
                     }
                     i -= 2;
@@ -354,7 +353,6 @@ impl Position {
             self.state_stack_mut().push(StateInfo {
                 halfmove_clock: new_halfmove_clock,
                 last_move: m,
-                is_repeated: new_is_repeated,
                 repeated_boards_hash: new_repeated_boards_hash,
             });
             true
@@ -370,6 +368,7 @@ impl Position {
         self.board_mut().undo_move(self.state().last_move);
         *self.halfmove_count_mut() -= 1;
         self.encountered_boards_mut().pop();
+        self.is_repeated.set(false);
         self.state_stack_mut().pop();
     }
 
@@ -623,7 +622,7 @@ impl Position {
                 hasher.write_u64(x);
             }
             state.repeated_boards_hash = hasher.finish();
-            state.is_repeated = false;
+            self.is_repeated.set(false);
 
             // Remove all states but the last one from `state_stack`.
             *self.state_stack_mut() = vec![state];
@@ -669,6 +668,7 @@ impl Clone for Position {
             Position {
                 board: UnsafeCell::new((*self.board.get()).clone()),
                 halfmove_count: UnsafeCell::new(*self.halfmove_count.get()),
+                is_repeated: Cell::new(self.is_repeated.get()),
                 encountered_boards: UnsafeCell::new((*self.encountered_boards.get()).clone()),
                 state_stack: UnsafeCell::new((*self.state_stack.get()).clone()),
             }
