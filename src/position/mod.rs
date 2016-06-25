@@ -112,13 +112,13 @@ impl Position {
                         moves: &mut Iterator<Item = &str>)
                         -> Result<Position, IllegalPosition> {
         let mut p = try!(Position::from_fen(fen));
-        let mut move_stack = Vec::with_capacity(128);
+        let mut move_list = Vec::with_capacity(128);
         'played_move: for played_move in moves {
-            p.board().generate_moves(true, &mut move_stack);
-            while let Some(m) = move_stack.pop() {
+            p.board().generate_moves(true, &mut move_list);
+            while let Some(m) = move_list.pop() {
                 if played_move == m.notation() {
                     if p.do_move(m) {
-                        move_stack.clear();
+                        move_list.clear();
                         continue 'played_move;
                     } else {
                         return Err(IllegalPosition);
