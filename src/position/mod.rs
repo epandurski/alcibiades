@@ -61,9 +61,17 @@ pub struct Position {
     // logically are non-mutating, but internally they try moves on
     // the board and then undoes them, making sure to leave everything
     // the way it was.
+
+    // The current board.
     board: UnsafeCell<Board>,
+    
+    // The count of half-moves since the beginning of the game.
     halfmove_count: UnsafeCell<u16>,
+    
+    // Information needed so as to be able to undo the played moves.
     state_stack: UnsafeCell<Vec<StateInfo>>,
+
+    // A list of boards that had occurred during the game.
     encountered_boards: UnsafeCell<Vec<u64>>,
 }
 
