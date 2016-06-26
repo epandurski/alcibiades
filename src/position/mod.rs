@@ -251,7 +251,7 @@ impl Position {
             // therefore we generate the same hash for them.
             1
         } else {
-            if self.root_is_irreversible() {
+            if self.root_is_unreachable() {
                 self.board().hash()
             } else {
                 self.board().hash() ^ self.repeated_boards_hash
@@ -641,7 +641,7 @@ impl Position {
     // Returns `true` if the root position can not be reached from the
     // current position, `false` otherwise.
     #[inline(always)]
-    fn root_is_irreversible(&self) -> bool {
+    fn root_is_unreachable(&self) -> bool {
         unsafe { self.encountered_boards_mut().len() > self.state().halfmove_clock as usize }
     }
 
