@@ -22,10 +22,6 @@ struct StateInfo {
     // The number of halfmoves since the last pawn advance or capture.
     halfmove_clock: u8,
 
-    // `true` if the root position can not be reached from this
-    // position.
-    root_is_irreversible: bool,
-
     // The last played move.
     last_move: Move,
 }
@@ -101,7 +97,6 @@ impl Position {
             state_stack: UnsafeCell::new(vec![StateInfo {
                                                   halfmove_clock: halfmove_clock,
                                                   last_move: Move::from_u32(0),
-                                                  root_is_irreversible: false,
                                               }]),
         })
     }
@@ -256,7 +251,7 @@ impl Position {
             // therefore we generate the same hash for them.
             1
         } else {
-            if self.state().root_is_irreversible {
+            if self.root_is_irreversible() {
                 self.board().hash()
             } else {
                 self.board().hash() ^ self.repeated_boards_hash
@@ -336,10 +331,10 @@ impl Position {
         {
             let state = self.state();
             let encountered_boards = self.encountered_boards_mut();
-            let (halfmove_clock, root_is_irreversible) = if m.is_pawn_advance_or_capure() {
-                (0, true)
+            let halfmove_clock = if m.is_pawn_advance_or_capure() {
+                0
             } else {
-                (state.halfmove_clock + 1, state.root_is_irreversible)
+                state.halfmove_clock + 1
             };
             self.halfmove_count.set(self.halfmove_count.get() + 1);
             encountered_boards.push(old_board_hash);
@@ -361,7 +356,6 @@ impl Position {
             self.state_stack_mut().push(StateInfo {
                 halfmove_clock: halfmove_clock,
                 last_move: m,
-                root_is_irreversible: root_is_irreversible,
             });
             true
         }
@@ -603,7 +597,7 @@ impl Position {
     // states but the current one from `state_stack`. It also forgets
     // all encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
-        let mut state = *self.state();
+        let state = *self.state();
         unsafe {
             // Forget all encountered boards before the last
             // irreversible move.
@@ -637,12 +631,18 @@ impl Position {
                 hasher.finish()
             };
             self.is_repeated.set(false);
-            state.root_is_irreversible = false;
 
             // Remove all states but the last one from `state_stack`.
             *self.state_stack_mut() = vec![state];
             self.state_stack_mut().reserve(32);
         }
+    }
+
+    // Returns `true` if the root position can not be reached from the
+    // current position, `false` otherwise.
+    #[inline(always)]
+    fn root_is_irreversible(&self) -> bool {
+        unsafe { self.encountered_boards_mut().len() > self.state().halfmove_clock as usize }
     }
 
     #[inline(always)]
