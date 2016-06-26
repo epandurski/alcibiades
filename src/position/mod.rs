@@ -244,7 +244,7 @@ impl Position {
     /// **Important note:** Two positions having the same boards, but
     /// differing in their set of previously repeated, still reachable
     /// boards will have different hashes.
-    #[inline(always)]
+    #[inline]
     pub fn hash(&self) -> u64 {
         if self.is_repeated.get() {
             // All repeated positions are evaluated as a draw, so for
