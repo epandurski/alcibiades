@@ -50,11 +50,11 @@ pub struct IllegalPosition;
 /// mainly because it impossible to implement it 100% correctly with
 /// relation to the transposition table.
 pub struct Position {
-    // We use `UnsafeCell` for the members, because evaluation methods
-    // logically are non-mutating, but internally they try moves on
-    // the board and then undoes them, making sure to leave everything
-    // the way it was.
-    //
+    // We use `Cell` and `UnsafeCell` for the members, because
+    // evaluation methods logically are non-mutating, but internally
+    // they try moves on the board and then undoes them, leaving
+    // everything the way it was.
+
     // The current board.
     board: UnsafeCell<Board>,
 
@@ -64,8 +64,9 @@ pub struct Position {
     // `true ` if the position is a draw by repetition.
     is_repeated: Cell<bool>,
 
-    // A hash value for the set of boards that had occurred at least
-    // twice before the root position. An empty set has a hash of `0`.
+    // A hash value for the set of boards that are still reachable,
+    // and had occurred at least twice until the root position. An
+    // empty set has a hash of `0`.
     repeated_boards_hash: u64,
 
     // Information needed so as to be able to undo the played moves.
@@ -241,8 +242,8 @@ impl Position {
     /// Returns an almost unique hash value for the position.
     ///
     /// **Important note:** Two positions having the same boards, but
-    /// differing in their set of previously repeated boards will have
-    /// different hashes.
+    /// differing in their set of previously repeated, still reachable
+    /// boards will have different hashes.
     #[inline(always)]
     pub fn hash(&self) -> u64 {
         if self.is_repeated.get() {
@@ -609,18 +610,20 @@ impl Position {
             }
 
             // Because we assign a draw score on the first repetition
-            // of the same position, we have to remove all positions
-            // that occurred only once from `self.encountered_boards`.
+            // of the same position, we have to remove from
+            // `self.encountered_boards` all positions that occurred
+            // only once.
             self.encountered_boards_mut().push(self.board().hash());
             let repeated = set_non_repeated_values(self.encountered_boards_mut(), 0);
             self.encountered_boards_mut().pop();
 
             // We calculate a single hash value representing the set
-            // of all previously repeated boards. We will XOR that
-            // value with the board hash each time we calculate
-            // position's hash. That way we guarantee that positions
-            // that have the same boards, but differ in their set of
-            // previously repeated boards will have different hashes.
+            // of all previously repeated, still reachable boards. We
+            // will XOR that value with the board hash each time we
+            // calculate position's hash. That way we guarantee that
+            // positions that have the same boards, but differ in
+            // their set of previously repeated, still reachable
+            // boards will have different hashes.
             self.repeated_boards_hash = if repeated.is_empty() {
                 0
             } else {
