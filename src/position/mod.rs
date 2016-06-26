@@ -72,7 +72,8 @@ pub struct Position {
     // Information needed so as to be able to undo the played moves.
     state_stack: UnsafeCell<Vec<StateInfo>>,
 
-    // A list of boards that had occurred during the game.
+    // A list of boards that had occurred during the game. This is
+    // needed so as to be able to detect repeated positions.
     encountered_boards: UnsafeCell<Vec<u64>>,
 }
 
