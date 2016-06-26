@@ -54,7 +54,7 @@ pub struct Position {
     // evaluation methods logically are non-mutating, but internally
     // they try moves on the board and then undoes them, leaving
     // everything the way it was.
-
+    //
     // The current board.
     board: UnsafeCell<Board>,
 
@@ -64,9 +64,9 @@ pub struct Position {
     // `true ` if the position is a draw by repetition.
     is_repeated: Cell<bool>,
 
-    // A hash value for the set of boards that are still reachable,
-    // and had occurred at least twice until the root position. An
-    // empty set has a hash of `0`.
+    // A hash value for the set of boards that are still reachable
+    // from the root position, and had occurred at least twice until
+    // the root position. An empty set has a hash of `0`.
     repeated_boards_hash: u64,
 
     // Information needed so as to be able to undo the played moves.
@@ -193,7 +193,7 @@ impl Position {
         }
     }
 
-    /// Performs "quiescence search" and returns an evaluation.
+    /// Performs a "quiescence search" and returns an evaluation.
     ///
     /// The goal of the "quiescence search" is to statically evaluate
     /// only "quiet" positions (positions where there are no winning
@@ -213,11 +213,16 @@ impl Position {
     /// required. If during the calculation it is determined that the
     /// evaluation is outside this interval, this method may return
     /// any value outside of the interval (including the bounds), but
-    /// always staying on the correct side of the interval.
+    /// always staying on the correct side of the interval. If
+    /// supplied, `static_evaluation` should be the exact (within the
+    /// bounds) value returned by the `evaluate_static` method for the
+    /// same position. If `None` is passed, the static evaluation will
+    /// be calculated.
     #[inline]
     pub fn evaluate_quiescence(&self,
                                lower_bound: Value,
-                               upper_bound: Value)
+                               upper_bound: Value,
+                               static_evaluation: Option<Value>)
                                -> (Value, NodeCount) {
         assert!(lower_bound < upper_bound);
         thread_local!(
@@ -230,6 +235,7 @@ impl Position {
             let value = MOVE_STACK.with(|s| unsafe {
                 self.qsearch(lower_bound,
                              upper_bound,
+                             static_evaluation,
                              0,
                              0,
                              &mut *s.get(),
@@ -383,6 +389,7 @@ impl Position {
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
+                      static_evaluation: Option<Value>,
                       mut recapture_squares: u64,
                       ply: u8,
                       move_stack: &mut MoveStack,
@@ -399,9 +406,14 @@ impl Position {
         // least one "quiet" move that will at least preserve the
         // stand pat value. (Note that this is not true if the the
         // side to move is in check!)
-        let stand_pat = match not_in_check {
-            true => eval_func(self.board(), lower_bound, upper_bound),
-            false => lower_bound,
+        let stand_pat = if not_in_check {
+            if let Some(value) = static_evaluation {
+                value
+            } else {
+                eval_func(self.board(), lower_bound, upper_bound)
+            }
+        } else {
+            lower_bound
         };
         if stand_pat >= upper_bound {
             return stand_pat;
@@ -465,6 +477,7 @@ impl Position {
                 *searched_nodes += 1;
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
+                                          None,
                                           recapture_squares ^ dest_square_bb,
                                           ply + 1,
                                           move_stack,
@@ -874,48 +887,48 @@ mod tests {
         let mut s = MoveStack::new();
         unsafe {
             let p = Position::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000, 1000, 0, 0, &mut s, &simple_eval, &mut 0),
+            assert_eq!(p.qsearch(-1000, 1000, None, 0, 0, &mut s, &simple_eval, &mut 0),
                        0);
 
             let p = Position::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000, 1000, 0, 0, &mut s, &simple_eval, &mut 0),
+            assert_eq!(p.qsearch(-1000, 1000, None, 0, 0, &mut s, &simple_eval, &mut 0),
                        225);
 
             let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000, 1000, 0, 0, &mut s, &simple_eval, &mut 0),
+            assert_eq!(p.qsearch(-1000, 1000, None, 0, 0, &mut s, &simple_eval, &mut 0),
                        0);
 
             let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000, 1000, 0, 0, &mut s, &simple_eval, &mut 0),
+            assert_eq!(p.qsearch(-1000, 1000, None, 0, 0, &mut s, &simple_eval, &mut 0),
                        -100);
 
             let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP2PPP/R2QKB1R \
                                         w - - 5 1")
                         .ok()
                         .unwrap();
-            assert_eq!(p.qsearch(-1000, 1000, 0, 0, &mut s, &simple_eval, &mut 0),
+            assert_eq!(p.qsearch(-1000, 1000, None, 0, 0, &mut s, &simple_eval, &mut 0),
                        0);
 
             let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2PPP/R2QKB1R b \
                                         - - 5 1")
                         .ok()
                         .unwrap();
-            assert_eq!(p.qsearch(-1000, 1000, 0, 0, &mut s, &simple_eval, &mut 0),
+            assert_eq!(p.qsearch(-1000, 1000, None, 0, 0, &mut s, &simple_eval, &mut 0),
                        -100);
 
             let p = Position::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PPP/R1BKQB1R w \
                                         - - 5 1")
                         .ok()
                         .unwrap();
-            assert_eq!(p.qsearch(-1000, 1000, 0, 0, &mut s, &simple_eval, &mut 0),
+            assert_eq!(p.qsearch(-1000, 1000, None, 0, 0, &mut s, &simple_eval, &mut 0),
                        0);
 
             let p = Position::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
-            assert!(p.qsearch(-10000, 10000, 0, 0, &mut s, &simple_eval, &mut 0) <= -10000);
+            assert!(p.qsearch(-10000, 10000, None, 0, 0, &mut s, &simple_eval, &mut 0) <= -10000);
         }
 
         let p = Position::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(-10000, 10000).1, 1);
+        assert_eq!(p.evaluate_quiescence(-10000, 10000, None).1, 1);
     }
 
     #[test]

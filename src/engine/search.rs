@@ -203,7 +203,7 @@ fn search(tt: &TranspositionTable,
     assert!(alpha < beta);
     if depth == 0 {
         // On leaf nodes, do quiescence search.
-        let (value, nodes) = p.evaluate_quiescence(alpha, beta);
+        let (value, nodes) = p.evaluate_quiescence(alpha, beta, None);
         *nc += nodes;
         Ok(value)
     } else {
