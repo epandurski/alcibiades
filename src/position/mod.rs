@@ -65,7 +65,7 @@ pub struct Position {
     is_repeated: Cell<bool>,
 
     // A hash value for the set of boards that are still reachable
-    // from the root position, and had occurred at least twice until
+    // from the root position, and had occurred at least twice before
     // the root position. An empty set has a hash of `0`.
     repeated_boards_hash: u64,
 
@@ -614,22 +614,20 @@ impl Position {
     fn declare_as_root(&mut self) {
         let state = *self.state();
         unsafe {
-            // Forget all encountered boards before the last
-            // irreversible move.
-            {
+            let repeated = {
+                // Forget all encountered boards before the last
+                // irreversible move.
                 let boards = self.encountered_boards_mut();
                 let last_irrev = boards.len() - state.halfmove_clock as usize;
                 *boards = boards.split_off(last_irrev);
                 boards.reserve(32);
-            }
 
-            // Because we assign a draw score on the first repetition
-            // of the same position, we have to remove from
-            // `self.encountered_boards` all positions that occurred
-            // only once.
-            self.encountered_boards_mut().push(self.board().hash());
-            let repeated = set_non_repeated_values(self.encountered_boards_mut(), 0);
-            self.encountered_boards_mut().pop();
+                // Because we assign a draw score on the first repetition
+                // of the same position, we have to remove from
+                // `self.encountered_boards` all positions that occurred
+                // only once.
+                set_non_repeated_values(boards, 0)
+            };
 
             // We calculate a single hash value representing the set
             // of all previously repeated, still reachable boards. We
