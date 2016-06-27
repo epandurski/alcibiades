@@ -614,7 +614,7 @@ impl Position {
     fn declare_as_root(&mut self) {
         let state = *self.state();
         unsafe {
-            let repeated = {
+            let repeated_boards = {
                 // Forget all encountered boards before the last
                 // irreversible move.
                 let boards = self.encountered_boards_mut();
@@ -633,14 +633,14 @@ impl Position {
             // of all previously repeated, still reachable boards. We
             // will XOR that value with the board hash each time we
             // calculate position's hash. That way we guarantee that
-            // positions that have the same boards, but differ in
+            // two positions that have the same boards, but differ in
             // their set of previously repeated, still reachable
             // boards will have different hashes.
-            self.repeated_boards_hash = if repeated.is_empty() {
+            self.repeated_boards_hash = if repeated_boards.is_empty() {
                 0
             } else {
                 let mut hasher = SipHasher::new();
-                for x in repeated {
+                for x in repeated_boards {
                     hasher.write_u64(x);
                 }
                 hasher.finish()
