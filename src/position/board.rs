@@ -801,9 +801,13 @@ impl Board {
         // array) is enough to recover the origin square.
         let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
         for i in 0..4 {
-            dest_sets[i] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[i], shifts[i]) &
-                           not_occupied_by_us &
-                           (capture_targets ^ PAWN_MOVE_QUIET[i]);
+            unsafe {
+                *dest_sets.get_unchecked_mut(i) =
+                    gen_shift(pawns & *PAWN_MOVE_CANDIDATES.get_unchecked(i),
+                              *shifts.get_unchecked(i)) &
+                    (capture_targets ^ *PAWN_MOVE_QUIET.get_unchecked(i)) &
+                    not_occupied_by_us;
+            }
         }
 
         // The double-push is trickier.
