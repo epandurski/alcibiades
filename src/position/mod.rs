@@ -690,10 +690,12 @@ impl Position {
 impl Clone for Position {
     fn clone(&self) -> Self {
         unsafe {
-            let mut encountered_boards = (*self.encountered_boards.get()).clone();
-            let mut state_stack = (*self.state_stack.get()).clone();
-            encountered_boards.reserve(32);
-            state_stack.reserve(32);
+            let eb = &*self.encountered_boards.get();
+            let ss = &*self.state_stack.get();
+            let mut encountered_boards = Vec::with_capacity(eb.capacity());
+            let mut state_stack = Vec::with_capacity(ss.capacity());
+            encountered_boards.extend_from_slice(eb);
+            state_stack.extend_from_slice(ss);
             Position {
                 board: UnsafeCell::new((*self.board.get()).clone()),
                 halfmove_count: Cell::new(self.halfmove_count.get()),
