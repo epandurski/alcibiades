@@ -801,13 +801,9 @@ impl Board {
         // array) is enough to recover the origin square.
         let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
         for i in 0..4 {
-            unsafe {
-                *dest_sets.get_unchecked_mut(i) =
-                    gen_shift(pawns & *PAWN_MOVE_CANDIDATES.get_unchecked(i),
-                              *shifts.get_unchecked(i)) & not_occupied_by_us &
-                    (capture_targets ^ *PAWN_MOVE_QUIET.get_unchecked(i));
-
-            }
+            dest_sets[i] = gen_shift(pawns & PAWN_MOVE_CANDIDATES[i], shifts[i]) &
+                           not_occupied_by_us &
+                           (capture_targets ^ PAWN_MOVE_QUIET[i]);
         }
 
         // The double-push is trickier.
@@ -824,15 +820,12 @@ impl Board {
         // sqares, and determinne the move type (en-passant capture,
         // pawn promotion, or a normal move).
         for i in 0..4 {
-            let s = unsafe { dest_sets.get_unchecked_mut(i) };
+            let s = &mut dest_sets[i];
             while *s != EMPTY_SET {
                 let pawn_bb = ls1b(*s);
                 *s ^= pawn_bb;
                 let dest_square = bitscan_1bit(pawn_bb);
-                let orig_square = (dest_square as isize -
-                                   unsafe {
-                    *shifts.get_unchecked(i)
-                }) as Square;
+                let orig_square = (dest_square as isize - shifts[i]) as Square;
                 let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), pawn_bb);
                 match pawn_bb {
 
