@@ -472,6 +472,8 @@ impl Board {
     #[inline]
     pub fn generate_moves(&self, all: bool, move_sink: &mut MoveSink) {
         assert!(self.is_legal());
+        // TODO: See if passing `MoveStack` instead of `MoveSink` for
+        // performance reasons makes sense.
 
         let king_square = self.king_square();
         let checkers = self.checkers();
