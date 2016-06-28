@@ -690,13 +690,17 @@ impl Position {
 impl Clone for Position {
     fn clone(&self) -> Self {
         unsafe {
+            let mut encountered_boards = (*self.encountered_boards.get()).clone();
+            let mut state_stack = (*self.state_stack.get()).clone();
+            encountered_boards.reserve(32);
+            state_stack.reserve(32);
             Position {
                 board: UnsafeCell::new((*self.board.get()).clone()),
                 halfmove_count: Cell::new(self.halfmove_count.get()),
                 is_repeated: Cell::new(self.is_repeated.get()),
                 repeated_boards_hash: self.repeated_boards_hash,
-                encountered_boards: UnsafeCell::new((*self.encountered_boards.get()).clone()),
-                state_stack: UnsafeCell::new((*self.state_stack.get()).clone()),
+                encountered_boards: UnsafeCell::new(encountered_boards),
+                state_stack: UnsafeCell::new(state_stack),
             }
         }
     }
