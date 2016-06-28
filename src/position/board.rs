@@ -531,7 +531,7 @@ impl Board {
                 };
 
                 for piece in QUEEN..PAWN {
-                    let mut bb = unsafe { self.piece_type.get_unchecked(piece) } & occupied_by_us;
+                    let mut bb = unsafe { *self.piece_type.get_unchecked(piece) } & occupied_by_us;
                     while bb != EMPTY_SET {
                         let piece_bb = ls1b(bb);
                         bb ^= piece_bb;
