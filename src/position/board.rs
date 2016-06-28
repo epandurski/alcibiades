@@ -999,7 +999,9 @@ impl Board {
     #[inline]
     fn king_square(&self) -> Square {
         if self._king_square.get() > 63 {
-            self._king_square.set(bitscan_1bit(self.piece_type[KING] & self.color[self.to_move]));
+            self._king_square
+                .set(bitscan_1bit(self.piece_type[KING] &
+                                  unsafe { *self.color.get_unchecked(self.to_move) }));
         }
         self._king_square.get()
     }
