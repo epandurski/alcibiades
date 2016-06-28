@@ -1181,16 +1181,16 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
     assert!(square_bb != EMPTY_SET);
     assert_eq!(square_bb, ls1b(square_bb));
-    match square_bb & occupied {
-        EMPTY_SET => NO_PIECE,
-        x if x & piece_type_array[PAWN] != 0 => PAWN,
-        x if x & piece_type_array[KNIGHT] != 0 => KNIGHT,
-        x if x & piece_type_array[BISHOP] != 0 => BISHOP,
-        x if x & piece_type_array[ROOK] != 0 => ROOK,
-        x if x & piece_type_array[QUEEN] != 0 => QUEEN,
-        x if x & piece_type_array[KING] != 0 => KING,
-        _ => panic!("invalid board"),
+    let bb = square_bb & occupied;
+    if bb == 0 {
+        return NO_PIECE;
     }
+    for i in (KING..NO_PIECE).rev() {
+        if bb & unsafe { *piece_type_array.get_unchecked(i) } != 0 {
+            return i;
+        }
+    }
+    panic!("invalid board");
 }
 
 
