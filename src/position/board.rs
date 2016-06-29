@@ -477,7 +477,7 @@ impl Board {
 
         let king_square = self.king_square();
         let checkers = self.checkers();
-        let occupied_by_us = self.color[self.to_move];
+        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
         let occupied_by_them = self.occupied() ^ occupied_by_us;
         let generate_all_moves = all || checkers != 0;
         assert!(king_square <= 63);
@@ -517,7 +517,7 @@ impl Board {
             // check.
 
             let pinned = self.find_pinned();
-            let pin_lines = &self.geometry.squares_at_line[king_square];
+            let pin_lines = unsafe { self.geometry.squares_at_line.get_unchecked(king_square) };
             let en_passant_bb = self.en_passant_bb();
 
             // Find queen, rook, bishop, and knight moves.
@@ -618,7 +618,7 @@ impl Board {
     #[inline]
     pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
         let occupied_by_us = self.color[us];
-        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
 
         if square > 63 {
             // We call "piece_attacks_from()" here many times, which for
@@ -826,12 +826,15 @@ impl Board {
         // sqares, and determinne the move type (en-passant capture,
         // pawn promotion, or a normal move).
         for i in 0..4 {
-            let s = &mut dest_sets[i];
+            let s = unsafe { dest_sets.get_unchecked_mut(i) };
             while *s != EMPTY_SET {
                 let pawn_bb = ls1b(*s);
                 *s ^= pawn_bb;
                 let dest_square = bitscan_1bit(pawn_bb);
-                let orig_square = (dest_square as isize - shifts[i]) as Square;
+                let orig_square = (dest_square as isize -
+                                   unsafe {
+                    *shifts.get_unchecked(i)
+                }) as Square;
                 let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), pawn_bb);
                 match pawn_bb {
 
@@ -918,7 +921,8 @@ impl Board {
                                                   KING,
                                                   self.king_square(),
                                                   unsafe {
-                                                      *[[C1, C8], [G1, G8]][side]
+                                                      *[[C1, C8], [G1, G8]]
+                                                           .get_unchecked(side)
                                                            .get_unchecked(self.to_move)
                                                   },
                                                   NO_PIECE,
@@ -937,7 +941,7 @@ impl Board {
     #[inline]
     fn find_pinned(&self) -> u64 {
         let king_square = self.king_square();
-        let occupied_by_them = self.color[1 ^ self.to_move];
+        let occupied_by_them = unsafe { *self.color.get_unchecked(1 ^ self.to_move) };
         assert!(king_square <= 63);
 
         // To find all potential pinners, we remove all our pieces
@@ -956,8 +960,12 @@ impl Board {
         if pinners == EMPTY_SET {
             EMPTY_SET
         } else {
-            let occupied_by_us = self.color[self.to_move];
-            let between_king_square_and = &self.geometry.squares_between_including[king_square];
+            let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
+            let between_king_square_and = unsafe {
+                self.geometry
+                    .squares_between_including
+                    .get_unchecked(king_square)
+            };
             let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
             let mut pinned_or_discovered_checkers = EMPTY_SET;
 
