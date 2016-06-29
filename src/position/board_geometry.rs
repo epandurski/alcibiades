@@ -134,7 +134,7 @@ pub struct BoardGeometry {
     /// On each move, the value of `castling_relation` for the origin
     /// and destination squares are &-ed with the castling rights, to
     /// derive the updated castling rights.
-    pub castling_relation: [u8; 64],
+    pub castling_relation: [usize; 64],
 
     /// Holds bitboards that describe how the castling rook moves
     /// during the castling move.

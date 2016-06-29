@@ -6,12 +6,12 @@ use basetypes::*;
 /// Holds information about which player is allowed to castle on which
 /// side.
 ///
-/// The castling rights are held in a `u8` value. The lowest 4 bits of
-/// the value contain the whole needed information. It is laid out in
-/// the following way:
+/// The castling rights are held in a `usize` value. The lowest 4 bits
+/// of the value contain the whole needed information. It is laid out
+/// in the following way:
 ///
 /// ```text
-///  7                 3           0
+///  usize             3           0
 ///  +---------------+---+---+---+---+
 ///  |               |   |   |   |   |
 ///  |    Unused     |Castling flags |
@@ -25,20 +25,20 @@ use basetypes::*;
 /// ```
 #[derive(Debug)]
 #[derive(Clone, Copy)]
-pub struct CastlingRights(u8);
+pub struct CastlingRights(usize);
 
 
 impl CastlingRights {
     /// Creates a new instance.
-    #[inline]
+    #[inline(always)]
     pub fn new() -> CastlingRights {
         CastlingRights(0)
     }
 
 
     /// Returns the contained raw value.
-    #[inline]
-    pub fn value(&self) -> u8 {
+    #[inline(always)]
+    pub fn value(&self) -> usize {
         self.0
     }
 
@@ -48,7 +48,7 @@ impl CastlingRights {
     /// `mask` is bit-wise OR-ed with the previous value.
     ///
     /// Returns which bits were zero before, and were turned to one.
-    pub fn grant(&mut self, mask: u8) -> u8 {
+    pub fn grant(&mut self, mask: usize) -> usize {
         if mask > 0b1111 {
             panic!("invalid mask");
         }
@@ -61,8 +61,8 @@ impl CastlingRights {
     /// Updates the castling rights with a 4-bit mask.
     ///
     /// `mask` is bit-wise AND-ed with the previous value.
-    #[inline]
-    pub fn update_with_mask(&mut self, mask: u8) {
+    #[inline(always)]
+    pub fn update_with_mask(&mut self, mask: usize) {
         self.0 &= mask;
     }
 
@@ -99,13 +99,13 @@ impl CastlingRights {
 
     /// Returns a value from 0 to 3 representing the castling rights
     /// for a given player.
-    #[inline]
+    #[inline(always)]
     pub fn get_for(&self, color: Color) -> usize {
         assert!(color <= 1);
         if color == WHITE {
-            self.0 as usize & 0b0011
+            self.0 & 0b0011
         } else {
-            self.0 as usize >> 2
+            self.0 >> 2
         }
     }
 
@@ -123,9 +123,9 @@ impl CastlingRights {
             panic!("invalid castling rights");
         }
         self.0 = if color == WHITE {
-            self.0 & 0b1100 | (rights as u8)
+            self.0 & 0b1100 | rights
         } else {
-            self.0 & 0b0011 | (rights as u8) << 2
+            self.0 & 0b0011 | rights << 2
         }
     }
 }
@@ -141,16 +141,16 @@ pub const QUEENSIDE: CastlingSide = 0;
 pub const KINGSIDE: CastlingSide = 1;
 
 /// White can castle on the queen-side.
-pub const CASTLE_WHITE_QUEENSIDE: u8 = 1 << 0;
+pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
 
 /// White can castle on the king-side.
-pub const CASTLE_WHITE_KINGSIDE: u8 = 1 << 1;
+pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
 
 /// Black can castle on the queen-side.
-pub const CASTLE_BLACK_QUEENSIDE: u8 = 1 << 2;
+pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
 
 /// Black can castle on the king-side.
-pub const CASTLE_BLACK_KINGSIDE: u8 = 1 << 3;
+pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
 
 
 #[cfg(test)]
