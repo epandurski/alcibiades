@@ -470,7 +470,7 @@ impl Board {
     /// the alpha-beta pruning will eliminate the need for this
     /// verification at all.
     #[inline]
-    pub fn generate_moves(&self, all: bool, move_sink: &mut MoveSink) {
+    pub fn generate_moves(&self, all: bool, move_sink: &mut MoveStack) {
         assert!(self.is_legal());
         // TODO: See if passing `MoveStack` instead of `MoveSink` for
         // performance reasons makes sense.
@@ -746,7 +746,7 @@ impl Board {
                                 piece: PieceType,
                                 from_square: Square,
                                 legal_dests: u64,
-                                move_sink: &mut MoveSink) {
+                                move_sink: &mut MoveStack) {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
         let mut dest_set = piece_attacks_from(self.geometry, self.occupied(), piece, from_square) &
@@ -784,7 +784,7 @@ impl Board {
                                en_passant_bb: u64,
                                legal_dests: u64,
                                only_queen_promotions: bool,
-                               move_sink: &mut MoveSink) {
+                               move_sink: &mut MoveStack) {
 
         const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
         const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
@@ -901,7 +901,7 @@ impl Board {
     // It figures out which castling moves are pseudo-legal and pushes
     // them to `move_sink`.
     #[inline(always)]
-    fn push_castling_moves_to_sink(&self, move_sink: &mut MoveSink) {
+    fn push_castling_moves_to_sink(&self, move_sink: &mut MoveStack) {
 
         // can not castle if in check
         if self.checkers() == EMPTY_SET {
