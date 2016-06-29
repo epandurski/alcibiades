@@ -782,7 +782,7 @@ fn consider_xrays(geometry: &BoardGeometry,
 #[inline]
 fn get_least_valuable_piece(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
     for p in (KING..NO_PIECE).rev() {
-        let piece_subset = piece_type_array[p] & set;
+        let piece_subset = unsafe { *piece_type_array.get_unchecked(p) } & set;
         if piece_subset != EMPTY_SET {
             return (p, ls1b(piece_subset));
         }
