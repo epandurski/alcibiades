@@ -84,7 +84,7 @@ impl Move {
     /// pawn). `promoted_piece_code` should be a number between `0`
     /// and `3` and is used only when the `move_type` is a pawn
     /// promotion, otherwise it is ignored.
-    #[inline]
+    #[inline(always)]
     pub fn new(us: Color,
                score: usize,
                move_type: MoveType,
@@ -107,31 +107,29 @@ impl Move {
         assert!(promoted_piece_code <= 0b11);
 
         // We use the reserved field (2 bits) to properly order
-        // "quiet" movies. Moves which destination square is more
-        // advanced into enemy's territory are tried first.
-        let reserved = if captured_piece == NO_PIECE {
-            let rank = rank(dest_square);
-            let advance = if us == WHITE {
-                rank
-            } else {
-                7 - rank
-            };
-            match advance {
-                0 => 0,
-                x if x < 3 => 1,
-                _ => 2,
-                // `3` is used for "killer" moves
-            }
+        // "quiet" movies. Moves which destination square is closer to
+        // the central ranks are tried first.
+        const RESERVED_LOOKUP: [usize; 8] = [0 << M_SHIFT_RESERVED,
+                                             1 << M_SHIFT_RESERVED,
+                                             1 << M_SHIFT_RESERVED,
+                                             2 << M_SHIFT_RESERVED,
+                                             2 << M_SHIFT_RESERVED,
+                                             1 << M_SHIFT_RESERVED,
+                                             1 << M_SHIFT_RESERVED,
+                                             0 << M_SHIFT_RESERVED];
+        let reserved_shifted = if captured_piece == NO_PIECE {
+            unsafe { *RESERVED_LOOKUP.get_unchecked(rank(dest_square)) }
         } else {
             0
         };
 
-        let aux_data = match move_type {
-            MOVE_PROMOTION => promoted_piece_code,
-            _ => castling.get_for(us),
+        let aux_data = if move_type == MOVE_PROMOTION {
+            promoted_piece_code
+        } else {
+            castling.get_for(us)
         };
         Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-              reserved << M_SHIFT_RESERVED | piece << M_SHIFT_PIECE |
+              reserved_shifted | piece << M_SHIFT_PIECE |
               castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
               en_passant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
@@ -329,7 +327,7 @@ impl MoveStack {
         self.savepoints.clear();
         self.first_move_index = 0;
     }
-    
+
     /// Clears the current move list, saving it so that it can be
     /// restored.
     ///

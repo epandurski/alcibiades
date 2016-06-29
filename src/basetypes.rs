@@ -144,13 +144,13 @@ pub fn square(file: File, rank: Rank) -> Square {
 }
 
 /// Returns the rank of a given square.
-#[inline]
+#[inline(always)]
 pub fn rank(square: Square) -> Rank {
     square >> 3
 }
 
 /// Returns the file of a given square.
-#[inline]
+#[inline(always)]
 pub fn file(square: Square) -> File {
     square % 8
 }
