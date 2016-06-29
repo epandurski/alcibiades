@@ -94,45 +94,45 @@ impl Board {
 
     /// Returns a reference to a properly initialized `BoardGeometry`
     /// object.
-    #[inline]
+    #[inline(always)]
     pub fn geometry(&self) -> &BoardGeometry {
         self.geometry
     }
 
     /// Returns an array of 6 occupation bitboards -- one for each
     /// piece type.
-    #[inline]
+    #[inline(always)]
     pub fn piece_type(&self) -> &[u64; 6] {
         &self.piece_type
     }
 
     /// Returns an array of 2 occupation bitboards -- one for each
     /// side (color).
-    #[inline]
+    #[inline(always)]
     pub fn color(&self) -> &[u64; 2] {
         &self.color
     }
 
     /// Returns the side to move.
-    #[inline]
+    #[inline(always)]
     pub fn to_move(&self) -> Color {
         self.to_move
     }
 
     /// Returns the castling rights.
-    #[inline]
+    #[inline(always)]
     pub fn castling(&self) -> CastlingRights {
         self.castling
     }
 
     /// Returns the en-passant file, or `8` if there is none.
-    #[inline]
+    #[inline(always)]
     pub fn en_passant_file(&self) -> usize {
         self.en_passant_file
     }
 
     /// Returns a bitboard of all occupied squares.
-    #[inline]
+    #[inline(always)]
     pub fn occupied(&self) -> u64 {
         self._occupied
     }
@@ -149,7 +149,7 @@ impl Board {
     /// index numbers are used for faster and more space efficient
     /// hash tables or databases, e.g. transposition tables and
     /// opening books.
-    #[inline]
+    #[inline(always)]
     pub fn hash(&self) -> u64 {
         self._hash
     }
@@ -644,6 +644,7 @@ impl Board {
     }
 
     /// Returns if `m` is a null move.
+    #[inline]
     pub fn is_null_move(m: Move) -> bool {
         m.orig_square() == m.dest_square()
     }
@@ -899,7 +900,7 @@ impl Board {
     //
     // It figures out which castling moves are pseudo-legal and pushes
     // them to `move_sink`.
-    #[inline]
+    #[inline(always)]
     fn push_castling_moves_to_sink(&self, move_sink: &mut MoveSink) {
 
         // can not castle if in check
@@ -938,7 +939,7 @@ impl Board {
     //
     // It returns all pinned pieces belonging to the side to
     // move. This is a relatively expensive operation.
-    #[inline]
+    #[inline(always)]
     fn find_pinned(&self) -> u64 {
         let king_square = self.king_square();
         let occupied_by_them = unsafe { *self.color.get_unchecked(1 ^ self.to_move) };
@@ -997,9 +998,10 @@ impl Board {
         match self.en_passant_file {
             x if x >= NO_ENPASSANT_FILE => EMPTY_SET,
             x => {
-                match self.to_move {
-                    WHITE => 1 << x << 40,
-                    _ => 1 << x << 16,
+                if self.to_move == WHITE {
+                    1 << x << 40
+                } else {
+                    1 << x << 16
                 }
             }
         }
@@ -1061,7 +1063,6 @@ impl Board {
     // the horizontal (rank 4 of 5). `orig_square` and `dist_square`
     // are the origin square and the destination square of the
     // capturing pawn.
-    #[inline]
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
@@ -1191,7 +1192,7 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
 /// the bitboard `square_bb`, on a board which is occupied with other
 /// pieces according to the `piece_type_array` array and `occupied`
 /// bitboard.
-#[inline]
+#[inline(always)]
 fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
     assert!(square_bb != EMPTY_SET);
     assert_eq!(square_bb, ls1b(square_bb));
@@ -1199,9 +1200,9 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
     if bb == 0 {
         return NO_PIECE;
     }
-    for piece in (KING..NO_PIECE).rev() {
-        if bb & unsafe { *piece_type_array.get_unchecked(piece) } != 0 {
-            return piece;
+    for i in (KING..NO_PIECE).rev() {
+        if bb & unsafe { *piece_type_array.get_unchecked(i) } != 0 {
+            return i;
         }
     }
     panic!("invalid board");
