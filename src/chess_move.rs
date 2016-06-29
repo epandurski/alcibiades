@@ -138,13 +138,13 @@ impl Move {
     }
 
     /// Creates a new instance of `Move` from a raw `u32` value.
-    #[inline]
+    #[inline(always)]
     pub fn from_u32(value: u32) -> Move {
         Move(value)
     }
 
     /// Assigns a new score for the move (between 0 and 3).
-    #[inline]
+    #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= 0b11);
         self.0 &= !M_MASK_SCORE;
@@ -152,13 +152,13 @@ impl Move {
     }
 
     /// Returns the assigned move score.
-    #[inline]
+    #[inline(always)]
     pub fn score(&self) -> usize {
         ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
     }
 
     /// Returns the move type.
-    #[inline]
+    #[inline(always)]
     pub fn move_type(&self) -> MoveType {
         ((self.0 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE) as MoveType
     }
@@ -166,19 +166,19 @@ impl Move {
     /// Returns the played piece type.
     ///
     /// Castling is considered as a king's move.
-    #[inline]
+    #[inline(always)]
     pub fn piece(&self) -> PieceType {
         ((self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE) as PieceType
     }
 
     /// Returns the origin square of the played piece.
-    #[inline]
+    #[inline(always)]
     pub fn orig_square(&self) -> Square {
         ((self.0 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE) as Square
     }
 
     /// Returns the destination square for the played piece.
-    #[inline]
+    #[inline(always)]
     pub fn dest_square(&self) -> Square {
         ((self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square
     }
@@ -191,7 +191,7 @@ impl Move {
 
     /// Returns the file on which there were a passing pawn before the
     /// move was played (or `8` if there was no passing pawn).
-    #[inline]
+    #[inline(always)]
     pub fn en_passant_file(&self) -> File {
         ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as File
     }
@@ -218,7 +218,7 @@ impl Move {
 
     /// Returns a value between 0 and 3 representing the reserved
     /// field.
-    #[inline]
+    #[inline(always)]
     pub fn reserved(&self) -> usize {
         ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
     }
@@ -229,7 +229,7 @@ impl Move {
     /// a sibling node, or any other earlier branch in the tree with
     /// the same distance to the root. Killer moves are sorted
     /// directly after all captures.
-    #[inline]
+    #[inline(always)]
     pub fn set_killer_flag(&mut self) {
         self.0 |= M_MASK_RESERVED;
     }
@@ -311,7 +311,6 @@ pub struct MoveStack {
 
 impl MoveStack {
     /// Creates a new (empty) instance.
-    #[inline]
     pub fn new() -> MoveStack {
         MoveStack {
             moves: Vec::with_capacity(32 * 64),
