@@ -52,7 +52,8 @@ use castling_rights::*;
 ///
 /// "En-passant file" tells on what vertical line on the board there
 /// was a passing pawn before the move was played. If there was no
-/// passing pawn, "en-passant file" should be `8`.
+/// passing pawn, "en-passant file" will be between `8` and `15`
+/// (inclusive).
 ///
 /// Castling rights are a bit complex. The castling rights for the side
 /// that makes the move, before the move was made, are stored in the
@@ -80,10 +81,10 @@ impl Move {
     /// `us` is the side that makes the move. `castling` are the
     /// castling rights before the move was played. `en_passant_file`
     /// is the file on which there were a passing pawn before the move
-    /// was played (or `8` if there was no passing
-    /// pawn). `promoted_piece_code` should be a number between `0`
-    /// and `3` and is used only when the `move_type` is a pawn
-    /// promotion, otherwise it is ignored.
+    /// was played, or a value between `8` and `15` (inclusive) if
+    /// there was no passing pawn. `promoted_piece_code` should be a
+    /// number between `0` and `3` and is used only when the
+    /// `move_type` is a pawn promotion, otherwise it is ignored.
     #[inline(always)]
     pub fn new(us: Color,
                move_type: MoveType,
@@ -91,7 +92,7 @@ impl Move {
                orig_square: Square,
                dest_square: Square,
                captured_piece: PieceType,
-               en_passant_file: File,
+               en_passant_file: usize,
                castling: CastlingRights,
                promoted_piece_code: usize)
                -> Move {
@@ -101,7 +102,7 @@ impl Move {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
         assert!(captured_piece != KING && captured_piece <= NO_PIECE);
-        assert!(en_passant_file <= 0b1000);
+        assert!(en_passant_file <= 0b1111);
         assert!(promoted_piece_code <= 0b11);
 
         // We use the reserved field (3 bits) to properly order
@@ -187,10 +188,11 @@ impl Move {
     }
 
     /// Returns the file on which there were a passing pawn before the
-    /// move was played (or `8` if there was no passing pawn).
+    /// move was played, or a value between `8` and `15` (inclusive)
+    /// if there was no passing pawn.
     #[inline(always)]
-    pub fn en_passant_file(&self) -> File {
-        ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as File
+    pub fn en_passant_file(&self) -> usize {
+        ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as usize
     }
 
     /// Returns a value between 0 and 3 representing the castling
@@ -451,7 +453,7 @@ mod tests {
     use super::*;
     use basetypes::*;
     use castling_rights::CastlingRights;
-    const NO_ENPASSANT_FILE: File = 8;
+    const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]
     fn test_move() {

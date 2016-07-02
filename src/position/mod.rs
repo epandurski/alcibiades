@@ -709,8 +709,7 @@ impl Clone for Position {
 }
 
 
-// The material value of pieces. Zeroes are added to increase memory
-// safety.
+// The material value of pieces.
 const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
 // Do not try exchanges with SSE==0 once this ply has been reached.

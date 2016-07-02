@@ -29,7 +29,7 @@ pub struct Board {
     color: [u64; 2],
     to_move: Color,
     castling: CastlingRights,
-    en_passant_file: File,
+    en_passant_file: usize,
     _occupied: u64, // this will always be equal to self.color[0] | self.color[1]
     _hash: u64, // Zobrist hash value
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
@@ -1128,7 +1128,7 @@ impl Board {
 
 
 // No passing pawn file.
-const NO_ENPASSANT_FILE: File = 8;
+const NO_ENPASSANT_FILE: usize = 8;
 
 
 // Pawn move types

@@ -7,7 +7,8 @@
 /// `WHITE` or `BLACK`.
 pub type Color = usize; // 0 or 1
 
-/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, or `NO_PIECE`.
+/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, `NO_PIECE`,
+/// or `UNKNOWN_PIECE`.
 pub type PieceType = usize;  // from 0 to 5
 
 /// From 0 to 7 (0 is rank 1, 7 is rank 8).
@@ -21,7 +22,7 @@ pub type Square = usize;  // from 0 to 63
 
 /// Number of searched positions.
 pub type NodeCount = u64;
-    
+
 /// Evaluation value in centipawns.
 ///
 /// Positive values mean that the position is favorable for the side
@@ -47,6 +48,7 @@ pub const BISHOP: PieceType = 3;
 pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
 pub const NO_PIECE: PieceType = 6;
+pub const UNKNOWN_PIECE: PieceType = 7;
 
 // Ranks
 pub const RANK_1: Rank = 0;
