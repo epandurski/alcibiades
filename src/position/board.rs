@@ -179,7 +179,6 @@ impl Board {
         let king_square = self.king_square();
         assert!(king_square <= 63);
         Move::new(self.to_move,
-                  0,
                   MOVE_NORMAL,
                   KING,
                   king_square,
@@ -757,7 +756,6 @@ impl Board {
             let dest_square = bitscan_1bit(dest_bb);
             let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), dest_bb);
             move_sink.push_move(Move::new(self.to_move,
-                                          0,
                                           MOVE_NORMAL,
                                           piece,
                                           from_square,
@@ -843,7 +841,6 @@ impl Board {
                     x if x == en_passant_bb => {
                         if self.en_passant_special_check_ok(orig_square, dest_square) {
                             move_sink.push_move(Move::new(self.to_move,
-                                                          0,
                                                           MOVE_ENPASSANT,
                                                           PAWN,
                                                           orig_square,
@@ -859,11 +856,6 @@ impl Board {
                     x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
                             move_sink.push_move(Move::new(self.to_move,
-                                                          if p == 0 {
-                                                              1  // queen
-                                                          } else {
-                                                              0  // other piece
-                                                          },
                                                           MOVE_PROMOTION,
                                                           PAWN,
                                                           orig_square,
@@ -881,7 +873,6 @@ impl Board {
                     // normal pawn move (push or plain capture)
                     _ => {
                         move_sink.push_move(Move::new(self.to_move,
-                                                      0,
                                                       MOVE_NORMAL,
                                                       PAWN,
                                                       orig_square,
@@ -917,7 +908,6 @@ impl Board {
                     // we do not care about that, because this
                     // will be verified in "do_move()".
                     move_sink.push_move(Move::new(self.to_move,
-                                                  0,
                                                   MOVE_CASTLING,
                                                   KING,
                                                   self.king_square(),

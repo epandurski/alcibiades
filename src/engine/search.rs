@@ -226,7 +226,7 @@ fn search(tt: &TranspositionTable,
             // Set the highest possible move score for the hash move.
             for m in moves.iter_mut() {
                 if m.move16() == hash_move {
-                    m.set_score(3);
+                    m.set_best_flag();
                 }
             }
         }

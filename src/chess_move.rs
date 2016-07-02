@@ -14,8 +14,8 @@ use castling_rights::*;
 /// 2. Information needed so as to be able to undo the move and
 ///    restore the board into the exact same state as before.
 ///
-/// 3. The move score -- moves with higher score are tried
-///    first. Ideally the best move should have the highest score.
+/// 3. Move ordering info -- moves with higher value are tried
+/// first. Ideally the best move should have the highest vaule.
 ///
 /// `Move` is a 32-bit unsigned number. The lowest 16 bits contain the
 /// whole needed information about the move itself (type 1). And is
@@ -42,11 +42,11 @@ use castling_rights::*;
 ///  ```text
 ///   31                                                          16
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  |   |   |   |   |   |       |   |   |   |   |   |   |   |   |   |
+///  |Be-|  Captured | Reserved  |  Played   | Cast- |   En-passant  |
+///  |st |  piece    |           |  piece    | ling  |      file     |
+///  |1 b|  3 bits   | 3 bits    |  3 bits   | 2 bits|     4 bits    |
 ///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-///  | Move  |  Captured | Reser-|  Played   | Cast- |   En-passant  |
-///  | score |  piece    |  ved  |  piece    | ling  |      file     |
-///  | 2 bits|  3 bits   | 2 bits|  3 bits   | 2 bits|     4 bits    |
-///  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
@@ -64,8 +64,9 @@ use castling_rights::*;
 ///
 /// When "Captured piece" is stored, its bits are inverted, so that
 /// MVV-LVA (Most valuable victim -- least valuable aggressor)
-/// ordering of the moves is preserved, even when the "Move score"
-/// field stays the same. The "Reserved" field is used to improve the
+/// ordering of the moves is preserved, even when the other fields
+/// stay the same. The "Best" field is used to flag that the move
+/// should be tried first. The "Reserved" field is used to improve the
 /// ordering of non-capturing moves.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
@@ -76,17 +77,15 @@ pub struct Move(u32);
 impl Move {
     /// Creates a new instance of `Move`.
     ///
-    /// `us` is the side that makes the move. `score` is the assigned
-    /// move score (between 0 and 3). `castling` are the castling
-    /// rights before the move was played. `en_passant_file` is the
-    /// file on which there were a passing pawn before the move was
-    /// played (or `8` if there was no passing
+    /// `us` is the side that makes the move. `castling` are the
+    /// castling rights before the move was played. `en_passant_file`
+    /// is the file on which there were a passing pawn before the move
+    /// was played (or `8` if there was no passing
     /// pawn). `promoted_piece_code` should be a number between `0`
     /// and `3` and is used only when the `move_type` is a pawn
     /// promotion, otherwise it is ignored.
     #[inline(always)]
     pub fn new(us: Color,
-               score: usize,
                move_type: MoveType,
                piece: PieceType,
                orig_square: Square,
@@ -97,7 +96,6 @@ impl Move {
                promoted_piece_code: usize)
                -> Move {
         assert!(us <= 1);
-        assert!(score <= 0b11);
         assert!(move_type <= 0x11);
         assert!(piece < NO_PIECE);
         assert!(orig_square <= 63);
@@ -106,30 +104,43 @@ impl Move {
         assert!(en_passant_file <= 0b1000);
         assert!(promoted_piece_code <= 0b11);
 
-        // We use the reserved field (2 bits) to properly order
-        // "quiet" movies. Moves which destination square is closer to
-        // the central ranks are tried first.
-        const RESERVED_LOOKUP: [usize; 8] = [0 << M_SHIFT_RESERVED,
-                                             1 << M_SHIFT_RESERVED,
-                                             1 << M_SHIFT_RESERVED,
-                                             2 << M_SHIFT_RESERVED,
-                                             2 << M_SHIFT_RESERVED,
-                                             1 << M_SHIFT_RESERVED,
-                                             1 << M_SHIFT_RESERVED,
-                                             0 << M_SHIFT_RESERVED];
-        let reserved_shifted = if captured_piece == NO_PIECE {
-            unsafe { *RESERVED_LOOKUP.get_unchecked(rank(dest_square)) }
+        // We use the reserved field (3 bits) to properly order
+        // "quiet" movies. Moves which destination square rank has
+        // better safety/activity balance are tried first.
+        const RESERVED_LOOKUP: [[usize; 8]; 2] = [// white
+                                                  [2 << M_SHIFT_RESERVED,
+                                                   4 << M_SHIFT_RESERVED,
+                                                   4 << M_SHIFT_RESERVED,
+                                                   5 << M_SHIFT_RESERVED,
+                                                   3 << M_SHIFT_RESERVED,
+                                                   0 << M_SHIFT_RESERVED,
+                                                   1 << M_SHIFT_RESERVED,
+                                                   1 << M_SHIFT_RESERVED],
+                                                  // black
+                                                  [1 << M_SHIFT_RESERVED,
+                                                   1 << M_SHIFT_RESERVED,
+                                                   0 << M_SHIFT_RESERVED,
+                                                   3 << M_SHIFT_RESERVED,
+                                                   5 << M_SHIFT_RESERVED,
+                                                   4 << M_SHIFT_RESERVED,
+                                                   4 << M_SHIFT_RESERVED,
+                                                   2 << M_SHIFT_RESERVED]];
+        let mut reserved_shifted = if captured_piece == NO_PIECE {
+            unsafe { *RESERVED_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) }
         } else {
             0
         };
 
         let aux_data = if move_type == MOVE_PROMOTION {
+            if promoted_piece_code == 0 {
+                reserved_shifted = 6 << M_SHIFT_RESERVED;
+            }
             promoted_piece_code
         } else {
             castling.get_for(us)
         };
-        Move((score << M_SHIFT_SCORE | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-              reserved_shifted | piece << M_SHIFT_PIECE |
+        Move(((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | reserved_shifted |
+              piece << M_SHIFT_PIECE |
               castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
               en_passant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
@@ -141,20 +152,6 @@ impl Move {
     #[inline(always)]
     pub fn from_u32(value: u32) -> Move {
         Move(value)
-    }
-
-    /// Assigns a new score for the move (between 0 and 3).
-    #[inline(always)]
-    pub fn set_score(&mut self, score: usize) {
-        assert!(score <= 0b11);
-        self.0 &= !M_MASK_SCORE;
-        self.0 |= (score << M_SHIFT_SCORE) as u32;
-    }
-
-    /// Returns the assigned move score.
-    #[inline(always)]
-    pub fn score(&self) -> usize {
-        ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
     }
 
     /// Returns the move type.
@@ -216,14 +213,19 @@ impl Move {
         ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
     }
 
-    /// Returns a value between 0 and 3 representing the reserved
-    /// field.
+    /// Sets the value of "Best" field to `1` ("best" flag).
+    ///
+    /// The "best" move is the move that was recorded in the
+    /// transposition table for this position. It is either the best
+    /// move found, or a refutation move that sufficiently improves
+    /// the chances of the player, so that the opponent is likely to
+    /// avoid this line of play.
     #[inline(always)]
-    pub fn reserved(&self) -> usize {
-        ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
+    pub fn set_best_flag(&mut self) {
+        self.0 |= M_MASK_BEST;
     }
 
-    /// Sets the value of the reserved field to `3` ("killer" flag).
+    /// Sets the value of the reserved field to `7` ("killer" flag).
     ///
     /// A "killer" move is a quiet move which caused a beta-cutoff in
     /// a sibling node, or any other earlier branch in the tree with
@@ -249,7 +251,8 @@ impl Move {
     /// The returned value contains the whole information about the
     /// played move itself. The only missing information is the move
     /// ordering information and the information stored so as to be
-    /// able undo the move.
+    /// able undo the move. For proper moves the returned value can
+    /// never be `0`.
     #[inline(always)]
     pub fn move16(&self) -> u16 {
         self.0 as u16
@@ -283,6 +286,14 @@ impl Move {
             2 => BISHOP,
             _ => KNIGHT,
         }
+    }
+
+    // Returns a value between 0 and 7 representing the reserved
+    // field.
+    #[allow(dead_code)]
+    #[inline(always)]
+    fn reserved(&self) -> usize {
+        ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
     }
 }
 
@@ -356,8 +367,8 @@ impl MoveStack {
         self.moves[self.first_move_index..].iter_mut()
     }
 
-    /// Returns the move with the best score and removes it from the
-    /// current move list.
+    /// Returns the move with the highest value and removes it from
+    /// the current move list.
     #[inline]
     pub fn remove_best_move(&mut self) -> Option<Move> {
         let moves = &mut self.moves;
@@ -411,8 +422,8 @@ pub const MOVE_NORMAL: MoveType = 3;
 
 
 // Field shifts
-const M_SHIFT_SCORE: u32 = 30;
-const M_SHIFT_CAPTURED_PIECE: u32 = 27;
+const M_SHIFT_BEST: u32 = 31;
+const M_SHIFT_CAPTURED_PIECE: u32 = 28;
 const M_SHIFT_RESERVED: u32 = 25;
 const M_SHIFT_PIECE: u32 = 22;
 const M_SHIFT_CASTLING_DATA: u32 = 20;
@@ -423,9 +434,9 @@ const M_SHIFT_DEST_SQUARE: u32 = 2;
 const M_SHIFT_AUX_DATA: u32 = 0;
 
 // Field masks
-const M_MASK_SCORE: u32 = 0b11 << M_SHIFT_SCORE;
+const M_MASK_BEST: u32 = 0b1 << M_SHIFT_BEST;
 const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
-const M_MASK_RESERVED: u32 = 0b11 << M_SHIFT_RESERVED;
+const M_MASK_RESERVED: u32 = 0b111 << M_SHIFT_RESERVED;
 const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
 const M_MASK_CASTLING_DATA: u32 = 0b11 << M_SHIFT_CASTLING_DATA;
 const M_MASK_ENPASSANT_FILE: u32 = 0b1111 << M_SHIFT_ENPASSANT_FILE;
@@ -449,7 +460,6 @@ mod tests {
         cr.set_for(WHITE, 0b10);
         cr.set_for(BLACK, 0b11);
         let mut m = Move::new(WHITE,
-                              2,
                               MOVE_NORMAL,
                               PAWN,
                               E2,
@@ -459,7 +469,6 @@ mod tests {
                               cr,
                               0);
         let mut n1 = Move::new(WHITE,
-                               2,
                                MOVE_NORMAL,
                                PAWN,
                                F3,
@@ -469,7 +478,6 @@ mod tests {
                                CastlingRights::new(),
                                0);
         let n2 = Move::new(WHITE,
-                           2,
                            MOVE_NORMAL,
                            KING,
                            F3,
@@ -479,7 +487,6 @@ mod tests {
                            CastlingRights::new(),
                            0);
         let n3 = Move::new(BLACK,
-                           0,
                            MOVE_PROMOTION,
                            PAWN,
                            F2,
@@ -489,7 +496,6 @@ mod tests {
                            CastlingRights::new(),
                            1);
         let n4 = Move::new(WHITE,
-                           0,
                            MOVE_NORMAL,
                            BISHOP,
                            F2,
@@ -499,7 +505,6 @@ mod tests {
                            CastlingRights::new(),
                            0);
         let n5 = Move::new(WHITE,
-                           0,
                            MOVE_NORMAL,
                            PAWN,
                            F2,
@@ -510,7 +515,6 @@ mod tests {
                            0);
         assert!(n1 > m);
         assert!(n2 < m);
-        assert_eq!(m.score(), 2);
         assert_eq!(m.piece(), PAWN);
         assert_eq!(m.captured_piece(), NO_PIECE);
         assert_eq!(m.orig_square(), E2);
@@ -520,16 +524,12 @@ mod tests {
         assert_eq!(m.castling_data(), 0b11);
         let m2 = m;
         assert_eq!(m, m2);
-        m.set_score(3);
-        assert_eq!(m.score(), 3);
+        m.set_best_flag();
         assert!(m > m2);
-        assert_eq!(m.score(), 3);
-        m.set_score(0);
-        assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
         assert_eq!(n1.reserved(), 0);
         n1.set_killer_flag();
-        assert_eq!(n1.reserved(), 3);
+        assert_eq!(n1.reserved(), 7);
         assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
         assert!(m.is_pawn_advance_or_capure());
         assert!(!n2.is_pawn_advance_or_capure());
@@ -540,7 +540,6 @@ mod tests {
     #[test]
     fn test_move_stack() {
         let m = Move::new(WHITE,
-                          2,
                           MOVE_NORMAL,
                           PAWN,
                           E2,
