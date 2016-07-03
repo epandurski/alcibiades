@@ -47,8 +47,9 @@ impl CastlingRights {
     /// castle on the given side before this method was called, and
     /// `false` otherwise.
     pub fn grant(&mut self, player: Color, side: CastlingSide) -> bool {
-        assert!(player <= 1);
-        assert!(side <= 1);
+        if player > 1 || side > 1 {
+            panic!("invalid arguments");
+        }
         let before = self.0;
         let mask = 1 << (player << 1) << side;
         self.0 |= mask;
