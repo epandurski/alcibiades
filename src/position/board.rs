@@ -92,13 +92,6 @@ impl Board {
         Board::create(placement, to_move, castling, en_passant_square)
     }
 
-    /// Returns a reference to a properly initialized `BoardGeometry`
-    /// object.
-    #[inline(always)]
-    pub fn geometry(&self) -> &BoardGeometry {
-        self.geometry
-    }
-
     /// Returns an array of 6 occupation bitboards -- one for each
     /// piece type.
     #[inline(always)]
@@ -111,6 +104,52 @@ impl Board {
     #[inline(always)]
     pub fn color(&self) -> &[u64; 2] {
         &self.color
+    }
+
+    /// Returns a bitboard of all occupied squares.
+    #[inline(always)]
+    pub fn occupied(&self) -> u64 {
+        self._occupied
+    }
+
+    /// Returns a bitboard of all checkers that are attacking the
+    /// king.
+    #[inline]
+    pub fn checkers(&self) -> u64 {
+        if self._checkers.get() == UNIVERSAL_SET {
+            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
+        }
+        self._checkers.get()
+    }
+    
+    /// Returns a bitboard of all pieces (or pawns) of color `us` that
+    /// attack `square`.
+    #[inline]
+    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
+        let occupied_by_us = self.color[us];
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
+
+        if square > 63 {
+            // We call "piece_attacks_from()" here many times, which for
+            // performance reasons do not do array boundary checks. Since
+            // "Board::attacks_to()" is a public function, we have to
+            // guarantee memory safety for all its users.
+            panic!("invalid square");
+        }
+        let square_bb = 1 << square;
+
+        (self.geometry.piece_attacks_from(self.occupied(), ROOK, square) & occupied_by_us &
+         (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
+        (self.geometry.piece_attacks_from(self.occupied(), BISHOP, square) & occupied_by_us &
+         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
+        (self.geometry.piece_attacks_from(self.occupied(), KNIGHT, square) & occupied_by_us &
+         self.piece_type[KNIGHT]) |
+        (self.geometry.piece_attacks_from(self.occupied(), KING, square) & occupied_by_us &
+         self.piece_type[KING]) |
+        (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
+        (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
+         self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
     /// Returns the side to move.
@@ -135,12 +174,6 @@ impl Board {
         }
     }
 
-    /// Returns a bitboard of all occupied squares.
-    #[inline(always)]
-    pub fn occupied(&self) -> u64 {
-        self._occupied
-    }
-
     /// Returns the Zobrist hash value for the current board.
     ///
     /// Zobrist Hashing is a technique to transform a board position
@@ -157,17 +190,160 @@ impl Board {
     pub fn hash(&self) -> u64 {
         self._hash
     }
-
-    /// Returns a bitboard of all checkers that are attacking the
-    /// king.
+    
+    /// Generates pseudo-legal moves and pushes them to `move_stack`.
     ///
-    /// The value is lazily calculated and saved for future use.
+    /// When `all` is `true`, all pseudo-legal moves will be
+    /// considered. When `all` is `false`, only captures, pawn
+    /// promotions to queen, and check evasions will be considered.
+    /// It is guaranteed, that all generated moves with pieces other
+    /// than the king are legal. It is possible that some of the
+    /// king's moves are illegal because the destination square is
+    /// under check, or when castling, king's passing square is
+    /// attacked. This is because verifying that these squares are not
+    /// under attack is quite expensive, and therefore we hope that
+    /// the alpha-beta pruning will eliminate the need for this
+    /// verification at all.
     #[inline]
-    pub fn checkers(&self) -> u64 {
-        if self._checkers.get() == UNIVERSAL_SET {
-            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
+    pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
+        assert!(self.is_legal());
+        let king_square = self.king_square();
+        let checkers = self.checkers();
+        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
+        let occupied_by_them = self.occupied() ^ occupied_by_us;
+        let generate_all_moves = all || checkers != 0;
+        assert!(king_square <= 63);
+
+        // When in check, for every move except king's moves, the only
+        // legal destination squares are those lying on the line
+        // between the checker and the king. Also, no piece can move
+        // to a square that is occupied by a friendly piece.
+        let legal_dests = !occupied_by_us &
+                          match ls1b(checkers) {
+            0 =>
+                // Not in check -- every move destination may be
+                // considered "covering".
+                UNIVERSAL_SET,
+
+            x if x == checkers =>
+                // Single check -- calculate the check covering
+                // destination subset (the squares between the king
+                // and the checker). Notice that we must OR with "x"
+                // itself, because knights give check not lying on a
+                // line with the king.
+                x |
+                unsafe {
+                    *self.geometry
+                         .squares_between_including
+                         .get_unchecked(king_square)
+                         .get_unchecked(bitscan_1bit(x))
+                },
+
+            _ =>
+                // Double check -- no covering moves.
+                EMPTY_SET,
+        };
+
+        if legal_dests != EMPTY_SET {
+            // This block is not executed when the king is in double
+            // check.
+
+            let pinned = self.find_pinned();
+            let pin_lines = unsafe { self.geometry.squares_at_line.get_unchecked(king_square) };
+            let en_passant_bb = self.en_passant_bb();
+
+            // Find queen, rook, bishop, and knight moves.
+            {
+                // Reduce the set of legal destinations when searching
+                // only for captures, pawn promotions to queen, and
+                // check evasions.
+                let legal_dests = if generate_all_moves {
+                    legal_dests
+                } else {
+                    assert_eq!(legal_dests, !occupied_by_us);
+                    occupied_by_them
+                };
+
+                for piece in QUEEN..PAWN {
+                    let mut bb = unsafe { *self.piece_type.get_unchecked(piece) } & occupied_by_us;
+                    while bb != EMPTY_SET {
+                        let piece_bb = ls1b(bb);
+                        bb ^= piece_bb;
+                        let from_square = bitscan_1bit(piece_bb);
+                        let piece_legal_dests = match piece_bb & pinned {
+                            0 => legal_dests,
+                            _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
+                        };
+                        self.push_piece_moves_to_sink(piece,
+                                                      from_square,
+                                                      piece_legal_dests,
+                                                      move_stack);
+                    }
+                }
+            }
+
+            // Find pawn moves.
+            {
+                // Reduce the set of legal destinations when searching
+                // only for captures, pawn promotions to queen, and
+                // check evasions.
+                let legal_dests = if generate_all_moves {
+                    legal_dests
+                } else {
+                    assert_eq!(legal_dests, !occupied_by_us);
+                    legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
+                };
+
+                // When in check, en-passant capture is a legal evasion
+                // move only when the checking piece is the passing pawn
+                // itself.
+                let pawn_legal_dests = match checkers & self.piece_type[PAWN] {
+                    0 => legal_dests,
+                    _ => legal_dests | en_passant_bb,
+                };
+
+                // Find all free pawn moves at once.
+                let all_pawns = self.piece_type[PAWN] & occupied_by_us;
+                let mut pinned_pawns = all_pawns & pinned;
+                let free_pawns = all_pawns ^ pinned_pawns;
+                if free_pawns != EMPTY_SET {
+                    self.push_pawn_moves_to_sink(free_pawns,
+                                                 en_passant_bb,
+                                                 pawn_legal_dests,
+                                                 !generate_all_moves,
+                                                 move_stack);
+                }
+
+                // Find pinned pawn moves pawn by pawn.
+                while pinned_pawns != EMPTY_SET {
+                    let pawn_bb = ls1b(pinned_pawns);
+                    pinned_pawns ^= pawn_bb;
+                    let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
+                    self.push_pawn_moves_to_sink(pawn_bb,
+                                                 en_passant_bb,
+                                                 pin_line & pawn_legal_dests,
+                                                 !generate_all_moves,
+                                                 move_stack);
+                }
+            }
         }
-        self._checkers.get()
+
+        // Find king moves (pseudo-legal, possibly moving into check
+        // or passing through an attacked square when castling). This
+        // is executed even when the king is in double check.
+        {
+            let king_legal_dests = if generate_all_moves {
+                self.push_castling_moves_to_sink(move_stack);
+                !occupied_by_us
+            } else {
+                // Reduce the set of legal destinations when searching
+                // only for captures, pawn promotions to queen, and
+                // check evasions.
+                occupied_by_them
+            };
+
+            self.push_piece_moves_to_sink(KING, king_square, king_legal_dests, move_stack);
+        }
     }
 
     /// Returns a null move.
@@ -191,6 +367,12 @@ impl Board {
                   self.en_passant_file,
                   self.castling,
                   0)
+    }
+    
+    /// Returns if `m` is a null move.
+    #[inline]
+    pub fn is_null_move(m: Move) -> bool {
+        m.orig_square() == m.dest_square()
     }
 
     /// Plays a move on the board.
@@ -253,7 +435,7 @@ impl Board {
                 } else {
                     QUEENSIDE
                 };
-                let mask = g.castling_rook_mask[us][side];
+                let mask = CASTLING_ROOK_MASK[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
                 hash ^= g.zobrist_castling_rook_move[us][side];
@@ -443,7 +625,7 @@ impl Board {
                 } else {
                     QUEENSIDE
                 };
-                let mask = g.castling_rook_mask[us][side];
+                let mask = CASTLING_ROOK_MASK[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
                 hash ^= g.zobrist_castling_rook_move[us][side];
@@ -457,196 +639,6 @@ impl Board {
         }
 
         assert!(self.is_legal());
-    }
-
-    /// Generates pseudo-legal moves and pushes them to `move_stack`.
-    ///
-    /// When `all` is `true`, all pseudo-legal moves will be
-    /// considered. When `all` is `false`, only captures, pawn
-    /// promotions to queen, and check evasions will be considered.
-    /// It is guaranteed, that all generated moves with pieces other
-    /// than the king are legal. It is possible that some of the
-    /// king's moves are illegal because the destination square is
-    /// under check, or when castling, king's passing square is
-    /// attacked. This is because verifying that these squares are not
-    /// under attack is quite expensive, and therefore we hope that
-    /// the alpha-beta pruning will eliminate the need for this
-    /// verification at all.
-    #[inline]
-    pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
-        assert!(self.is_legal());
-        let king_square = self.king_square();
-        let checkers = self.checkers();
-        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
-        let occupied_by_them = self.occupied() ^ occupied_by_us;
-        let generate_all_moves = all || checkers != 0;
-        assert!(king_square <= 63);
-
-        // When in check, for every move except king's moves, the only
-        // legal destination squares are those lying on the line
-        // between the checker and the king. Also, no piece can move
-        // to a square that is occupied by a friendly piece.
-        let legal_dests = !occupied_by_us &
-                          match ls1b(checkers) {
-            0 =>
-                // Not in check -- every move destination may be
-                // considered "covering".
-                UNIVERSAL_SET,
-
-            x if x == checkers =>
-                // Single check -- calculate the check covering
-                // destination subset (the squares between the king
-                // and the checker). Notice that we must OR with "x"
-                // itself, because knights give check not lying on a
-                // line with the king.
-                x |
-                unsafe {
-                    *self.geometry
-                         .squares_between_including
-                         .get_unchecked(king_square)
-                         .get_unchecked(bitscan_1bit(x))
-                },
-
-            _ =>
-                // Double check -- no covering moves.
-                EMPTY_SET,
-        };
-
-        if legal_dests != EMPTY_SET {
-            // This block is not executed when the king is in double
-            // check.
-
-            let pinned = self.find_pinned();
-            let pin_lines = unsafe { self.geometry.squares_at_line.get_unchecked(king_square) };
-            let en_passant_bb = self.en_passant_bb();
-
-            // Find queen, rook, bishop, and knight moves.
-            {
-                // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions to queen, and
-                // check evasions.
-                let legal_dests = if generate_all_moves {
-                    legal_dests
-                } else {
-                    assert_eq!(legal_dests, !occupied_by_us);
-                    occupied_by_them
-                };
-
-                for piece in QUEEN..PAWN {
-                    let mut bb = unsafe { *self.piece_type.get_unchecked(piece) } & occupied_by_us;
-                    while bb != EMPTY_SET {
-                        let piece_bb = ls1b(bb);
-                        bb ^= piece_bb;
-                        let from_square = bitscan_1bit(piece_bb);
-                        let piece_legal_dests = match piece_bb & pinned {
-                            0 => legal_dests,
-                            _ => unsafe { legal_dests & *pin_lines.get_unchecked(from_square) },
-                        };
-                        self.push_piece_moves_to_sink(piece,
-                                                      from_square,
-                                                      piece_legal_dests,
-                                                      move_stack);
-                    }
-                }
-            }
-
-            // Find pawn moves.
-            {
-                // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions to queen, and
-                // check evasions.
-                let legal_dests = if generate_all_moves {
-                    legal_dests
-                } else {
-                    assert_eq!(legal_dests, !occupied_by_us);
-                    legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
-                };
-
-                // When in check, en-passant capture is a legal evasion
-                // move only when the checking piece is the passing pawn
-                // itself.
-                let pawn_legal_dests = match checkers & self.piece_type[PAWN] {
-                    0 => legal_dests,
-                    _ => legal_dests | en_passant_bb,
-                };
-
-                // Find all free pawn moves at once.
-                let all_pawns = self.piece_type[PAWN] & occupied_by_us;
-                let mut pinned_pawns = all_pawns & pinned;
-                let free_pawns = all_pawns ^ pinned_pawns;
-                if free_pawns != EMPTY_SET {
-                    self.push_pawn_moves_to_sink(free_pawns,
-                                                 en_passant_bb,
-                                                 pawn_legal_dests,
-                                                 !generate_all_moves,
-                                                 move_stack);
-                }
-
-                // Find pinned pawn moves pawn by pawn.
-                while pinned_pawns != EMPTY_SET {
-                    let pawn_bb = ls1b(pinned_pawns);
-                    pinned_pawns ^= pawn_bb;
-                    let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
-                    self.push_pawn_moves_to_sink(pawn_bb,
-                                                 en_passant_bb,
-                                                 pin_line & pawn_legal_dests,
-                                                 !generate_all_moves,
-                                                 move_stack);
-                }
-            }
-        }
-
-        // Find king moves (pseudo-legal, possibly moving into check
-        // or passing through an attacked square when castling). This
-        // is executed even when the king is in double check.
-        {
-            let king_legal_dests = if generate_all_moves {
-                self.push_castling_moves_to_sink(move_stack);
-                !occupied_by_us
-            } else {
-                // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions to queen, and
-                // check evasions.
-                occupied_by_them
-            };
-
-            self.push_piece_moves_to_sink(KING, king_square, king_legal_dests, move_stack);
-        }
-    }
-
-    /// Returns all attackers of a given color to a given square.
-    #[inline]
-    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
-        let occupied_by_us = self.color[us];
-        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
-
-        if square > 63 {
-            // We call "piece_attacks_from()" here many times, which for
-            // performance reasons do not do array boundary checks. Since
-            // "Board::attacks_to()" is a public function, we have to
-            // guarantee memory safety for all its users.
-            panic!("invalid square");
-        }
-        let square_bb = 1 << square;
-
-        (piece_attacks_from(self.geometry, self.occupied(), ROOK, square) & occupied_by_us &
-         (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied(), BISHOP, square) & occupied_by_us &
-         (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
-        (piece_attacks_from(self.geometry, self.occupied(), KNIGHT, square) & occupied_by_us &
-         self.piece_type[KNIGHT]) |
-        (piece_attacks_from(self.geometry, self.occupied(), KING, square) & occupied_by_us &
-         self.piece_type[KING]) |
-        (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
-         self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
-        (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
-         self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
-    }
-
-    /// Returns if `m` is a null move.
-    #[inline]
-    pub fn is_null_move(m: Move) -> bool {
-        m.orig_square() == m.dest_square()
     }
 
     // Analyzes the board and decides if it is a legal board.
@@ -749,7 +741,7 @@ impl Board {
                                 move_stack: &mut MoveStack) {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
-        let mut dest_set = piece_attacks_from(self.geometry, self.occupied(), piece, from_square) &
+        let mut dest_set = self.geometry.piece_attacks_from(self.occupied(), piece, from_square) &
                            legal_dests;
         while dest_set != EMPTY_SET {
             let dest_bb = ls1b(dest_set);
@@ -945,9 +937,9 @@ impl Board {
         let diag_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
         let straight_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[ROOK]);
         let mut pinners = diag_sliders &
-                          piece_attacks_from(self.geometry, diag_sliders, BISHOP, king_square) |
+                          self.geometry.piece_attacks_from(diag_sliders, BISHOP, king_square) |
                           straight_sliders &
-                          piece_attacks_from(self.geometry, straight_sliders, ROOK, king_square);
+                          self.geometry.piece_attacks_from(straight_sliders, ROOK, king_square);
 
         if pinners == EMPTY_SET {
             EMPTY_SET
@@ -1025,13 +1017,13 @@ impl Board {
         let occupied_by_them = unsafe { *self.color.get_unchecked(them) };
         let occupied = self.occupied() & !(1 << self.king_square());
 
-        (piece_attacks_from(self.geometry, occupied, ROOK, square) & occupied_by_them &
+        (self.geometry.piece_attacks_from(occupied, ROOK, square) & occupied_by_them &
          (self.piece_type[ROOK] | self.piece_type[QUEEN])) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, occupied, BISHOP, square) & occupied_by_them &
+        (self.geometry.piece_attacks_from(occupied, BISHOP, square) & occupied_by_them &
          (self.piece_type[BISHOP] | self.piece_type[QUEEN])) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, occupied, KNIGHT, square) & occupied_by_them &
+        (self.geometry.piece_attacks_from(occupied, KNIGHT, square) & occupied_by_them &
          self.piece_type[KNIGHT]) != EMPTY_SET ||
-        (piece_attacks_from(self.geometry, occupied, KING, square) & occupied_by_them &
+        (self.geometry.piece_attacks_from(occupied, KING, square) & occupied_by_them &
          self.piece_type[KING]) != EMPTY_SET ||
         {
             let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(them) };
@@ -1067,7 +1059,7 @@ impl Board {
                                           PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
             let occupied = self.occupied() & !the_two_pawns;
             let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
-            let checkers = piece_attacks_from(self.geometry, occupied, ROOK, king_square) &
+            let checkers = self.geometry.piece_attacks_from(occupied, ROOK, king_square) &
                            occupied_by_them &
                            (self.piece_type[ROOK] | self.piece_type[QUEEN]);
             checkers == EMPTY_SET
@@ -1143,35 +1135,12 @@ const PAWN_EAST_CAPTURE: usize = 3;
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 
-/// Returns the set of squares that are attacked by a piece (not a
-/// pawn).
-///
-/// This function returns the set of squares that are attacked by a
-/// piece of type `piece` from the square `square`, on a board which
-/// is occupied with other pieces according to the `occupied`
-/// bitboard. `geometry` supplies the look-up tables needed to perform
-/// the calculation.
-#[inline]
-pub fn piece_attacks_from(geometry: &BoardGeometry,
-                          occupied: u64,
-                          piece: PieceType,
-                          square: Square)
-                          -> u64 {
-    assert!(piece < PAWN);
-    assert!(square <= 63);
-    unsafe {
-        let behind: &[u64; 64] = geometry.squares_behind_blocker.get_unchecked(square);
-        let mut attacks = *geometry.attacks.get_unchecked(piece).get_unchecked(square);
-        let mut blockers = occupied &
-                           *geometry.blockers_and_beyond
-                                    .get_unchecked(piece)
-                                    .get_unchecked(square);
-        while blockers != EMPTY_SET {
-            attacks &= !*behind.get_unchecked(bitscan_forward_and_reset(&mut blockers));
-        }
-        attacks
-    }
-}
+// Bitboards that describe how the castling rook moves during the
+// castling move.
+const CASTLING_ROOK_MASK: [[u64; 2]; 2] = [
+    [1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
+    [1 << A8 | 1 << D8, 1 << H8 | 1 << F8],
+];
 
 
 /// Returns the type of the piece at a given square.
@@ -1224,15 +1193,14 @@ mod tests {
 
     #[test]
     fn test_attacks_from() {
-        use position::board_geometry::board_geometry;
-        use super::piece_attacks_from;
+        use position::board_geometry::*;
         let b = Board::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
         let g = board_geometry();
-        assert_eq!(piece_attacks_from(g, b.color[WHITE] | b.color[BLACK], BISHOP, A1),
+        assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(piece_attacks_from(g, b.color[WHITE] | b.color[BLACK], BISHOP, A1),
+        assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(piece_attacks_from(g, b.color[WHITE] | b.color[BLACK], KNIGHT, A1),
+        assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], KNIGHT, A1),
                    1 << B3 | 1 << C2);
     }
 

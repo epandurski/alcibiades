@@ -1,8 +1,9 @@
-//! Generates fundamental look-up tables.
+//! Generates look-up tables and implements look-up methods.
 
 use rand::{Rng, SeedableRng};
 use rand::isaac::Isaac64Rng;
 use basetypes::*;
+use bitsets::*;
 use castling_rights::*;
 
 
@@ -28,11 +29,11 @@ pub fn board_geometry() -> &'static BoardGeometry {
 }
 
 
-/// A collection of pre-calculated tables.
+/// A collection of look-up tables and look-up methods.
 ///
-/// `BoardGeometry` contains pre-calculated tables that are needed for
-/// implementing move generation and various other board-related
-/// problems.
+/// `BoardGeometry` contains pre-calculated tables and methods that
+/// are needed for implementing move generation and various other
+/// board-related problems.
 pub struct BoardGeometry {
     grid: [u8; 120],
     piece_grid_deltas: [[i8; 8]; 5],
@@ -53,7 +54,7 @@ pub struct BoardGeometry {
     /// . 1 . 1 . 1 . .             . . 1 . 1 . . .       
     /// 1 . . 1 . . 1 .             . . . . . . . .       
     /// ```
-    pub attacks: [[u64; 64]; 5],
+    attacks: [[u64; 64]; 5],
 
     /// Holds "blockers and beyond" bitboards for each piece on each
     /// possible square.
@@ -71,10 +72,10 @@ pub struct BoardGeometry {
     /// . . . . . . . .                    . 1 . 1 . 1 . .
     /// . . . . . . . .                    . . . . . . . .
     /// ```
-    pub blockers_and_beyond: [[u64; 64]; 5],
+    blockers_and_beyond: [[u64; 64]; 5],
 
     /// Holds bitsets that describe all squares lying at the line
-    /// determined by the attacker and the blocker.
+    /// determined by two squares.
     ///
     /// # Examples
     ///
@@ -91,9 +92,8 @@ pub struct BoardGeometry {
     /// ```
     pub squares_at_line: [[u64; 64]; 64],
 
-    /// Holds bitboards that describe all squares between an attacker
-    /// an a blocker including the attacker's and blocker's fields
-    /// themselves.
+    /// Holds bitboards that describe all squares lying between two
+    /// squares including the two squares themselves.
     ///
     /// # Examples
     ///
@@ -136,22 +136,18 @@ pub struct BoardGeometry {
     /// derive the updated castling rights.
     pub castling_relation: [usize; 64],
 
-    /// Holds bitboards that describe how the castling rook moves
-    /// during the castling move.
-    pub castling_rook_mask: [[u64; 2]; 2],
-
     /// Used in calculating the Zobrist hash function.
     pub zobrist_pieces: [[[u64; 64]; 6]; 2],
 
     /// Used in calculating the Zobrist hash function.
     pub zobrist_castling: [u64; 16],
-    
+
     /// Used in calculating the Zobrist hash function.
     pub zobrist_castling_rook_move: [[u64; 2]; 2],
-    
+
     /// Used in calculating the Zobrist hash function.
     pub zobrist_en_passant: [u64; 16],
-    
+
     /// Used in calculating the Zobrist hash function.
     pub zobrist_to_move: u64,
 }
@@ -196,7 +192,6 @@ impl BoardGeometry {
             squares_between_including: [[0; 64]; 64],
             squares_behind_blocker: [[0; 64]; 64],
             castling_relation: [!0; 64],
-            castling_rook_mask: [[0; 2]; 2],
             zobrist_pieces: [[[0; 64]; 6]; 2],
             zobrist_castling: [0; 16],
             zobrist_castling_rook_move: [[0; 2]; 2],
@@ -208,9 +203,33 @@ impl BoardGeometry {
         bg.fill_squares_between_including_and_squares_behind_blocker_arrays();
         bg.fill_squares_at_line_array();
         bg.fill_castling_relation();
-        bg.fill_castling_rook_mask();
         bg.fill_zobrist_arrays();
         bg
+    }
+
+    /// Returns the set of squares that are attacked by a piece (not a
+    /// pawn).
+    ///
+    /// This function returns the set of squares that are attacked by
+    /// a piece of type `piece` from the square `from_square`, on a
+    /// board which is occupied with other pieces according to the
+    /// `occupied` bitboard.
+    #[inline]
+    pub fn piece_attacks_from(&self, occupied: u64, piece: PieceType, from_square: Square) -> u64 {
+        assert!(piece < PAWN);
+        assert!(from_square <= 63);
+        unsafe {
+            let behind: &[u64; 64] = self.squares_behind_blocker.get_unchecked(from_square);
+            let mut attacks = *self.attacks.get_unchecked(piece).get_unchecked(from_square);
+            let mut blockers = occupied &
+                               *self.blockers_and_beyond
+                                    .get_unchecked(piece)
+                                    .get_unchecked(from_square);
+            while blockers != EMPTY_SET {
+                attacks &= !*behind.get_unchecked(bitscan_forward_and_reset(&mut blockers));
+            }
+            attacks
+        }
     }
 
     fn grid_index(&self, i: Square) -> usize {
@@ -348,13 +367,6 @@ impl BoardGeometry {
             self.zobrist_en_passant[file] = rng.gen();
         }
         self.zobrist_to_move = rng.gen();
-    }
-
-    fn fill_castling_rook_mask(&mut self) {
-        self.castling_rook_mask[WHITE][QUEENSIDE] = 1 << A1 | 1 << D1;
-        self.castling_rook_mask[WHITE][KINGSIDE] = 1 << H1 | 1 << F1;
-        self.castling_rook_mask[BLACK][QUEENSIDE] = 1 << A8 | 1 << D8;
-        self.castling_rook_mask[BLACK][KINGSIDE] = 1 << H8 | 1 << F8;
     }
 }
 

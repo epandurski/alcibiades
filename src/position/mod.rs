@@ -12,7 +12,7 @@ use basetypes::*;
 use bitsets::*;
 use chess_move::*;
 use notation;
-use self::board::{Board, piece_attacks_from};
+use self::board::Board;
 use self::board_geometry::*;
 use self::evaluation::evaluate_board;
 
@@ -536,6 +536,7 @@ impl Position {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
         assert!(captured_piece < NO_PIECE);
+        let geometry = board_geometry();
         let board = self.board();
         let mut occupied = board.occupied();
         let mut orig_square_bb = 1 << orig_square;
@@ -577,7 +578,7 @@ impl Position {
                 attackers_and_defenders ^= orig_square_bb;
                 occupied ^= orig_square_bb;
                 if orig_square_bb & may_xray != 0 {
-                    attackers_and_defenders |= consider_xrays(board.geometry(),
+                    attackers_and_defenders |= consider_xrays(geometry,
                                                               &board.piece_type(),
                                                               occupied,
                                                               dest_square,
@@ -762,13 +763,13 @@ fn consider_xrays(geometry: &BoardGeometry,
     };
 
     // Try the straight sliders first, if not, the diagonal sliders.
-    let straight_slider_bb = piece_attacks_from(geometry, candidates, ROOK, target_square) &
+    let straight_slider_bb = geometry.piece_attacks_from(candidates, ROOK, target_square) &
                              candidates &
                              (piece_type_array[QUEEN] | piece_type_array[ROOK]);
     if straight_slider_bb != 0 {
         straight_slider_bb
     } else {
-        piece_attacks_from(geometry, candidates, BISHOP, target_square) & candidates &
+        geometry.piece_attacks_from(candidates, BISHOP, target_square) & candidates &
         (piece_type_array[QUEEN] | piece_type_array[BISHOP])
     }
 
