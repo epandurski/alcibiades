@@ -11,10 +11,10 @@ pub struct ParseError;
 
 /// Pieces placement desctiption.
 pub struct PiecesPlacement {
-    /// An array of bitboards indexed by piece type.
+    /// An array of occupation bitboards indexed by piece type.
     pub piece_type: [u64; 6],
 
-    /// An array of bitboards indexed by color.
+    /// An array of occupation bitboards indexed by color.
     pub color: [u64; 2],
 }
 

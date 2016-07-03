@@ -125,10 +125,14 @@ impl Board {
         self.castling
     }
 
-    /// Returns the en-passant file, or `8` if there is none.
+    /// Returns the en-passant file, or `None` if there is none.
     #[inline(always)]
-    pub fn en_passant_file(&self) -> usize {
-        self.en_passant_file
+    pub fn en_passant_file(&self) -> Option<File> {
+        if self.en_passant_file < 8 {
+            Some(self.en_passant_file)
+        } else {
+            None
+        }
     }
 
     /// Returns a bitboard of all occupied squares.
