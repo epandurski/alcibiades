@@ -133,7 +133,7 @@ pub struct BoardGeometry {
 
     /// Used in calculating the Zobrist hash function.
     pub zobrist_to_move: u64,
-    
+
     /// Used in calculating the Zobrist hash function.
     pub zobrist_en_passant: [u64; 16],
 
@@ -335,9 +335,22 @@ impl BoardGeometry {
                 }
             }
         }
+
+        self.zobrist_to_move = rng.gen();
+
+        // Only the first 8 indexes of the `zobrist_en_passant` array
+        // are initialized -- the rest remain zero. (They exist only
+        // for performance and memory safety reasons.)
+        for file in 0..8 {
+            self.zobrist_en_passant[file] = rng.gen();
+        }
+
         for value in 0..16 {
             self.zobrist_castling[value] = rng.gen();
         }
+
+        // The `zobrist_castling_rook_move` constants are a mere
+        // convenience.
         self.zobrist_castling_rook_move[WHITE][QUEENSIDE] = self.zobrist_pieces[WHITE][ROOK][A1] ^
                                                             self.zobrist_pieces[WHITE][ROOK][D1];
         self.zobrist_castling_rook_move[WHITE][KINGSIDE] = self.zobrist_pieces[WHITE][ROOK][H1] ^
@@ -346,13 +359,6 @@ impl BoardGeometry {
                                                             self.zobrist_pieces[BLACK][ROOK][D8];
         self.zobrist_castling_rook_move[BLACK][KINGSIDE] = self.zobrist_pieces[BLACK][ROOK][H8] ^
                                                            self.zobrist_pieces[BLACK][ROOK][F8];
-        for file in 0..8 {
-            // Only the first 8 indexes are initialized -- the rest
-            // are zero. (They exist only for performance and memory
-            // safety reasons.)
-            self.zobrist_en_passant[file] = rng.gen();
-        }
-        self.zobrist_to_move = rng.gen();
     }
 }
 
