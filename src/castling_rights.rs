@@ -35,13 +35,11 @@ impl CastlingRights {
         CastlingRights(0)
     }
 
-
     /// Returns the contained raw value.
     #[inline(always)]
     pub fn value(&self) -> usize {
         self.0
     }
-
 
     /// Grants castling rights according to a given 4-bit mask.
     ///
@@ -57,15 +55,13 @@ impl CastlingRights {
         !before & mask
     }
 
-
-    /// Updates the castling rights with a 4-bit mask.
+    /// Updates the castling rights after played move.
     ///
-    /// `mask` is bit-wise AND-ed with the previous value.
+    /// `orig_square` and `dest_square` describe the played move.
     #[inline(always)]
-    pub fn update_with_mask(&mut self, mask: usize) {
-        self.0 &= mask;
+    pub fn update(&mut self, orig_square: Square, dest_square: Square) {
+        self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }
-
 
     /// Returns if a given player can castle on a given side.
     #[inline]
@@ -74,7 +70,6 @@ impl CastlingRights {
         assert!(side <= 1);
         (1 << (color << 1) << side) & self.0 != 0
     }
-
 
     /// Returns a bitboard with potential castling obstacles.
     /// 
@@ -96,7 +91,6 @@ impl CastlingRights {
         }
     }
 
-
     /// Returns a value from 0 to 3 representing the castling rights
     /// for a given player.
     #[inline(always)]
@@ -108,7 +102,6 @@ impl CastlingRights {
             self.0 >> 2
         }
     }
-
 
     /// Sets the castling rights for a given player with a value from
     /// 0 to 3.
@@ -153,6 +146,25 @@ pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
 pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
 
 
+// Holds bitboards that describe how each square on the board is
+// affiliated to castling. On each move, the value of
+// `CASTLING_RELATION` for the origin and destination squares are &-ed
+// with the castling rights value, to derive the updated castling
+// rights.
+const CASTLING_RELATION: [usize; 64] = [
+    !CASTLE_WHITE_QUEENSIDE, !0, !0, !0,
+    !(CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE), !0, !0, !CASTLE_WHITE_KINGSIDE,
+    !0, !0, !0, !0, !0, !0, !0, !0,
+    !0, !0, !0, !0, !0, !0, !0, !0,
+    !0, !0, !0, !0, !0, !0, !0, !0,
+    !0, !0, !0, !0, !0, !0, !0, !0,
+    !0, !0, !0, !0, !0, !0, !0, !0,
+    !0, !0, !0, !0, !0, !0, !0, !0,
+    !CASTLE_BLACK_QUEENSIDE, !0, !0, !0,
+    !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE), !0, !0, !CASTLE_BLACK_KINGSIDE,
+];
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,7 +181,7 @@ mod tests {
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
         assert_eq!(c.can_castle(BLACK, KINGSIDE), true);
-        c.update_with_mask(!CASTLE_BLACK_KINGSIDE);
+        c.update(H8, H7);
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);

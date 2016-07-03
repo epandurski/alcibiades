@@ -128,14 +128,6 @@ pub struct BoardGeometry {
     /// ```
     pub squares_behind_blocker: [[u64; 64]; 64],
 
-    /// Holds bitboards that describe how each square on the board is
-    /// affiliated to castling.
-    ///
-    /// On each move, the value of `castling_relation` for the origin
-    /// and destination squares are &-ed with the castling rights, to
-    /// derive the updated castling rights.
-    pub castling_relation: [usize; 64],
-
     /// Used in calculating the Zobrist hash function.
     pub zobrist_pieces: [[[u64; 64]; 6]; 2],
 
@@ -191,7 +183,6 @@ impl BoardGeometry {
             squares_at_line: [[0; 64]; 64],
             squares_between_including: [[0; 64]; 64],
             squares_behind_blocker: [[0; 64]; 64],
-            castling_relation: [!0; 64],
             zobrist_pieces: [[[0; 64]; 6]; 2],
             zobrist_castling: [0; 16],
             zobrist_castling_rook_move: [[0; 2]; 2],
@@ -202,7 +193,6 @@ impl BoardGeometry {
         bg.fill_attack_and_blockers_and_beyond_arrays();
         bg.fill_squares_between_including_and_squares_behind_blocker_arrays();
         bg.fill_squares_at_line_array();
-        bg.fill_castling_relation();
         bg.fill_zobrist_arrays();
         bg
     }
@@ -331,15 +321,6 @@ impl BoardGeometry {
                                              self.squares_behind_blocker[b][a];
             }
         }
-    }
-
-    fn fill_castling_relation(&mut self) {
-        self.castling_relation[A1] = !CASTLE_WHITE_QUEENSIDE;
-        self.castling_relation[H1] = !CASTLE_WHITE_KINGSIDE;
-        self.castling_relation[E1] = !(CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE);
-        self.castling_relation[A8] = !CASTLE_BLACK_QUEENSIDE;
-        self.castling_relation[H8] = !CASTLE_BLACK_KINGSIDE;
-        self.castling_relation[E8] = !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE);
     }
 
     fn fill_zobrist_arrays(&mut self) {

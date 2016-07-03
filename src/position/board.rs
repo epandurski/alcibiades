@@ -489,8 +489,7 @@ impl Board {
             // update castling rights (null moves do not affect castling)
             if orig_square != dest_square {
                 hash ^= *g.zobrist_castling.get_unchecked(self.castling.value());
-                self.castling.update_with_mask(*g.castling_relation.get_unchecked(orig_square) &
-                                               *g.castling_relation.get_unchecked(dest_square));
+                self.castling.update(orig_square, dest_square);
                 hash ^= *g.zobrist_castling.get_unchecked(self.castling.value());
             }
 
