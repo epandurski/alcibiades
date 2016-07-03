@@ -31,9 +31,9 @@ pub fn board_geometry() -> &'static BoardGeometry {
 
 /// A collection of look-up tables and look-up methods.
 ///
-/// `BoardGeometry` contains pre-calculated tables and methods that
-/// are needed for implementing move generation and various other
-/// board-related problems.
+/// `BoardGeometry` contains tables and methods that are needed for
+/// implementing move generation and various other board-related
+/// problems.
 pub struct BoardGeometry {
     grid: [u8; 120],
     piece_grid_deltas: [[i8; 8]; 5],
