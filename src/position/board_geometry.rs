@@ -132,16 +132,18 @@ pub struct BoardGeometry {
     pub zobrist_pieces: [[[u64; 64]; 6]; 2],
 
     /// Used in calculating the Zobrist hash function.
-    pub zobrist_castling: [u64; 16],
-
-    /// Used in calculating the Zobrist hash function.
-    pub zobrist_castling_rook_move: [[u64; 2]; 2],
-
+    pub zobrist_to_move: u64,
+    
     /// Used in calculating the Zobrist hash function.
     pub zobrist_en_passant: [u64; 16],
 
     /// Used in calculating the Zobrist hash function.
-    pub zobrist_to_move: u64,
+    pub zobrist_castling: [u64; 16],
+
+    /// Derived from `zobrist_pieces`. Contains the constants with
+    /// which the Zobrist hash value should be XOR-ed to reflect the
+    /// movement of the rook during castling.
+    pub zobrist_castling_rook_move: [[u64; 2]; 2],
 }
 
 
