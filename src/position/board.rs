@@ -1158,9 +1158,6 @@ pub fn piece_attacks_from(geometry: &BoardGeometry,
                           -> u64 {
     assert!(piece < PAWN);
     assert!(square <= 63);
-
-    // This code is extremely performance critical, so we must do
-    // everything without array boundary checks.
     unsafe {
         let behind: &[u64; 64] = geometry.squares_behind_blocker.get_unchecked(square);
         let mut attacks = *geometry.attacks.get_unchecked(piece).get_unchecked(square);
