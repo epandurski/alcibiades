@@ -323,7 +323,7 @@ impl MoveSink for Vec<Move> {
 /// Stores a list of moves for each position in a given line of play.
 pub struct MoveStack {
     moves: Vec<Move>,
-    savepoints: Vec<(usize, usize)>,
+    savepoints: Vec<usize>,
     first_move_index: usize,
 }
 
@@ -354,7 +354,7 @@ impl MoveStack {
     /// that can later be restored.
     #[inline]
     pub fn save(&mut self) {
-        self.savepoints.push((self.first_move_index, self.moves.len()));
+        self.savepoints.push(self.first_move_index);
         self.first_move_index = self.moves.len();
     }
 
@@ -363,9 +363,8 @@ impl MoveStack {
     /// The current move list is permanently lost.
     #[inline]
     pub fn restore(&mut self) {
-        let savepoint = self.savepoints.pop().unwrap();
-        self.first_move_index = savepoint.0;
-        self.moves.truncate(savepoint.1);
+        self.moves.truncate(self.first_move_index);
+        self.first_move_index = self.savepoints.pop().unwrap();
     }
 
     /// Returns an iterator that allows modifying each move in the
@@ -379,27 +378,31 @@ impl MoveStack {
     /// the current move list.
     #[inline]
     pub fn remove_best_move(&mut self) -> Option<Move> {
+        assert!(self.moves.len() >= self.first_move_index);
         let moves = &mut self.moves;
-        let i = self.first_move_index;
-        let mut m = match moves.get(i) {
-            Some(x) => *x,
-            None => return None,
-        };
-        unsafe {
-            let mut j = i;
-            while j < moves.len() {
-                // The current best move candidate is moved to index
-                // `i` (swapped with the previous candidate).
-                if *moves.get_unchecked(j) > m {
-                    *moves.get_unchecked_mut(i) = *moves.get_unchecked_mut(j);
-                    *moves.get_unchecked_mut(j) = m;
-                    m = *moves.get_unchecked(i);
+        if moves.len() > self.first_move_index {
+            let i = moves.len() - 1;
+            unsafe {
+                let mut m = *moves.get_unchecked(i);
+                let mut j = i;
+                loop {
+                    // The current best move candidate is moved to index
+                    // `i` (swapped with the previous candidate).
+                    if *moves.get_unchecked(j) > m {
+                        *moves.get_unchecked_mut(i) = *moves.get_unchecked_mut(j);
+                        *moves.get_unchecked_mut(j) = m;
+                        m = *moves.get_unchecked(i);
+                    }
+                    if j == self.first_move_index {
+                        break;
+                    }
+                    j -= 1;
                 }
-                j += 1;
+                moves.pop();
+                return Some(m);
             }
-            self.first_move_index += 1;
-            Some(m)
         }
+        return None;
     }
 }
 
