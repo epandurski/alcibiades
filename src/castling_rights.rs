@@ -46,11 +46,11 @@ impl CastlingRights {
     /// This method returns `true` if the player had the right to
     /// castle on the given side before this method was called, and
     /// `false` otherwise.
-    pub fn grant(&mut self, color: Color, side: CastlingSide) -> bool {
-        assert!(color <= 1);
+    pub fn grant(&mut self, player: Color, side: CastlingSide) -> bool {
+        assert!(player <= 1);
         assert!(side <= 1);
         let before = self.0;
-        let mask = 1 << (color << 1) << side;
+        let mask = 1 << (player << 1) << side;
         self.0 |= mask;
         !before & mask == 0
     }
@@ -81,25 +81,25 @@ impl CastlingRights {
 
     /// Returns if a given player can castle on a given side.
     #[inline]
-    pub fn can_castle(&self, color: Color, side: CastlingSide) -> bool {
-        assert!(color <= 1);
+    pub fn can_castle(&self, player: Color, side: CastlingSide) -> bool {
+        assert!(player <= 1);
         assert!(side <= 1);
-        (1 << (color << 1) << side) & self.0 != 0
+        (1 << (player << 1) << side) & self.0 != 0
     }
 
     /// Returns a bitboard with potential castling obstacles.
     /// 
     /// Returns a bitboard with the set of squares that should be
-    /// vacant in order for the specified (`color`, `side`) castling
-    /// move to be possible. If `color` can never castle on `side`,
+    /// vacant in order for the specified (`player`, `side`) castling
+    /// move to be possible. If `player` can never castle on `side`,
     /// because the king or the rook had been moved, this method
-    /// returns `0xffffffffffffffff`.
+    /// returns universal set (`0xffffffffffffffff`).
     #[inline]
-    pub fn obstacles(&self, color: Color, side: CastlingSide) -> u64 {
+    pub fn obstacles(&self, player: Color, side: CastlingSide) -> u64 {
         const OBSTACLES: [[u64; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                           [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        if self.can_castle(color, side) {
-            OBSTACLES[color][side]
+        if self.can_castle(player, side) {
+            OBSTACLES[player][side]
         } else {
             // Castling is not allowed, therefore every piece on every
             // square on the board can be considered an obstacle.
@@ -108,22 +108,22 @@ impl CastlingRights {
     }
 
     /// Returns a value from 0 to 3 representing the castling rights
-    /// for the player `color`.
+    /// for `player`.
     #[inline(always)]
-    pub fn get_for(&self, color: Color) -> usize {
-        assert!(color <= 1);
-        if color == WHITE {
+    pub fn get_for(&self, player: Color) -> usize {
+        assert!(player <= 1);
+        if player == WHITE {
             self.0 & 0b0011
         } else {
             self.0 >> 2
         }
     }
 
-    /// Sets the castling rights for the player `color` with a value
-    /// from 0 to 3.
+    /// Sets the castling rights for `player` with a value from 0 to
+    /// 3.
     #[inline]
-    pub fn set_for(&mut self, color: Color, rights: usize) {
-        assert!(color <= 1);
+    pub fn set_for(&mut self, player: Color, rights: usize) {
+        assert!(player <= 1);
         if rights > 0b11 {
             // Since the raw value of "CastlingRights" frequently is used
             // as an array index without boundary checking, we guarantee
@@ -131,7 +131,7 @@ impl CastlingRights {
             // passed "rights".
             panic!("invalid castling rights");
         }
-        self.0 = if color == WHITE {
+        self.0 = if player == WHITE {
             self.0 & 0b1100 | rights
         } else {
             self.0 & 0b0011 | rights << 2
@@ -188,9 +188,9 @@ mod tests {
         assert_eq!(c.get_for(WHITE), 0b10);
         assert_eq!(c.value(), 0b0110);
         let granted = c.grant(BLACK, KINGSIDE);
-        assert_eq!(granted, true);
-        let granted = c.grant(BLACK, KINGSIDE);
         assert_eq!(granted, false);
+        let granted = c.grant(BLACK, KINGSIDE);
+        assert_eq!(granted, true);
         assert_eq!(c.value(), 0b1110);
         assert_eq!(c.obstacles(WHITE, QUEENSIDE), UNIVERSAL_SET);
         assert_eq!(c.obstacles(BLACK, QUEENSIDE), 1 << B8 | 1 << C8 | 1 << D8);
