@@ -367,6 +367,13 @@ impl MoveStack {
         self.first_move_index = self.savepoints.pop().unwrap();
     }
 
+    /// Returns the length of the current move list.
+    #[inline]
+    pub fn len(&self) -> usize {
+        assert!(self.moves.len() >= self.first_move_index);
+        self.moves.len() - self.first_move_index
+    }
+
     /// Returns an iterator that allows modifying each move in the
     /// current move list.
     #[inline]
