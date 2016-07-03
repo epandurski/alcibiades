@@ -109,9 +109,9 @@ impl Move {
         // "quiet" movies. Moves which destination square is more
         // advanced into enemy's territory are tried first. The logic
         // is that those moves are riskier, so if such a move loses
-        // material this will be detected early and the search will be
-        // pruned, but if the move do not lose material, chances are
-        // that it is the best move.
+        // material this will be detected early and the search tree
+        // will be pruned, but if the move does not lose material,
+        // chances are that it is the best move.
         const RESERVED_LOOKUP: [[usize; 8]; 2] = [// white
                                                   [0 << M_SHIFT_RESERVED,
                                                    1 << M_SHIFT_RESERVED,
@@ -138,6 +138,8 @@ impl Move {
 
         let aux_data = if move_type == MOVE_PROMOTION {
             if promoted_piece_code == 0 {
+                // Try queen promotions right after captures and
+                // killer moves.
                 reserved_shifted = 6 << M_SHIFT_RESERVED;
             }
             promoted_piece_code
