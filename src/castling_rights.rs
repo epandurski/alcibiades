@@ -108,7 +108,7 @@ impl CastlingRights {
     }
 
     /// Returns a value from 0 to 3 representing the castling rights
-    /// for the given player.
+    /// for the player `color`.
     #[inline(always)]
     pub fn get_for(&self, color: Color) -> usize {
         assert!(color <= 1);
@@ -119,7 +119,7 @@ impl CastlingRights {
         }
     }
 
-    /// Sets the castling rights for the given player with a value
+    /// Sets the castling rights for the player `color` with a value
     /// from 0 to 3.
     #[inline]
     pub fn set_for(&mut self, color: Color, rights: usize) {
