@@ -148,12 +148,14 @@ pub fn square(file: File, rank: Rank) -> Square {
 /// Returns the rank of a given square.
 #[inline(always)]
 pub fn rank(square: Square) -> Rank {
+    assert!(square <= 63);
     square >> 3
 }
 
 /// Returns the file of a given square.
 #[inline(always)]
 pub fn file(square: Square) -> File {
+    assert!(square <= 63);
     square % 8
 }
 
