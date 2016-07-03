@@ -188,22 +188,22 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
         for c in s.chars() {
             match c {
                 'K' => {
-                    if rights.grant(CASTLE_WHITE_KINGSIDE) == 0 {
+                    if rights.grant(WHITE, KINGSIDE) {
                         return Err(ParseError);
                     }
                 }
                 'Q' => {
-                    if rights.grant(CASTLE_WHITE_QUEENSIDE) == 0 {
+                    if rights.grant(WHITE, QUEENSIDE) {
                         return Err(ParseError);
                     }
                 }
                 'k' => {
-                    if rights.grant(CASTLE_BLACK_KINGSIDE) == 0 {
+                    if rights.grant(BLACK, KINGSIDE) {
                         return Err(ParseError);
                     }
                 }
                 'q' => {
-                    if rights.grant(CASTLE_BLACK_QUEENSIDE) == 0 {
+                    if rights.grant(BLACK, QUEENSIDE) {
                         return Err(ParseError);
                     }
                 }

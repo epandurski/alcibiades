@@ -41,18 +41,18 @@ impl CastlingRights {
         self.0
     }
 
-    /// Grants castling rights according to a given 4-bit mask.
+    /// Grants a given player the right to castle on a given side.
     ///
-    /// `mask` is bit-wise OR-ed with the previous value.
-    ///
-    /// Returns which bits were zero before, and were turned to one.
-    pub fn grant(&mut self, mask: usize) -> usize {
-        if mask > 0b1111 {
-            panic!("invalid mask");
-        }
+    /// This method returns `true` if the player had the right to
+    /// castle on the given side before this method was called, and
+    /// `false` otherwise.
+    pub fn grant(&mut self, color: Color, side: CastlingSide) -> bool {
+        assert!(color <= 1);
+        assert!(side <= 1);
         let before = self.0;
+        let mask = 1 << (color << 1) << side;
         self.0 |= mask;
-        !before & mask
+        !before & mask == 0
     }
 
     /// Updates the castling rights after played move.
@@ -92,8 +92,8 @@ impl CastlingRights {
     /// Returns a bitboard with the set of squares that should be
     /// vacant in order for the specified (`color`, `side`) castling
     /// move to be possible. If `color` can never castle on `side`,
-    /// because the king or the rook had moved, this method returns
-    /// `0xffffffffffffffff`.
+    /// because the king or the rook had been moved, this method
+    /// returns `0xffffffffffffffff`.
     #[inline]
     pub fn obstacles(&self, color: Color, side: CastlingSide) -> u64 {
         const OBSTACLES: [[u64; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
@@ -149,17 +149,18 @@ pub const QUEENSIDE: CastlingSide = 0;
 /// King-side castling.
 pub const KINGSIDE: CastlingSide = 1;
 
-/// White can castle on the queen-side.
-pub const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
 
-/// White can castle on the king-side.
-pub const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
+// White can castle on the queen-side.
+const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
 
-/// Black can castle on the queen-side.
-pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
+// White can castle on the king-side.
+const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
 
-/// Black can castle on the king-side.
-pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
+// Black can castle on the queen-side.
+const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
+
+// Black can castle on the king-side.
+const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
 
 
 #[cfg(test)]
@@ -186,10 +187,10 @@ mod tests {
         assert_eq!(c.get_for(BLACK), 0b01);
         assert_eq!(c.get_for(WHITE), 0b10);
         assert_eq!(c.value(), 0b0110);
-        let granted = c.grant(CASTLE_BLACK_KINGSIDE);
-        assert_eq!(granted, CASTLE_BLACK_KINGSIDE);
-        let granted = c.grant(CASTLE_BLACK_KINGSIDE);
-        assert_eq!(granted, 0);
+        let granted = c.grant(BLACK, KINGSIDE);
+        assert_eq!(granted, true);
+        let granted = c.grant(BLACK, KINGSIDE);
+        assert_eq!(granted, false);
         assert_eq!(c.value(), 0b1110);
         assert_eq!(c.obstacles(WHITE, QUEENSIDE), UNIVERSAL_SET);
         assert_eq!(c.obstacles(BLACK, QUEENSIDE), 1 << B8 | 1 << C8 | 1 << D8);
