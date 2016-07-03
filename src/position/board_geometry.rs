@@ -347,6 +347,9 @@ impl BoardGeometry {
         self.zobrist_castling_rook_move[BLACK][KINGSIDE] = self.zobrist_pieces[BLACK][ROOK][H8] ^
                                                            self.zobrist_pieces[BLACK][ROOK][F8];
         for file in 0..8 {
+            // Only the first 8 indexes are initialized -- the rest
+            // are zero. (They exist only for performance and memory
+            // safety reasons.)
             self.zobrist_en_passant[file] = rng.gen();
         }
         self.zobrist_to_move = rng.gen();
