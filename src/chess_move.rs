@@ -106,26 +106,30 @@ impl Move {
         assert!(promoted_piece_code <= 0b11);
 
         // We use the reserved field (3 bits) to properly order
-        // "quiet" movies. Moves which destination square rank has
-        // better safety/activity balance are tried first.
+        // "quiet" movies. Moves which destination square is more
+        // advanced into enemy's territory are tried first. The logic
+        // is that those moves are riskier, so if such a move loses
+        // material this will be detected early and the search will be
+        // pruned, but if the move do not lose material, chances are
+        // that it is the best move.
         const RESERVED_LOOKUP: [[usize; 8]; 2] = [// white
-                                                  [2 << M_SHIFT_RESERVED,
-                                                   4 << M_SHIFT_RESERVED,
+                                                  [0 << M_SHIFT_RESERVED,
+                                                   1 << M_SHIFT_RESERVED,
+                                                   1 << M_SHIFT_RESERVED,
+                                                   2 << M_SHIFT_RESERVED,
+                                                   3 << M_SHIFT_RESERVED,
                                                    4 << M_SHIFT_RESERVED,
                                                    5 << M_SHIFT_RESERVED,
-                                                   3 << M_SHIFT_RESERVED,
-                                                   0 << M_SHIFT_RESERVED,
-                                                   1 << M_SHIFT_RESERVED,
-                                                   1 << M_SHIFT_RESERVED],
+                                                   5 << M_SHIFT_RESERVED],
                                                   // black
-                                                  [1 << M_SHIFT_RESERVED,
-                                                   1 << M_SHIFT_RESERVED,
-                                                   0 << M_SHIFT_RESERVED,
-                                                   3 << M_SHIFT_RESERVED,
+                                                  [5 << M_SHIFT_RESERVED,
                                                    5 << M_SHIFT_RESERVED,
                                                    4 << M_SHIFT_RESERVED,
-                                                   4 << M_SHIFT_RESERVED,
-                                                   2 << M_SHIFT_RESERVED]];
+                                                   3 << M_SHIFT_RESERVED,
+                                                   2 << M_SHIFT_RESERVED,
+                                                   1 << M_SHIFT_RESERVED,
+                                                   1 << M_SHIFT_RESERVED,
+                                                   0 << M_SHIFT_RESERVED]];
         let mut reserved_shifted = if captured_piece == NO_PIECE {
             unsafe { *RESERVED_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) }
         } else {
