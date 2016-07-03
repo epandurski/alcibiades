@@ -328,6 +328,7 @@ impl BoardGeometry {
     fn fill_zobrist_arrays(&mut self) {
         let seed: &[_] = &[1, 2, 3, 4];
         let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
+        
         for color in 0..2 {
             for piece in 0..6 {
                 for square in 0..64 {
