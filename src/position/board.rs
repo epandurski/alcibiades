@@ -455,7 +455,7 @@ impl Board {
         assert!(self.is_legal());
     }
 
-    /// Generates pseudo-legal moves and pushes them to `move_sink`.
+    /// Generates pseudo-legal moves and pushes them to `move_stack`.
     ///
     /// When `all` is `true`, all pseudo-legal moves will be
     /// considered. When `all` is `false`, only captures, pawn
@@ -469,11 +469,8 @@ impl Board {
     /// the alpha-beta pruning will eliminate the need for this
     /// verification at all.
     #[inline]
-    pub fn generate_moves(&self, all: bool, move_sink: &mut MoveSink) {
+    pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
         assert!(self.is_legal());
-        // TODO: See if passing `MoveStack` instead of `MoveSink` for
-        // performance reasons makes sense.
-
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
@@ -544,7 +541,7 @@ impl Board {
                         self.push_piece_moves_to_sink(piece,
                                                       from_square,
                                                       piece_legal_dests,
-                                                      move_sink);
+                                                      move_stack);
                     }
                 }
             }
@@ -578,7 +575,7 @@ impl Board {
                                                  en_passant_bb,
                                                  pawn_legal_dests,
                                                  !generate_all_moves,
-                                                 move_sink);
+                                                 move_stack);
                 }
 
                 // Find pinned pawn moves pawn by pawn.
@@ -590,7 +587,7 @@ impl Board {
                                                  en_passant_bb,
                                                  pin_line & pawn_legal_dests,
                                                  !generate_all_moves,
-                                                 move_sink);
+                                                 move_stack);
                 }
             }
         }
@@ -600,7 +597,7 @@ impl Board {
         // is executed even when the king is in double check.
         {
             let king_legal_dests = if generate_all_moves {
-                self.push_castling_moves_to_sink(move_sink);
+                self.push_castling_moves_to_sink(move_stack);
                 !occupied_by_us
             } else {
                 // Reduce the set of legal destinations when searching
@@ -609,7 +606,7 @@ impl Board {
                 occupied_by_them
             };
 
-            self.push_piece_moves_to_sink(KING, king_square, king_legal_dests, move_sink);
+            self.push_piece_moves_to_sink(KING, king_square, king_legal_dests, move_stack);
         }
     }
 
@@ -738,14 +735,14 @@ impl Board {
     //
     // It finds all squares attacked by `piece` from square
     // `from_square`, and for each square that is within the
-    // `legal_dests` set pushes a new move to `move_sink`. `piece` can
-    // not be a pawn.
+    // `legal_dests` set pushes a new move to `move_stack`. `piece`
+    // can not be a pawn.
     #[inline]
     fn push_piece_moves_to_sink(&self,
                                 piece: PieceType,
                                 from_square: Square,
                                 legal_dests: u64,
-                                move_sink: &mut MoveSink) {
+                                move_stack: &mut MoveStack) {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
         let mut dest_set = piece_attacks_from(self.geometry, self.occupied(), piece, from_square) &
@@ -755,15 +752,15 @@ impl Board {
             dest_set ^= dest_bb;
             let dest_square = bitscan_1bit(dest_bb);
             let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), dest_bb);
-            move_sink.push_move(Move::new(self.to_move,
-                                          MOVE_NORMAL,
-                                          piece,
-                                          from_square,
-                                          dest_square,
-                                          captured_piece,
-                                          self.en_passant_file,
-                                          self.castling,
-                                          0));
+            move_stack.push(Move::new(self.to_move,
+                                      MOVE_NORMAL,
+                                      piece,
+                                      from_square,
+                                      dest_square,
+                                      captured_piece,
+                                      self.en_passant_file,
+                                      self.castling,
+                                      0));
         }
     }
 
@@ -772,7 +769,7 @@ impl Board {
     // It finds all all possible moves by the set of pawns given by
     // `pawns`, making sure all pawn move destinations are within the
     // `legal_dests` set. Then it pushes the resulting moves to
-    // `move_sink`. `en_passant_bb` represents the en-passant passing
+    // `move_stack`. `en_passant_bb` represents the en-passant passing
     // square, if there is one. This function also recognizes and
     // discards the very rare case of pseudo-legal en-passant capture
     // that leaves discovered check on the 4/5-th rank.
@@ -782,7 +779,7 @@ impl Board {
                                en_passant_bb: u64,
                                legal_dests: u64,
                                only_queen_promotions: bool,
-                               move_sink: &mut MoveSink) {
+                               move_stack: &mut MoveStack) {
 
         const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
         const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
@@ -840,30 +837,30 @@ impl Board {
                     // en-passant capture
                     x if x == en_passant_bb => {
                         if self.en_passant_special_check_ok(orig_square, dest_square) {
-                            move_sink.push_move(Move::new(self.to_move,
-                                                          MOVE_ENPASSANT,
-                                                          PAWN,
-                                                          orig_square,
-                                                          dest_square,
-                                                          PAWN,
-                                                          self.en_passant_file,
-                                                          self.castling,
-                                                          0));
+                            move_stack.push(Move::new(self.to_move,
+                                                      MOVE_ENPASSANT,
+                                                      PAWN,
+                                                      orig_square,
+                                                      dest_square,
+                                                      PAWN,
+                                                      self.en_passant_file,
+                                                      self.castling,
+                                                      0));
                         }
                     }
 
                     // pawn promotion
                     x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
-                            move_sink.push_move(Move::new(self.to_move,
-                                                          MOVE_PROMOTION,
-                                                          PAWN,
-                                                          orig_square,
-                                                          dest_square,
-                                                          captured_piece,
-                                                          self.en_passant_file,
-                                                          self.castling,
-                                                          p));
+                            move_stack.push(Move::new(self.to_move,
+                                                      MOVE_PROMOTION,
+                                                      PAWN,
+                                                      orig_square,
+                                                      dest_square,
+                                                      captured_piece,
+                                                      self.en_passant_file,
+                                                      self.castling,
+                                                      p));
                             if only_queen_promotions {
                                 break;
                             }
@@ -872,15 +869,15 @@ impl Board {
 
                     // normal pawn move (push or plain capture)
                     _ => {
-                        move_sink.push_move(Move::new(self.to_move,
-                                                      MOVE_NORMAL,
-                                                      PAWN,
-                                                      orig_square,
-                                                      dest_square,
-                                                      captured_piece,
-                                                      self.en_passant_file,
-                                                      self.castling,
-                                                      0));
+                        move_stack.push(Move::new(self.to_move,
+                                                  MOVE_NORMAL,
+                                                  PAWN,
+                                                  orig_square,
+                                                  dest_square,
+                                                  captured_piece,
+                                                  self.en_passant_file,
+                                                  self.castling,
+                                                  0));
                     }
                 }
             }
@@ -890,9 +887,9 @@ impl Board {
     // A helper method for `generate_moves`.
     //
     // It figures out which castling moves are pseudo-legal and pushes
-    // them to `move_sink`.
+    // them to `move_stack`.
     #[inline(always)]
-    fn push_castling_moves_to_sink(&self, move_sink: &mut MoveSink) {
+    fn push_castling_moves_to_sink(&self, move_stack: &mut MoveStack) {
 
         // can not castle if in check
         if self.checkers() == EMPTY_SET {
@@ -907,19 +904,19 @@ impl Board {
                     // passing or final squares are attacked, but
                     // we do not care about that, because this
                     // will be verified in "do_move()".
-                    move_sink.push_move(Move::new(self.to_move,
-                                                  MOVE_CASTLING,
-                                                  KING,
-                                                  self.king_square(),
-                                                  unsafe {
-                                                      *[[C1, C8], [G1, G8]]
-                                                           .get_unchecked(side)
-                                                           .get_unchecked(self.to_move)
-                                                  },
-                                                  NO_PIECE,
-                                                  self.en_passant_file,
-                                                  self.castling,
-                                                  0));
+                    move_stack.push(Move::new(self.to_move,
+                                              MOVE_CASTLING,
+                                              KING,
+                                              self.king_square(),
+                                              unsafe {
+                                                  *[[C1, C8], [G1, G8]]
+                                                       .get_unchecked(side)
+                                                       .get_unchecked(self.to_move)
+                                              },
+                                              NO_PIECE,
+                                              self.en_passant_file,
+                                              self.castling,
+                                              0));
                 }
             }
         }
@@ -1219,6 +1216,7 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
 mod tests {
     use super::*;
     use basetypes::*;
+    use chess_move::*;
 
     #[test]
     fn test_attacks_from() {
@@ -1264,7 +1262,7 @@ mod tests {
 
     #[test]
     fn test_pawn_dest_sets() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let b = Board::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w - h6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1290,7 +1288,7 @@ mod tests {
 
     #[test]
     fn test_move_generation_1() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1330,7 +1328,7 @@ mod tests {
 
     #[test]
     fn test_move_generation_2() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let b = Board::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1350,7 +1348,7 @@ mod tests {
 
     #[test]
     fn test_move_generation_3() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let b = Board::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1360,7 +1358,7 @@ mod tests {
 
     #[test]
     fn test_move_generation_4() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let b = Board::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1370,7 +1368,7 @@ mod tests {
 
     #[test]
     fn test_move_generation_5() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
@@ -1431,7 +1429,7 @@ mod tests {
 
     #[test]
     fn test_do_undo_move() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
         let hash = b.hash();
@@ -1441,7 +1439,7 @@ mod tests {
             if b.do_move(m) {
                 assert!(hash != b.hash());
                 b.undo_move(m);
-                let mut other_stack = Vec::new();
+                let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.len());
                 assert_eq!(hash, b.hash());
@@ -1456,7 +1454,7 @@ mod tests {
             if b.do_move(m) {
                 assert!(hash != b.hash());
                 b.undo_move(m);
-                let mut other_stack = Vec::new();
+                let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.len());
                 assert_eq!(hash, b.hash());
@@ -1473,7 +1471,7 @@ mod tests {
 
     #[test]
     fn test_generate_only_captures() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let b = Board::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
@@ -1493,7 +1491,7 @@ mod tests {
 
     #[test]
     fn test_null_move() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let mut b = Board::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
         let hash = b.hash();
@@ -1518,7 +1516,7 @@ mod tests {
 
     #[test]
     fn test_move_into_check_bug() {
-        let mut stack = Vec::new();
+        let mut stack = MoveStack::new();
 
         let mut b = Board::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5N2/PPPN1PP1/2K4R b - - 0 1")
                         .ok()

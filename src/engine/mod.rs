@@ -193,7 +193,7 @@ impl UciEngine for Engine {
                         if self.curr_depth < depth {
                             self.curr_depth = depth;
                             let mut p = self.position.clone();
-                            let mut v = Vec::with_capacity(128);
+                            let mut v = MoveStack::new();
                             let mut pv = String::from("");
                             let mut pv_length = 0;
                             let mut value = None;
@@ -259,7 +259,7 @@ impl Engine {
         if m == 0 {
             // Pick the first legal move.
             let mut first_legal_move = Move::from_u32(0);
-            let mut v = Vec::with_capacity(128);
+            let mut v = MoveStack::new();
             self.position.generate_moves(&mut v);
             while let Some(x) = v.pop() {
                 if self.position.do_move(x) {

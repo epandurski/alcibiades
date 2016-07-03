@@ -306,20 +306,6 @@ impl Move {
 }
 
 
-/// Consumer of moves.
-pub trait MoveSink {
-    fn push_move(&mut self, m: Move);
-}
-
-
-impl MoveSink for Vec<Move> {
-    #[inline]
-    fn push_move(&mut self, m: Move) {
-        self.push(m);
-    }
-}
-
-
 /// Stores a list of moves for each position in a given line of play.
 pub struct MoveStack {
     moves: Vec<Move>,
@@ -374,15 +360,23 @@ impl MoveStack {
         self.moves.len() - self.first_move_index
     }
 
-    /// Returns an iterator that allows modifying each move in the
-    /// current move list.
+    /// Appends a move to the end of the current move list.
     #[inline]
-    pub fn iter_mut(&mut self) -> slice::IterMut<Move> {
-        self.moves[self.first_move_index..].iter_mut()
+    pub fn push(&mut self, m: Move) {
+        assert!(self.moves.len() >= self.first_move_index);
+        self.moves.push(m);
     }
 
-    /// Returns the move with the highest value and removes it from
-    /// the current move list.
+    /// Removes the last element from the current move list and
+    /// returns it, or `None` if it is empty.
+    #[inline]
+    pub fn pop(&mut self) -> Option<Move> {
+        assert!(self.moves.len() >= self.first_move_index);
+        self.moves.pop()
+    }
+
+    /// Removes the move with the highest value from the current move
+    /// list and returns it, or `None` if it is empty.
     #[inline]
     pub fn remove_best_move(&mut self) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
@@ -411,13 +405,12 @@ impl MoveStack {
         }
         return None;
     }
-}
 
-
-impl MoveSink for MoveStack {
+    /// Returns an iterator that allows modifying each move in the
+    /// current move list.
     #[inline]
-    fn push_move(&mut self, m: Move) {
-        self.moves.push(m);
+    pub fn iter_mut(&mut self) -> slice::IterMut<Move> {
+        self.moves[self.first_move_index..].iter_mut()
     }
 }
 
@@ -569,15 +562,15 @@ mod tests {
         let mut s = MoveStack::new();
         assert!(s.remove_best_move().is_none());
         s.save();
-        s.push_move(m);
+        s.push(m);
         assert_eq!(s.remove_best_move().unwrap(), m);
         assert!(s.remove_best_move().is_none());
         s.restore();
         assert!(s.remove_best_move().is_none());
-        s.push_move(m);
-        s.push_move(m);
+        s.push(m);
+        s.push(m);
         s.save();
-        s.push_move(m);
+        s.push(m);
         s.restore();
         assert_eq!(s.remove_best_move().unwrap(), m);
         assert_eq!(s.remove_best_move().unwrap(), m);
