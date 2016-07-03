@@ -60,6 +60,22 @@ impl CastlingRights {
     /// `orig_square` and `dest_square` describe the played move.
     #[inline]
     pub fn update(&mut self, orig_square: Square, dest_square: Square) {
+        // On each move, the value of `CASTLING_RELATION` for the
+        // origin and destination squares should be &-ed with the
+        // castling rights value, to derive the updated castling
+        // rights.
+        const CASTLING_RELATION: [usize; 64] = [
+            !CASTLE_WHITE_QUEENSIDE, !0, !0, !0,
+            !(CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE), !0, !0, !CASTLE_WHITE_KINGSIDE,
+            !0, !0, !0, !0, !0, !0, !0, !0,
+            !0, !0, !0, !0, !0, !0, !0, !0,
+            !0, !0, !0, !0, !0, !0, !0, !0,
+            !0, !0, !0, !0, !0, !0, !0, !0,
+            !0, !0, !0, !0, !0, !0, !0, !0,
+            !0, !0, !0, !0, !0, !0, !0, !0,
+            !CASTLE_BLACK_QUEENSIDE, !0, !0, !0,
+            !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE), !0, !0, !CASTLE_BLACK_KINGSIDE,
+        ];
         self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }
 
@@ -144,25 +160,6 @@ pub const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
 
 /// Black can castle on the king-side.
 pub const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
-
-
-// Holds bitboards that describe how each square on the board is
-// affiliated to castling. On each move, the value of
-// `CASTLING_RELATION` for the origin and destination squares are &-ed
-// with the castling rights value, to derive the updated castling
-// rights.
-const CASTLING_RELATION: [usize; 64] = [
-    !CASTLE_WHITE_QUEENSIDE, !0, !0, !0,
-    !(CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE), !0, !0, !CASTLE_WHITE_KINGSIDE,
-    !0, !0, !0, !0, !0, !0, !0, !0,
-    !0, !0, !0, !0, !0, !0, !0, !0,
-    !0, !0, !0, !0, !0, !0, !0, !0,
-    !0, !0, !0, !0, !0, !0, !0, !0,
-    !0, !0, !0, !0, !0, !0, !0, !0,
-    !0, !0, !0, !0, !0, !0, !0, !0,
-    !CASTLE_BLACK_QUEENSIDE, !0, !0, !0,
-    !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE), !0, !0, !CASTLE_BLACK_KINGSIDE,
-];
 
 
 #[cfg(test)]
