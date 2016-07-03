@@ -58,7 +58,7 @@ impl CastlingRights {
     /// Updates the castling rights after played move.
     ///
     /// `orig_square` and `dest_square` describe the played move.
-    #[inline(always)]
+    #[inline]
     pub fn update(&mut self, orig_square: Square, dest_square: Square) {
         self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }
