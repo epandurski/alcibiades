@@ -711,7 +711,7 @@ impl Clone for Position {
 
 
 // The material value of pieces.
-const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
+const PIECE_VALUES: [Value; 8] = [20000, 975, 500, 325, 325, 100, 0, 0];
 
 // Do not try exchanges with SSE==0 once this ply has been reached.
 const SSE_EXCHANGE_MAX_PLY: u8 = 2;
@@ -981,7 +981,7 @@ mod tests {
         assert_eq!(p.calc_see(BLACK, QUEEN, E5, E3, PAWN), 100);
         assert_eq!(p.calc_see(BLACK, QUEEN, E5, D4, PAWN), -875);
         assert_eq!(p.calc_see(WHITE, PAWN, G3, F4, PAWN), 100);
-        assert_eq!(p.calc_see(BLACK, KING, A3, A2, PAWN), -9900);
+        assert_eq!(p.calc_see(BLACK, KING, A3, A2, PAWN), -19900);
         assert_eq!(p.calc_see(WHITE, PAWN, D4, D5, NO_PIECE), -100);
         assert_eq!(p.calc_see(WHITE, PAWN, G3, G4, NO_PIECE), 0);
         assert_eq!(p.calc_see(WHITE, ROOK, F1, E1, NO_PIECE), -500);
