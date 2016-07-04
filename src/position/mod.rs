@@ -535,7 +535,7 @@ impl Position {
         assert!(piece < NO_PIECE);
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
-        assert!(captured_piece < NO_PIECE);
+        assert!(captured_piece <= NO_PIECE);
         let board = self.board();
         let mut occupied = board.occupied();
         let mut orig_square_bb = 1 << orig_square;
@@ -566,15 +566,16 @@ impl Position {
                 *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(piece) -
                                                  *gain.get_unchecked(depth - 1);
 
-                // Stop here if possible. (Based on the fact that the
-                // next side to move can back off from further
-                // exchange if it already gained material.)
                 if max(-*gain.get_unchecked(depth - 1), *gain.get_unchecked(depth)) < 0 {
+                    // Stopping here may change the exact value that
+                    // would otherwise be returned, but will never
+                    // change the sign of the returned value, which is
+                    // good enough for our purposes.
                     break;
                 }
 
                 // Update attackers and defenders.
-                attackers_and_defenders ^= orig_square_bb;
+                attackers_and_defenders &= !orig_square_bb;
                 occupied ^= orig_square_bb;
                 if orig_square_bb & may_xray != 0 {
                     attackers_and_defenders |= consider_xrays(board.geometry(),
@@ -981,6 +982,11 @@ mod tests {
         assert_eq!(p.calc_see(BLACK, QUEEN, E5, D4, PAWN), -875);
         assert_eq!(p.calc_see(WHITE, PAWN, G3, F4, PAWN), 100);
         assert_eq!(p.calc_see(BLACK, KING, A3, A2, PAWN), -9900);
+        assert_eq!(p.calc_see(WHITE, PAWN, D4, D5, NO_PIECE), -100);
+        assert_eq!(p.calc_see(WHITE, PAWN, G3, G4, NO_PIECE), 0);
+        assert_eq!(p.calc_see(WHITE, ROOK, F1, E1, NO_PIECE), -500);
+        assert_eq!(p.calc_see(WHITE, ROOK, F1, D1, NO_PIECE), 0);
+        assert!(p.calc_see(WHITE, ROOK, F2, F4, NO_PIECE) <= -400);
     }
 
     #[test]
