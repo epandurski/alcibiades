@@ -76,7 +76,7 @@ pub struct Move(u32);
 
 
 impl Move {
-    /// Creates a new instance of `Move`.
+    /// Creates a new instance.
     ///
     /// `us` is the side that makes the move. `castling` are the
     /// castling rights before the move was played. `en_passant_file`
@@ -155,10 +155,11 @@ impl Move {
               aux_data << M_SHIFT_AUX_DATA) as u32)
     }
 
-    /// Creates a new instance of `Move` from a raw `u32` value.
+    /// Creates a new instance with all bits set to `0` (invalid
+    /// move).
     #[inline(always)]
-    pub fn from_u32(value: u32) -> Move {
-        Move(value)
+    pub fn invalid() -> Move {
+        Move(0)
     }
 
     /// Returns the move type.
@@ -259,8 +260,8 @@ impl Move {
     /// The returned value contains the whole information about the
     /// played move itself. The only missing information is the move
     /// ordering information and the information stored so as to be
-    /// able undo the move. For proper moves the returned value can
-    /// never be `0`.
+    /// able undo the move. For valid moves the returned value can not
+    /// be `0`.
     #[inline(always)]
     pub fn move16(&self) -> u16 {
         self.0 as u16

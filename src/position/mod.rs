@@ -98,7 +98,7 @@ impl Position {
             encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
             state_stack: UnsafeCell::new(vec![StateInfo {
                                                   halfmove_clock: halfmove_clock,
-                                                  last_move: Move::from_u32(0),
+                                                  last_move: Move::invalid(),
                                               }]),
         })
     }

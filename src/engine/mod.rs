@@ -258,7 +258,7 @@ impl Engine {
         };
         if m == 0 {
             // Pick the first legal move.
-            let mut first_legal_move = Move::from_u32(0);
+            let mut first_legal_move = Move::invalid();
             let mut v = MoveStack::new();
             self.position.generate_moves(&mut v);
             while let Some(x) = v.pop() {
