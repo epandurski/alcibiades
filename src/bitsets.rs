@@ -248,6 +248,7 @@ pub fn bitscan_forward_and_reset(b: &mut u64) -> Square {
 ///
 /// If `b` is a number in the form `2 ** x`, this function will return
 /// `x`. Otherwise, it will panic or return garbage.
+#[cfg(target_pointer_width = "64")]
 #[inline(always)]
 pub fn bitscan_1bit(b: u64) -> Square {
     assert!(b != 0);
@@ -258,6 +259,26 @@ pub fn bitscan_1bit(b: u64) -> Square {
                                    47, 56, 27, 60, 41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11, 46,
                                    26, 40, 15, 34, 20, 31, 10, 25, 14, 19, 9, 13, 8, 7, 6];
     unsafe { *INDEX64.get_unchecked(((Wrapping(b) * DEBRUIJN64).0 >> 58) as usize) }
+}
+
+
+/// Returns the binary position of the only binary `1` in a value.
+///
+/// If `b` is a number in the form `2 ** x`, this function will return
+/// `x`. Otherwise, it will panic or return garbage.
+#[cfg(target_pointer_width = "32")]
+#[inline(always)]
+pub fn bitscan_1bit(b: u64) -> Square {
+    assert!(b != 0);
+    assert_eq!(b, ls1b(b));
+    const DEBRUIJN32: Wrapping<u32> = Wrapping(0x78291acf);
+    const INDEX64: [Square; 64] = [63, 30, 3, 32, 59, 14, 11, 33, 60, 24, 50, 9, 55, 19, 21, 34,
+                                   61, 29, 2, 53, 51, 23, 41, 18, 56, 28, 1, 43, 46, 27, 0, 35,
+                                   62, 31, 58, 4, 5, 49, 54, 6, 15, 52, 12, 40, 7, 42, 45, 16, 25,
+                                   57, 48, 13, 10, 39, 8, 44, 20, 47, 38, 22, 17, 37, 36, 26];
+    let bb = below_lsb1_mask_including(b);
+    let folded = bb as u32 ^ (bb >> 32) as u32;
+    unsafe { *INDEX64.get_unchecked(((Wrapping(folded) * DEBRUIJN32).0 >> 26) as usize) }
 }
 
 
