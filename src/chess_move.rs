@@ -234,7 +234,8 @@ impl Move {
         self.0 |= M_MASK_BEST;
     }
 
-    /// Sets the value of the reserved field to `7` ("killer" flag).
+    /// Sets the value of the reserved field to `0b111` ("killer"
+    /// flag).
     ///
     /// A "killer" move is a quiet move which caused a beta-cutoff in
     /// a sibling node, or any other earlier branch in the tree with
