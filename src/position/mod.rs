@@ -536,7 +536,6 @@ impl Position {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
         assert!(captured_piece < NO_PIECE);
-        let geometry = board_geometry();
         let board = self.board();
         let mut occupied = board.occupied();
         let mut orig_square_bb = 1 << orig_square;
@@ -578,7 +577,7 @@ impl Position {
                 attackers_and_defenders ^= orig_square_bb;
                 occupied ^= orig_square_bb;
                 if orig_square_bb & may_xray != 0 {
-                    attackers_and_defenders |= consider_xrays(geometry,
+                    attackers_and_defenders |= consider_xrays(board.geometry(),
                                                               &board.piece_type(),
                                                               occupied,
                                                               dest_square,

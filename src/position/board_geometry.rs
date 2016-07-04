@@ -21,10 +21,7 @@ pub fn board_geometry() -> &'static BoardGeometry {
         INIT_GEOMETRY.call_once(|| {
             geometry = Some(BoardGeometry::new());
         });
-        match geometry {
-            Some(ref x) => x,
-            None => panic!("board geometry not initialized"),
-        }
+        geometry.as_ref().unwrap()
     }
 }
 

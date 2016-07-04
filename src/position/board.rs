@@ -92,6 +92,13 @@ impl Board {
         Board::create(placement, to_move, castling, en_passant_square)
     }
 
+    /// Returns a reference to a properly initialized `BoardGeometry`
+    /// object.
+    #[inline(always)]
+    pub fn geometry(&self) -> &BoardGeometry {
+        self.geometry
+    }
+
     /// Returns an array of 6 occupation bitboards -- one for each
     /// piece type.
     #[inline(always)]

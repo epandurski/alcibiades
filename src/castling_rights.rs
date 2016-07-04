@@ -29,7 +29,7 @@ pub struct CastlingRights(usize);
 
 
 impl CastlingRights {
-    /// Creates a new instance.
+    /// Creates a new instance. No player can castle on any side.
     #[inline(always)]
     pub fn new() -> CastlingRights {
         CastlingRights(0)
