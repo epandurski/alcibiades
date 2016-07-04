@@ -987,6 +987,8 @@ mod tests {
         assert_eq!(p.calc_see(WHITE, ROOK, F1, E1, NO_PIECE), -500);
         assert_eq!(p.calc_see(WHITE, ROOK, F1, D1, NO_PIECE), 0);
         assert!(p.calc_see(WHITE, ROOK, F2, F4, NO_PIECE) <= -400);
+        assert_eq!(p.calc_see(WHITE, ROOK, F1, F1, NO_PIECE), 0);
+        assert_eq!(p.calc_see(WHITE, PAWN, E3, E3, NO_PIECE), -100);
     }
 
     #[test]
