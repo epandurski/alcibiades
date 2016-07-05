@@ -755,24 +755,23 @@ fn consider_xrays(geometry: &BoardGeometry,
                   target_square: Square,
                   xrayed_square: Square)
                   -> u64 {
-    let candidates = occupied &
-                     unsafe {
-        *geometry.squares_behind_blocker
-                 .get_unchecked(target_square)
-                 .get_unchecked(xrayed_square)
-    };
+    unsafe {
+        let candidates = occupied &
+                         *geometry.squares_behind_blocker
+                                  .get_unchecked(target_square)
+                                  .get_unchecked(xrayed_square);
 
-    // Try the straight sliders first, if not, the diagonal sliders.
-    let straight_slider_bb = geometry.piece_attacks_from(candidates, ROOK, target_square) &
-                             candidates &
-                             (piece_type_array[QUEEN] | piece_type_array[ROOK]);
-    if straight_slider_bb != 0 {
-        straight_slider_bb
-    } else {
-        geometry.piece_attacks_from(candidates, BISHOP, target_square) & candidates &
-        (piece_type_array[QUEEN] | piece_type_array[BISHOP])
+        // Try the straight sliders first, if not, the diagonal sliders.
+        let straight_slider_bb = geometry.piece_attacks_from(candidates, ROOK, target_square) &
+                                 candidates &
+                                 (piece_type_array[QUEEN] | piece_type_array[ROOK]);
+        if straight_slider_bb != 0 {
+            straight_slider_bb
+        } else {
+            geometry.piece_attacks_from(candidates, BISHOP, target_square) & candidates &
+            (piece_type_array[QUEEN] | piece_type_array[BISHOP])
+        }
     }
-
 }
 
 

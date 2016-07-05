@@ -175,22 +175,33 @@ impl BoardGeometry {
     /// a piece of type `piece` from the square `from_square`, on a
     /// board which is occupied with other pieces according to the
     /// `occupied` bitboard.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it is extremely
+    /// performace-critical, and so it does unchecked array
+    /// accesses. Users of this method should make sure that:
+    ///
+    /// * `piece < PAWN`.
+    /// * `from_square <= 63`.
     #[inline]
-    pub fn piece_attacks_from(&self, occupied: u64, piece: PieceType, from_square: Square) -> u64 {
+    pub unsafe fn piece_attacks_from(&self,
+                                     occupied: u64,
+                                     piece: PieceType,
+                                     from_square: Square)
+                                     -> u64 {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
-        unsafe {
-            let behind: &[u64; 64] = self.squares_behind_blocker.get_unchecked(from_square);
-            let mut attacks = *self.attacks.get_unchecked(piece).get_unchecked(from_square);
-            let mut blockers = occupied &
-                               *self.blockers_and_beyond
-                                    .get_unchecked(piece)
-                                    .get_unchecked(from_square);
-            while blockers != EMPTY_SET {
-                attacks &= !*behind.get_unchecked(bitscan_forward_and_reset(&mut blockers));
-            }
-            attacks
+        let behind: &[u64; 64] = self.squares_behind_blocker.get_unchecked(from_square);
+        let mut attacks = *self.attacks.get_unchecked(piece).get_unchecked(from_square);
+        let mut blockers = occupied &
+                           *self.blockers_and_beyond
+                                .get_unchecked(piece)
+                                .get_unchecked(from_square);
+        while blockers != EMPTY_SET {
+            attacks &= !*behind.get_unchecked(bitscan_forward_and_reset(&mut blockers));
         }
+        attacks
     }
 
     fn grid_index(&self, i: Square) -> usize {
