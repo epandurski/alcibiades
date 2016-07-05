@@ -85,6 +85,12 @@ impl Move {
     /// there was no passing pawn. `promoted_piece_code` should be a
     /// number between `0` and `3` and is used only when the
     /// `move_type` is a pawn promotion, otherwise it is ignored.
+    ///
+    /// The initial move score for the new move will be:
+    ///
+    /// * `2` for captures that are not also pawn promotions.
+    /// * `1` for pawn promotions to queen.
+    /// * `0` for all other moves.
     #[inline(always)]
     pub fn new(us: Color,
                move_type: MoveType,
@@ -136,7 +142,9 @@ impl Move {
         // Captures are treated differently than quiet moves.
         if captured_piece == NO_PIECE {
             score_shifted = 0;
-            reserved_shifted = unsafe { *RESERVED_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) };
+            reserved_shifted = unsafe {
+                *RESERVED_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square))
+            };
         } else {
             score_shifted = 2 << M_SHIFT_SCORE;
             reserved_shifted = 0;
@@ -155,7 +163,7 @@ impl Move {
         } else {
             castling.get_for(us)
         };
-        
+
         Move((score_shifted | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
               reserved_shifted | piece << M_SHIFT_PIECE |
               castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
