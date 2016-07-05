@@ -36,13 +36,14 @@ pub struct IllegalPosition;
 /// `Position` is intended as a convenient interface for the
 /// tree-searching algorithm. It encapsulates most of the
 /// chess-specific knowledge like the chess rules, values of pieces,
-/// king safety, pawn structure etc. `Position` can be instantiated
-/// from a FEN string, can generate the all possible moves (plus a
-/// "null move") in the current position, play a selected move and
-/// take it back. It can also approximately (without doing extensive
-/// tree-searching) evaluate the chances of the sides, so that
-/// tree-searching algorithms can use this evaluation to assign
-/// realistic game outcomes to their leaf nodes.
+/// static exchange evaluation, king safety, pawn structure
+/// etc. `Position` can be instantiated from a FEN string, can
+/// generate the all possible moves (plus a "null move") in the
+/// current position, play a selected move and take it back. It can
+/// also approximately (without doing extensive tree-searching)
+/// evaluate the chances of the sides, so that tree-searching
+/// algorithms can use this evaluation to assign realistic game
+/// outcomes to their leaf nodes.
 ///
 /// The implementation correctly detects repeating positions and
 /// evaluates them as a draw. It **is not** "aware" of the 50-moves
