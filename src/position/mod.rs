@@ -551,7 +551,7 @@ impl Position {
 
         unsafe {
             let mut depth = 0;
-            let mut gain: [Value; 33] = mem::uninitialized();
+            let mut gain: [Value; 66] = mem::uninitialized();
             *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(captured_piece);
 
             // Try each piece in `attackers_and_defenders` one by one,
