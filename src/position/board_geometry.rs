@@ -151,12 +151,11 @@ impl BoardGeometry {
         bg
     }
 
-    /// Returns a reference to a properly initialized `BoardGeometry`
-    /// object.
+    /// Returns a reference to an initialized `BoardGeometry` object.
     ///
-    /// The object is created and initialized only during the first
-    /// call. All next calls will return a reference to the same
-    /// object. This is done in a thread-safe manner.
+    /// The object is created only during the first call. All next
+    /// calls will return a reference to the same object. This is done
+    /// in a thread-safe manner.
     pub fn get() -> &'static BoardGeometry {
         use std::sync::{Once, ONCE_INIT};
         static INIT_GEOMETRY: Once = ONCE_INIT;

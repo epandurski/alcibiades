@@ -1240,12 +1240,11 @@ impl ZobristArrays {
         }
     }
 
-    /// Returns a reference to a properly initialized `ZobristArrays`
-    /// object.
+    /// Returns a reference to an initialized `ZobristArrays` object.
     ///
-    /// The object is created and initialized only during the first
-    /// call. All next calls will return a reference to the same
-    /// object. This is done in a thread-safe manner.
+    /// The object is created only during the first call. All next
+    /// calls will return a reference to the same object. This is done
+    /// in a thread-safe manner.
     pub fn get() -> &'static ZobristArrays {
         use std::sync::{Once, ONCE_INIT};
         static INIT_ARRAYS: Once = ONCE_INIT;
