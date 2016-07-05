@@ -25,6 +25,7 @@ pub struct IllegalBoard;
 #[derive(Clone)]
 pub struct Board {
     geometry: &'static BoardGeometry,
+    zobrist: &'static ZobristArrays,
     piece_type: [u64; 6],
     color: [u64; 2],
     to_move: Color,
@@ -59,7 +60,8 @@ impl Board {
             _ => return Err(IllegalBoard),
         };
         let mut b = Board {
-            geometry: board_geometry(),
+            geometry: BoardGeometry::get(),
+            zobrist: ZobristArrays::get(),
             piece_type: placement.piece_type,
             color: placement.color,
             to_move: to_move,
@@ -128,7 +130,7 @@ impl Board {
         }
         self._checkers.get()
     }
-    
+
     /// Returns a bitboard of all pieces (or pawns) of color `us` that
     /// attack `square`.
     #[inline]
@@ -197,7 +199,7 @@ impl Board {
     pub fn hash(&self) -> u64 {
         self._hash
     }
-    
+
     /// Generates pseudo-legal moves and pushes them to `move_stack`.
     ///
     /// When `all` is `true`, all pseudo-legal moves will be
@@ -375,7 +377,7 @@ impl Board {
                   self.castling,
                   0)
     }
-    
+
     /// Returns if `m` is a null move.
     #[inline]
     pub fn is_null_move(m: Move) -> bool {
@@ -396,7 +398,6 @@ impl Board {
     /// is in check.
     #[inline]
     pub fn do_move(&mut self, m: Move) -> bool {
-        let g = self.geometry;
         let us = self.to_move;
         let them = 1 ^ us;
         let move_type = m.move_type();
@@ -445,7 +446,7 @@ impl Board {
                 let mask = CASTLING_ROOK_MASK[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
-                hash ^= g.zobrist_castling_rook_move[us][side];
+                hash ^= self.zobrist.castling_rook_move[us][side];
             }
 
             let not_orig_bb = !(1 << orig_square);
@@ -454,26 +455,29 @@ impl Board {
             // empty the origin square
             *self.piece_type.get_unchecked_mut(piece) &= not_orig_bb;
             *self.color.get_unchecked_mut(us) &= not_orig_bb;
-            hash ^= *g.zobrist_pieces
-                      .get_unchecked(us)
-                      .get_unchecked(piece)
-                      .get_unchecked(orig_square);
+            hash ^= *self.zobrist
+                         .pieces
+                         .get_unchecked(us)
+                         .get_unchecked(piece)
+                         .get_unchecked(orig_square);
 
             // remove the captured piece (if any)
             if captured_piece < NO_PIECE {
                 let not_captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
                     let captured_pawn_square = (dest_square as isize + shift) as Square;
-                    hash ^= *g.zobrist_pieces
-                              .get_unchecked(them)
-                              .get_unchecked(captured_piece)
-                              .get_unchecked(captured_pawn_square);
+                    hash ^= *self.zobrist
+                                 .pieces
+                                 .get_unchecked(them)
+                                 .get_unchecked(captured_piece)
+                                 .get_unchecked(captured_pawn_square);
                     !(1 << captured_pawn_square)
                 } else {
-                    hash ^= *g.zobrist_pieces
-                              .get_unchecked(them)
-                              .get_unchecked(captured_piece)
-                              .get_unchecked(dest_square);
+                    hash ^= *self.zobrist
+                                 .pieces
+                                 .get_unchecked(them)
+                                 .get_unchecked(captured_piece)
+                                 .get_unchecked(dest_square);
                     !dest_bb
                 };
                 *self.piece_type.get_unchecked_mut(captured_piece) &= not_captured_bb;
@@ -488,25 +492,26 @@ impl Board {
             };
             *self.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
             *self.color.get_unchecked_mut(us) |= dest_bb;
-            hash ^= *g.zobrist_pieces
-                      .get_unchecked(us)
-                      .get_unchecked(dest_piece)
-                      .get_unchecked(dest_square);
+            hash ^= *self.zobrist
+                         .pieces
+                         .get_unchecked(us)
+                         .get_unchecked(dest_piece)
+                         .get_unchecked(dest_square);
 
             // update castling rights (null moves do not affect castling)
             if orig_square != dest_square {
-                hash ^= *g.zobrist_castling.get_unchecked(self.castling.value());
+                hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
                 self.castling.update(orig_square, dest_square);
-                hash ^= *g.zobrist_castling.get_unchecked(self.castling.value());
+                hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
             }
 
             // update the en-passant file
-            hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
+            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
             self.en_passant_file = if piece == PAWN {
                 match dest_square as isize - orig_square as isize {
                     16 | -16 => {
                         let file = file(dest_square);
-                        hash ^= *g.zobrist_en_passant.get_unchecked(file);
+                        hash ^= *self.zobrist.en_passant.get_unchecked(file);
                         file
                     }
                     _ => NO_ENPASSANT_FILE,
@@ -517,7 +522,7 @@ impl Board {
 
             // change the side to move
             self.to_move = them;
-            hash ^= g.zobrist_to_move;
+            hash ^= self.zobrist.to_move;
 
             // update "_occupied", "_hash", "_checkers", and "_king_square"
             self._occupied = self.color[WHITE] | self.color[BLACK];
@@ -536,7 +541,6 @@ impl Board {
     /// to `do_move`.
     #[inline]
     pub fn undo_move(&mut self, m: Move) {
-        let g = self.geometry;
         let them = self.to_move;
         let us = 1 ^ them;
         let move_type = m.move_type();
@@ -567,20 +571,20 @@ impl Board {
         unsafe {
             // change the side to move
             self.to_move = us;
-            hash ^= g.zobrist_to_move;
+            hash ^= self.zobrist.to_move;
 
             // restore the en-passant file
-            hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
+            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
             self.en_passant_file = m.en_passant_file();
-            hash ^= *g.zobrist_en_passant.get_unchecked(self.en_passant_file);
+            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
 
             // restore castling rights
-            hash ^= *g.zobrist_castling.get_unchecked(self.castling.value());
+            hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
             self.castling.set_for(them, m.castling_data());
             if move_type != MOVE_PROMOTION {
                 self.castling.set_for(us, aux_data);
             }
-            hash ^= *g.zobrist_castling.get_unchecked(self.castling.value());
+            hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
 
             // empty the destination square
             let dest_piece = if move_type == MOVE_PROMOTION {
@@ -590,26 +594,29 @@ impl Board {
             };
             *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
             *self.color.get_unchecked_mut(us) &= not_dest_bb;
-            hash ^= *g.zobrist_pieces
-                      .get_unchecked(us)
-                      .get_unchecked(dest_piece)
-                      .get_unchecked(dest_square);
+            hash ^= *self.zobrist
+                         .pieces
+                         .get_unchecked(us)
+                         .get_unchecked(dest_piece)
+                         .get_unchecked(dest_square);
 
             // put back the captured piece (if any)
             if captured_piece < NO_PIECE {
                 let captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
                     let captured_pawn_square = (dest_square as isize + shift) as Square;
-                    hash ^= *g.zobrist_pieces
-                              .get_unchecked(them)
-                              .get_unchecked(captured_piece)
-                              .get_unchecked(captured_pawn_square);
+                    hash ^= *self.zobrist
+                                 .pieces
+                                 .get_unchecked(them)
+                                 .get_unchecked(captured_piece)
+                                 .get_unchecked(captured_pawn_square);
                     1 << captured_pawn_square
                 } else {
-                    hash ^= *g.zobrist_pieces
-                              .get_unchecked(them)
-                              .get_unchecked(captured_piece)
-                              .get_unchecked(dest_square);
+                    hash ^= *self.zobrist
+                                 .pieces
+                                 .get_unchecked(them)
+                                 .get_unchecked(captured_piece)
+                                 .get_unchecked(dest_square);
                     !not_dest_bb
                 };
                 *self.piece_type.get_unchecked_mut(captured_piece) |= captured_bb;
@@ -619,10 +626,11 @@ impl Board {
             // restore the piece on the origin square
             *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
             *self.color.get_unchecked_mut(us) |= orig_bb;
-            hash ^= *g.zobrist_pieces
-                      .get_unchecked(us)
-                      .get_unchecked(piece)
-                      .get_unchecked(orig_square);
+            hash ^= *self.zobrist
+                         .pieces
+                         .get_unchecked(us)
+                         .get_unchecked(piece)
+                         .get_unchecked(orig_square);
 
             // move the rook back if the move is castling
             if move_type == MOVE_CASTLING {
@@ -634,7 +642,7 @@ impl Board {
                 let mask = CASTLING_ROOK_MASK[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
-                hash ^= g.zobrist_castling_rook_move[us][side];
+                hash ^= self.zobrist.castling_rook_move[us][side];
             }
 
             // update "_occupied", "_hash", "_checkers", and "_king_square"
@@ -1076,23 +1084,22 @@ impl Board {
     //
     // It calculates the Zobrist hash for the board.
     fn calc_hash(&self) -> u64 {
-        let g = self.geometry;
         let mut hash = 0;
         for color in 0..2 {
             for piece in 0..6 {
                 let mut bb = self.color[color] & self.piece_type[piece];
                 while bb != EMPTY_SET {
                     let square = bitscan_forward_and_reset(&mut bb);
-                    hash ^= g.zobrist_pieces[color][piece][square];
+                    hash ^= self.zobrist.pieces[color][piece][square];
                 }
             }
         }
-        hash ^= g.zobrist_castling[self.castling.value()];
+        hash ^= self.zobrist.castling[self.castling.value()];
         if self.en_passant_file < 8 {
-            hash ^= g.zobrist_en_passant[self.en_passant_file];
+            hash ^= self.zobrist.en_passant[self.en_passant_file];
         }
         if self.to_move == BLACK {
-            hash ^= g.zobrist_to_move;
+            hash ^= self.zobrist.to_move;
         }
         hash
     }
@@ -1143,10 +1150,8 @@ static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 // Bitboards that describe how the castling rook moves during the
 // castling move.
-const CASTLING_ROOK_MASK: [[u64; 2]; 2] = [
-    [1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
-    [1 << A8 | 1 << D8, 1 << H8 | 1 << F8],
-];
+const CASTLING_ROOK_MASK: [[u64; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
+                                           [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
 
 
 /// Returns the type of the piece at a given square.
@@ -1169,6 +1174,89 @@ fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64)
         }
     }
     panic!("invalid board");
+}
+
+
+/// Loop-up tables for calculating Zobrist hashes.
+struct ZobristArrays {
+    pub to_move: u64,
+    pub pieces: [[[u64; 64]; 6]; 2],
+    pub castling: [u64; 16],
+    
+    /// Only the first 8 indexes of the `en_passant` array are
+    /// initialized -- the rest remain zero. (They exist only for
+    /// performance and memory safety reasons.)
+    pub en_passant: [u64; 16],
+
+    /// Derived from `pieces` for convenience. Contains the constants
+    /// with which the Zobrist hash value should be XOR-ed to reflect
+    /// the movement of the rook during castling.
+    pub castling_rook_move: [[u64; 2]; 2],
+}
+
+
+impl ZobristArrays {
+    /// Creates and initializes a new instance.
+    pub fn new() -> ZobristArrays {
+        use rand::{Rng, SeedableRng};
+        use rand::isaac::Isaac64Rng;
+
+        let seed: &[_] = &[1, 2, 3, 4];
+        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
+
+        let to_move = rng.gen();
+        let mut pieces = [[[0; 64]; 6]; 2];
+        let mut castling = [0; 16];
+        let mut en_passant = [0; 16];
+        let mut castling_rook_move = [[0; 2]; 2];
+
+        for color in 0..2 {
+            for piece in 0..6 {
+                for square in 0..64 {
+                    pieces[color][piece][square] = rng.gen();
+                }
+            }
+        }
+
+        for value in 0..16 {
+            castling[value] = rng.gen();
+        }
+
+        for file in 0..8 {
+            en_passant[file] = rng.gen();
+        }
+
+        castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
+        castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
+        castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
+        castling_rook_move[BLACK][KINGSIDE] = pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8];
+
+        ZobristArrays {
+            to_move: to_move,
+            pieces: pieces,
+            castling: castling,
+            en_passant: en_passant,
+            castling_rook_move: castling_rook_move,
+        }
+    }
+
+    /// Returns a reference to a properly initialized `ZobristArrays`
+    /// object.
+    ///
+    /// The object is created and initialized only during the first
+    /// call. All next calls will return a reference to the same
+    /// object. This is done in a thread-safe manner.
+    pub fn get() -> &'static ZobristArrays {
+        use std::sync::{Once, ONCE_INIT};
+        static INIT_ARRAYS: Once = ONCE_INIT;
+        static mut arrays: Option<ZobristArrays> = None;
+        unsafe {
+            INIT_ARRAYS.call_once(|| {
+                arrays = Some(ZobristArrays::new());
+            });
+            arrays.as_ref().unwrap()
+        }
+    }
 }
 
 
@@ -1201,7 +1289,7 @@ mod tests {
     fn test_attacks_from() {
         use position::board_geometry::*;
         let b = Board::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
-        let g = board_geometry();
+        let g = BoardGeometry::get();
         assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], BISHOP, A1),
                    1 << B2 | 1 << C3 | 1 << D4);
         assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], BISHOP, A1),

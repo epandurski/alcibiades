@@ -1,29 +1,7 @@
 //! Generates look-up tables and implements look-up methods.
 
-use rand::{Rng, SeedableRng};
-use rand::isaac::Isaac64Rng;
 use basetypes::*;
 use bitsets::*;
-use castling_rights::*;
-
-
-/// Returns a reference to a properly initialized `BoardGeometry`
-/// object.
-///
-/// The object is created and initialized only during the first
-/// call. All next calls will return a reference to the same
-/// object. This is done in a thread-safe manner.
-pub fn board_geometry() -> &'static BoardGeometry {
-    use std::sync::{Once, ONCE_INIT};
-    static INIT_GEOMETRY: Once = ONCE_INIT;
-    static mut geometry: Option<BoardGeometry> = None;
-    unsafe {
-        INIT_GEOMETRY.call_once(|| {
-            geometry = Some(BoardGeometry::new());
-        });
-        geometry.as_ref().unwrap()
-    }
-}
 
 
 /// A collection of look-up tables and look-up methods.
@@ -124,23 +102,6 @@ pub struct BoardGeometry {
     /// . . . . . . . .
     /// ```
     pub squares_behind_blocker: [[u64; 64]; 64],
-
-    /// Used in calculating the Zobrist hash function.
-    pub zobrist_pieces: [[[u64; 64]; 6]; 2],
-
-    /// Used in calculating the Zobrist hash function.
-    pub zobrist_to_move: u64,
-
-    /// Used in calculating the Zobrist hash function.
-    pub zobrist_en_passant: [u64; 16],
-
-    /// Used in calculating the Zobrist hash function.
-    pub zobrist_castling: [u64; 16],
-
-    /// Derived from `zobrist_pieces`. Contains the constants with
-    /// which the Zobrist hash value should be XOR-ed to reflect the
-    /// movement of the rook during castling.
-    pub zobrist_castling_rook_move: [[u64; 2]; 2],
 }
 
 
@@ -182,18 +143,30 @@ impl BoardGeometry {
             squares_at_line: [[0; 64]; 64],
             squares_between_including: [[0; 64]; 64],
             squares_behind_blocker: [[0; 64]; 64],
-            zobrist_pieces: [[[0; 64]; 6]; 2],
-            zobrist_castling: [0; 16],
-            zobrist_castling_rook_move: [[0; 2]; 2],
-            zobrist_en_passant: [0; 16],
-            zobrist_to_move: 0,
         };
 
         bg.fill_attack_and_blockers_and_beyond_arrays();
         bg.fill_squares_between_including_and_squares_behind_blocker_arrays();
         bg.fill_squares_at_line_array();
-        bg.fill_zobrist_arrays();
         bg
+    }
+
+    /// Returns a reference to a properly initialized `BoardGeometry`
+    /// object.
+    ///
+    /// The object is created and initialized only during the first
+    /// call. All next calls will return a reference to the same
+    /// object. This is done in a thread-safe manner.
+    pub fn get() -> &'static BoardGeometry {
+        use std::sync::{Once, ONCE_INIT};
+        static INIT_GEOMETRY: Once = ONCE_INIT;
+        static mut geometry: Option<BoardGeometry> = None;
+        unsafe {
+            INIT_GEOMETRY.call_once(|| {
+                geometry = Some(BoardGeometry::new());
+            });
+            geometry.as_ref().unwrap()
+        }
     }
 
     /// Returns the set of squares that are attacked by a piece (not a
@@ -320,43 +293,6 @@ impl BoardGeometry {
                                              self.squares_behind_blocker[b][a];
             }
         }
-    }
-
-    fn fill_zobrist_arrays(&mut self) {
-        let seed: &[_] = &[1, 2, 3, 4];
-        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
-        
-        for color in 0..2 {
-            for piece in 0..6 {
-                for square in 0..64 {
-                    self.zobrist_pieces[color][piece][square] = rng.gen();
-                }
-            }
-        }
-
-        self.zobrist_to_move = rng.gen();
-
-        // Only the first 8 indexes of the `zobrist_en_passant` array
-        // are initialized -- the rest remain zero. (They exist only
-        // for performance and memory safety reasons.)
-        for file in 0..8 {
-            self.zobrist_en_passant[file] = rng.gen();
-        }
-
-        for value in 0..16 {
-            self.zobrist_castling[value] = rng.gen();
-        }
-
-        // The `zobrist_castling_rook_move` constants are a mere
-        // convenience.
-        self.zobrist_castling_rook_move[WHITE][QUEENSIDE] = self.zobrist_pieces[WHITE][ROOK][A1] ^
-                                                            self.zobrist_pieces[WHITE][ROOK][D1];
-        self.zobrist_castling_rook_move[WHITE][KINGSIDE] = self.zobrist_pieces[WHITE][ROOK][H1] ^
-                                                           self.zobrist_pieces[WHITE][ROOK][F1];
-        self.zobrist_castling_rook_move[BLACK][QUEENSIDE] = self.zobrist_pieces[BLACK][ROOK][A8] ^
-                                                            self.zobrist_pieces[BLACK][ROOK][D8];
-        self.zobrist_castling_rook_move[BLACK][KINGSIDE] = self.zobrist_pieces[BLACK][ROOK][H8] ^
-                                                           self.zobrist_pieces[BLACK][ROOK][F8];
     }
 }
 
