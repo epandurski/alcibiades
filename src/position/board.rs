@@ -760,6 +760,31 @@ impl Board {
         }
     }
 
+    // A helper method for `push_piece_moves_to_sink`.
+    //
+    // It calculates pawn destination bitboards.
+    #[inline]
+    fn calc_pawn_dest_sets(&self, pawns: u64, en_passant_bb: u64, dest_sets: &mut [u64; 4]) {
+        const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
+        const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                                BB_RANK_2 | BB_RANK_7,
+                                                !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                                !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+        unsafe {
+            let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(self.to_move);
+            let not_occupied_by_us = !*self.color.get_unchecked(self.to_move);
+            let capture_targets = *self.color.get_unchecked(1 ^ self.to_move) | en_passant_bb;
+            for i in 0..4 {
+                *dest_sets.get_unchecked_mut(i) =
+                    gen_shift(pawns & *PAWN_MOVE_CANDIDATES.get_unchecked(i),
+                              *shifts.get_unchecked(i)) &
+                    (capture_targets ^ *PAWN_MOVE_QUIET.get_unchecked(i)) &
+                    not_occupied_by_us;
+            }
+            dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+        }
+    }
+
     // A helper method for `generate_moves`.
     //
     // It finds all squares attacked by `piece` from square
@@ -810,36 +835,14 @@ impl Board {
                                legal_dests: u64,
                                only_queen_promotions: bool,
                                move_stack: &mut MoveStack) {
-
-        const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
-        const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                                BB_RANK_2 | BB_RANK_7,
-                                                !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                                !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
-        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
-        let not_occupied_by_us = unsafe { !*self.color.get_unchecked(self.to_move) };
-        let capture_targets = unsafe { *self.color.get_unchecked(1 ^ self.to_move) } |
-                              en_passant_bb;
-
-        // We differentiate 4 types of pawn moves: single push, double
-        // push, west-capture (capturing toward queen side), and
+        // We differentiate 4 types of pawn moves: push, double push,
+        // west-capture (capturing toward queen side), and
         // east-capture (capturing toward king side). The benefit of
         // this separation is that knowing the destination square and
-        // the pawn move type (the index in the destination sets
-        // array) is enough to recover the origin square.
+        // the pawn move type (the index in the `dest_sets` array) is
+        // enough to recover the origin square.
         let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
-        for i in 0..4 {
-            unsafe {
-                *dest_sets.get_unchecked_mut(i) =
-                    gen_shift(pawns & *PAWN_MOVE_CANDIDATES.get_unchecked(i),
-                              *shifts.get_unchecked(i)) &
-                    (capture_targets ^ *PAWN_MOVE_QUIET.get_unchecked(i)) &
-                    not_occupied_by_us;
-            }
-        }
-
-        // The double-push is trickier.
-        dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+        self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
 
         // Make sure all destination squares in all sets are legal.
         dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
@@ -851,6 +854,7 @@ impl Board {
         // east capture). For each move calculate the "to" and "from"
         // sqares, and determinne the move type (en-passant capture,
         // pawn promotion, or a normal move).
+        let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
         for i in 0..4 {
             let s = unsafe { dest_sets.get_unchecked_mut(i) };
             while *s != EMPTY_SET {
