@@ -34,6 +34,7 @@ pub struct Board {
     _occupied: u64, // this will always be equal to self.color[0] | self.color[1]
     _hash: u64, // Zobrist hash value
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
+    _pinned: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
 }
 
@@ -70,6 +71,7 @@ impl Board {
             _occupied: placement.color[WHITE] | placement.color[BLACK],
             _hash: Default::default(),
             _checkers: Cell::new(UNIVERSAL_SET),
+            _pinned: Cell::new(UNIVERSAL_SET),
             _king_square: Cell::new(64),
         };
         b._hash = b.calc_hash();
@@ -129,6 +131,16 @@ impl Board {
             self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
         }
         self._checkers.get()
+    }
+
+    /// Returns a bitboard of all pinned pieces and pawns of the color
+    /// of the side to move.
+    #[inline]
+    pub fn pinned(&self) -> u64 {
+        if self._pinned.get() == UNIVERSAL_SET {
+            self._pinned.set(self.find_pinned());
+        }
+        self._pinned.get()
     }
 
     /// Returns a bitboard of all pieces (or pawns) of color `us` that
@@ -258,7 +270,7 @@ impl Board {
             // This block is not executed when the king is in double
             // check.
 
-            let pinned = self.find_pinned();
+            let pinned = self.pinned();
             let pin_lines = unsafe { self.geometry.squares_at_line.get_unchecked(king_square) };
             let en_passant_bb = self.en_passant_bb();
 
@@ -525,10 +537,12 @@ impl Board {
             self.to_move = them;
             hash ^= self.zobrist.to_move;
 
-            // update "_occupied", "_hash", "_checkers", and "_king_square"
+            // update "_occupied", "_hash", "_checkers", "_pinned",
+            // and "_king_square"
             self._occupied = self.color[WHITE] | self.color[BLACK];
             self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
+            self._pinned.set(UNIVERSAL_SET);
             self._king_square.set(64);
         }
 
@@ -646,10 +660,12 @@ impl Board {
                 hash ^= self.zobrist.castling_rook_move[us][side];
             }
 
-            // update "_occupied", "_hash", "_checkers", and "_king_square"
+            // update "_occupied", "_hash", "_checkers", "_pinned",
+            // and "_king_square"
             self._occupied = self.color[WHITE] | self.color[BLACK];
             self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
+            self._pinned.set(UNIVERSAL_SET);
             self._king_square.set(64);
         }
 
@@ -736,6 +752,8 @@ impl Board {
             assert_eq!(self._hash, self.calc_hash());
             assert!(self._checkers.get() == UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
+            assert!(self._pinned.get() == UNIVERSAL_SET ||
+                    self._pinned.get() == self.find_pinned());
             assert!(self._king_square.get() > 63 ||
                     self._king_square.get() == bitscan_1bit(our_king_bb));
             true
