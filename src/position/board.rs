@@ -760,7 +760,7 @@ impl Board {
                 }
 
                 // double check
-                _ => EMPTY_SET,
+                _ => return None,
             };
             if orig_square_bb & self.pinned() != 0 {
                 // the piece is pinned
@@ -779,8 +779,8 @@ impl Board {
                                                    dest_square_bb);
         if piece == PAWN {
             // If we are in check, and the checking piece is the
-            // passing pawn itself, the en-passant capture can be a
-            // legal check evasion.
+            // passing pawn, the en-passant capture can be a legal
+            // check evasion.
             let en_passant_bb = self.en_passant_bb();
             if checkers & self.piece_type[PAWN] != 0 {
                 legal_dests |= en_passant_bb;
@@ -1806,7 +1806,7 @@ mod tests {
                 }
             }
         }
-        
+
         let mut stack = MoveStack::new();
         let b = Board::from_fen("rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQkq c3 0 \
                                      1")
@@ -1814,7 +1814,7 @@ mod tests {
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
-        
+
         stack.clear();
         let b = Board::from_fen("rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 \
                                  1")
@@ -1822,7 +1822,7 @@ mod tests {
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
-        
+
         stack.clear();
         let b = Board::from_fen("rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/pP1PPPBP/RNB1K2R b KQkq - 0 \
                                  1")
@@ -1830,7 +1830,7 @@ mod tests {
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
-        
+
         stack.clear();
         let b = Board::from_fen("rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQ c3 0 \
                                      1")
@@ -1838,10 +1838,24 @@ mod tests {
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
-        
+
         stack.clear();
         let b = Board::from_fen("rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 \
                                  1")
+                    .ok()
+                    .unwrap();
+        b.generate_moves(true, &mut stack);
+        try_all(&b, &stack);
+
+        stack.clear();
+        let b = Board::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
+                    .ok()
+                    .unwrap();
+        b.generate_moves(true, &mut stack);
+        try_all(&b, &stack);
+
+        stack.clear();
+        let b = Board::from_fen("8/8/8/8/5pPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);
