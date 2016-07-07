@@ -738,16 +738,14 @@ impl Board {
         }
         assert!(piece <= PAWN);
 
-        // We will gradually shrink the legal destinations set.
-        let mut legal_dests = !occupied_by_us;
+        // We will shrink the pseudo-legal destinations set as we go.
+        let mut pseudo_legal_dests = !occupied_by_us;
 
         if piece != KING {
-            legal_dests &= match ls1b(checkers) {
-                // not in check
+            pseudo_legal_dests &= match ls1b(checkers) {
                 0 => UNIVERSAL_SET,
-
-                // in check
                 x if x == checkers => {
+                    // We are in check.
                     x |
                     unsafe {
                         *self.geometry
@@ -756,13 +754,12 @@ impl Board {
                              .get_unchecked(bitscan_1bit(x))
                     }
                 }
-
-                // double check
+                // We are in double check.
                 _ => return None,
             };
             if orig_square_bb & self.pinned() != 0 {
-                // the piece is pinned
-                legal_dests &= unsafe {
+                // The piece is pinned.
+                pseudo_legal_dests &= unsafe {
                     *self.geometry
                          .squares_at_line
                          .get_unchecked(king_square)
@@ -771,31 +768,29 @@ impl Board {
             }
         };
 
+        // These are good initial guesses.
         let mut promoted_piece_code = 0;
         let mut captured_piece = get_piece_type_at(&self.piece_type,
                                                    self.occupied(),
                                                    dest_square_bb);
+        
         if piece == PAWN {
-            // If we are in check, and the checking piece is the
-            // passing pawn, the en-passant capture can be a legal
-            // check evasion.
             let en_passant_bb = self.en_passant_bb();
             if checkers & self.piece_type[PAWN] != 0 {
-                legal_dests |= en_passant_bb;
+                // If we are in check, and the checking piece is the
+                // passing pawn, the en-passant capture is a legal
+                // check evasion.
+                pseudo_legal_dests |= en_passant_bb;
             }
-
             let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
             self.calc_pawn_dest_sets(orig_square_bb, en_passant_bb, &mut dest_sets);
-            legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
-                           dest_sets[PAWN_WEST_CAPTURE] |
-                           dest_sets[PAWN_EAST_CAPTURE];
-            if legal_dests & dest_square_bb == 0 {
+            pseudo_legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
+                                  dest_sets[PAWN_WEST_CAPTURE] |
+                                  dest_sets[PAWN_EAST_CAPTURE];
+            if pseudo_legal_dests & dest_square_bb == 0 {
                 return None;
             }
-
             match dest_square_bb {
-
-                // en-passant capture
                 x if x == en_passant_bb => {
                     if move_type != MOVE_ENPASSANT ||
                        !self.en_passant_special_check_ok(orig_square, dest_square) {
@@ -803,16 +798,12 @@ impl Board {
                     }
                     captured_piece = PAWN;
                 }
-
-                // pawn promotion
                 x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                     if move_type != MOVE_PROMOTION {
                         return None;
                     }
                     promoted_piece_code = ((move16 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize;
                 }
-
-                // normal pawn move (push or plain capture)
                 _ => {
                     if move_type != MOVE_NORMAL {
                         return None;
@@ -820,10 +811,10 @@ impl Board {
                 }
             }
         } else {
-            legal_dests &= unsafe {
+            pseudo_legal_dests &= unsafe {
                 self.geometry.piece_attacks_from(self.occupied(), piece, orig_square)
             };
-            if move_type != MOVE_NORMAL || legal_dests & dest_square_bb == 0 {
+            if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 {
                 return None;
             }
         }
