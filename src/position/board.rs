@@ -354,7 +354,7 @@ impl Board {
         // or passing through an attacked square when castling). This
         // is executed even when the king is in double check.
         {
-            let king_legal_dests = if generate_all_moves {
+            let king_dests = if generate_all_moves {
                 self.push_castling_moves_to_sink(move_stack);
                 !occupied_by_us
             } else {
@@ -364,7 +364,7 @@ impl Board {
                 occupied_by_them
             };
 
-            self.push_piece_moves_to_sink(KING, king_square, king_legal_dests, move_stack);
+            self.push_piece_moves_to_sink(KING, king_square, king_dests, move_stack);
         }
     }
 
@@ -699,7 +699,6 @@ impl Board {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
 
-        // Check if the move is castling.
         if move_type == MOVE_CASTLING {
             let side = if dest_square < orig_square {
                 QUEENSIDE
@@ -739,8 +738,7 @@ impl Board {
         }
         assert!(piece <= PAWN);
 
-        // Calculate a first approximation for the legal destinations,
-        // that will be gradually improved.
+        // We will gradually shrink the legal destinations set.
         let mut legal_dests = !occupied_by_us;
 
         if piece != KING {
