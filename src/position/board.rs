@@ -916,7 +916,8 @@ impl Board {
         }
     }
 
-    // A helper method for `push_piece_moves_to_stack`.
+    // A helper method for `push_piece_moves_to_stack` and
+    // `try_move16`.
     //
     // It calculates pawn destination bitboards.
     #[inline]
