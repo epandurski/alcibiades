@@ -424,6 +424,11 @@ impl Board {
         assert!(move_type <= 3);
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
+        assert!(unsafe {
+            Board::is_null_move(m) ||
+            ::std::mem::transmute::<Move, u32>(m) & (!0 >> 2) ==
+            ::std::mem::transmute::<Move, u32>(self.try_move16(m.move16()).unwrap()) & (!0 >> 2)
+        });
 
         if piece >= NO_PIECE {
             // Since "Board::do_move()" is a public function, we have
@@ -719,7 +724,8 @@ impl Board {
         }
 
         // Figure out what is the moved piece.
-        let orig_square_bb = 1 << orig_square;
+        let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
+        let orig_square_bb = occupied_by_us & (1 << orig_square);
         let dest_square_bb = 1 << dest_square;
         let piece;
         'pieces: loop {
@@ -735,7 +741,7 @@ impl Board {
 
         // Calculate a first approximation for the legal destinations,
         // that will be gradually improved.
-        let mut legal_dests = unsafe { !*self.color.get_unchecked(self.to_move) };
+        let mut legal_dests = !occupied_by_us;
 
         if piece != KING {
             legal_dests &= match ls1b(checkers) {
@@ -1783,5 +1789,62 @@ mod tests {
         let m = stack.pop().unwrap();
         b.do_move(m);
         assert!(b.is_legal());
+    }
+
+    #[test]
+    fn test_try_move16() {
+        fn try_all(b: &Board, stack: &MoveStack) {
+            let mut i = 0;
+            loop {
+                if let Some(m) = b.try_move16(i) {
+                    assert!(stack.iter().find(|x| **x == m).is_some());
+                }
+                if i == 0xffff {
+                    break;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+        
+        let mut stack = MoveStack::new();
+        let b = Board::from_fen("rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQkq c3 0 \
+                                     1")
+                    .ok()
+                    .unwrap();
+        b.generate_moves(true, &mut stack);
+        try_all(&b, &stack);
+        
+        stack.clear();
+        let b = Board::from_fen("rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 \
+                                 1")
+                    .ok()
+                    .unwrap();
+        b.generate_moves(true, &mut stack);
+        try_all(&b, &stack);
+        
+        stack.clear();
+        let b = Board::from_fen("rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/pP1PPPBP/RNB1K2R b KQkq - 0 \
+                                 1")
+                    .ok()
+                    .unwrap();
+        b.generate_moves(true, &mut stack);
+        try_all(&b, &stack);
+        
+        stack.clear();
+        let b = Board::from_fen("rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQ c3 0 \
+                                     1")
+                    .ok()
+                    .unwrap();
+        b.generate_moves(true, &mut stack);
+        try_all(&b, &stack);
+        
+        stack.clear();
+        let b = Board::from_fen("rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 \
+                                 1")
+                    .ok()
+                    .unwrap();
+        b.generate_moves(true, &mut stack);
+        try_all(&b, &stack);
     }
 }
