@@ -686,18 +686,9 @@ impl Board {
     /// `Some(m)`. Otherwise it will return `None`.
     #[inline]
     pub fn try_move16(&self, move16: u16) -> Option<Move> {
-        const M_SHIFT_MOVE_TYPE: u16 = 14;
-        const M_SHIFT_ORIG_SQUARE: u16 = 8;
-        const M_SHIFT_DEST_SQUARE: u16 = 2;
-        const M_SHIFT_AUX_DATA: u16 = 0;
-        const M_MASK_MOVE_TYPE: u16 = 0b11 << M_SHIFT_MOVE_TYPE;
-        const M_MASK_ORIG_SQUARE: u16 = 0b111111 << M_SHIFT_ORIG_SQUARE;
-        const M_MASK_DEST_SQUARE: u16 = 0b111111 << M_SHIFT_DEST_SQUARE;
-        const M_MASK_AUX_DATA: u16 = 0b11 << M_SHIFT_AUX_DATA;
-
-        let move_type = ((move16 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE) as usize;
-        let orig_square = ((move16 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE) as Square;
-        let dest_square = ((move16 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square;
+        let move_type = move16_move_type(move16);
+        let orig_square = move16_orig_square(move16);
+        let dest_square = move16_dest_square(move16);
         let king_square = self.king_square();
         let checkers = self.checkers();
         assert!(self.to_move <= 1);
@@ -808,7 +799,7 @@ impl Board {
                     if move_type != MOVE_PROMOTION {
                         return None;
                     }
-                    promoted_piece_code = ((move16 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize;
+                    promoted_piece_code = move16_aux_data(move16);
                 }
                 _ => {
                     if move_type != MOVE_NORMAL {

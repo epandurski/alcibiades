@@ -316,6 +316,30 @@ impl Move {
 }
 
 
+#[inline(always)]
+pub fn move16_move_type(move16: u16) -> MoveType {
+    ((move16 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE as u16) as usize
+}
+
+
+#[inline(always)]
+pub fn move16_orig_square(move16: u16) -> Square {
+    ((move16 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE as u16) as usize
+}
+
+
+#[inline(always)]
+pub fn move16_dest_square(move16: u16) -> Square {
+    ((move16 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE as u16) as usize
+}
+
+
+#[inline(always)]
+pub fn move16_aux_data(move16: u16) -> usize {
+    ((move16 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA as u16) as usize
+}
+
+
 /// Stores a list of moves for each position in a given line of play.
 pub struct MoveStack {
     moves: Vec<Move>,
@@ -421,7 +445,7 @@ impl MoveStack {
     pub fn iter(&self) -> slice::Iter<Move> {
         self.moves[self.first_move_index..].iter()
     }
-    
+
     /// Returns an iterator that allows modifying each move in the
     /// current move list.
     #[inline]
