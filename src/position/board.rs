@@ -1008,9 +1008,9 @@ impl Board {
         dest_sets[PAWN_EAST_CAPTURE] &= legal_dests;
 
         // Scan each destination set (push, double push, west capture,
-        // east capture). For each move calculate the "to" and "from"
-        // sqares, and determinne the move type (en-passant capture,
-        // pawn promotion, or a normal move).
+        // east capture). For each move calculate the origin and
+        // destination squares, and determine the move type
+        // (en-passant capture, pawn promotion, or a normal move).
         let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
         for i in 0..4 {
             let s = unsafe { dest_sets.get_unchecked_mut(i) };
