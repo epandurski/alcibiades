@@ -672,6 +672,169 @@ impl Board {
         assert!(self.is_legal());
     }
 
+    /// Check if an `u16` integer represents pseudo-legal move.
+    #[inline]
+    pub fn try_move16(&self, move16: u16) -> Option<Move> {
+        const M_SHIFT_MOVE_TYPE: u16 = 14;
+        const M_SHIFT_ORIG_SQUARE: u16 = 8;
+        const M_SHIFT_DEST_SQUARE: u16 = 2;
+        const M_SHIFT_AUX_DATA: u16 = 0;
+        const M_MASK_MOVE_TYPE: u16 = 0b11 << M_SHIFT_MOVE_TYPE;
+        const M_MASK_ORIG_SQUARE: u16 = 0b111111 << M_SHIFT_ORIG_SQUARE;
+        const M_MASK_DEST_SQUARE: u16 = 0b111111 << M_SHIFT_DEST_SQUARE;
+        const M_MASK_AUX_DATA: u16 = 0b11 << M_SHIFT_AUX_DATA;
+
+        let move_type = ((move16 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE) as usize;
+        let orig_square = ((move16 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE) as Square;
+        let dest_square = ((move16 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square;
+        let king_square = self.king_square();
+        let checkers = self.checkers();
+        assert!(self.to_move <= 1);
+        assert!(move_type <= 3);
+        assert!(orig_square <= 63);
+        assert!(dest_square <= 63);
+
+        // Check if the move is castling.
+        if move_type == MOVE_CASTLING {
+            let side = if dest_square < orig_square {
+                QUEENSIDE
+            } else {
+                KINGSIDE
+            };
+            if checkers != 0 ||
+               self.castling.obstacles(self.to_move, side) & self.occupied() != 0 ||
+               orig_square != king_square ||
+               dest_square != [[C1, C8], [G1, G8]][side][self.to_move] {
+                return None;
+            }
+            return Some(Move::new(self.to_move,
+                                  MOVE_CASTLING,
+                                  KING,
+                                  orig_square,
+                                  dest_square,
+                                  NO_PIECE,
+                                  self.en_passant_file,
+                                  self.castling,
+                                  0));
+        }
+
+        // Figure out what is the moved piece.
+        let orig_square_bb = 1 << orig_square;
+        let dest_square_bb = 1 << dest_square;
+        let piece;
+        'pieces: loop {
+            for i in (KING..NO_PIECE).rev() {
+                if orig_square_bb & unsafe { *self.piece_type.get_unchecked(i) } != 0 {
+                    piece = i;
+                    break 'pieces;
+                }
+            }
+            return None;
+        }
+        assert!(piece <= PAWN);
+
+        // Calculate a first approximation for the legal destinations,
+        // that will be gradually improved.
+        let mut legal_dests = unsafe { !*self.color.get_unchecked(self.to_move) };
+
+        if piece != KING {
+            legal_dests &= match ls1b(checkers) {
+                // not in check
+                0 => UNIVERSAL_SET,
+
+                // in check
+                x if x == checkers => {
+                    x |
+                    unsafe {
+                        *self.geometry
+                             .squares_between_including
+                             .get_unchecked(king_square)
+                             .get_unchecked(bitscan_1bit(x))
+                    }
+                }
+
+                // double check
+                _ => EMPTY_SET,
+            };
+            if orig_square_bb & self.pinned() != 0 {
+                // the piece is pinned
+                legal_dests &= unsafe {
+                    *self.geometry
+                         .squares_at_line
+                         .get_unchecked(king_square)
+                         .get_unchecked(orig_square)
+                }
+            }
+        };
+
+        let mut promoted_piece_code = 0;
+        let mut captured_piece = get_piece_type_at(&self.piece_type,
+                                                   self.occupied(),
+                                                   dest_square_bb);
+        if piece == PAWN {
+            // If we are in check, and the checking piece is the
+            // passing pawn itself, the en-passant capture can be a
+            // legal check evasion.
+            let en_passant_bb = self.en_passant_bb();
+            if checkers & self.piece_type[PAWN] != 0 {
+                legal_dests |= en_passant_bb;
+            }
+
+            let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
+            self.calc_pawn_dest_sets(orig_square_bb, en_passant_bb, &mut dest_sets);
+            legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
+                           dest_sets[PAWN_WEST_CAPTURE] |
+                           dest_sets[PAWN_EAST_CAPTURE];
+            if legal_dests & dest_square_bb == 0 {
+                return None;
+            }
+
+            match dest_square_bb {
+
+                // en-passant capture
+                x if x == en_passant_bb => {
+                    if move_type != MOVE_ENPASSANT ||
+                       !self.en_passant_special_check_ok(orig_square, dest_square) {
+                        return None;
+                    }
+                    captured_piece = PAWN;
+                }
+
+                // pawn promotion
+                x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
+                    if move_type != MOVE_PROMOTION {
+                        return None;
+                    }
+                    promoted_piece_code = ((move16 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize;
+                }
+
+                // normal pawn move (push or plain capture)
+                _ => {
+                    if move_type != MOVE_NORMAL {
+                        return None;
+                    }
+                }
+            }
+        } else {
+            legal_dests &= unsafe {
+                self.geometry.piece_attacks_from(self.occupied(), piece, orig_square)
+            };
+            if move_type != MOVE_NORMAL || legal_dests & dest_square_bb == 0 {
+                return None;
+            }
+        }
+
+        Some(Move::new(self.to_move,
+                       move_type,
+                       piece,
+                       orig_square,
+                       dest_square,
+                       captured_piece,
+                       self.en_passant_file,
+                       self.castling,
+                       promoted_piece_code))
+    }
+
     // Analyzes the board and decides if it is a legal board.
     //
     // In addition to the obviously wrong boards (that for example
