@@ -488,9 +488,7 @@ impl Board {
 
         // These are good initial guesses.
         let mut promoted_piece_code = 0;
-        let mut captured_piece = get_piece_type_at(&self.piece_type,
-                                                   self.occupied(),
-                                                   dest_square_bb);
+        let mut captured_piece = self.get_piece_type_at(dest_square_bb);
 
         if piece == PAWN {
             let en_passant_bb = self.en_passant_bb();
@@ -963,7 +961,7 @@ impl Board {
             let dest_bb = ls1b(dest_set);
             dest_set ^= dest_bb;
             let dest_square = bitscan_1bit(dest_bb);
-            let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), dest_bb);
+            let captured_piece = self.get_piece_type_at(dest_bb);
             move_stack.push(Move::new(self.to_move,
                                       MOVE_NORMAL,
                                       piece,
@@ -1022,7 +1020,7 @@ impl Board {
                                    unsafe {
                     *shifts.get_unchecked(i)
                 }) as Square;
-                let captured_piece = get_piece_type_at(&self.piece_type, self.occupied(), pawn_bb);
+                let captured_piece = self.get_piece_type_at(pawn_bb);
                 match pawn_bb {
 
                     // en-passant capture
@@ -1235,6 +1233,26 @@ impl Board {
         }
     }
 
+    // A helper method.
+    //
+    // It returns the type of the piece at the square represented by
+    // the bitboard `square_bb`.
+    #[inline(always)]
+    fn get_piece_type_at(&self, square_bb: u64) -> PieceType {
+        assert!(square_bb != EMPTY_SET);
+        assert_eq!(square_bb, ls1b(square_bb));
+        let bb = square_bb & self.occupied();
+        if bb == 0 {
+            return NO_PIECE;
+        }
+        for i in (KING..NO_PIECE).rev() {
+            if bb & unsafe { *self.piece_type().get_unchecked(i) } != 0 {
+                return i;
+            }
+        }
+        panic!("invalid board");
+    }
+
     // A helper method for `push_pawn_moves_to_stack`.
     //
     // It tests for the special case when an en-passant capture
@@ -1337,29 +1355,6 @@ static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 // castling move.
 const CASTLING_ROOK_MASK: [[u64; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
                                            [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
-
-
-/// Returns the type of the piece at a given square.
-///
-/// This function returns the piece type at the square represented by
-/// the bitboard `square_bb`, on a board which is occupied with other
-/// pieces according to the `piece_type_array` array and `occupied`
-/// bitboard.
-#[inline(always)]
-fn get_piece_type_at(piece_type_array: &[u64; 6], occupied: u64, square_bb: u64) -> PieceType {
-    assert!(square_bb != EMPTY_SET);
-    assert_eq!(square_bb, ls1b(square_bb));
-    let bb = square_bb & occupied;
-    if bb == 0 {
-        return NO_PIECE;
-    }
-    for i in (KING..NO_PIECE).rev() {
-        if bb & unsafe { *piece_type_array.get_unchecked(i) } != 0 {
-            return i;
-        }
-    }
-    panic!("invalid board");
-}
 
 
 /// Loop-up tables for calculating Zobrist hashes.
