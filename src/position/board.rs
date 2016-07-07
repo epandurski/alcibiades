@@ -292,9 +292,10 @@ impl Board {
                         let piece_bb = ls1b(bb);
                         bb ^= piece_bb;
                         let orig_square = bitscan_1bit(piece_bb);
-                        let piece_legal_dests = match piece_bb & pinned {
-                            0 => legal_dests,
-                            _ => unsafe { legal_dests & *pin_lines.get_unchecked(orig_square) },
+                        let piece_legal_dests = if piece_bb & pinned == 0 {
+                            legal_dests
+                        } else {
+                            unsafe { legal_dests & *pin_lines.get_unchecked(orig_square) }
                         };
                         self.push_piece_moves_to_stack(piece,
                                                        orig_square,
@@ -319,9 +320,10 @@ impl Board {
                 // When in check, en-passant capture is a legal evasion
                 // move only when the checking piece is the passing pawn
                 // itself.
-                let pawn_legal_dests = match checkers & self.piece_type[PAWN] {
-                    0 => legal_dests,
-                    _ => legal_dests | en_passant_bb,
+                let pawn_legal_dests = if checkers & self.piece_type[PAWN] == 0 {
+                    legal_dests
+                } else {
+                    legal_dests | en_passant_bb
                 };
 
                 // Find all free pawn moves at once.
@@ -363,7 +365,6 @@ impl Board {
                 // check evasions.
                 occupied_by_them
             };
-
             self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
         }
     }
