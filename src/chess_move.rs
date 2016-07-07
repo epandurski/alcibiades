@@ -416,6 +416,12 @@ impl MoveStack {
         return None;
     }
 
+    /// Returns an iterator over each move in the current move list.
+    #[inline]
+    pub fn iter(&self) -> slice::Iter<Move> {
+        self.moves[self.first_move_index..].iter()
+    }
+    
     /// Returns an iterator that allows modifying each move in the
     /// current move list.
     #[inline]
