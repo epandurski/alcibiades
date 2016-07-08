@@ -115,7 +115,7 @@ impl BoardGeometry {
         // square number (from 0 to 63) or 0xff (the guarding marker).
         let mut grid = [0xffu8; 120];
         for i in 0..64 {
-            grid[grid_index_from_square(i)] = i as u8;
+            grid[BoardGeometry::grid_index(i)] = i as u8;
         }
 
         // "piece_deltas" represent the change in the grid-index when
@@ -205,8 +205,8 @@ impl BoardGeometry {
         attacks
     }
 
-    fn grid_index(&self, i: Square) -> usize {
-        grid_index_from_square(i)
+    fn grid_index(i: Square) -> usize {
+        ((i / 8) * 10 + (i % 8) + 21)
     }
 
     fn fill_attack_and_blockers_and_beyond_arrays(&mut self) {
@@ -218,7 +218,7 @@ impl BoardGeometry {
                     let delta = self.piece_grid_deltas[piece][move_direction];
                     if delta != 0 {
                         let mut last_mask = 0u64;
-                        let mut curr_grid_index = self.grid_index(square);
+                        let mut curr_grid_index = BoardGeometry::grid_index(square);
                         loop {
                             curr_grid_index = (curr_grid_index as i8 + delta) as usize;
                             let curr_square = self.grid[curr_grid_index] as Square;
@@ -267,7 +267,7 @@ impl BoardGeometry {
                 // is reached.
                 let mut squares_between_including = 0u64;
                 let mut squares_behind_blocker = 0u64;
-                let mut curr_grid_index = self.grid_index(attacker);
+                let mut curr_grid_index = BoardGeometry::grid_index(attacker);
                 let mut blocker_encountered = false;
                 loop {
                     let curr_square = self.grid[curr_grid_index] as Square;
@@ -397,12 +397,6 @@ impl ZobristArrays {
             arrays.as_ref().unwrap()
         }
     }
-}
-
-
-#[inline(always)]
-fn grid_index_from_square(i: Square) -> usize {
-    ((i / 8) * 10 + (i % 8) + 21)
 }
 
 
