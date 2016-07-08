@@ -2,6 +2,7 @@
 
 use basetypes::*;
 use bitsets::*;
+use castling_rights::*;
 
 
 /// A collection of look-up tables and look-up methods.
@@ -302,6 +303,98 @@ impl BoardGeometry {
                                              self.squares_behind_blocker[a][b] |
                                              self.squares_behind_blocker[b][a];
             }
+        }
+    }
+}
+
+
+/// Loop-up tables for calculating Zobrist hashes.
+///
+/// Zobrist Hashing is a technique to transform a board position of
+/// arbitrary size into a number of a set length, with an equal
+/// distribution over all possible numbers, invented by Albert
+/// Zobrist.  The main purpose of Zobrist hash codes in chess
+/// programming is to get an almost unique index number for any chess
+/// position, with a very important requirement that two similar
+/// positions generate entirely different indices. These index numbers
+/// are used for faster and more space efficient hash tables or
+/// databases, e.g. transposition tables and opening books.
+pub struct ZobristArrays {
+    pub to_move: u64,
+    pub pieces: [[[u64; 64]; 6]; 2],
+    pub castling: [u64; 16],
+
+    // Only the first 8 indexes of the `en_passant` array are
+    // initialized -- the rest remain zero. (They exist only for
+    // performance and memory safety reasons.)
+    pub en_passant: [u64; 16],
+
+    // Derived from `pieces` for convenience. Contains the constants
+    // with which the Zobrist hash value should be XOR-ed to reflect
+    // the movement of the rook during castling.
+    pub castling_rook_move: [[u64; 2]; 2],
+}
+
+
+impl ZobristArrays {
+    /// Creates and initializes a new instance.
+    pub fn new() -> ZobristArrays {
+        use rand::{Rng, SeedableRng};
+        use rand::isaac::Isaac64Rng;
+
+        let seed: &[_] = &[1, 2, 3, 4];
+        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
+
+        let to_move = rng.gen();
+        let mut pieces = [[[0; 64]; 6]; 2];
+        let mut castling = [0; 16];
+        let mut en_passant = [0; 16];
+        let mut castling_rook_move = [[0; 2]; 2];
+
+        for color in 0..2 {
+            for piece in 0..6 {
+                for square in 0..64 {
+                    pieces[color][piece][square] = rng.gen();
+                }
+            }
+        }
+
+        for value in 0..16 {
+            castling[value] = rng.gen();
+        }
+
+        for file in 0..8 {
+            en_passant[file] = rng.gen();
+        }
+
+        castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
+        castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
+        castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
+        castling_rook_move[BLACK][KINGSIDE] = pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8];
+
+        ZobristArrays {
+            to_move: to_move,
+            pieces: pieces,
+            castling: castling,
+            en_passant: en_passant,
+            castling_rook_move: castling_rook_move,
+        }
+    }
+
+    /// Returns a reference to an initialized `ZobristArrays` object.
+    ///
+    /// The object is created only during the first call. All next
+    /// calls will return a reference to the same object. This is done
+    /// in a thread-safe manner.
+    pub fn get() -> &'static ZobristArrays {
+        use std::sync::{Once, ONCE_INIT};
+        static INIT_ARRAYS: Once = ONCE_INIT;
+        static mut arrays: Option<ZobristArrays> = None;
+        unsafe {
+            INIT_ARRAYS.call_once(|| {
+                arrays = Some(ZobristArrays::new());
+            });
+            arrays.as_ref().unwrap()
         }
     }
 }

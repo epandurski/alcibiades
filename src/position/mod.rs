@@ -1,6 +1,6 @@
 //! Implements the rules of chess and position evaluation logic.
 
-pub mod board_geometry;
+pub mod tables;
 pub mod board;
 pub mod evaluation;
 
@@ -12,8 +12,8 @@ use basetypes::*;
 use bitsets::*;
 use chess_move::*;
 use notation;
-use self::board::{Board, ZobristArrays};
-use self::board_geometry::*;
+use self::board::Board;
+use self::tables::*;
 use self::evaluation::evaluate_board;
 
 
