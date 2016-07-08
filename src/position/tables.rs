@@ -5,17 +5,14 @@ use bitsets::*;
 use castling_rights::*;
 
 
-/// A collection of look-up tables and look-up methods.
-///
-/// `BoardGeometry` contains tables and methods that are needed for
-/// implementing move generation and various other board-related
-/// problems.
+/// Look-up tables and look-up methods for move generation.
 pub struct BoardGeometry {
     grid: [u8; 120],
     piece_grid_deltas: [[i8; 8]; 5],
     piece_longrange: [bool; 5],
 
-    /// Holds attack bitboards for each piece on each possible square.
+    /// Contains attack bitboards for each piece on each possible
+    /// square.
     /// 
     /// # Examples
     ///
@@ -32,8 +29,8 @@ pub struct BoardGeometry {
     /// ```
     attacks: [[u64; 64]; 5],
 
-    /// Holds "blockers and beyond" bitboards for each piece on each
-    /// possible square.
+    /// Contains "blockers and beyond" bitboards for each piece on
+    /// each possible square.
     ///
     /// # Examples:
     ///
@@ -50,7 +47,7 @@ pub struct BoardGeometry {
     /// ```
     blockers_and_beyond: [[u64; 64]; 5],
 
-    /// Holds bitsets that describe all squares lying at the line
+    /// Contains bitboards with all squares lying at the line
     /// determined by two squares.
     ///
     /// # Examples
@@ -68,8 +65,8 @@ pub struct BoardGeometry {
     /// ```
     pub squares_at_line: [[u64; 64]; 64],
 
-    /// Holds bitboards that describe all squares lying between two
-    /// squares including the two squares themselves.
+    /// Contains bitboards with all squares lying between two squares
+    /// including the two squares themselves.
     ///
     /// # Examples
     ///
@@ -86,8 +83,8 @@ pub struct BoardGeometry {
     /// ```
     pub squares_between_including: [[u64; 64]; 64],
 
-    /// Holds bitboards that describe all squares hidden behind a
-    /// blocker from the attacker's position.
+    /// Contains bitboards with all squares hidden behind a blocker
+    /// from the attacker's position.
     ///
     /// # Examples:
     /// 
