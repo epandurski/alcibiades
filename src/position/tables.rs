@@ -338,9 +338,9 @@ pub struct ZobristArrays {
     /// reasons, and are set to `0`.
     pub en_passant: [u64; 16],
 
-    /// Derived from `ZobristArrays::pieces`. Contains the constants
-    /// with which the Zobrist hash value should be XOR-ed to reflect
-    /// the movement of the rook during castling.
+    /// Derived from the `pieces` field. Contains the constants with
+    /// which the Zobrist hash value should be XOR-ed to reflect the
+    /// movement of the rook during castling.
     pub castling_rook_move: [[u64; 2]; 2],
 }
 
