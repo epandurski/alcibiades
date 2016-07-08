@@ -59,8 +59,19 @@ impl CastlingRights {
     /// Updates the castling rights after played move.
     ///
     /// `orig_square` and `dest_square` describe the played move.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it is performance-critical, and
+    /// so it does not verify that the passed arguments are
+    /// valid. Users of this method should make sure that:
+    ///
+    /// * `orig_square <= 63`.
+    /// * `dest_square <= 63`.
     #[inline]
-    pub fn update(&mut self, orig_square: Square, dest_square: Square) {
+    pub unsafe fn update(&mut self, orig_square: Square, dest_square: Square) {
+        assert!(orig_square <= 63);
+        assert!(dest_square <= 63);
         // On each move, the value of `CASTLING_RELATION` for the
         // origin and destination squares should be &-ed with the
         // castling rights value, to derive the updated castling
@@ -77,7 +88,8 @@ impl CastlingRights {
             !CASTLE_BLACK_QUEENSIDE, !0, !0, !0,
             !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE), !0, !0, !CASTLE_BLACK_KINGSIDE,
         ];
-        self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
+        self.0 &= *CASTLING_RELATION.get_unchecked(orig_square) &
+                  *CASTLING_RELATION.get_unchecked(dest_square);
     }
 
     /// Returns if a given player can castle on a given side.
@@ -183,7 +195,9 @@ mod tests {
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
         assert_eq!(c.can_castle(BLACK, KINGSIDE), true);
-        c.update(H8, H7);
+        unsafe {
+            c.update(H8, H7);
+        }
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
