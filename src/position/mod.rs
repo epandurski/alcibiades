@@ -382,7 +382,7 @@ impl Position {
         }
         let board = self.board_mut();
         let old_board_hash = board.hash();
-        board.do_move(m) &&
+        board.do_move(m).is_some() &&
         {
             let state = self.state();
             let encountered_boards = self.encountered_boards_mut();

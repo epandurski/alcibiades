@@ -559,7 +559,7 @@ impl Board {
     /// them `do_move(m)` will return `false` if and only if the king
     /// is in check.
     #[inline]
-    pub fn do_move(&mut self, m: Move) -> bool {
+    pub fn do_move(&mut self, m: Move) -> Option<u64> {
         let us = self.to_move;
         let them = 1 ^ us;
         let move_type = m.move_type();
@@ -590,11 +590,11 @@ impl Board {
             if piece == KING {
                 if orig_square != dest_square {
                     if self.king_would_be_in_check(dest_square) {
-                        return false;  // the king is in check -- illegal move
+                        return None;  // the king is in check -- illegal move
                     }
                 } else {
                     if self.checkers() != 0 {
-                        return false;  // invalid "null move"
+                        return None;  // invalid "null move"
                     }
                 }
             }
@@ -602,7 +602,7 @@ impl Board {
             // move the rook if the move is castling
             if move_type == MOVE_CASTLING {
                 if self.king_would_be_in_check((orig_square + dest_square) >> 1) {
-                    return false;  // king's passing square is attacked -- illegal move
+                    return None;  // king's passing square is attacked -- illegal move
                 }
 
                 let side = if dest_square > orig_square {
@@ -701,7 +701,7 @@ impl Board {
         }
 
         assert!(self.is_legal());
-        true
+        Some(hash)
     }
 
     /// Takes back a previously played move.
@@ -1651,7 +1651,7 @@ mod tests {
         b.generate_moves(true, &mut stack);
         let mut count = 0;
         while let Some(m) = stack.pop() {
-            if b.do_move(m) {
+            if b.do_move(m).is_some() {
                 count += 1;
                 b.undo_move(m);
             }
@@ -1679,32 +1679,27 @@ mod tests {
         let mut stack = MoveStack::new();
 
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
-        let hash = b.hash();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
-            if b.do_move(m) {
-                assert!(hash != b.hash());
+            if let Some(hash) = b.do_move(m) {
+                assert!(hash != 0);
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.len());
-                assert_eq!(hash, b.hash());
             }
         }
         assert_eq!(stack.len(), 0);
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1").ok().unwrap();
-        let hash = b.hash();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
-            if b.do_move(m) {
-                assert!(hash != b.hash());
+            if b.do_move(m).is_some() {
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.len());
-                assert_eq!(hash, b.hash());
             }
         }
     }
@@ -1746,7 +1741,7 @@ mod tests {
         let count = stack.len();
         stack.clear();
         let m = b.null_move();
-        assert_eq!(b.do_move(m), true);
+        assert!(b.do_move(m).is_some());
         assert!(hash != b.hash());
         b.undo_move(m);
         assert_eq!(hash, b.hash());
@@ -1757,7 +1752,7 @@ mod tests {
         let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
         let hash = b.hash();
         let m = b.null_move();
-        assert_eq!(b.do_move(m), false);
+        assert!(b.do_move(m).is_none());
         assert_eq!(hash, b.hash());
     }
 
