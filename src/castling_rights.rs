@@ -122,16 +122,17 @@ impl CastlingRights {
 
     /// Sets the castling rights for `player` with a value from 0 to
     /// 3.
-    #[inline]
-    pub fn set_for(&mut self, player: Color, rights: usize) {
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it is performance-critical, and
+    /// so it does not verify that the passed arguments are
+    /// valid. Users of this method should make sure that `rights <=
+    /// 3`.
+    #[inline(always)]
+    pub unsafe fn set_for(&mut self, player: Color, rights: usize) {
         assert!(player <= 1);
-        if rights > 0b11 {
-            // Since the raw value of "CastlingRights" frequently is used
-            // as an array index without boundary checking, we guarantee
-            // that the raw value is always less than 16 by sanitizing the
-            // passed "rights".
-            panic!("invalid castling rights");
-        }
+        assert!(rights <= 3);
         self.0 = if player == WHITE {
             self.0 & 0b1100 | rights
         } else {
@@ -174,8 +175,10 @@ mod tests {
         use bitsets::*;
 
         let mut c = CastlingRights::new();
-        c.set_for(WHITE, 0b10);
-        c.set_for(BLACK, 0b11);
+        unsafe {
+            c.set_for(WHITE, 0b10);
+            c.set_for(BLACK, 0b11);
+        }
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);

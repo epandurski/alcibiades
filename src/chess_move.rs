@@ -506,8 +506,10 @@ mod tests {
     #[test]
     fn test_move() {
         let mut cr = CastlingRights::new();
-        cr.set_for(WHITE, 0b10);
-        cr.set_for(BLACK, 0b11);
+        unsafe {
+            cr.set_for(WHITE, 0b10);
+            cr.set_for(BLACK, 0b11);
+        }
         let mut m = Move::new(WHITE,
                               MOVE_NORMAL,
                               PAWN,
