@@ -32,7 +32,6 @@ pub struct Board {
     castling: CastlingRights,
     en_passant_file: usize,
     _occupied: u64, // this will always be equal to self.color[0] | self.color[1]
-    _hash: u64, // Zobrist hash value
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _pinned: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
@@ -60,7 +59,7 @@ impl Board {
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
             _ => return Err(IllegalBoard),
         };
-        let mut b = Board {
+        let b = Board {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
             piece_type: placement.piece_type,
@@ -69,12 +68,10 @@ impl Board {
             castling: castling,
             en_passant_file: en_passant_file,
             _occupied: placement.color[WHITE] | placement.color[BLACK],
-            _hash: Default::default(),
             _checkers: Cell::new(UNIVERSAL_SET),
             _pinned: Cell::new(UNIVERSAL_SET),
             _king_square: Cell::new(64),
         };
-        b._hash = b.calc_hash();
 
         if b.is_legal() {
             Ok(b)
@@ -194,23 +191,6 @@ impl Board {
         } else {
             None
         }
-    }
-
-    /// Returns the Zobrist hash value for the current board.
-    ///
-    /// Zobrist Hashing is a technique to transform a board position
-    /// of arbitrary size into a number of a set length, with an equal
-    /// distribution over all possible numbers, invented by Albert
-    /// Zobrist.  The main purpose of Zobrist hash codes in chess
-    /// programming is to get an almost unique index number for any
-    /// chess position, with a very important requirement that two
-    /// similar positions generate entirely different indices. These
-    /// index numbers are used for faster and more space efficient
-    /// hash tables or databases, e.g. transposition tables and
-    /// opening books.
-    #[inline(always)]
-    pub fn hash(&self) -> u64 {
-        self._hash
     }
 
     /// Generates pseudo-legal moves and pushes them to `move_stack`.
@@ -691,10 +671,9 @@ impl Board {
             self.to_move = them;
             hash ^= self.zobrist.to_move;
 
-            // update "_occupied", "_hash", "_checkers", "_pinned",
-            // and "_king_square"
+            // update "_occupied", "_checkers", "_pinned", and
+            // "_king_square"
             self._occupied = self.color[WHITE] | self.color[BLACK];
-            self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._pinned.set(UNIVERSAL_SET);
             self._king_square.set(64);
@@ -718,7 +697,6 @@ impl Board {
         let aux_data = m.aux_data();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
-        let mut hash = 0;
         assert!(them <= 1);
         assert!(piece < NO_PIECE);
         assert!(move_type <= 3);
@@ -740,20 +718,15 @@ impl Board {
         unsafe {
             // change the side to move
             self.to_move = us;
-            hash ^= self.zobrist.to_move;
 
             // restore the en-passant file
-            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
             self.en_passant_file = m.en_passant_file();
-            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
 
             // restore castling rights
-            hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
             self.castling.set_for(them, m.castling_data());
             if move_type != MOVE_PROMOTION {
                 self.castling.set_for(us, aux_data);
             }
-            hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
 
             // empty the destination square
             let dest_piece = if move_type == MOVE_PROMOTION {
@@ -763,29 +736,14 @@ impl Board {
             };
             *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
             *self.color.get_unchecked_mut(us) &= not_dest_bb;
-            hash ^= *self.zobrist
-                         .pieces
-                         .get_unchecked(us)
-                         .get_unchecked(dest_piece)
-                         .get_unchecked(dest_square);
 
             // put back the captured piece (if any)
             if captured_piece < NO_PIECE {
                 let captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
                     let captured_pawn_square = (dest_square as isize + shift) as Square;
-                    hash ^= *self.zobrist
-                                 .pieces
-                                 .get_unchecked(them)
-                                 .get_unchecked(captured_piece)
-                                 .get_unchecked(captured_pawn_square);
                     1 << captured_pawn_square
                 } else {
-                    hash ^= *self.zobrist
-                                 .pieces
-                                 .get_unchecked(them)
-                                 .get_unchecked(captured_piece)
-                                 .get_unchecked(dest_square);
                     !not_dest_bb
                 };
                 *self.piece_type.get_unchecked_mut(captured_piece) |= captured_bb;
@@ -795,11 +753,6 @@ impl Board {
             // restore the piece on the origin square
             *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
             *self.color.get_unchecked_mut(us) |= orig_bb;
-            hash ^= *self.zobrist
-                         .pieces
-                         .get_unchecked(us)
-                         .get_unchecked(piece)
-                         .get_unchecked(orig_square);
 
             // move the rook back if the move is castling
             if move_type == MOVE_CASTLING {
@@ -811,13 +764,11 @@ impl Board {
                 let mask = CASTLING_ROOK_MASK[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
-                hash ^= self.zobrist.castling_rook_move[us][side];
             }
 
-            // update "_occupied", "_hash", "_checkers", "_pinned",
-            // and "_king_square"
+            // update "_occupied", "_checkers", "_pinned", and
+            // "_king_square"
             self._occupied = self.color[WHITE] | self.color[BLACK];
-            self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._pinned.set(UNIVERSAL_SET);
             self._king_square.set(64);
@@ -903,7 +854,6 @@ impl Board {
         }) &&
         {
             assert_eq!(self._occupied, occupied);
-            assert_eq!(self._hash, self.calc_hash());
             assert!(self._checkers.get() == UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             assert!(self._pinned.get() == UNIVERSAL_SET ||
@@ -1283,30 +1233,6 @@ impl Board {
         }
     }
 
-    // A helper method for `create`.
-    //
-    // It calculates the Zobrist hash for the board.
-    fn calc_hash(&self) -> u64 {
-        let mut hash = 0;
-        for color in 0..2 {
-            for piece in 0..6 {
-                let mut bb = self.color[color] & self.piece_type[piece];
-                while bb != EMPTY_SET {
-                    let square = bitscan_forward_and_reset(&mut bb);
-                    hash ^= self.zobrist.pieces[color][piece][square];
-                }
-            }
-        }
-        hash ^= self.zobrist.castling[self.castling.value()];
-        if self.en_passant_file < 8 {
-            hash ^= self.zobrist.en_passant[self.en_passant_file];
-        }
-        if self.to_move == BLACK {
-            hash ^= self.zobrist.to_move;
-        }
-        hash
-    }
-
     #[allow(dead_code)]
     fn pretty_string(&self) -> String {
         let mut s = String::new();
@@ -1358,7 +1284,17 @@ const CASTLING_ROOK_MASK: [[u64; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1
 
 
 /// Loop-up tables for calculating Zobrist hashes.
-struct ZobristArrays {
+///
+/// Zobrist Hashing is a technique to transform a board position of
+/// arbitrary size into a number of a set length, with an equal
+/// distribution over all possible numbers, invented by Albert
+/// Zobrist.  The main purpose of Zobrist hash codes in chess
+/// programming is to get an almost unique index number for any chess
+/// position, with a very important requirement that two similar
+/// positions generate entirely different indices. These index numbers
+/// are used for faster and more space efficient hash tables or
+/// databases, e.g. transposition tables and opening books.
+pub struct ZobristArrays {
     pub to_move: u64,
     pub pieces: [[[u64; 64]; 6]; 2],
     pub castling: [u64; 16],
@@ -1682,8 +1618,8 @@ mod tests {
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
-            if let Some(hash) = b.do_move(m) {
-                assert!(hash != 0);
+            if let Some(h) = b.do_move(m) {
+                assert!(h != 0);
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
@@ -1736,24 +1672,19 @@ mod tests {
         let mut stack = MoveStack::new();
 
         let mut b = Board::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
-        let hash = b.hash();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         stack.clear();
         let m = b.null_move();
         assert!(b.do_move(m).is_some());
-        assert!(hash != b.hash());
         b.undo_move(m);
-        assert_eq!(hash, b.hash());
         b.generate_moves(true, &mut stack);
         assert_eq!(count, stack.len());
         stack.clear();
 
         let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
-        let hash = b.hash();
         let m = b.null_move();
         assert!(b.do_move(m).is_none());
-        assert_eq!(hash, b.hash());
     }
 
     #[test]
