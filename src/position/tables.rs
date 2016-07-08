@@ -320,18 +320,27 @@ impl BoardGeometry {
 /// are used for faster and more space efficient hash tables or
 /// databases, e.g. transposition tables and opening books.
 pub struct ZobristArrays {
+    /// The constant with which the hash value should be XOR-ed when
+    /// the side to move changes.
     pub to_move: u64,
+    
+    /// Constants with which the hash value should be XOR-ed when a
+    /// piece of given color on a given square appears/disappears.
     pub pieces: [[[u64; 64]; 6]; 2],
-    pub castling: [u64; 16],
 
-    // Only the first 8 indexes of the `en_passant` array are
-    // initialized -- the rest remain zero. (They exist only for
-    // performance and memory safety reasons.)
+    /// Constants with which the hash value should be XOR-ed, for the
+    /// old and the new castling rights on each move.
+    pub castling: [u64; 16],
+    
+    /// Constants with which the hash value should be XOR-ed, for the
+    /// old and the new en-passant file on each move.  Only the first
+    /// 8 indexes are used -- the rest exist for memory safety
+    /// reasons, and are set to `0`.
     pub en_passant: [u64; 16],
 
-    // Derived from `pieces` for convenience. Contains the constants
-    // with which the Zobrist hash value should be XOR-ed to reflect
-    // the movement of the rook during castling.
+    /// Derived from `ZobristArrays::pieces`. Contains the constants
+    /// with which the Zobrist hash value should be XOR-ed to reflect
+    /// the movement of the rook during castling.
     pub castling_rook_move: [[u64; 2]; 2],
 }
 
