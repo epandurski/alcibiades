@@ -88,8 +88,7 @@ impl Move {
     ///
     /// The initial move score for the new move will be:
     ///
-    /// * `2` for captures that are not also pawn promotions.
-    /// * `1` for pawn promotions to queen.
+    /// * `2` for captures and pawn promotions to queen.
     /// * `0` for all other moves.
     #[inline(always)]
     pub fn new(us: Color,
@@ -155,7 +154,7 @@ impl Move {
         // scores.
         let aux_data = if move_type == MOVE_PROMOTION {
             score_shifted = if promoted_piece_code == 0 {
-                1 << M_SHIFT_SCORE
+                2 << M_SHIFT_SCORE
             } else {
                 0 << M_SHIFT_SCORE
             };
