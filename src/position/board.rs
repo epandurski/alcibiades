@@ -767,9 +767,9 @@ impl Board {
                 } else {
                     QUEENSIDE
                 };
-                let mask = CASTLING_ROOK_MASK[us][side];
+                let mask = *CASTLING_ROOK_MASK.get_unchecked(us).get_unchecked(side);
                 self.piece_type[ROOK] ^= mask;
-                self.color[us] ^= mask;
+                *self.color.get_unchecked_mut(us) ^= mask;
             }
 
             // update "_occupied", "_checkers", "_pinned", and
