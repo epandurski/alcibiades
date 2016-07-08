@@ -1,5 +1,6 @@
 //! Implements static board evaluation.
 
+use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use bitsets::*;
 use position::board::Board;
@@ -36,5 +37,7 @@ pub fn evaluate_board(board: &Board, lower_bound: Value, upper_bound: Value) -> 
                   (pop_count(piece_type[piece] & color[us]) as i16 -
                    pop_count(piece_type[piece] & color[them]) as i16);
     }
-    result + (board.hash() >> 59) as i16
+    let mut hasher = SipHasher::new();
+    hasher.write_u64(board.occupied());
+    result + (hasher.finish() >> 59) as i16
 }

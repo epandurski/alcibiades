@@ -2,6 +2,7 @@
 
 use basetypes::*;
 use bitsets::*;
+use castling_rights::*;
 
 
 /// A collection of look-up tables and look-up methods.
@@ -114,7 +115,7 @@ impl BoardGeometry {
         // square number (from 0 to 63) or 0xff (the guarding marker).
         let mut grid = [0xffu8; 120];
         for i in 0..64 {
-            grid[grid_index_from_square(i)] = i as u8;
+            grid[BoardGeometry::grid_index(i)] = i as u8;
         }
 
         // "piece_deltas" represent the change in the grid-index when
@@ -204,8 +205,8 @@ impl BoardGeometry {
         attacks
     }
 
-    fn grid_index(&self, i: Square) -> usize {
-        grid_index_from_square(i)
+    fn grid_index(i: Square) -> usize {
+        ((i / 8) * 10 + (i % 8) + 21)
     }
 
     fn fill_attack_and_blockers_and_beyond_arrays(&mut self) {
@@ -217,7 +218,7 @@ impl BoardGeometry {
                     let delta = self.piece_grid_deltas[piece][move_direction];
                     if delta != 0 {
                         let mut last_mask = 0u64;
-                        let mut curr_grid_index = self.grid_index(square);
+                        let mut curr_grid_index = BoardGeometry::grid_index(square);
                         loop {
                             curr_grid_index = (curr_grid_index as i8 + delta) as usize;
                             let curr_square = self.grid[curr_grid_index] as Square;
@@ -266,7 +267,7 @@ impl BoardGeometry {
                 // is reached.
                 let mut squares_between_including = 0u64;
                 let mut squares_behind_blocker = 0u64;
-                let mut curr_grid_index = self.grid_index(attacker);
+                let mut curr_grid_index = BoardGeometry::grid_index(attacker);
                 let mut blocker_encountered = false;
                 loop {
                     let curr_square = self.grid[curr_grid_index] as Square;
@@ -307,9 +308,104 @@ impl BoardGeometry {
 }
 
 
-#[inline(always)]
-fn grid_index_from_square(i: Square) -> usize {
-    ((i / 8) * 10 + (i % 8) + 21)
+/// Loop-up tables for calculating Zobrist hashes.
+///
+/// Zobrist Hashing is a technique to transform a board position of
+/// arbitrary size into a number of a set length, with an equal
+/// distribution over all possible numbers, invented by Albert
+/// Zobrist.  The main purpose of Zobrist hash codes in chess
+/// programming is to get an almost unique index number for any chess
+/// position, with a very important requirement that two similar
+/// positions generate entirely different indices. These index numbers
+/// are used for faster and more space efficient hash tables or
+/// databases, e.g. transposition tables and opening books.
+pub struct ZobristArrays {
+    /// The constant with which the hash value should be XOR-ed when
+    /// the side to move changes.
+    pub to_move: u64,
+    
+    /// Constants with which the hash value should be XOR-ed when a
+    /// piece of given color on a given square appears/disappears.
+    pub pieces: [[[u64; 64]; 6]; 2],
+
+    /// Constants with which the hash value should be XOR-ed, for the
+    /// old and the new castling rights on each move.
+    pub castling: [u64; 16],
+    
+    /// Constants with which the hash value should be XOR-ed, for the
+    /// old and the new en-passant file on each move.  Only the first
+    /// 8 indexes are used -- the rest exist for memory safety
+    /// reasons, and are set to `0`.
+    pub en_passant: [u64; 16],
+
+    /// Derived from the `pieces` field. Contains the constants with
+    /// which the Zobrist hash value should be XOR-ed to reflect the
+    /// movement of the rook during castling.
+    pub castling_rook_move: [[u64; 2]; 2],
+}
+
+
+impl ZobristArrays {
+    /// Creates and initializes a new instance.
+    pub fn new() -> ZobristArrays {
+        use rand::{Rng, SeedableRng};
+        use rand::isaac::Isaac64Rng;
+
+        let seed: &[_] = &[1, 2, 3, 4];
+        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
+
+        let to_move = rng.gen();
+        let mut pieces = [[[0; 64]; 6]; 2];
+        let mut castling = [0; 16];
+        let mut en_passant = [0; 16];
+        let mut castling_rook_move = [[0; 2]; 2];
+
+        for color in 0..2 {
+            for piece in 0..6 {
+                for square in 0..64 {
+                    pieces[color][piece][square] = rng.gen();
+                }
+            }
+        }
+
+        for value in 0..16 {
+            castling[value] = rng.gen();
+        }
+
+        for file in 0..8 {
+            en_passant[file] = rng.gen();
+        }
+
+        castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
+        castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
+        castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
+        castling_rook_move[BLACK][KINGSIDE] = pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8];
+
+        ZobristArrays {
+            to_move: to_move,
+            pieces: pieces,
+            castling: castling,
+            en_passant: en_passant,
+            castling_rook_move: castling_rook_move,
+        }
+    }
+
+    /// Returns a reference to an initialized `ZobristArrays` object.
+    ///
+    /// The object is created only during the first call. All next
+    /// calls will return a reference to the same object. This is done
+    /// in a thread-safe manner.
+    pub fn get() -> &'static ZobristArrays {
+        use std::sync::{Once, ONCE_INIT};
+        static INIT_ARRAYS: Once = ONCE_INIT;
+        static mut arrays: Option<ZobristArrays> = None;
+        unsafe {
+            INIT_ARRAYS.call_once(|| {
+                arrays = Some(ZobristArrays::new());
+            });
+            arrays.as_ref().unwrap()
+        }
+    }
 }
 
 

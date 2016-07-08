@@ -1,6 +1,6 @@
 //! Implements the rules of chess and position evaluation logic.
 
-pub mod board_geometry;
+pub mod tables;
 pub mod board;
 pub mod evaluation;
 
@@ -13,7 +13,7 @@ use bitsets::*;
 use chess_move::*;
 use notation;
 use self::board::Board;
-use self::board_geometry::*;
+use self::tables::*;
 use self::evaluation::evaluate_board;
 
 
@@ -59,6 +59,9 @@ pub struct Position {
     // The current board.
     board: UnsafeCell<Board>,
 
+    // The Zobrist hash value for the current board.
+    board_hash: Cell<u64>,
+
     // The count of half-moves since the beginning of the game.
     halfmove_count: Cell<u16>,
 
@@ -87,12 +90,13 @@ impl Position {
     pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
-        Ok(Position {
+        let p = Position {
             board: UnsafeCell::new(try!(Board::create(placement,
                                                       to_move,
                                                       castling,
                                                       en_passant_square)
                                             .map_err(|_| IllegalPosition))),
+            board_hash: Cell::new(0),
             halfmove_count: Cell::new(((fullmove_number - 1) << 1) + to_move as u16),
             is_repeated: Cell::new(false),
             repeated_boards_hash: 0,
@@ -101,7 +105,9 @@ impl Position {
                                                   halfmove_clock: halfmove_clock,
                                                   last_move: Move::invalid(),
                                               }]),
-        })
+        };
+        p.board_hash.set(p.calc_board_hash());
+        Ok(p)
     }
 
     /// Creates a new instance.
@@ -158,9 +164,9 @@ impl Position {
             1
         } else {
             if self.root_is_unreachable() {
-                self.board().hash()
+                self.board_hash.get()
             } else {
-                self.board().hash() ^ self.repeated_boards_hash
+                self.board_hash.get() ^ self.repeated_boards_hash
             }
         }
     }
@@ -380,10 +386,7 @@ impl Position {
         if self.is_repeated.get() && Board::is_null_move(m) {
             return false;
         }
-        let board = self.board_mut();
-        let old_board_hash = board.hash();
-        board.do_move(m) &&
-        {
+        if let Some(h) = self.board_mut().do_move(m) {
             let state = self.state();
             let encountered_boards = self.encountered_boards_mut();
             let halfmove_clock = if m.is_pawn_advance_or_capure() {
@@ -392,7 +395,8 @@ impl Position {
                 state.halfmove_clock + 1
             };
             self.halfmove_count.set(self.halfmove_count.get() + 1);
-            encountered_boards.push(old_board_hash);
+            encountered_boards.push(self.board_hash.get());
+            self.board_hash.set(self.board_hash.get() ^ h);
             assert!(encountered_boards.len() >= halfmove_clock as usize);
 
             // Figure out if the new position is repeated.
@@ -400,7 +404,7 @@ impl Position {
                 let last_irrev = (encountered_boards.len() - (halfmove_clock as usize)) as isize;
                 let mut i = (encountered_boards.len() - 4) as isize;
                 while i >= last_irrev {
-                    if board.hash() == *encountered_boards.get_unchecked(i as usize) {
+                    if self.board_hash.get() == *encountered_boards.get_unchecked(i as usize) {
                         self.is_repeated.set(true);
                         break;
                     }
@@ -413,6 +417,8 @@ impl Position {
                 last_move: m,
             });
             true
+        } else {
+            false
         }
     }
 
@@ -424,7 +430,7 @@ impl Position {
         assert!(self.state_stack_mut().len() > 1);
         self.board_mut().undo_move(self.state().last_move);
         self.halfmove_count.set(self.halfmove_count.get() - 1);
-        self.encountered_boards_mut().pop();
+        self.board_hash.set(self.encountered_boards_mut().pop().unwrap());
         self.is_repeated.set(false);
         self.state_stack_mut().pop();
     }
@@ -693,6 +699,31 @@ impl Position {
         }
     }
 
+    // A helper method for `from_fen`.
+    //
+    // It calculates and returns the Zobrist hash for the board.
+    fn calc_board_hash(&self) -> u64 {
+        let zobrist = ZobristArrays::get();
+        let mut hash = 0;
+        for color in 0..2 {
+            for piece in 0..6 {
+                let mut bb = self.board().color()[color] & self.board().piece_type()[piece];
+                while bb != EMPTY_SET {
+                    let square = bitscan_forward_and_reset(&mut bb);
+                    hash ^= zobrist.pieces[color][piece][square];
+                }
+            }
+        }
+        hash ^= zobrist.castling[self.board().castling().value()];
+        if let Some(en_passant_file) = self.board().en_passant_file() {
+            hash ^= zobrist.en_passant[en_passant_file];
+        }
+        if self.board().to_move() == BLACK {
+            hash ^= zobrist.to_move;
+        }
+        hash
+    }
+
     // Returns `true` if the root position can not be reached from the
     // current position, `false` otherwise.
     #[inline(always)]
@@ -738,6 +769,7 @@ impl Clone for Position {
             state_stack.extend_from_slice(ss);
             Position {
                 board: UnsafeCell::new((*self.board.get()).clone()),
+                board_hash: Cell::new(self.board_hash.get()),
                 halfmove_count: Cell::new(self.halfmove_count.get()),
                 is_repeated: Cell::new(self.is_repeated.get()),
                 repeated_boards_hash: self.repeated_boards_hash,
@@ -1066,19 +1098,19 @@ mod tests {
         let p2 = Position::from_history("8/8/8/8/8/7k/8/7K w - - 0 1", &mut moves.into_iter())
                      .ok()
                      .unwrap();
-        assert_eq!(p1.board().hash(), p2.board().hash());
+        assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
         let p2 = Position::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
                      .ok()
                      .unwrap();
-        assert_eq!(p1.board().hash(), p2.board().hash());
+        assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
         let p3 = Position::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
                      .ok()
                      .unwrap();
-        assert_eq!(p1.board().hash(), p2.board().hash());
+        assert_eq!(p1.board_hash, p2.board_hash);
         assert!(p1.hash() != p3.hash());
     }
 }

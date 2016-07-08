@@ -6,7 +6,7 @@ use basetypes::*;
 use castling_rights::*;
 use bitsets::*;
 use chess_move::*;
-use position::board_geometry::*;
+use position::tables::*;
 use notation;
 
 
@@ -32,7 +32,6 @@ pub struct Board {
     castling: CastlingRights,
     en_passant_file: usize,
     _occupied: u64, // this will always be equal to self.color[0] | self.color[1]
-    _hash: u64, // Zobrist hash value
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _pinned: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
@@ -60,7 +59,7 @@ impl Board {
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
             _ => return Err(IllegalBoard),
         };
-        let mut b = Board {
+        let b = Board {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
             piece_type: placement.piece_type,
@@ -69,12 +68,10 @@ impl Board {
             castling: castling,
             en_passant_file: en_passant_file,
             _occupied: placement.color[WHITE] | placement.color[BLACK],
-            _hash: Default::default(),
             _checkers: Cell::new(UNIVERSAL_SET),
             _pinned: Cell::new(UNIVERSAL_SET),
             _king_square: Cell::new(64),
         };
-        b._hash = b.calc_hash();
 
         if b.is_legal() {
             Ok(b)
@@ -194,23 +191,6 @@ impl Board {
         } else {
             None
         }
-    }
-
-    /// Returns the Zobrist hash value for the current board.
-    ///
-    /// Zobrist Hashing is a technique to transform a board position
-    /// of arbitrary size into a number of a set length, with an equal
-    /// distribution over all possible numbers, invented by Albert
-    /// Zobrist.  The main purpose of Zobrist hash codes in chess
-    /// programming is to get an almost unique index number for any
-    /// chess position, with a very important requirement that two
-    /// similar positions generate entirely different indices. These
-    /// index numbers are used for faster and more space efficient
-    /// hash tables or databases, e.g. transposition tables and
-    /// opening books.
-    #[inline(always)]
-    pub fn hash(&self) -> u64 {
-        self._hash
     }
 
     /// Generates pseudo-legal moves and pushes them to `move_stack`.
@@ -559,7 +539,7 @@ impl Board {
     /// them `do_move(m)` will return `false` if and only if the king
     /// is in check.
     #[inline]
-    pub fn do_move(&mut self, m: Move) -> bool {
+    pub fn do_move(&mut self, m: Move) -> Option<u64> {
         let us = self.to_move;
         let them = 1 ^ us;
         let move_type = m.move_type();
@@ -590,11 +570,11 @@ impl Board {
             if piece == KING {
                 if orig_square != dest_square {
                     if self.king_would_be_in_check(dest_square) {
-                        return false;  // the king is in check -- illegal move
+                        return None;  // the king is in check -- illegal move
                     }
                 } else {
                     if self.checkers() != 0 {
-                        return false;  // invalid "null move"
+                        return None;  // invalid "null move"
                     }
                 }
             }
@@ -602,7 +582,7 @@ impl Board {
             // move the rook if the move is castling
             if move_type == MOVE_CASTLING {
                 if self.king_would_be_in_check((orig_square + dest_square) >> 1) {
-                    return false;  // king's passing square is attacked -- illegal move
+                    return None;  // king's passing square is attacked -- illegal move
                 }
 
                 let side = if dest_square > orig_square {
@@ -691,17 +671,16 @@ impl Board {
             self.to_move = them;
             hash ^= self.zobrist.to_move;
 
-            // update "_occupied", "_hash", "_checkers", "_pinned",
-            // and "_king_square"
+            // update "_occupied", "_checkers", "_pinned", and
+            // "_king_square"
             self._occupied = self.color[WHITE] | self.color[BLACK];
-            self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._pinned.set(UNIVERSAL_SET);
             self._king_square.set(64);
         }
 
         assert!(self.is_legal());
-        true
+        Some(hash)
     }
 
     /// Takes back a previously played move.
@@ -718,7 +697,6 @@ impl Board {
         let aux_data = m.aux_data();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
-        let mut hash = 0;
         assert!(them <= 1);
         assert!(piece < NO_PIECE);
         assert!(move_type <= 3);
@@ -740,20 +718,15 @@ impl Board {
         unsafe {
             // change the side to move
             self.to_move = us;
-            hash ^= self.zobrist.to_move;
 
             // restore the en-passant file
-            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
             self.en_passant_file = m.en_passant_file();
-            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
 
             // restore castling rights
-            hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
             self.castling.set_for(them, m.castling_data());
             if move_type != MOVE_PROMOTION {
                 self.castling.set_for(us, aux_data);
             }
-            hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
 
             // empty the destination square
             let dest_piece = if move_type == MOVE_PROMOTION {
@@ -763,29 +736,14 @@ impl Board {
             };
             *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
             *self.color.get_unchecked_mut(us) &= not_dest_bb;
-            hash ^= *self.zobrist
-                         .pieces
-                         .get_unchecked(us)
-                         .get_unchecked(dest_piece)
-                         .get_unchecked(dest_square);
 
             // put back the captured piece (if any)
             if captured_piece < NO_PIECE {
                 let captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
                     let captured_pawn_square = (dest_square as isize + shift) as Square;
-                    hash ^= *self.zobrist
-                                 .pieces
-                                 .get_unchecked(them)
-                                 .get_unchecked(captured_piece)
-                                 .get_unchecked(captured_pawn_square);
                     1 << captured_pawn_square
                 } else {
-                    hash ^= *self.zobrist
-                                 .pieces
-                                 .get_unchecked(them)
-                                 .get_unchecked(captured_piece)
-                                 .get_unchecked(dest_square);
                     !not_dest_bb
                 };
                 *self.piece_type.get_unchecked_mut(captured_piece) |= captured_bb;
@@ -795,11 +753,6 @@ impl Board {
             // restore the piece on the origin square
             *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
             *self.color.get_unchecked_mut(us) |= orig_bb;
-            hash ^= *self.zobrist
-                         .pieces
-                         .get_unchecked(us)
-                         .get_unchecked(piece)
-                         .get_unchecked(orig_square);
 
             // move the rook back if the move is castling
             if move_type == MOVE_CASTLING {
@@ -811,13 +764,11 @@ impl Board {
                 let mask = CASTLING_ROOK_MASK[us][side];
                 self.piece_type[ROOK] ^= mask;
                 self.color[us] ^= mask;
-                hash ^= self.zobrist.castling_rook_move[us][side];
             }
 
-            // update "_occupied", "_hash", "_checkers", "_pinned",
-            // and "_king_square"
+            // update "_occupied", "_checkers", "_pinned", and
+            // "_king_square"
             self._occupied = self.color[WHITE] | self.color[BLACK];
-            self._hash ^= hash;
             self._checkers.set(UNIVERSAL_SET);
             self._pinned.set(UNIVERSAL_SET);
             self._king_square.set(64);
@@ -903,7 +854,6 @@ impl Board {
         }) &&
         {
             assert_eq!(self._occupied, occupied);
-            assert_eq!(self._hash, self.calc_hash());
             assert!(self._checkers.get() == UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             assert!(self._pinned.get() == UNIVERSAL_SET ||
@@ -1283,30 +1233,6 @@ impl Board {
         }
     }
 
-    // A helper method for `create`.
-    //
-    // It calculates the Zobrist hash for the board.
-    fn calc_hash(&self) -> u64 {
-        let mut hash = 0;
-        for color in 0..2 {
-            for piece in 0..6 {
-                let mut bb = self.color[color] & self.piece_type[piece];
-                while bb != EMPTY_SET {
-                    let square = bitscan_forward_and_reset(&mut bb);
-                    hash ^= self.zobrist.pieces[color][piece][square];
-                }
-            }
-        }
-        hash ^= self.zobrist.castling[self.castling.value()];
-        if self.en_passant_file < 8 {
-            hash ^= self.zobrist.en_passant[self.en_passant_file];
-        }
-        if self.to_move == BLACK {
-            hash ^= self.zobrist.to_move;
-        }
-        hash
-    }
-
     #[allow(dead_code)]
     fn pretty_string(&self) -> String {
         let mut s = String::new();
@@ -1357,88 +1283,6 @@ const CASTLING_ROOK_MASK: [[u64; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1
                                            [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
 
 
-/// Loop-up tables for calculating Zobrist hashes.
-struct ZobristArrays {
-    pub to_move: u64,
-    pub pieces: [[[u64; 64]; 6]; 2],
-    pub castling: [u64; 16],
-
-    /// Only the first 8 indexes of the `en_passant` array are
-    /// initialized -- the rest remain zero. (They exist only for
-    /// performance and memory safety reasons.)
-    pub en_passant: [u64; 16],
-
-    /// Derived from `pieces` for convenience. Contains the constants
-    /// with which the Zobrist hash value should be XOR-ed to reflect
-    /// the movement of the rook during castling.
-    pub castling_rook_move: [[u64; 2]; 2],
-}
-
-
-impl ZobristArrays {
-    /// Creates and initializes a new instance.
-    pub fn new() -> ZobristArrays {
-        use rand::{Rng, SeedableRng};
-        use rand::isaac::Isaac64Rng;
-
-        let seed: &[_] = &[1, 2, 3, 4];
-        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
-
-        let to_move = rng.gen();
-        let mut pieces = [[[0; 64]; 6]; 2];
-        let mut castling = [0; 16];
-        let mut en_passant = [0; 16];
-        let mut castling_rook_move = [[0; 2]; 2];
-
-        for color in 0..2 {
-            for piece in 0..6 {
-                for square in 0..64 {
-                    pieces[color][piece][square] = rng.gen();
-                }
-            }
-        }
-
-        for value in 0..16 {
-            castling[value] = rng.gen();
-        }
-
-        for file in 0..8 {
-            en_passant[file] = rng.gen();
-        }
-
-        castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
-        castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
-        castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
-        castling_rook_move[BLACK][KINGSIDE] = pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8];
-
-        ZobristArrays {
-            to_move: to_move,
-            pieces: pieces,
-            castling: castling,
-            en_passant: en_passant,
-            castling_rook_move: castling_rook_move,
-        }
-    }
-
-    /// Returns a reference to an initialized `ZobristArrays` object.
-    ///
-    /// The object is created only during the first call. All next
-    /// calls will return a reference to the same object. This is done
-    /// in a thread-safe manner.
-    pub fn get() -> &'static ZobristArrays {
-        use std::sync::{Once, ONCE_INIT};
-        static INIT_ARRAYS: Once = ONCE_INIT;
-        static mut arrays: Option<ZobristArrays> = None;
-        unsafe {
-            INIT_ARRAYS.call_once(|| {
-                arrays = Some(ZobristArrays::new());
-            });
-            arrays.as_ref().unwrap()
-        }
-    }
-}
-
-
 // The StateInfo struct stores information needed to restore a Position
 // object to its previous state when we retract a move. Whenever a move
 // is made on the board (by calling Position::do_move), a StateInfo
@@ -1466,7 +1310,7 @@ mod tests {
 
     #[test]
     fn test_attacks_from() {
-        use position::board_geometry::*;
+        use position::tables::*;
         let b = Board::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
         let g = BoardGeometry::get();
         unsafe {
@@ -1651,7 +1495,7 @@ mod tests {
         b.generate_moves(true, &mut stack);
         let mut count = 0;
         while let Some(m) = stack.pop() {
-            if b.do_move(m) {
+            if b.do_move(m).is_some() {
                 count += 1;
                 b.undo_move(m);
             }
@@ -1679,32 +1523,27 @@ mod tests {
         let mut stack = MoveStack::new();
 
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
-        let hash = b.hash();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
-            if b.do_move(m) {
-                assert!(hash != b.hash());
+            if let Some(h) = b.do_move(m) {
+                assert!(h != 0);
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.len());
-                assert_eq!(hash, b.hash());
             }
         }
         assert_eq!(stack.len(), 0);
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1").ok().unwrap();
-        let hash = b.hash();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
-            if b.do_move(m) {
-                assert!(hash != b.hash());
+            if b.do_move(m).is_some() {
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
                 assert_eq!(count, other_stack.len());
-                assert_eq!(hash, b.hash());
             }
         }
     }
@@ -1741,24 +1580,19 @@ mod tests {
         let mut stack = MoveStack::new();
 
         let mut b = Board::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
-        let hash = b.hash();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         stack.clear();
         let m = b.null_move();
-        assert_eq!(b.do_move(m), true);
-        assert!(hash != b.hash());
+        assert!(b.do_move(m).is_some());
         b.undo_move(m);
-        assert_eq!(hash, b.hash());
         b.generate_moves(true, &mut stack);
         assert_eq!(count, stack.len());
         stack.clear();
 
         let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
-        let hash = b.hash();
         let m = b.null_move();
-        assert_eq!(b.do_move(m), false);
-        assert_eq!(hash, b.hash());
+        assert!(b.do_move(m).is_none());
     }
 
     #[test]
