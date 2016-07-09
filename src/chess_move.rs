@@ -472,16 +472,16 @@ pub const MOVE_NORMAL: MoveType = 3;
 
 
 // Field shifts
-const M_SHIFT_SCORE: u32 = 30;
-const M_SHIFT_CAPTURED_PIECE: u32 = 27;
-const M_SHIFT_RESERVED: u32 = 25;
-const M_SHIFT_PIECE: u32 = 22;
-const M_SHIFT_CASTLING_DATA: u32 = 20;
-const M_SHIFT_ENPASSANT_FILE: u32 = 16;
-const M_SHIFT_MOVE_TYPE: u32 = 14;
-const M_SHIFT_ORIG_SQUARE: u32 = 8;
-const M_SHIFT_DEST_SQUARE: u32 = 2;
-const M_SHIFT_AUX_DATA: u32 = 0;
+const M_SHIFT_SCORE: usize = 30;
+const M_SHIFT_CAPTURED_PIECE: usize = 27;
+const M_SHIFT_RESERVED: usize = 25;
+const M_SHIFT_PIECE: usize = 22;
+const M_SHIFT_CASTLING_DATA: usize = 20;
+const M_SHIFT_ENPASSANT_FILE: usize = 16;
+const M_SHIFT_MOVE_TYPE: usize = 14;
+const M_SHIFT_ORIG_SQUARE: usize = 8;
+const M_SHIFT_DEST_SQUARE: usize = 2;
+const M_SHIFT_AUX_DATA: usize = 0;
 
 // Field masks
 const M_MASK_SCORE: u32 = 0b11 << M_SHIFT_SCORE;
