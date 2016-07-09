@@ -17,9 +17,9 @@ use castling_rights::*;
 /// 3. Move ordering info -- moves with higher value are tried
 ///    first. Ideally the best move should have the highest vaule.
 ///
-/// `Move` is a 32-bit unsigned number. The lowest 16 bits contain the
-/// whole needed information about the move itself (type 1). And is
-/// laid out the following way:
+/// `Move` is a `usize` number. Bits 0-15 contain the whole needed
+/// information about the move itself (type 1). And is laid out the
+/// following way:
 ///
 ///  ```text
 ///   15                                                           0
@@ -37,7 +37,7 @@ use castling_rights::*;
 /// type of the promoted piece if the move type is a pawn promotion,
 /// otherwise it encodes castling rights (see below).
 ///
-/// The highest 16 bits contain the rest ot the info:
+/// Bits 16-31 contain the rest ot the info:
 ///
 ///  ```text
 ///   31                                                          16
@@ -72,7 +72,7 @@ use castling_rights::*;
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
-pub struct Move(u32);
+pub struct Move(usize);
 
 
 impl Move {
@@ -163,13 +163,12 @@ impl Move {
             castling.get_for(us)
         };
 
-        Move((score_shifted | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-              reserved_shifted | piece << M_SHIFT_PIECE |
-              castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
-              en_passant_file << M_SHIFT_ENPASSANT_FILE |
-              move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
-              dest_square << M_SHIFT_DEST_SQUARE |
-              aux_data << M_SHIFT_AUX_DATA) as u32)
+        Move(score_shifted | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
+             reserved_shifted | piece << M_SHIFT_PIECE |
+             castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
+             en_passant_file << M_SHIFT_ENPASSANT_FILE |
+             move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
+             dest_square << M_SHIFT_DEST_SQUARE | aux_data << M_SHIFT_AUX_DATA)
     }
 
     /// Creates a new instance with all bits set to `0` (invalid
@@ -184,7 +183,7 @@ impl Move {
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= 0b11);
         self.0 &= !M_MASK_SCORE;
-        self.0 |= (score << M_SHIFT_SCORE) as u32;
+        self.0 |= score << M_SHIFT_SCORE;
     }
 
     /// Returns the assigned move score.
@@ -258,8 +257,8 @@ impl Move {
     #[inline]
     pub fn is_pawn_advance_or_capure(&self) -> bool {
         // We use clever bit manipulations to avoid branches.
-        const P: u32 = (!(PAWN as u32) & 0b111) << M_SHIFT_PIECE;
-        const C: u32 = (!(NO_PIECE as u32) & 0b111) << M_SHIFT_CAPTURED_PIECE;
+        const P: usize = (!PAWN & 0b111) << M_SHIFT_PIECE;
+        const C: usize = (!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE;
         (self.0 & M_MASK_PIECE | C) ^ (self.0 & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
     }
 
@@ -484,16 +483,16 @@ const M_SHIFT_DEST_SQUARE: usize = 2;
 const M_SHIFT_AUX_DATA: usize = 0;
 
 // Field masks
-const M_MASK_SCORE: u32 = 0b11 << M_SHIFT_SCORE;
-const M_MASK_CAPTURED_PIECE: u32 = 0b111 << M_SHIFT_CAPTURED_PIECE;
-const M_MASK_RESERVED: u32 = 0b11 << M_SHIFT_RESERVED;
-const M_MASK_PIECE: u32 = 0b111 << M_SHIFT_PIECE;
-const M_MASK_CASTLING_DATA: u32 = 0b11 << M_SHIFT_CASTLING_DATA;
-const M_MASK_ENPASSANT_FILE: u32 = 0b1111 << M_SHIFT_ENPASSANT_FILE;
-const M_MASK_MOVE_TYPE: u32 = 0b11 << M_SHIFT_MOVE_TYPE;
-const M_MASK_ORIG_SQUARE: u32 = 0b111111 << M_SHIFT_ORIG_SQUARE;
-const M_MASK_DEST_SQUARE: u32 = 0b111111 << M_SHIFT_DEST_SQUARE;
-const M_MASK_AUX_DATA: u32 = 0b11 << M_SHIFT_AUX_DATA;
+const M_MASK_SCORE: usize = 0b11 << M_SHIFT_SCORE;
+const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
+const M_MASK_RESERVED: usize = 0b11 << M_SHIFT_RESERVED;
+const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
+const M_MASK_CASTLING_DATA: usize = 0b11 << M_SHIFT_CASTLING_DATA;
+const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
+const M_MASK_MOVE_TYPE: usize = 0b11 << M_SHIFT_MOVE_TYPE;
+const M_MASK_ORIG_SQUARE: usize = 0b111111 << M_SHIFT_ORIG_SQUARE;
+const M_MASK_DEST_SQUARE: usize = 0b111111 << M_SHIFT_DEST_SQUARE;
+const M_MASK_AUX_DATA: usize = 0b11 << M_SHIFT_AUX_DATA;
 
 
 #[cfg(test)]

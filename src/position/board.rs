@@ -561,8 +561,9 @@ impl Board {
         assert!(dest_square <= 63);
         assert!(unsafe {
             Board::is_null_move(m) ||
-            ::std::mem::transmute::<Move, u32>(m) & (!0 >> 2) ==
-            ::std::mem::transmute::<Move, u32>(self.try_move16(m.move16()).unwrap()) & (!0 >> 2)
+            ::std::mem::transmute::<Move, usize>(m) & (!0u32 >> 2) as usize ==
+            ::std::mem::transmute::<Move, usize>(self.try_move16(m.move16()).unwrap()) &
+            (!0u32 >> 2) as usize
         });
 
         if piece >= NO_PIECE {
