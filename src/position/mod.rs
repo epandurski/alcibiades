@@ -487,13 +487,12 @@ impl Position {
             // big enough to warrant trying the move.
             let move_type = next_move.move_type();
             let captured_piece = next_move.captured_piece();
-            let material_gain = *PIECE_VALUES.get_unchecked(captured_piece) +
-                                match move_type {
-                MOVE_PROMOTION => {
-                    PIECE_VALUES[Move::piece_from_aux_data(next_move.aux_data())] -
-                    PIECE_VALUES[PAWN]
-                }
-                _ => 0,
+            let material_gain = if move_type == MOVE_PROMOTION {
+                *PIECE_VALUES.get_unchecked(captured_piece) +
+                *PIECE_VALUES.get_unchecked(Move::piece_from_aux_data(next_move.aux_data())) -
+                PIECE_VALUES[PAWN]
+            } else {
+                *PIECE_VALUES.get_unchecked(captured_piece)
             };
             if material_gain < obligatory_material_gain {
                 continue;

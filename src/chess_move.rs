@@ -219,7 +219,7 @@ impl Move {
     }
 
     /// Returns the captured piece type.
-    #[inline]
+    #[inline(always)]
     pub fn captured_piece(&self) -> PieceType {
         (!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE
     }
