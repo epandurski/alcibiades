@@ -1128,15 +1128,12 @@ impl Board {
     #[inline]
     fn en_passant_bb(&self) -> u64 {
         assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
-        match self.en_passant_file {
-            x if x >= NO_ENPASSANT_FILE => EMPTY_SET,
-            x => {
-                if self.to_move == WHITE {
-                    1 << x << 40
-                } else {
-                    1 << x << 16
-                }
-            }
+        if self.en_passant_file >= NO_ENPASSANT_FILE {
+            0
+        } else if self.to_move == WHITE {
+            1 << self.en_passant_file << 40
+        } else {
+            1 << self.en_passant_file << 16
         }
     }
 
