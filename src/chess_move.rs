@@ -400,7 +400,7 @@ impl MoveStack {
     }
 
     /// Removes the last element from the current move list and
-    /// returns it, or `None` if it is empty.
+    /// returns it, or `None` if empty.
     #[inline]
     pub fn pop(&mut self) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
