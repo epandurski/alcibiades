@@ -31,7 +31,7 @@ pub struct Board {
     to_move: Color,
     castling: CastlingRights,
     en_passant_file: usize,
-    _occupied: u64, // this will always be equal to self.color[0] | self.color[1]
+    _occupied: u64, // will always be equal to self.color[0] | self.color[1]
     _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _pinned: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
@@ -573,7 +573,7 @@ impl Board {
         }
 
         unsafe {
-            // verify if the move will leave the king in check
+            // Verify if the move will leave the king in check.
             if piece == KING {
                 if orig_square != dest_square {
                     if self.king_would_be_in_check(dest_square) {
@@ -586,7 +586,7 @@ impl Board {
                 }
             }
 
-            // move the rook if the move is castling
+            // Move the rook if the move is castling.
             if move_type == MOVE_CASTLING {
                 if self.king_would_be_in_check((orig_square + dest_square) >> 1) {
                     return None;  // king's passing square is attacked -- illegal move
@@ -615,7 +615,7 @@ impl Board {
                          .get_unchecked(piece)
                          .get_unchecked(orig_square);
 
-            // remove the captured piece (if any)
+            // Remove the captured piece (if any).
             if captured_piece < NO_PIECE {
                 let not_captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
@@ -638,7 +638,7 @@ impl Board {
                 *self.color.get_unchecked_mut(them) &= not_captured_bb;
             }
 
-            // occupy the destination square
+            // Occupy the destination square.
             let dest_piece = if move_type == MOVE_PROMOTION {
                 Move::piece_from_aux_data(m.aux_data())
             } else {
@@ -652,14 +652,14 @@ impl Board {
                          .get_unchecked(dest_piece)
                          .get_unchecked(dest_square);
 
-            // update castling rights (null moves do not affect castling)
+            // Update castling rights (null moves do not affect castling).
             if orig_square != dest_square {
                 hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
                 self.castling.update(orig_square, dest_square);
                 hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
             }
 
-            // update the en-passant file
+            // Update the en-passant file.
             hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
             self.en_passant_file = if piece == PAWN {
                 match dest_square as isize - orig_square as isize {
@@ -674,12 +674,12 @@ impl Board {
                 NO_ENPASSANT_FILE
             };
 
-            // change the side to move
+            // Change the side to move.
             self.to_move = them;
             hash ^= self.zobrist.to_move;
 
-            // update "_occupied", "_checkers", "_pinned", and
-            // "_king_square"
+            // Update "_occupied", "_checkers", "_pinned", and
+            // "_king_square".
             self._occupied = self.color[WHITE] | self.color[BLACK];
             self._checkers.set(UNIVERSAL_SET);
             self._pinned.set(UNIVERSAL_SET);
@@ -723,19 +723,19 @@ impl Board {
         let not_dest_bb = !(1 << dest_square);
 
         unsafe {
-            // change the side to move
+            // Change the side to move.
             self.to_move = us;
 
-            // restore the en-passant file
+            // Restore the en-passant file.
             self.en_passant_file = m.en_passant_file();
 
-            // restore castling rights
+            // Restore castling rights.
             self.castling.set_for(them, m.castling_data());
             if move_type != MOVE_PROMOTION {
                 self.castling.set_for(us, aux_data);
             }
 
-            // empty the destination square
+            // Empty the destination square.
             let dest_piece = if move_type == MOVE_PROMOTION {
                 Move::piece_from_aux_data(aux_data)
             } else {
@@ -744,7 +744,7 @@ impl Board {
             *self.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
             *self.color.get_unchecked_mut(us) &= not_dest_bb;
 
-            // put back the captured piece (if any)
+            // Put back the captured piece (if any).
             if captured_piece < NO_PIECE {
                 let captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
@@ -757,11 +757,11 @@ impl Board {
                 *self.color.get_unchecked_mut(them) |= captured_bb;
             }
 
-            // restore the piece on the origin square
+            // Restore the piece on the origin square.
             *self.piece_type.get_unchecked_mut(piece) |= orig_bb;
             *self.color.get_unchecked_mut(us) |= orig_bb;
 
-            // move the rook back if the move is castling
+            // Move the rook back if the move is castling.
             if move_type == MOVE_CASTLING {
                 let side = if dest_square > orig_square {
                     KINGSIDE
@@ -773,8 +773,8 @@ impl Board {
                 *self.color.get_unchecked_mut(us) ^= mask;
             }
 
-            // update "_occupied", "_checkers", "_pinned", and
-            // "_king_square"
+            // Update "_occupied", "_checkers", "_pinned", and
+            // "_king_square".
             self._occupied = self.color[WHITE] | self.color[BLACK];
             self._checkers.set(UNIVERSAL_SET);
             self._pinned.set(UNIVERSAL_SET);
@@ -1037,16 +1037,16 @@ impl Board {
     #[inline(always)]
     fn push_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
 
-        // can not castle if in check
+        // We can not castle if in check.
         if self.checkers() == EMPTY_SET {
 
-            // try queen-side and king-side castling
+            // Try queen-side and king-side castling.
             for side in 0..2 {
 
                 // ensure squares between the king and the rook are empty
                 if self.castling.obstacles(self.to_move, side) & self.occupied() == 0 {
 
-                    // it seems castling is legal unless king's
+                    // It seems castling is legal unless king's
                     // passing or final squares are attacked, but
                     // we do not care about that, because this
                     // will be verified in "do_move()".
@@ -1219,10 +1219,10 @@ impl Board {
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
-            // the king is not on the 4/5-th rank -- we are done
+            // The king is not on the 4/5-th rank -- we are done.
             true
         } else {
-            // the king is on the 4/5-th rank -- we have more work to do
+            // The king is on the 4/5-th rank -- we have more work to do.
             let the_two_pawns = 1 << orig_square |
                                 gen_shift(1,
                                           dest_square as isize -
