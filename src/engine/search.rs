@@ -208,7 +208,7 @@ fn search(tt: &TranspositionTable,
         Ok(value)
     } else {
         // Consult the transposition table.
-        let hash_move = if let Some(entry) = tt.probe(p.hash()) {
+        let hash_move16 = if let Some(entry) = tt.probe(p.hash()) {
             if entry.depth() >= depth && entry.bound() == BOUND_EXACT {
                 // We already know the exact value for this position
                 // for same depth or higher.
@@ -220,21 +220,31 @@ fn search(tt: &TranspositionTable,
         };
 
         moves.save();
-        p.generate_moves(moves);
 
-        if hash_move != 0 {
-            // Set the highest possible move score for the hash move.
-            for m in moves.iter_mut() {
-                if m.move16() == hash_move {
-                    m.set_score(3);
-                }
+        if hash_move16 != 0 {
+            if let Some(m) = p.try_move16(hash_move16) {
+                moves.push(m);
             }
         }
+        let mut generated = false;
+        let mut m = ::chess_move::Move::invalid();
 
         let mut bound_type = BOUND_UPPER;
         let mut move16 = 0;
         let mut no_moves_yet = true;
-        while let Some(m) = moves.remove_best_move() {
+        loop {
+            // TODO: This is ugly, and probably inefficient.
+            m = match moves.remove_best_move() {
+                None if generated => break,
+                None => {
+                    p.generate_moves(moves);
+                    moves.remove_move(m);
+                    generated = true;
+                    continue;
+                },
+                Some(x) => x,
+            };
+            
             if p.do_move(m) {
                 // From time to time, we report how many nodes had
                 // been searched since the last report. This also

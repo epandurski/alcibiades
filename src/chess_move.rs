@@ -407,8 +407,36 @@ impl MoveStack {
         self.moves.pop()
     }
 
+    /// Removes the move `m` from the current move list.
+    ///
+    /// Returns `true` if `m` is in current move list, `false`
+    /// otherwise.
+    #[inline]
+    pub fn remove_move(&mut self, m: Move) -> bool {
+        assert!(self.moves.len() >= self.first_move_index);
+        let last_move = if let Some(last) = self.moves.last() {
+            *last
+        } else {
+            return false;
+        };
+        'moves: loop {
+            for curr in self.iter_mut() {
+                if *curr == m {
+                    *curr = last_move;
+                    break 'moves;
+                }
+            }
+            return false;
+        }
+        assert!(!self.moves.is_empty());
+        self.moves.pop();
+        true
+    }
+
     /// Removes the move with the highest value from the current move
-    /// list and returns it, or `None` if it is empty.
+    /// list and returns it.
+    ///
+    /// Returns `None` if the current move list is empty.
     #[inline]
     pub fn remove_best_move(&mut self) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
