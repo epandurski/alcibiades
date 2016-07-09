@@ -409,7 +409,7 @@ impl MoveStack {
 
     /// Removes the move `m` from the current move list.
     ///
-    /// Returns `true` if `m` is in current move list, `false`
+    /// Returns `true` if `m` was in current move list, `false`
     /// otherwise.
     #[inline]
     pub fn remove_move(&mut self, m: Move) -> bool {
