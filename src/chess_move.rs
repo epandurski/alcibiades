@@ -189,13 +189,13 @@ impl Move {
     /// Returns the assigned move score.
     #[inline(always)]
     pub fn score(&self) -> usize {
-        ((self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE) as usize
+        (self.0 & M_MASK_SCORE) >> M_SHIFT_SCORE
     }
 
     /// Returns the move type.
     #[inline(always)]
     pub fn move_type(&self) -> MoveType {
-        ((self.0 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE) as MoveType
+        (self.0 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE
     }
 
     /// Returns the played piece type.
@@ -203,25 +203,25 @@ impl Move {
     /// Castling is considered as a king's move.
     #[inline(always)]
     pub fn piece(&self) -> PieceType {
-        ((self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE) as PieceType
+        (self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE
     }
 
     /// Returns the origin square of the played piece.
     #[inline(always)]
     pub fn orig_square(&self) -> Square {
-        ((self.0 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE) as Square
+        (self.0 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE
     }
 
     /// Returns the destination square for the played piece.
     #[inline(always)]
     pub fn dest_square(&self) -> Square {
-        ((self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE) as Square
+        (self.0 & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE
     }
 
     /// Returns the captured piece type.
     #[inline]
     pub fn captured_piece(&self) -> PieceType {
-        ((!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE) as PieceType
+        (!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE
     }
 
     /// Returns the file on which there were a passing pawn before the
@@ -229,7 +229,7 @@ impl Move {
     /// if there was no passing pawn.
     #[inline(always)]
     pub fn en_passant_file(&self) -> usize {
-        ((self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE) as usize
+        (self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
     }
 
     /// Returns a value between 0 and 3 representing the castling
@@ -237,7 +237,7 @@ impl Move {
     /// before the move was played.
     #[inline(always)]
     pub fn castling_data(&self) -> usize {
-        ((self.0 & M_MASK_CASTLING_DATA) >> M_SHIFT_CASTLING_DATA) as usize
+        (self.0 & M_MASK_CASTLING_DATA) >> M_SHIFT_CASTLING_DATA
     }
 
     /// Returns a value between 0 and 3 representing the auxiliary
@@ -249,7 +249,7 @@ impl Move {
     /// move, as they were before the move was played.
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
-        ((self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA) as usize
+        (self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
     }
 
     /// Returns `true` if the move is a pawn advance or a capture,
@@ -309,26 +309,26 @@ impl Move {
     #[allow(dead_code)]
     #[inline(always)]
     fn reserved(&self) -> usize {
-        ((self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED) as usize
+        (self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED
     }
 }
 
 
 #[inline(always)]
 pub fn move16_move_type(move16: u16) -> MoveType {
-    ((move16 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE as u16) as usize
+    ((move16 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE as u16) as MoveType
 }
 
 
 #[inline(always)]
 pub fn move16_orig_square(move16: u16) -> Square {
-    ((move16 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE as u16) as usize
+    ((move16 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE as u16) as Square
 }
 
 
 #[inline(always)]
 pub fn move16_dest_square(move16: u16) -> Square {
-    ((move16 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE as u16) as usize
+    ((move16 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE as u16) as Square
 }
 
 
