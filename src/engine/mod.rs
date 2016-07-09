@@ -24,7 +24,6 @@ const VERSION: &'static str = "0.1";
 pub struct Engine {
     position: Position,
     pondering_is_allowed: bool,
-    multi_pv: usize,
     is_thinking: bool,
     is_pondering: bool,
     replies: Vec<EngineReply>,
@@ -59,7 +58,6 @@ impl Engine {
                           .ok()
                           .unwrap(),
             pondering_is_allowed: false,
-            multi_pv: 1,
             is_thinking: false,
             is_pondering: false,
             replies: vec![],
@@ -87,12 +85,6 @@ impl UciEngine for Engine {
             // allowed.
             "Ponder" => {
                 self.pondering_is_allowed = value == "true";
-            }
-
-            // Tells the engine to output multiple best lines.
-            // the default value is `1`.)
-            "MultiPV" => {
-                self.multi_pv = value.parse::<usize>().ok().unwrap_or(1);
             }
 
             // An invalid option.
@@ -226,7 +218,6 @@ impl UciEngine for Engine {
                                                      (duration.subsec_nanos() / 1000000) as u64;
                             if searched_nodes > 0 && pv_length >= depth {
                                 self.replies.push(EngineReply::Info(vec![
-                                    ("multipv".to_string(), "1".to_string()),
                                     ("depth".to_string(), format!("{}", depth)),
                                     ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
                                     ("nodes".to_string(), format!("{}", searched_nodes)),
@@ -315,7 +306,6 @@ impl UciEngineFactory<Engine> for EngineFactory {
             // TODO: Calculate a sane limit for the hash size.
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 32, default: 1 }),
         ]
     }
 
