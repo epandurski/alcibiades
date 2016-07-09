@@ -316,25 +316,25 @@ impl Move {
 
 #[inline(always)]
 pub fn move16_move_type(move16: u16) -> MoveType {
-    ((move16 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE as u16) as MoveType
+    ((move16 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
 }
 
 
 #[inline(always)]
 pub fn move16_orig_square(move16: u16) -> Square {
-    ((move16 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE as u16) as Square
+    ((move16 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
 }
 
 
 #[inline(always)]
 pub fn move16_dest_square(move16: u16) -> Square {
-    ((move16 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE as u16) as Square
+    ((move16 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
 }
 
 
 #[inline(always)]
 pub fn move16_aux_data(move16: u16) -> usize {
-    ((move16 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA as u16) as usize
+    ((move16 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
 }
 
 
