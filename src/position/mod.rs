@@ -438,7 +438,6 @@ impl Position {
     // A helper method for `evaluate`. It is needed because`qsearch`
     // should be able to call itself recursively, which should not
     // complicate `evaluate`'s public-facing interface.
-    #[inline]
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
