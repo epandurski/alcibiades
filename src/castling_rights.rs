@@ -63,8 +63,8 @@ impl CastlingRights {
     /// # Safety
     ///
     /// This method is unsafe because it is performance-critical, and
-    /// so it does not verify that the passed arguments are
-    /// valid. Users of this method should make sure that:
+    /// so it does no array boundary checks. Users of this method
+    /// should make sure that:
     ///
     /// * `orig_square <= 63`.
     /// * `dest_square <= 63`.
