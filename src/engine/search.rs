@@ -227,18 +227,17 @@ fn search(tt: &TranspositionTable,
             }
         }
         let mut generated = false;
-        let mut m = ::chess_move::Move::invalid();
 
         let mut bound_type = BOUND_UPPER;
         let mut move16 = 0;
         let mut no_moves_yet = true;
         loop {
             // TODO: This is ugly, and probably inefficient.
-            m = match moves.remove_best_move() {
+            let m = match moves.remove_best_move() {
                 None if generated => break,
                 None => {
                     p.generate_moves(moves);
-                    moves.remove_move(m);
+                    moves.remove_move(hash_move16);
                     generated = true;
                     continue;
                 },

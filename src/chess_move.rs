@@ -407,30 +407,34 @@ impl MoveStack {
         self.moves.pop()
     }
 
-    /// Removes the move `m` from the current move list.
+    /// Removes a specific move from the current move list and returns
+    /// it.
     ///
-    /// Returns `true` if `m` was the in current move list, `false`
-    /// otherwise.
+    /// This method tries to find a move `m` for which `m.move16() ==
+    /// move16`. Then it removes it from the current move list, and
+    /// returns it. If such move is not found, `None` is returned.
     #[inline]
-    pub fn remove_move(&mut self, m: Move) -> bool {
+    pub fn remove_move(&mut self, move16: u16) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
         let last_move = if let Some(last) = self.moves.last() {
             *last
         } else {
-            return false;
+            return None;
         };
+        let m;
         'moves: loop {
             for curr in self.iter_mut() {
-                if *curr == m {
+                if curr.move16() == move16 {
+                    m = *curr;
                     *curr = last_move;
                     break 'moves;
                 }
             }
-            return false;
+            return None;
         }
         assert!(!self.moves.is_empty());
         self.moves.pop();
-        true
+        Some(m)
     }
 
     /// Removes the move with the highest value from the current move
