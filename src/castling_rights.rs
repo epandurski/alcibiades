@@ -12,11 +12,11 @@ use basetypes::*;
 ///
 /// ```text
 ///  usize             3           0
-///  +---------------+---+---+---+---+
-///  |               |   |   |   |   |
-///  |    Unused     |Castling flags |
-///  |               |   |   |   |   |
-///  +---------------+---+---+---+---+
+///  +----------------------+---+---+---+---+
+///  |                      |   |   |   |   |
+///  |    Unused (zeros)    |Castling flags |
+///  |                      |   |   |   |   |
+///  +----------------------+---+---+---+---+
 ///
 ///  bit 0 -- if set, white can castle on queen-side;
 ///  bit 1 -- if set, white can castle on king-side;
