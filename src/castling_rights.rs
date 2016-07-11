@@ -29,15 +29,26 @@ pub struct CastlingRights(usize);
 
 
 impl CastlingRights {
-    /// Creates a new instance.
-    ///
-    /// The least significant 4 bits of `value` are used as a raw
-    /// value for the new instance.
+    /// Creates a new instance. No player is allowed to castle on any
+    /// side.
     #[inline(always)]
-    pub fn new(value: usize) -> CastlingRights {
-        CastlingRights(value & 0b1111)
+    pub fn new() -> CastlingRights {
+        CastlingRights(0)
     }
 
+    /// Creates a new instance from a raw value.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it is performance-critical, and
+    /// so it does not verify the passed parameter. Users of this
+    /// method should make sure that `value <= 15`.
+    #[inline(always)]
+    pub unsafe fn from_raw_value(value: usize) -> CastlingRights {
+        assert!(value <= 15);
+        CastlingRights(value)
+    }
+    
     /// Returns the contained raw value.
     #[inline(always)]
     pub fn value(&self) -> usize {
@@ -157,7 +168,7 @@ mod tests {
         use basetypes::*;
         use bitsets::*;
 
-        let mut c = CastlingRights::new(0b1110);
+        let mut c = unsafe { CastlingRights::from_raw_value(0b1110) };
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);

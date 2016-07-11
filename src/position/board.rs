@@ -730,7 +730,7 @@ impl Board {
             self.en_passant_file = m.en_passant_file();
 
             // Restore castling rights.
-            self.castling = CastlingRights::new(m.castling_data());
+            self.castling = CastlingRights::from_raw_value(m.castling_data());
 
             // Empty the destination square.
             let dest_piece = if move_type == MOVE_PROMOTION {

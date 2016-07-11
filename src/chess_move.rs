@@ -509,7 +509,7 @@ mod tests {
 
     #[test]
     fn test_move() {
-        let cr = CastlingRights::new(0b1011);
+        let cr = unsafe { CastlingRights::from_raw_value(0b1011) };
         let mut m = Move::new(WHITE,
                               MOVE_NORMAL,
                               PAWN,
@@ -526,7 +526,7 @@ mod tests {
                            E4,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(0),
+                           CastlingRights::new(),
                            0);
         let n2 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -535,7 +535,7 @@ mod tests {
                            E4,
                            NO_PIECE,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(0),
+                           CastlingRights::new(),
                            0);
         let n3 = Move::new(BLACK,
                            MOVE_PROMOTION,
@@ -544,7 +544,7 @@ mod tests {
                            F1,
                            NO_PIECE,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(0),
+                           CastlingRights::new(),
                            1);
         let n4 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -553,7 +553,7 @@ mod tests {
                            E3,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(0),
+                           CastlingRights::new(),
                            0);
         let n5 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -562,7 +562,7 @@ mod tests {
                            E3,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(0),
+                           CastlingRights::new(),
                            0);
         assert!(n1 > m);
         assert!(n2 < m);
@@ -597,7 +597,7 @@ mod tests {
                           E4,
                           NO_PIECE,
                           NO_ENPASSANT_FILE,
-                          CastlingRights::new(0),
+                          CastlingRights::new(),
                           0);
         let mut s = MoveStack::new();
         assert!(s.remove_best_move().is_none());
