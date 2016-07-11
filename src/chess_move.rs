@@ -34,8 +34,8 @@ use castling_rights::*;
 ///
 /// There are 4 "move type"s: `0`) en-passant capture; `1`) pawn
 /// promotion; `2`) castling; `3`) normal move. "Aux data" encodes the
-/// type of the promoted piece if the move type is a pawn promotion,
-/// otherwise it encodes castling rights (see below).
+/// type of the promoted piece if the move type is pawn promotion,
+/// otherwise it is `0`.
 ///
 /// Bits 16-31 contain the rest ot the info:
 ///
@@ -43,9 +43,9 @@ use castling_rights::*;
 ///   31                                                          16
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-///  | Move  |  Captured | Reser-|  Played   | Cast- |   En-passant  |
-///  | score |  piece    |  ved  |  piece    | ling  |      file     |
-///  | 2 bits|  3 bits   | 2 bits|  3 bits   | 2 bits|     4 bits    |
+///  | Move  |  Captured |  Played   |   Castling    |   En-passant  |
+///  | score |  piece    |  piece    |    rights     |      file     |
+///  | 2 bits|  3 bits   |  3 bits   |    4 bits     |     4 bits    |
 ///  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
@@ -53,22 +53,14 @@ use castling_rights::*;
 /// "En-passant file" tells on what vertical line on the board there
 /// was a passing pawn before the move was played. If there was no
 /// passing pawn, "en-passant file" will be between `8` and `15`
-/// (inclusive).
-///
-/// Castling rights are a bit complex. The castling rights for the side
-/// that makes the move, before the move was made, are stored in the
-/// "Aux data" field. This is OK, because promoting a pawn never
-/// changes the moving player's castling rights. The castling rights
-/// for the opposite side are stored in "Castling" field. (A move can
-/// change the castling rights for the other side when a rook in the
-/// corner is captured.)
+/// (inclusive). "Castling rights" holds the castling rights before
+/// the move was played.
 ///
 /// When "Captured piece" is stored, its bits are inverted, so that
 /// MVV-LVA (Most valuable victim -- least valuable aggressor)
 /// ordering of the moves is preserved, even when the other fields
 /// stay the same. The "Move score" field is used to influence move
-/// ordering. The "Reserved" field is used to improve the ordering of
-/// non-capturing moves.
+/// ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
@@ -88,8 +80,8 @@ impl Move {
     ///
     /// The initial move score for the new move will be:
     ///
-    /// * `2` for captures and pawn promotions to queen.
-    /// * `0` for all other moves.
+    /// * `3` for captures and pawn promotions to queen.
+    /// * less than `3` for all other moves.
     #[inline(always)]
     pub fn new(us: Color,
                move_type: MoveType,
@@ -109,44 +101,38 @@ impl Move {
         assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         assert!(en_passant_file <= 0b1111);
         assert!(promoted_piece_code <= 0b11);
-        let mut score_shifted;
-        let reserved_shifted;
 
-        // We use the reserved field (2 bits) to properly order quiet
+        // We use the score field (2 bits) to properly order quiet
         // movies. Moves which destination square is more advanced
         // into enemy's territory are tried first. The logic is that
         // those moves are riskier, so if such a move loses material
         // this will be detected early and the search tree will be
         // pruned, but if the move does not lose material, chances are
         // that it is a very good move.
-        const RESERVED_LOOKUP: [[usize; 8]; 2] = [// white
-                                                  [0 << M_SHIFT_RESERVED,
-                                                   1 << M_SHIFT_RESERVED,
-                                                   1 << M_SHIFT_RESERVED,
-                                                   2 << M_SHIFT_RESERVED,
-                                                   2 << M_SHIFT_RESERVED,
-                                                   3 << M_SHIFT_RESERVED,
-                                                   3 << M_SHIFT_RESERVED,
-                                                   3 << M_SHIFT_RESERVED],
-                                                  // black
-                                                  [3 << M_SHIFT_RESERVED,
-                                                   3 << M_SHIFT_RESERVED,
-                                                   3 << M_SHIFT_RESERVED,
-                                                   2 << M_SHIFT_RESERVED,
-                                                   2 << M_SHIFT_RESERVED,
-                                                   1 << M_SHIFT_RESERVED,
-                                                   1 << M_SHIFT_RESERVED,
-                                                   0 << M_SHIFT_RESERVED]];
+        const SCORE_LOOKUP: [[usize; 8]; 2] = [// white
+                                               [0 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE],
+                                               // black
+                                               [2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                0 << M_SHIFT_SCORE]];
 
         // Captures are treated differently than quiet moves.
-        if captured_piece == NO_PIECE {
-            score_shifted = 0;
-            reserved_shifted = unsafe {
-                *RESERVED_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square))
-            };
+        let mut score_shifted = if captured_piece == NO_PIECE {
+            unsafe { *SCORE_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) }
         } else {
-            score_shifted = 2 << M_SHIFT_SCORE;
-            reserved_shifted = 0;
+            3 << M_SHIFT_SCORE
         };
 
         // Figure out what `aux_data` should contain. In the mean
@@ -154,18 +140,17 @@ impl Move {
         // scores.
         let aux_data = if move_type == MOVE_PROMOTION {
             score_shifted = if promoted_piece_code == 0 {
-                2 << M_SHIFT_SCORE
+                3 << M_SHIFT_SCORE
             } else {
                 0 << M_SHIFT_SCORE
             };
             promoted_piece_code
         } else {
-            castling.get_for(us)
+            0
         };
 
         Move(score_shifted | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-             reserved_shifted | piece << M_SHIFT_PIECE |
-             castling.get_for(1 ^ us) << M_SHIFT_CASTLING_DATA |
+             piece << M_SHIFT_PIECE | castling.value() << M_SHIFT_CASTLING_DATA |
              en_passant_file << M_SHIFT_ENPASSANT_FILE |
              move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
              dest_square << M_SHIFT_DEST_SQUARE | aux_data << M_SHIFT_AUX_DATA)
@@ -232,9 +217,8 @@ impl Move {
         (self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
     }
 
-    /// Returns a value between 0 and 3 representing the castling
-    /// rights for the side that does not make the move, as they were
-    /// before the move was played.
+    /// Returns a value between 0 and 15 representing the castling
+    /// rights as they were before the move was played.
     #[inline(always)]
     pub fn castling_data(&self) -> usize {
         (self.0 & M_MASK_CASTLING_DATA) >> M_SHIFT_CASTLING_DATA
@@ -244,9 +228,8 @@ impl Move {
     /// data.
     ///
     /// When the move type is pawn promotion, "aux data" encodes the
-    /// promoted piece type. For all other move types "aux data"
-    /// represents the castling rights for the side that makes the
-    /// move, as they were before the move was played.
+    /// promoted piece type. For all other move types "aux data" is
+    /// `0`.
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
         (self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
@@ -302,14 +285,6 @@ impl Move {
             2 => BISHOP,
             _ => KNIGHT,
         }
-    }
-
-    // Returns a value between 0 and 7 representing the reserved
-    // field.
-    #[allow(dead_code)]
-    #[inline(always)]
-    fn reserved(&self) -> usize {
-        (self.0 & M_MASK_RESERVED) >> M_SHIFT_RESERVED
     }
 }
 
@@ -505,8 +480,7 @@ pub const MOVE_NORMAL: MoveType = 3;
 // Field shifts
 const M_SHIFT_SCORE: usize = 30;
 const M_SHIFT_CAPTURED_PIECE: usize = 27;
-const M_SHIFT_RESERVED: usize = 25;
-const M_SHIFT_PIECE: usize = 22;
+const M_SHIFT_PIECE: usize = 24;
 const M_SHIFT_CASTLING_DATA: usize = 20;
 const M_SHIFT_ENPASSANT_FILE: usize = 16;
 const M_SHIFT_MOVE_TYPE: usize = 14;
@@ -517,9 +491,8 @@ const M_SHIFT_AUX_DATA: usize = 0;
 // Field masks
 const M_MASK_SCORE: usize = 0b11 << M_SHIFT_SCORE;
 const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
-const M_MASK_RESERVED: usize = 0b11 << M_SHIFT_RESERVED;
 const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
-const M_MASK_CASTLING_DATA: usize = 0b11 << M_SHIFT_CASTLING_DATA;
+const M_MASK_CASTLING_DATA: usize = 0b1111 << M_SHIFT_CASTLING_DATA;
 const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
 const M_MASK_MOVE_TYPE: usize = 0b11 << M_SHIFT_MOVE_TYPE;
 const M_MASK_ORIG_SQUARE: usize = 0b111111 << M_SHIFT_ORIG_SQUARE;
@@ -536,11 +509,7 @@ mod tests {
 
     #[test]
     fn test_move() {
-        let mut cr = CastlingRights::new();
-        unsafe {
-            cr.set_for(WHITE, 0b10);
-            cr.set_for(BLACK, 0b11);
-        }
+        let cr = CastlingRights::new(0b1011);
         let mut m = Move::new(WHITE,
                               MOVE_NORMAL,
                               PAWN,
@@ -557,7 +526,7 @@ mod tests {
                            E4,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         let n2 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -566,7 +535,7 @@ mod tests {
                            E4,
                            NO_PIECE,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         let n3 = Move::new(BLACK,
                            MOVE_PROMOTION,
@@ -575,7 +544,7 @@ mod tests {
                            F1,
                            NO_PIECE,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            1);
         let n4 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -584,7 +553,7 @@ mod tests {
                            E3,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         let n5 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -593,7 +562,7 @@ mod tests {
                            E3,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         assert!(n1 > m);
         assert!(n2 < m);
@@ -602,8 +571,8 @@ mod tests {
         assert_eq!(m.orig_square(), E2);
         assert_eq!(m.dest_square(), E4);
         assert_eq!(m.en_passant_file(), 8);
-        assert_eq!(m.aux_data(), 0b10);
-        assert_eq!(m.castling_data(), 0b11);
+        assert_eq!(m.aux_data(), 0);
+        assert_eq!(m.castling_data(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
         m.set_score(3);
@@ -612,7 +581,6 @@ mod tests {
         m.set_score(0);
         assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
-        assert_eq!(n1.reserved(), 0);
         assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
         assert!(m.is_pawn_advance_or_capure());
         assert!(!n2.is_pawn_advance_or_capure());
@@ -629,7 +597,7 @@ mod tests {
                           E4,
                           NO_PIECE,
                           NO_ENPASSANT_FILE,
-                          CastlingRights::new(),
+                          CastlingRights::new(0),
                           0);
         let mut s = MoveStack::new();
         assert!(s.remove_best_move().is_none());

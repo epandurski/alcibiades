@@ -29,10 +29,13 @@ pub struct CastlingRights(usize);
 
 
 impl CastlingRights {
-    /// Creates a new instance. No player can castle on any side.
+    /// Creates a new instance.
+    ///
+    /// The least significant 4 bits of `value` are used as a raw
+    /// value for the new instance.
     #[inline(always)]
-    pub fn new() -> CastlingRights {
-        CastlingRights(0)
+    pub fn new(value: usize) -> CastlingRights {
+        CastlingRights(value & 0b1111)
     }
 
     /// Returns the contained raw value.
@@ -119,38 +122,6 @@ impl CastlingRights {
             !0
         }
     }
-
-    /// Returns a value from 0 to 3 representing the castling rights
-    /// for `player`.
-    #[inline(always)]
-    pub fn get_for(&self, player: Color) -> usize {
-        assert!(player <= 1);
-        if player == WHITE {
-            self.0 & 0b0011
-        } else {
-            self.0 >> 2
-        }
-    }
-
-    /// Sets the castling rights for `player` with a value from 0 to
-    /// 3.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it is performance-critical, and
-    /// so it does not verify that the passed arguments are
-    /// valid. Users of this method should make sure that `rights <=
-    /// 3`.
-    #[inline(always)]
-    pub unsafe fn set_for(&mut self, player: Color, rights: usize) {
-        assert!(player <= 1);
-        assert!(rights <= 3);
-        self.0 = if player == WHITE {
-            self.0 & 0b1100 | rights
-        } else {
-            self.0 & 0b0011 | rights << 2
-        }
-    }
 }
 
 
@@ -186,11 +157,7 @@ mod tests {
         use basetypes::*;
         use bitsets::*;
 
-        let mut c = CastlingRights::new();
-        unsafe {
-            c.set_for(WHITE, 0b10);
-            c.set_for(BLACK, 0b11);
-        }
+        let mut c = CastlingRights::new(0b1110);
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
@@ -202,8 +169,6 @@ mod tests {
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
         assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
         assert_eq!(c.can_castle(BLACK, KINGSIDE), false);
-        assert_eq!(c.get_for(BLACK), 0b01);
-        assert_eq!(c.get_for(WHITE), 0b10);
         assert_eq!(c.value(), 0b0110);
         let granted = c.grant(BLACK, KINGSIDE);
         assert_eq!(granted, false);
