@@ -181,7 +181,7 @@ fn parse_fen_active_color(s: &str) -> Result<Color, ParseError> {
 fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
 
     // We start with no caltling allowed.
-    let mut rights = CastlingRights::new();
+    let mut rights = CastlingRights::new(0);
 
     // Then we parse the content and update the castling rights.
     if s != "-" {
