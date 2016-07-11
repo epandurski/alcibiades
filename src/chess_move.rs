@@ -229,7 +229,7 @@ impl Move {
     ///
     /// When the move type is pawn promotion, "aux data" encodes the
     /// promoted piece type. For all other move types "aux data" is
-    /// `0`.
+    /// zero.
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
         (self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
