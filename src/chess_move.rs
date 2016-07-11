@@ -154,7 +154,7 @@ impl Move {
              dest_square << M_SHIFT_DEST_SQUARE | aux_data << M_SHIFT_AUX_DATA)
     }
 
-    /// Creates a new instance with all bits set to `0` (invalid
+    /// Creates a new instance with all fields set to `0` (an invalid
     /// move).
     #[inline(always)]
     pub fn invalid() -> Move {
