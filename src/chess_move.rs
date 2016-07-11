@@ -54,13 +54,11 @@ use castling_rights::*;
 /// was a passing pawn before the move was played (a value between 0
 /// and 7). If there was no passing pawn, "en-passant file" will be
 /// between 8 and 15. "Castling rights" holds the castling rights
-/// before the move was played.
-///
-/// When "Captured piece" is stored, its bits are inverted, so that
-/// MVV-LVA (Most valuable victim -- least valuable aggressor)
-/// ordering of the moves is preserved, even when the other fields
-/// stay the same. The "Move score" field is used to influence move
-/// ordering.
+/// before the move was played. When "Captured piece" is stored, its
+/// bits are inverted, so that MVV-LVA (Most valuable victim -- least
+/// valuable aggressor) ordering of the moves is preserved, even when
+/// the other fields stay the same. The "Move score" field is used to
+/// influence move ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
