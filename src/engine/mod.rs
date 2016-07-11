@@ -202,7 +202,7 @@ impl UciEngine for Engine {
                                 if m != 0 {
                                     p.generate_moves(&mut v);
                                     while let Some(x) = v.pop() {
-                                        if x.move16() == m && p.do_move(x) {
+                                        if x.digest() == m && p.do_move(x) {
                                             pv_length += 1;
                                             pv.push_str(&x.notation());
                                             pv.push(' ');
@@ -259,13 +259,13 @@ impl Engine {
                     break;
                 }
             }
-            m = first_legal_move.move16();
+            m = first_legal_move.digest();
         }
         if m != 0 {
-            let move_type = ((m & 0b1100000000000000) >> 14) as MoveType;
-            let orig_square = ((m & 0b0011111100000000) >> 8) as Square;
-            let dest_square = ((m & 0b0000000011111100) >> 2) as Square;
-            let promoted_piece = match m & 0b11 {
+            let move_type = extract_move_type(m);
+            let orig_square = extract_orig_square(m);
+            let dest_square = extract_dest_square(m);
+            let promoted_piece = match extract_aux_data(m) {
                 0 => "q",
                 1 => "r",
                 2 => "b",

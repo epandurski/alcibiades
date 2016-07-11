@@ -222,7 +222,7 @@ fn search(tt: &TranspositionTable,
         moves.save();
 
         if hash_move16 != 0 {
-            if let Some(m) = p.try_move16(hash_move16) {
+            if let Some(m) = p.try_move_digest(hash_move16) {
                 moves.push(m);
             }
         }
@@ -281,14 +281,14 @@ fn search(tt: &TranspositionTable,
                     // happen. Therefore we can stop here.
                     alpha = beta;
                     bound_type = BOUND_LOWER;
-                    move16 = m.move16();
+                    move16 = m.digest();
                     break;
                 }
                 if value > alpha {
                     // We found ourselves a new best move.
                     alpha = value;
                     bound_type = BOUND_EXACT;
-                    move16 = m.move16();
+                    move16 = m.digest();
                 }
             }
         }

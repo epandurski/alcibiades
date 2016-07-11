@@ -20,6 +20,7 @@ use std::cell::{UnsafeCell, Cell};
 use std::mem::transmute;
 use std::num::Wrapping;
 use basetypes::Value;
+use chess_move::MoveDigest;
 
 
 /// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.
@@ -53,9 +54,9 @@ pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 /// Stores information about a particular position.
 #[derive(Copy, Clone)]
 pub struct EntryData {
-    move16: u16,
-    value: i16,
-    eval_value: i16,
+    move16: MoveDigest,
+    value: Value,
+    eval_value: Value,
     gen_bound: u8,
     depth: u8,
 }
@@ -64,27 +65,21 @@ pub struct EntryData {
 impl EntryData {
     /// Creates a new instance.
     ///
-    /// * `value` -- the value assigned to the position,
+    /// * `value` -- the value assigned to the position;
     /// 
-    /// * `bound` -- the meaning of the assigned value,
+    /// * `bound` -- the meaning of the assigned value;
     /// 
-    /// * `depth` -- the depth of search,
+    /// * `depth` -- the depth of search;
     /// 
-    /// * `move16` -- best or refutation move (`0` if no move is
-    ///   available).
-    ///
-    ///   These are the least significant 16 bits of the corresponding
-    ///   `Move`. They contain the whole information about the played
-    ///   move itself.  The only missing information is the move
-    ///   ordering information and the information stored so as to be
-    ///   able undo the move.
+    /// * `move16` -- best or refutation move, or `0` if no move is
+    /// available;
     /// 
     /// * `eval_value` -- the calculated static evaluation for the
     ///   position.
     pub fn new(value: Value,
                bound: BoundType,
                depth: u8,
-               move16: u16,
+               move16: MoveDigest,
                eval_value: Value)
                -> EntryData {
         assert!(bound <= 0b11);
@@ -99,18 +94,8 @@ impl EntryData {
     }
 
     #[inline(always)]
-    pub fn move16(&self) -> u16 {
-        self.move16
-    }
-
-    #[inline(always)]
     pub fn value(&self) -> Value {
         self.value
-    }
-
-    #[inline(always)]
-    pub fn eval_value(&self) -> Value {
-        self.eval_value
     }
 
     #[inline(always)]
@@ -121,6 +106,16 @@ impl EntryData {
     #[inline(always)]
     pub fn depth(&self) -> u8 {
         self.depth
+    }
+    
+    #[inline(always)]
+    pub fn move16(&self) -> MoveDigest {
+        self.move16
+    }
+    
+    #[inline(always)]
+    pub fn eval_value(&self) -> Value {
+        self.eval_value
     }
 }
 

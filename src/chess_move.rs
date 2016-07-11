@@ -5,9 +5,33 @@ use basetypes::*;
 use castling_rights::*;
 
 
+/// Encodes the minimum needed information that unambiguously
+/// describes a move.
+///
+/// It is laid out the following way:
+///
+///  ```text
+///   15                                                           0
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+///  | Move  |    Origin square      |   Destination square  | Aux   |
+///  | type  |       6 bits          |        6 bits         | data  |
+///  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |       |
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  ```
+///  
+/// There are 4 "move type"s: `0`) en-passant capture; `1`) pawn
+/// promotion; `2`) castling; `3`) normal move. "Aux data" encodes the
+/// type of the promoted piece if the move type is pawn promotion,
+/// otherwise it is zero.  For valid moves the digest value will never
+/// be `0`.
+pub type MoveDigest = u16;
+
+
 /// Represents a move on the chessboard.
 ///
-/// `Move` contains 3 types of information:
+/// `Move` is a `usize` number. It contains 3 types of information:
 ///
 /// 1. Information about the played move itself.
 ///
@@ -17,8 +41,8 @@ use castling_rights::*;
 /// 3. Move ordering info -- moves with higher value are tried
 ///    first. Ideally the best move should have the highest vaule.
 ///
-/// `Move` is a `usize` number. Bits 0-15 contain the whole needed
-/// information about the move itself (type 1). And is laid out the
+/// Bits 0-15 contain the whole information about the move itself
+/// (type 1). This is called **"move digest"** and is laid out the
 /// following way:
 ///
 ///  ```text
@@ -244,15 +268,9 @@ impl Move {
     }
 
     /// Returns the least significant 16 bits of the raw move value.
-    ///
-    /// The returned value contains the whole information about the
-    /// played move itself. The only missing information is the move
-    /// ordering information and the information stored so as to be
-    /// able undo the move. For valid moves the returned value will
-    /// never be `0`.
     #[inline(always)]
-    pub fn move16(&self) -> u16 {
-        self.0 as u16
+    pub fn digest(&self) -> MoveDigest {
+        self.0 as MoveDigest
     }
 
     /// Returns the algebraic notation of the move.
@@ -287,27 +305,31 @@ impl Move {
 }
 
 
+/// Extracts the move type from a move digest.
 #[inline(always)]
-pub fn move16_move_type(move16: u16) -> MoveType {
-    ((move16 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
+pub fn extract_move_type(move_digest: MoveDigest) -> MoveType {
+    ((move_digest & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
 }
 
 
+/// Extracts the origin square from a move digest.
 #[inline(always)]
-pub fn move16_orig_square(move16: u16) -> Square {
-    ((move16 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
+pub fn extract_orig_square(move_digest: MoveDigest) -> Square {
+    ((move_digest & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
 }
 
 
+/// Extracts the destination square from a move digest.
 #[inline(always)]
-pub fn move16_dest_square(move16: u16) -> Square {
-    ((move16 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
+pub fn extract_dest_square(move_digest: MoveDigest) -> Square {
+    ((move_digest & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
 }
 
 
+/// Extracts the auxiliary data from a move digest.
 #[inline(always)]
-pub fn move16_aux_data(move16: u16) -> usize {
-    ((move16 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
+pub fn extract_aux_data(move_digest: MoveDigest) -> usize {
+    ((move_digest & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
 }
 
 
@@ -383,11 +405,11 @@ impl MoveStack {
     /// Removes a specific move from the current move list and returns
     /// it.
     ///
-    /// This method tries to find a move `m` for which `m.move16() ==
-    /// move16`. Then it removes it from the current move list, and
-    /// returns it. If such move is not found, `None` is returned.
+    /// This method tries to find a move `m` for which `m.digest() ==
+    /// move_digest`. Then it removes it from the current move list,
+    /// and returns it. If such move is not found, `None` is returned.
     #[inline]
-    pub fn remove_move(&mut self, move16: u16) -> Option<Move> {
+    pub fn remove_move(&mut self, move_digest: MoveDigest) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
         let last_move = if let Some(last) = self.moves.last() {
             *last
@@ -397,7 +419,7 @@ impl MoveStack {
         let m;
         'moves: loop {
             for curr in self.iter_mut() {
-                if curr.move16() == move16 {
+                if curr.digest() == move_digest {
                     m = *curr;
                     *curr = last_move;
                     break 'moves;
@@ -580,7 +602,7 @@ mod tests {
         m.set_score(0);
         assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
-        assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
+        assert_eq!(n1.digest(), (n1.0 & 0xffff) as MoveDigest);
         assert!(m.is_pawn_advance_or_capure());
         assert!(!n2.is_pawn_advance_or_capure());
         assert!(n4.is_pawn_advance_or_capure());
