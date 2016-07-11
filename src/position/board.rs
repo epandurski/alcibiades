@@ -710,7 +710,6 @@ impl Board {
         assert!(orig_square <= 63);
         assert!(dest_square <= 63);
         assert!(aux_data <= 3);
-        assert!(m.castling_data() <= 15);
         assert!(m.en_passant_file() <= NO_ENPASSANT_FILE);
 
         if piece >= NO_PIECE {
@@ -730,7 +729,7 @@ impl Board {
             self.en_passant_file = m.en_passant_file();
 
             // Restore castling rights.
-            self.castling = CastlingRights::from_raw_value(m.castling_data());
+            self.castling = m.castling();
 
             // Empty the destination square.
             let dest_piece = if move_type == MOVE_PROMOTION {

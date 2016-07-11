@@ -217,11 +217,11 @@ impl Move {
         (self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
     }
 
-    /// Returns a value between 0 and 15 representing the castling
-    /// rights as they were before the move was played.
+    /// Returns the castling rights as they were before the move was
+    /// played.
     #[inline(always)]
-    pub fn castling_data(&self) -> usize {
-        (self.0 & M_MASK_CASTLING_DATA) >> M_SHIFT_CASTLING_DATA
+    pub fn castling(&self) -> CastlingRights {
+        CastlingRights::new(self.0 >> M_SHIFT_CASTLING_DATA)
     }
 
     /// Returns a value between 0 and 3 representing the auxiliary
@@ -492,6 +492,7 @@ const M_SHIFT_AUX_DATA: usize = 0;
 const M_MASK_SCORE: usize = 0b11 << M_SHIFT_SCORE;
 const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
 const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
+#[allow(dead_code)]
 const M_MASK_CASTLING_DATA: usize = 0b1111 << M_SHIFT_CASTLING_DATA;
 const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
 const M_MASK_MOVE_TYPE: usize = 0b11 << M_SHIFT_MOVE_TYPE;
@@ -509,7 +510,7 @@ mod tests {
 
     #[test]
     fn test_move() {
-        let cr = unsafe { CastlingRights::from_raw_value(0b1011) };
+        let cr = CastlingRights::new(0b1011);
         let mut m = Move::new(WHITE,
                               MOVE_NORMAL,
                               PAWN,
@@ -526,7 +527,7 @@ mod tests {
                            E4,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         let n2 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -535,7 +536,7 @@ mod tests {
                            E4,
                            NO_PIECE,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         let n3 = Move::new(BLACK,
                            MOVE_PROMOTION,
@@ -544,7 +545,7 @@ mod tests {
                            F1,
                            NO_PIECE,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            1);
         let n4 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -553,7 +554,7 @@ mod tests {
                            E3,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         let n5 = Move::new(WHITE,
                            MOVE_NORMAL,
@@ -562,7 +563,7 @@ mod tests {
                            E3,
                            KNIGHT,
                            NO_ENPASSANT_FILE,
-                           CastlingRights::new(),
+                           CastlingRights::new(0),
                            0);
         assert!(n1 > m);
         assert!(n2 < m);
@@ -572,7 +573,7 @@ mod tests {
         assert_eq!(m.dest_square(), E4);
         assert_eq!(m.en_passant_file(), 8);
         assert_eq!(m.aux_data(), 0);
-        assert_eq!(m.castling_data(), 0b1011);
+        assert_eq!(m.castling().value(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
         m.set_score(3);
@@ -597,7 +598,7 @@ mod tests {
                           E4,
                           NO_PIECE,
                           NO_ENPASSANT_FILE,
-                          CastlingRights::new(),
+                          CastlingRights::new(0),
                           0);
         let mut s = MoveStack::new();
         assert!(s.remove_best_move().is_none());
