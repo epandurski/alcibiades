@@ -35,7 +35,7 @@ use castling_rights::*;
 /// There are 4 "move type"s: `0`) en-passant capture; `1`) pawn
 /// promotion; `2`) castling; `3`) normal move. "Aux data" encodes the
 /// type of the promoted piece if the move type is pawn promotion,
-/// otherwise it is `0`.
+/// otherwise it is zero.
 ///
 /// Bits 16-31 contain the rest ot the info:
 ///
@@ -51,10 +51,10 @@ use castling_rights::*;
 ///  ```
 ///
 /// "En-passant file" tells on what vertical line on the board there
-/// was a passing pawn before the move was played. If there was no
-/// passing pawn, "en-passant file" will be between `8` and `15`
-/// (inclusive). "Castling rights" holds the castling rights before
-/// the move was played.
+/// was a passing pawn before the move was played (a value between 0
+/// and 7). If there was no passing pawn, "en-passant file" will be
+/// between 8 and 15. "Castling rights" holds the castling rights
+/// before the move was played.
 ///
 /// When "Captured piece" is stored, its bits are inverted, so that
 /// MVV-LVA (Most valuable victim -- least valuable aggressor)
@@ -73,9 +73,9 @@ impl Move {
     /// `us` is the side that makes the move. `castling` are the
     /// castling rights before the move was played. `en_passant_file`
     /// is the file on which there were a passing pawn before the move
-    /// was played, or a value between `8` and `15` (inclusive) if
-    /// there was no passing pawn. `promoted_piece_code` should be a
-    /// number between `0` and `3` and is used only when the
+    /// was played (a value between 0 and 7), or a value between 8 and
+    /// 15 if there was no passing pawn. `promoted_piece_code` should
+    /// be a number between 0 and 3 and is used only when the
     /// `move_type` is a pawn promotion, otherwise it is ignored.
     ///
     /// The initial move score for the new move will be:
@@ -210,8 +210,8 @@ impl Move {
     }
 
     /// Returns the file on which there were a passing pawn before the
-    /// move was played, or a value between `8` and `15` (inclusive)
-    /// if there was no passing pawn.
+    /// move was played (a value between 0 and 7), or a value between
+    /// 8 and 15 if there was no passing pawn.
     #[inline(always)]
     pub fn en_passant_file(&self) -> usize {
         (self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
