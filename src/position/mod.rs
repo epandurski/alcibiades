@@ -347,7 +347,7 @@ impl Position {
     /// return `None`. This is useful when playing moves from the
     /// transposition table, without calling `generate_moves`.
     #[inline]
-    pub fn try_move16(&self, move16: u16) -> Option<Move> {
+    pub fn try_move16(&self, move16: MoveDigest) -> Option<Move> {
         if self.is_repeated.get() {
             None
         } else {

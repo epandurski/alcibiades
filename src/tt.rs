@@ -20,6 +20,7 @@ use std::cell::{UnsafeCell, Cell};
 use std::mem::transmute;
 use std::num::Wrapping;
 use basetypes::Value;
+use chess_move::MoveDigest;
 
 
 /// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.
@@ -53,9 +54,9 @@ pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 /// Stores information about a particular position.
 #[derive(Copy, Clone)]
 pub struct EntryData {
-    move16: u16,
-    value: i16,
-    eval_value: i16,
+    move16: MoveDigest,
+    value: Value,
+    eval_value: Value,
     gen_bound: u8,
     depth: u8,
 }
@@ -84,13 +85,13 @@ impl EntryData {
     pub fn new(value: Value,
                bound: BoundType,
                depth: u8,
-               move16: u16,
+               move_digest: MoveDigest,
                eval_value: Value)
                -> EntryData {
         assert!(bound <= 0b11);
         assert!(depth < 127);
         EntryData {
-            move16: move16,
+            move16: move_digest,
             value: value,
             eval_value: eval_value,
             gen_bound: bound, // Stores the entry's generation and the bound.
@@ -99,7 +100,7 @@ impl EntryData {
     }
 
     #[inline(always)]
-    pub fn move16(&self) -> u16 {
+    pub fn move_digest(&self) -> MoveDigest {
         self.move16
     }
 
@@ -295,7 +296,7 @@ impl TranspositionTable {
             // same key. If this this is the case we will use this
             // slot for the new entry.
             if entry.key == 0 || entry.key ^ entry.data_u64() == key {
-                if data.move16 == 0 {
+                if !data.move16.is_valid() {
                     data.move16 = entry.data.move16;  // Preserve any existing move.
                 }
                 replace_index = i;

@@ -390,10 +390,10 @@ impl Board {
     /// chess move as `move16`, this method will return
     /// `Some(m)`. Otherwise it will return `None`.
     #[inline]
-    pub fn try_move16(&self, move16: u16) -> Option<Move> {
-        let move_type = move16_move_type(move16);
-        let orig_square = move16_orig_square(move16);
-        let dest_square = move16_dest_square(move16);
+    pub fn try_move16(&self, move16: MoveDigest) -> Option<Move> {
+        let move_type = move16.move_type();
+        let orig_square = move16.orig_square();
+        let dest_square = move16.dest_square();
         let king_square = self.king_square();
         let checkers = self.checkers();
         assert!(self.to_move <= 1);
@@ -502,7 +502,7 @@ impl Board {
                     if move_type != MOVE_PROMOTION {
                         return None;
                     }
-                    promoted_piece_code = move16_aux_data(move16);
+                    promoted_piece_code = move16.aux_data();
                 }
                 _ => {
                     if move_type != MOVE_NORMAL {
@@ -562,7 +562,7 @@ impl Board {
         assert!(unsafe {
             Board::is_null_move(m) ||
             ::std::mem::transmute::<Move, usize>(m) & (!0u32 >> 2) as usize ==
-            ::std::mem::transmute::<Move, usize>(self.try_move16(m.move16()).unwrap()) &
+            ::std::mem::transmute::<Move, usize>(self.try_move16(m.digest()).unwrap()) &
             (!0u32 >> 2) as usize
         });
 
@@ -1613,7 +1613,7 @@ mod tests {
         fn try_all(b: &Board, stack: &MoveStack) {
             let mut i = 0;
             loop {
-                if let Some(m) = b.try_move16(i) {
+                if let Some(m) = b.try_move16(::std::mem::transmute(i)) {
                     assert!(stack.iter().find(|x| **x == m).is_some());
                 }
                 if i == 0xffff {

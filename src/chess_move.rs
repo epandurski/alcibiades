@@ -5,6 +5,72 @@ use basetypes::*;
 use castling_rights::*;
 
 
+/// Contains the minimum informaton that unambiguously describes a
+/// move.
+///
+/// It is laid out the following way:
+///
+///  ```text
+///   15                                                           0
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+///  | Move  |    Origin square      |   Destination square  | Aux   |
+///  | type  |       6 bits          |        6 bits         | data  |
+///  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |       |
+///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///  ```
+///  
+/// There are 4 "move type"s: `0`) en-passant capture; `1`) pawn
+/// promotion; `2`) castling; `3`) normal move. "Aux data" encodes the
+/// type of the promoted piece if the move type is pawn promotion,
+/// otherwise it is zero.
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq)]
+pub struct MoveDigest(u16);
+
+
+impl MoveDigest {
+    /// Creates a new instance with all fields set to `0` (an invalid
+    /// move).
+    #[inline(always)]
+    pub fn invalid() -> MoveDigest {
+        MoveDigest(0)
+    }
+    
+    /// Returns the instance represents a valid move. 
+    #[inline(always)]
+    pub fn is_valid(&self) -> bool {
+        self.0 == 0
+    }
+    
+    /// Returns the move type. 
+    #[inline(always)]
+    pub fn move_type(&self) -> MoveType {
+        ((self.0 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
+    }
+
+    /// Returns the origin square. 
+    #[inline(always)]
+    pub fn orig_square(&self) -> Square {
+        ((self.0 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
+    }
+
+    /// Returns the destination square. 
+    #[inline(always)]
+    pub fn dest_square(&self) -> Square {
+        ((self.0 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
+    }
+
+    /// Returns the auxiliary data. 
+    #[inline(always)]
+    pub fn aux_data(&self) -> usize {
+        ((self.0 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
+    }
+}
+
+
 /// Represents a move on the chessboard.
 ///
 /// `Move` contains 3 types of information:
@@ -251,8 +317,8 @@ impl Move {
     /// able undo the move. For valid moves the returned value will
     /// never be `0`.
     #[inline(always)]
-    pub fn move16(&self) -> u16 {
-        self.0 as u16
+    pub fn digest(&self) -> MoveDigest {
+        MoveDigest(self.0 as u16)
     }
 
     /// Returns the algebraic notation of the move.
@@ -284,30 +350,6 @@ impl Move {
             _ => KNIGHT,
         }
     }
-}
-
-
-#[inline(always)]
-pub fn move16_move_type(move16: u16) -> MoveType {
-    ((move16 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
-}
-
-
-#[inline(always)]
-pub fn move16_orig_square(move16: u16) -> Square {
-    ((move16 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
-}
-
-
-#[inline(always)]
-pub fn move16_dest_square(move16: u16) -> Square {
-    ((move16 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
-}
-
-
-#[inline(always)]
-pub fn move16_aux_data(move16: u16) -> usize {
-    ((move16 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
 }
 
 
@@ -387,7 +429,7 @@ impl MoveStack {
     /// move16`. Then it removes it from the current move list, and
     /// returns it. If such move is not found, `None` is returned.
     #[inline]
-    pub fn remove_move(&mut self, move16: u16) -> Option<Move> {
+    pub fn remove_move(&mut self, move16: MoveDigest) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
         let last_move = if let Some(last) = self.moves.last() {
             *last
@@ -397,7 +439,7 @@ impl MoveStack {
         let m;
         'moves: loop {
             for curr in self.iter_mut() {
-                if curr.move16() == move16 {
+                if curr.digest() == move16 {
                     m = *curr;
                     *curr = last_move;
                     break 'moves;
@@ -580,7 +622,10 @@ mod tests {
         m.set_score(0);
         assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
-        assert_eq!(n1.move16(), (n1.0 & 0xffff) as u16);
+        assert_eq!(n1.digest().move_type(), n1.move_type());
+        assert_eq!(n1.digest().orig_square(), n1.orig_square());
+        assert_eq!(n1.digest().dest_square(), n1.dest_square());
+        assert_eq!(n1.digest().aux_data(), n1.aux_data());
         assert!(m.is_pawn_advance_or_capure());
         assert!(!n2.is_pawn_advance_or_capure());
         assert!(n4.is_pawn_advance_or_capure());

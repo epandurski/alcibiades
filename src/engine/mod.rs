@@ -195,14 +195,14 @@ impl UciEngine for Engine {
                                         if value.is_none() {
                                             value = Some(entry.value());
                                         }
-                                        entry.move16()
+                                        entry.move_digest()
                                     }
-                                    None => 0,
+                                    None => MoveDigest::invalid(),
                                 };
-                                if m != 0 {
+                                if m.is_valid() {
                                     p.generate_moves(&mut v);
                                     while let Some(x) = v.pop() {
-                                        if x.move16() == m && p.do_move(x) {
+                                        if x.digest() == m && p.do_move(x) {
                                             pv_length += 1;
                                             pv.push_str(&x.notation());
                                             pv.push(' ');
@@ -244,10 +244,10 @@ impl UciEngine for Engine {
 impl Engine {
     fn get_best_move(&mut self) -> String {
         let mut m = match self.tt.probe(self.position.hash()) {
-            Some(entry) => entry.move16(),
-            None => 0,
+            Some(entry) => entry.move_digest(),
+            None => MoveDigest::invalid(),
         };
-        if m == 0 {
+        if !m.is_valid() {
             // Pick the first legal move.
             let mut first_legal_move = Move::invalid();
             let mut v = MoveStack::new();
@@ -259,13 +259,13 @@ impl Engine {
                     break;
                 }
             }
-            m = first_legal_move.move16();
+            m = first_legal_move.digest();
         }
-        if m != 0 {
-            let move_type = ((m & 0b1100000000000000) >> 14) as MoveType;
-            let orig_square = ((m & 0b0011111100000000) >> 8) as Square;
-            let dest_square = ((m & 0b0000000011111100) >> 2) as Square;
-            let promoted_piece = match m & 0b11 {
+        if m.is_valid() {
+            let move_type = m.move_type();
+            let orig_square = m.orig_square();
+            let dest_square = m.dest_square();
+            let promoted_piece = match m.aux_data() {
                 0 => "q",
                 1 => "r",
                 2 => "b",

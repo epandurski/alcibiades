@@ -3,7 +3,7 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
-use chess_move::MoveStack;
+use chess_move::{MoveStack, MoveDigest};
 use tt::*;
 use position::Position;
 
@@ -214,14 +214,14 @@ fn search(tt: &TranspositionTable,
                 // for same depth or higher.
                 return Ok(entry.value());
             }
-            entry.move16()
+            entry.move_digest()
         } else {
-            0
+            MoveDigest::invalid()
         };
 
         moves.save();
 
-        if hash_move16 != 0 {
+        if hash_move16.is_valid() {
             if let Some(m) = p.try_move16(hash_move16) {
                 moves.push(m);
             }
@@ -229,7 +229,7 @@ fn search(tt: &TranspositionTable,
         let mut generated = false;
 
         let mut bound_type = BOUND_UPPER;
-        let mut move16 = 0;
+        let mut move16 = MoveDigest::invalid();
         let mut no_moves_yet = true;
         loop {
             // TODO: This is ugly, and probably inefficient.
@@ -281,14 +281,14 @@ fn search(tt: &TranspositionTable,
                     // happen. Therefore we can stop here.
                     alpha = beta;
                     bound_type = BOUND_LOWER;
-                    move16 = m.move16();
+                    move16 = m.digest();
                     break;
                 }
                 if value > alpha {
                     // We found ourselves a new best move.
                     alpha = value;
                     bound_type = BOUND_EXACT;
-                    move16 = m.move16();
+                    move16 = m.digest();
                 }
             }
         }
