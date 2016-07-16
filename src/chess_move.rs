@@ -103,9 +103,7 @@ impl Move {
     /// The initial move score for the new move will be:
     ///
     /// * `3` for captures and pawn promotions to queen.
-    /// 
-    /// * `0` for all other moves (including those captures that are
-    /// also pawn promotions to a piece other than queen).
+    /// * less than `3` for all other moves.
     #[inline(always)]
     pub fn new(us: Color,
                move_type: MoveType,
@@ -126,8 +124,35 @@ impl Move {
         assert!(en_passant_file <= 0b1111);
         assert!(promoted_piece_code <= 0b11);
 
+        // We use the score field (2 bits) to properly order quiet
+        // movies. Moves which destination square is more advanced
+        // into enemy's territory are tried first. The logic is that
+        // those moves are riskier, so if such a move loses material
+        // this will be detected early and the search tree will be
+        // pruned, but if the move does not lose material, chances are
+        // that it is a very good move.
+        const SCORE_LOOKUP: [[usize; 8]; 2] = [// white
+                                               [0 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE],
+                                               // black
+                                               [2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                2 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                1 << M_SHIFT_SCORE,
+                                                0 << M_SHIFT_SCORE]];
+
+        // Captures are treated differently than quiet moves.
         let mut score_shifted = if captured_piece == NO_PIECE {
-            0 << M_SHIFT_SCORE
+            unsafe { *SCORE_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) }
         } else {
             3 << M_SHIFT_SCORE
         };
