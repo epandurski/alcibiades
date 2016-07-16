@@ -1,5 +1,6 @@
 //! Defines data structures related to chess moves.
 
+use std;
 use std::slice;
 use basetypes::*;
 use castling_rights::*;
@@ -69,8 +70,8 @@ pub type MoveDigest = u16;
 ///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 ///  | Move  |  Captured |  Played   |   Castling    |   En-passant  |
 ///  | score |  piece    |  piece    |    rights     |      file     |
-///  | 2 bits|  3 bits   |  3 bits   |    4 bits     |     4 bits    |
-///  |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
+///  |   |   |  3 bits   |  3 bits   |    4 bits     |     4 bits    |
+///  |   |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
@@ -81,7 +82,8 @@ pub type MoveDigest = u16;
 /// before the move was played. When "Captured piece" is stored, its
 /// bits are inverted, so that MVV-LVA (Most valuable victim -- least
 /// valuable aggressor) ordering of the moves is preserved, even when
-/// the other fields stay the same. The "Move score" field is used to
+/// the other fields stay the same. The "Move score" field (2 bits on
+/// 32-bit platforms, 34-bits on 64-bit platforms) is used to
 /// influence move ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
@@ -102,8 +104,11 @@ impl Move {
     ///
     /// The initial move score for the new move will be:
     ///
-    /// * `3` for captures and pawn promotions to queen.
-    /// * less than `3` for all other moves.
+    /// * `MAX_MOVE_SCORE` for captures and pawn promotions to queen.
+    /// 
+    /// * less than `MAX_MOVE_SCORE` for all other moves, including
+    ///   those captures that are also pawn promotions to a piece
+    ///   other than queen.
     #[inline(always)]
     pub fn new(us: Color,
                move_type: MoveType,
@@ -157,7 +162,7 @@ impl Move {
         let mut score_shifted = if captured_piece == NO_PIECE {
             unsafe { *SCORE_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) }
         } else {
-            3 << M_SHIFT_SCORE
+            MAX_MOVE_SCORE << M_SHIFT_SCORE
         };
 
         // Figure out what `aux_data` should contain. In the mean
@@ -165,7 +170,7 @@ impl Move {
         // scores.
         let aux_data = if move_type == MOVE_PROMOTION {
             score_shifted = if promoted_piece_code == 0 {
-                3 << M_SHIFT_SCORE
+                MAX_MOVE_SCORE << M_SHIFT_SCORE
             } else {
                 0 << M_SHIFT_SCORE
             };
@@ -188,10 +193,10 @@ impl Move {
         Move(0)
     }
 
-    /// Assigns a new score for the move (between 0 and 3).
+    /// Assigns a new score for the move (between 0 and `MAX_MOVE_SCORE`).
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
-        assert!(score <= 0b11);
+        assert!(score <= MAX_MOVE_SCORE);
         self.0 &= !M_MASK_SCORE;
         self.0 |= score << M_SHIFT_SCORE;
     }
@@ -310,28 +315,28 @@ impl Move {
 
 /// Extracts the move type from a move digest.
 #[inline(always)]
-pub fn extract_move_type(move_digest: MoveDigest) -> MoveType {
+pub fn move_type(move_digest: MoveDigest) -> MoveType {
     ((move_digest & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
 }
 
 
 /// Extracts the origin square from a move digest.
 #[inline(always)]
-pub fn extract_orig_square(move_digest: MoveDigest) -> Square {
+pub fn orig_square(move_digest: MoveDigest) -> Square {
     ((move_digest & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
 }
 
 
 /// Extracts the destination square from a move digest.
 #[inline(always)]
-pub fn extract_dest_square(move_digest: MoveDigest) -> Square {
+pub fn dest_square(move_digest: MoveDigest) -> Square {
     ((move_digest & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
 }
 
 
 /// Extracts the auxiliary data from a move digest.
 #[inline(always)]
-pub fn extract_aux_data(move_digest: MoveDigest) -> usize {
+pub fn aux_data(move_digest: MoveDigest) -> usize {
     ((move_digest & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
 }
 
@@ -483,6 +488,9 @@ impl MoveStack {
 }
 
 
+/// The maximum possible move score.
+pub const MAX_MOVE_SCORE: usize = M_MASK_SCORE >> M_SHIFT_SCORE;
+
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
 /// `MOVE_NORMAL`.
 pub type MoveType = usize;
@@ -512,7 +520,7 @@ const M_SHIFT_DEST_SQUARE: usize = 2;
 const M_SHIFT_AUX_DATA: usize = 0;
 
 // Field masks
-const M_MASK_SCORE: usize = 0b11 << M_SHIFT_SCORE;
+const M_MASK_SCORE: usize = std::usize::MAX << M_SHIFT_SCORE;
 const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
 const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
 #[allow(dead_code)]
@@ -599,6 +607,8 @@ mod tests {
         assert_eq!(m.castling().value(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
+        m.set_score(MAX_MOVE_SCORE);
+        assert_eq!(m.score(), MAX_MOVE_SCORE);
         m.set_score(3);
         assert_eq!(m.score(), 3);
         assert!(m > m2);

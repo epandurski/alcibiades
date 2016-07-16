@@ -262,10 +262,10 @@ impl Engine {
             m = first_legal_move.digest();
         }
         if m != 0 {
-            let move_type = extract_move_type(m);
-            let orig_square = extract_orig_square(m);
-            let dest_square = extract_dest_square(m);
-            let promoted_piece = match extract_aux_data(m) {
+            let move_type = move_type(m);
+            let orig_square = orig_square(m);
+            let dest_square = dest_square(m);
+            let promoted_piece = match aux_data(m) {
                 0 => "q",
                 1 => "r",
                 2 => "b",
