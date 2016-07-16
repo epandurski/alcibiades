@@ -151,6 +151,9 @@ impl Move {
                                                 0 << M_SHIFT_SCORE]];
 
         // Captures are treated differently than quiet moves.
+        //
+        // TODO: The `SCORE_LOOKUP` thing probably does not belong
+        // here.
         let mut score_shifted = if captured_piece == NO_PIECE {
             unsafe { *SCORE_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) }
         } else {
