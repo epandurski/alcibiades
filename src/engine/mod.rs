@@ -9,7 +9,7 @@ use basetypes::*;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
 use chess_move::*;
-use tt::TranspositionTable;
+use tt::*;
 
 // use rand;
 // use rand::distributions::{Sample, Range};
@@ -226,46 +226,65 @@ impl UciEngine for Engine {
                         self.searched_time = 1000 * thinking_duration.as_secs() +
                                              (thinking_duration.subsec_nanos() / 1000000) as u64;
                         if self.searched_depth < depth {
-                            self.searched_depth = depth;
+                            // We are done with the old depth, so we
+                            // extract the PV, the value, and the
+                            // score from the transposition table.
+                            let mut prev_move = None;
                             let mut p = self.position.clone();
-                            let mut v = MoveStack::new();
-                            let mut pv = String::from("");
-                            let mut pv_length = 0;
-                            let mut value = None;
-                            'depthloop: for _ in 0..depth {
-                                let m = match self.tt.probe(p.hash()) {
-                                    Some(entry) => {
-                                        if value.is_none() {
-                                            value = Some(entry.value());
-                                        }
-                                        entry.move16()
+                            let mut value = -20000;
+                            let mut bound = BOUND_LOWER;
+                            let mut pv = Vec::new();
+                            while let Some(entry) = self.tt.probe(p.hash()) {
+                                if pv.len() < self.searched_depth as usize {
+                                    if let Some(m) = prev_move {
+                                        pv.push(m);
                                     }
-                                    None => 0,
-                                };
-                                if m != 0 {
-                                    p.generate_moves(&mut v);
-                                    while let Some(x) = v.pop() {
-                                        if x.digest() == m && p.do_move(x) {
-                                            pv_length += 1;
-                                            pv.push_str(&x.notation());
-                                            pv.push(' ');
-                                            v.clear();
-                                            continue 'depthloop;
+                                    value = if pv.len() & 1 == 0 {
+                                        entry.value()
+                                    } else {
+                                        -entry.value()
+                                    };
+                                    bound = entry.bound();
+                                    if bound == BOUND_EXACT {
+                                        if let Some(m) = p.try_move_digest(entry.move16()) {
+                                            if p.do_move(m) {
+                                                prev_move = Some(m);
+                                                continue;
+                                            }
                                         }
                                     }
                                 }
                                 break;
                             }
-                            if searched_nodes > 0 && pv_length >= depth {
-                                self.replies.push(EngineReply::Info(vec![
-                                    ("depth".to_string(), format!("{}", depth)),
-                                    ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
-                                    ("time".to_string(), format!("{}", self.searched_time)),
-                                    ("nodes".to_string(), format!("{}", searched_nodes)),
-                                    ("nps".to_string(), format!("{}", 1000 * searched_nodes / self.searched_time)),
-                                    ("pv".to_string(), format!("{}", pv)),
-                                ]));
+
+                            // Send the extracted info to the GUI.
+                            let score_suffix = match bound {
+                                BOUND_EXACT => "".to_string(),
+                                BOUND_UPPER => " upperbound".to_string(),
+                                BOUND_LOWER => " lowerbound".to_string(),
+                                _ => panic!("unexpected bound type"),
+                            };
+                            let nps = if self.searched_time == 0 {
+                                0
+                            } else {
+                                1000 * searched_nodes / self.searched_time
+                            };
+                            let mut pv_string = String::new();
+                            for m in pv {
+                                pv_string.push(' ');
+                                pv_string.push_str(&m.notation());
                             }
+                            self.replies.push(EngineReply::Info(vec![
+                                ("depth".to_string(), format!("{}", self.searched_depth)),
+                                ("score".to_string(), format!("cp {}{}", value, score_suffix)),
+                                ("time".to_string(), format!("{}", self.searched_time)),
+                                ("nodes".to_string(), format!("{}", searched_nodes)),
+                                ("nps".to_string(), format!("{}", nps)),
+                                ("pv".to_string(), pv_string),
+                            ]));
+
+                            // Update the old depth value.
+                            self.searched_depth = depth;
                         }
                     }
                     _ => (),
