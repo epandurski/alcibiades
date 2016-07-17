@@ -215,13 +215,6 @@ impl UciEngine for Engine {
 
         // Empty the reports queue.
         while let Ok(report) = self.reports.try_recv() {
-            // let rep_type = match report {
-            //     search::Report::Progress { searched_nodes, .. } => format!("progress {}", searched_nodes),
-            //     search::Report::Done { .. } => "done".to_string(),
-            // };
-            // self.replies.push(EngineReply::Info(vec![
-            //     ("string".to_string(), rep_type),
-            // ]));
             if self.is_thinking {
                 match report {
                     search::Report::Progress { search_id, searched_nodes, depth }
