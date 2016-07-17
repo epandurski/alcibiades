@@ -34,7 +34,7 @@ pub struct Engine {
     reports: Receiver<search::Report>,
     thinking_since: SystemTime,
     searched_nodes: NodeCount,
-    searched_time: u64,
+    searched_time: u64,  // milliseconds
     searched_depth: u8,
 }
 
