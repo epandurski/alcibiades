@@ -32,7 +32,7 @@ pub struct Engine {
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
     reports: Receiver<search::Report>,
-    started_thinking_at: SystemTime,
+    thinking_since: SystemTime,
     searched_nodes: NodeCount,
     searched_time: u64,
     searched_depth: u8,
@@ -68,7 +68,7 @@ impl Engine {
             tt: tt,
             commands: commands_tx,
             reports: reports_rx,
-            started_thinking_at: SystemTime::now(),
+            thinking_since: SystemTime::now(),
             searched_nodes: 0,
             searched_time: 0,
             searched_depth: 0,
@@ -153,7 +153,7 @@ impl UciEngine for Engine {
                 let movetime = (time + inc * movestogo) / movestogo;
                 TimeManagement::MoveTimeHint(min(movetime, time / 2))
             };
-            self.started_thinking_at = SystemTime::now();
+            self.thinking_since = SystemTime::now();
             self.searched_nodes = 0;
             self.searched_time = 0;
             self.searched_depth = 0;
@@ -219,7 +219,7 @@ impl UciEngine for Engine {
                 match report {
                     search::Report::Progress { searched_nodes, depth, .. } => {
                         self.searched_nodes = searched_nodes;
-                        let duration = self.started_thinking_at.elapsed().unwrap();
+                        let duration = self.thinking_since.elapsed().unwrap();
                         self.searched_time = 1000 * duration.as_secs() +
                                              (duration.subsec_nanos() / 1000000) as u64;
                         if self.searched_depth < depth {
