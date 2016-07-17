@@ -1,6 +1,7 @@
 pub mod search;
 
 use std::thread;
+use std::cmp::min;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
@@ -18,7 +19,7 @@ use tt::TranspositionTable;
 
 
 const VERSION: &'static str = "0.1";
-
+const MAX_DEPTH: u8 = 126;
 
 /// Implements `UciEngine` trait.
 pub struct Engine {
@@ -26,13 +27,15 @@ pub struct Engine {
     pondering_is_allowed: bool,
     is_thinking: bool,
     is_pondering: bool,
+    stop_when: TimeManagement,
     replies: Vec<EngineReply>,
-    infinite: bool,
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
     reports: Receiver<search::Report>,
     started_thinking_at: SystemTime,
-    curr_depth: u8,
+    searched_nodes: NodeCount,
+    searched_time: u64,
+    searched_depth: u8,
 }
 
 
@@ -60,13 +63,15 @@ impl Engine {
             pondering_is_allowed: false,
             is_thinking: false,
             is_pondering: false,
+            stop_when: TimeManagement::Infinite,
             replies: vec![],
-            infinite: false,
             tt: tt,
             commands: commands_tx,
             reports: reports_rx,
             started_thinking_at: SystemTime::now(),
-            curr_depth: 0,
+            searched_nodes: 0,
+            searched_time: 0,
+            searched_depth: 0,
         }
     }
 }
@@ -86,7 +91,7 @@ impl UciEngine for Engine {
             // An invalid option. Notice that we do not support
             // re-sizing of the transposition table once the engine
             // had started.
-            _ => ()
+            _ => (),
         }
     }
 
@@ -119,20 +124,49 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking {
+            // Note: We do not support the "searchmoves" parameter.
+
+            let (time, inc) = if self.position.board().to_move() == WHITE {
+                (wtime, winc.unwrap_or(0))
+            } else {
+                (btime, binc.unwrap_or(0))
+            };
+            self.is_thinking = true;
+            self.is_pondering = ponder;
+            self.stop_when = if infinite {
+                TimeManagement::Infinite
+            } else if movetime.is_some() {
+                TimeManagement::MoveTime(movetime.unwrap())
+            } else if nodes.is_some() {
+                TimeManagement::Nodes(nodes.unwrap())
+            } else if depth.is_some() {
+                TimeManagement::Depth(min(depth.unwrap(), MAX_DEPTH as u64) as u8)
+            } else {
+                // TODO: Robert Hyatt proposes this:
+                //
+                // nMoves =  min( numberOfMovesOutOfBook, 10 )
+                // factor = 2 - nMoves / 10
+                // target = timeLeft / numberOfMovesUntilNextTimeControl
+                // time   = factor * target
+                let time = time.unwrap_or(0);
+                let movestogo = movestogo.unwrap_or(40);
+                let movetime = (time + inc * movestogo) / movestogo;
+                TimeManagement::MoveTimeHint(min(movetime, time / 2))
+            };
+            self.started_thinking_at = SystemTime::now();
+            self.searched_nodes = 0;
+            self.searched_time = 0;
+            self.searched_depth = 0;
+
             self.commands
                 .send(search::Command::Search {
                     search_id: 0,
                     position: self.position.clone(),
-                    depth: 126,
+                    depth: MAX_DEPTH,
                     lower_bound: -20000,
                     upper_bound: 20000,
                 })
                 .unwrap();
-            self.is_thinking = true;
-            self.is_pondering = ponder;
-            self.infinite = infinite;
-            self.started_thinking_at = SystemTime::now();
-            self.curr_depth = 0;
         }
     }
 
@@ -159,10 +193,17 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        // TODO: implement real time management here.
-        if self.is_thinking && !self.is_pondering && !self.infinite &&
-           self.started_thinking_at.elapsed().unwrap().as_secs() > 3 {
-            self.stop();
+        // TODO: implement panic mode for MoveTimeHint management.
+        if self.is_thinking && !self.is_pondering {
+            if match self.stop_when {
+                TimeManagement::MoveTime(t) => self.searched_time >= t,
+                TimeManagement::MoveTimeHint(t) => self.searched_time >= t,
+                TimeManagement::Nodes(n) => self.searched_nodes >= n,
+                TimeManagement::Depth(d) => self.searched_depth >= d,
+                TimeManagement::Infinite => false,
+            } {
+                self.stop();
+            }
         }
 
         // Empty the reports queue.
@@ -177,8 +218,12 @@ impl UciEngine for Engine {
             if self.is_thinking {
                 match report {
                     search::Report::Progress { searched_nodes, depth, .. } => {
-                        if self.curr_depth < depth {
-                            self.curr_depth = depth;
+                        self.searched_nodes = searched_nodes;
+                        let duration = self.started_thinking_at.elapsed().unwrap();
+                        self.searched_time = 1000 * duration.as_secs() +
+                                             (duration.subsec_nanos() / 1000000) as u64;
+                        if self.searched_depth < depth {
+                            self.searched_depth = depth;
                             let mut p = self.position.clone();
                             let mut v = MoveStack::new();
                             let mut pv = String::from("");
@@ -208,15 +253,12 @@ impl UciEngine for Engine {
                                 }
                                 break;
                             }
-                            let duration = self.started_thinking_at.elapsed().unwrap();
-                            let elapsed_time_milis = 1000 * duration.as_secs() +
-                                                     (duration.subsec_nanos() / 1000000) as u64;
                             if searched_nodes > 0 && pv_length >= depth {
                                 self.replies.push(EngineReply::Info(vec![
                                     ("depth".to_string(), format!("{}", depth)),
                                     ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
                                     ("nodes".to_string(), format!("{}", searched_nodes)),
-                                    ("time".to_string(), format!("{}", elapsed_time_milis)),
+                                    ("time".to_string(), format!("{}", self.searched_time)),
                                     ("pv".to_string(), format!("{}", pv)),
                                 ]));
                             }
@@ -307,4 +349,13 @@ impl UciEngineFactory<Engine> for EngineFactory {
     fn create(&self, hash_size_mb: Option<usize>) -> Engine {
         Engine::new(hash_size_mb.unwrap_or(16))
     }
+}
+
+
+enum TimeManagement {
+    MoveTime(u64),
+    MoveTimeHint(u64),
+    Nodes(NodeCount),
+    Depth(u8),
+    Infinite,
 }

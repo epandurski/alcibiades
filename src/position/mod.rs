@@ -140,6 +140,12 @@ impl Position {
         Ok(p)
     }
 
+    /// Returns the board associated with the current position.
+    #[inline(always)]
+    pub fn board(&self) -> &Board {
+        unsafe { &*self.board.get() }
+    }
+
     /// Returns the count of half-moves since the beginning of the
     /// game.
     ///
@@ -727,11 +733,6 @@ impl Position {
     #[inline(always)]
     fn root_is_unreachable(&self) -> bool {
         unsafe { self.encountered_boards_mut().len() > self.state().halfmove_clock as usize }
-    }
-
-    #[inline(always)]
-    fn board(&self) -> &Board {
-        unsafe { &*self.board.get() }
     }
 
     #[inline(always)]
