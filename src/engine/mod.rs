@@ -5,6 +5,7 @@ use std::cmp::min;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
+use std::num::Wrapping;
 use basetypes::*;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
@@ -32,6 +33,7 @@ pub struct Engine {
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
     reports: Receiver<search::Report>,
+    search_id: usize,
     thinking_since: SystemTime,
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
@@ -68,6 +70,7 @@ impl Engine {
             tt: tt,
             commands: commands_tx,
             reports: reports_rx,
+            search_id: 0,
             thinking_since: SystemTime::now(),
             searched_nodes: 0,
             searched_time: 0,
@@ -128,6 +131,7 @@ impl UciEngine for Engine {
 
             self.is_thinking = true;
             self.is_pondering = ponder;
+            self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
             self.thinking_since = SystemTime::now();
             self.searched_nodes = 0;
             self.searched_time = 0;
@@ -163,7 +167,7 @@ impl UciEngine for Engine {
             // Start a search with the maximum possible depth.
             self.commands
                 .send(search::Command::Search {
-                    search_id: 0,
+                    search_id: self.search_id,
                     position: self.position.clone(),
                     depth: MAX_DEPTH,
                     lower_bound: -20000,
@@ -220,7 +224,9 @@ impl UciEngine for Engine {
             // ]));
             if self.is_thinking {
                 match report {
-                    search::Report::Progress { searched_nodes, depth, .. } => {
+                    search::Report::Progress { search_id, searched_nodes, depth }
+                        if search_id == self.search_id => {
+
                         let thinking_duration = self.thinking_since.elapsed().unwrap();
                         self.searched_nodes = searched_nodes;
                         self.searched_time = 1000 * thinking_duration.as_secs() +
@@ -287,7 +293,10 @@ impl UciEngine for Engine {
                             self.curr_depth = depth;
                         }
                     }
-                    search::Report::Done { .. } => self.stop(),
+                    search::Report::Done { search_id, .. } if search_id == self.search_id => {
+                        self.stop()
+                    }
+                    _ => (),
                 }
             }
         }
