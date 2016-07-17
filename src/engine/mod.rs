@@ -27,6 +27,7 @@ pub struct Engine {
     pondering_is_allowed: bool,
     is_thinking: bool,
     is_pondering: bool,
+    curr_depth: u8,
     replies: Vec<EngineReply>,
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
@@ -34,7 +35,6 @@ pub struct Engine {
     thinking_since: SystemTime,
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
-    searched_depth: u8,
     stop_when: TimeManagement,
 }
 
@@ -63,6 +63,7 @@ impl Engine {
             pondering_is_allowed: false,
             is_thinking: false,
             is_pondering: false,
+            curr_depth: 0,
             replies: vec![],
             tt: tt,
             commands: commands_tx,
@@ -70,7 +71,6 @@ impl Engine {
             thinking_since: SystemTime::now(),
             searched_nodes: 0,
             searched_time: 0,
-            searched_depth: 0,
             stop_when: TimeManagement::Infinite,
         }
     }
@@ -131,7 +131,7 @@ impl UciEngine for Engine {
             self.thinking_since = SystemTime::now();
             self.searched_nodes = 0;
             self.searched_time = 0;
-            self.searched_depth = 0;
+            self.curr_depth = 0;
 
             // Figure out when we should stop thinking.
             let (time, inc) = if self.position.board().to_move() == WHITE {
@@ -199,10 +199,10 @@ impl UciEngine for Engine {
         // TODO: implement panic mode for MoveTimeHint management.
         if self.is_thinking && !self.is_pondering {
             if match self.stop_when {
-                TimeManagement::MoveTime(t) => self.searched_time >= t,
-                TimeManagement::MoveTimeHint(t) => self.searched_time >= t,
-                TimeManagement::Nodes(n) => self.searched_nodes >= n,
-                TimeManagement::Depth(d) => self.searched_depth >= d,
+                TimeManagement::MoveTime(t) => self.searched_time > t,
+                TimeManagement::MoveTimeHint(t) => self.searched_time > t,
+                TimeManagement::Nodes(n) => self.searched_nodes > n,
+                TimeManagement::Depth(d) => self.curr_depth > d,
                 TimeManagement::Infinite => false,
             } {
                 self.stop();
@@ -225,7 +225,7 @@ impl UciEngine for Engine {
                         self.searched_nodes = searched_nodes;
                         self.searched_time = 1000 * thinking_duration.as_secs() +
                                              (thinking_duration.subsec_nanos() / 1000000) as u64;
-                        if self.searched_depth < depth {
+                        if self.curr_depth < depth {
                             // We are done with the old depth, so we
                             // extract the PV, the value, and the
                             // score from the transposition table.
@@ -235,7 +235,7 @@ impl UciEngine for Engine {
                             let mut bound = BOUND_LOWER;
                             let mut pv = Vec::new();
                             while let Some(entry) = self.tt.probe(p.hash()) {
-                                if pv.len() < self.searched_depth as usize {
+                                if pv.len() < self.curr_depth as usize {
                                     if let Some(m) = prev_move {
                                         pv.push(m);
                                     }
@@ -275,7 +275,7 @@ impl UciEngine for Engine {
                                 pv_string.push_str(&m.notation());
                             }
                             self.replies.push(EngineReply::Info(vec![
-                                ("depth".to_string(), format!("{}", self.searched_depth)),
+                                ("depth".to_string(), format!("{}", self.curr_depth)),
                                 ("score".to_string(), format!("cp {}{}", value, score_suffix)),
                                 ("time".to_string(), format!("{}", self.searched_time)),
                                 ("nodes".to_string(), format!("{}", searched_nodes)),
@@ -284,7 +284,7 @@ impl UciEngine for Engine {
                             ]));
 
                             // Update the old depth value.
-                            self.searched_depth = depth;
+                            self.curr_depth = depth;
                         }
                     }
                     _ => (),
