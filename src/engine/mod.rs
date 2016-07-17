@@ -221,10 +221,10 @@ impl UciEngine for Engine {
             if self.is_thinking {
                 match report {
                     search::Report::Progress { searched_nodes, depth, .. } => {
+                        let thinking_duration = self.thinking_since.elapsed().unwrap();
                         self.searched_nodes = searched_nodes;
-                        let duration = self.thinking_since.elapsed().unwrap();
-                        self.searched_time = 1000 * duration.as_secs() +
-                                             (duration.subsec_nanos() / 1000000) as u64;
+                        self.searched_time = 1000 * thinking_duration.as_secs() +
+                                             (thinking_duration.subsec_nanos() / 1000000) as u64;
                         if self.searched_depth < depth {
                             self.searched_depth = depth;
                             let mut p = self.position.clone();
@@ -262,6 +262,7 @@ impl UciEngine for Engine {
                                     ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
                                     ("nodes".to_string(), format!("{}", searched_nodes)),
                                     ("time".to_string(), format!("{}", self.searched_time)),
+                                    ("multipv".to_string(), "1".to_string()),
                                     ("pv".to_string(), format!("{}", pv)),
                                 ]));
                             }
