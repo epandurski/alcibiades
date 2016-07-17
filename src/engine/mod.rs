@@ -260,9 +260,9 @@ impl UciEngine for Engine {
                                 self.replies.push(EngineReply::Info(vec![
                                     ("depth".to_string(), format!("{}", depth)),
                                     ("score".to_string(), format!("cp {}", value.unwrap_or(666))),
-                                    ("nodes".to_string(), format!("{}", searched_nodes)),
                                     ("time".to_string(), format!("{}", self.searched_time)),
-                                    ("multipv".to_string(), "1".to_string()),
+                                    ("nodes".to_string(), format!("{}", searched_nodes)),
+                                    ("nps".to_string(), format!("{}", 1000 * searched_nodes / self.searched_time)),
                                     ("pv".to_string(), format!("{}", pv)),
                                 ]));
                             }
