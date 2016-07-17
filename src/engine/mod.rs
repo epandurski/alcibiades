@@ -27,7 +27,6 @@ pub struct Engine {
     pondering_is_allowed: bool,
     is_thinking: bool,
     is_pondering: bool,
-    stop_when: TimeManagement,
     replies: Vec<EngineReply>,
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
@@ -36,6 +35,7 @@ pub struct Engine {
     searched_nodes: NodeCount,
     searched_time: u64,  // milliseconds
     searched_depth: u8,
+    stop_when: TimeManagement,
 }
 
 
@@ -63,7 +63,6 @@ impl Engine {
             pondering_is_allowed: false,
             is_thinking: false,
             is_pondering: false,
-            stop_when: TimeManagement::Infinite,
             replies: vec![],
             tt: tt,
             commands: commands_tx,
@@ -72,6 +71,7 @@ impl Engine {
             searched_nodes: 0,
             searched_time: 0,
             searched_depth: 0,
+            stop_when: TimeManagement::Infinite,
         }
     }
 }
