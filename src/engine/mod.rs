@@ -259,9 +259,9 @@ impl UciEngine for Engine {
 
                             // Send the extracted info to the GUI.
                             let score_suffix = match bound {
-                                BOUND_EXACT => "".to_string(),
-                                BOUND_UPPER => " upperbound".to_string(),
-                                BOUND_LOWER => " lowerbound".to_string(),
+                                BOUND_EXACT => "",
+                                BOUND_UPPER => " upperbound",
+                                BOUND_LOWER => " lowerbound",
                                 _ => panic!("unexpected bound type"),
                             };
                             let nps = if self.searched_time == 0 {
