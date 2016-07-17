@@ -75,10 +75,6 @@ impl Engine {
 impl UciEngine for Engine {
     fn set_option(&mut self, name: &str, value: &str) {
         match name {
-            // We do not support re-sizing of the transposition table
-            // once the engine had started, so we do nothing.
-            "Hash" => (),
-
             // Tells the engine that it will be allowed to ponder.
             // This option is needed because the engine might change
             // its time management algorithm when pondering is
@@ -87,11 +83,10 @@ impl UciEngine for Engine {
                 self.pondering_is_allowed = value == "true";
             }
 
-            // An invalid option.
-            _ => {
-                self.replies.push(EngineReply::Info(vec![("string".to_string(),
-                                                          format!("Invalid option \"{}\"", name))]));
-            }
+            // An invalid option. Notice that we do not support
+            // re-sizing of the transposition table once the engine
+            // had started.
+            _ => ()
         }
     }
 
