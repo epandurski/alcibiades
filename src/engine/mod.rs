@@ -287,7 +287,7 @@ impl UciEngine for Engine {
                             self.curr_depth = depth;
                         }
                     }
-                    _ => (),
+                    search::Report::Done { .. } => self.stop(),
                 }
             }
         }
