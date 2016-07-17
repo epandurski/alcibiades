@@ -33,7 +33,7 @@ pub struct Engine {
     reports: Receiver<search::Report>,
     thinking_since: SystemTime,
     searched_nodes: NodeCount,
-    searched_time: u64,  // milliseconds
+    searched_time: u64, // milliseconds
     searched_depth: u8,
     stop_when: TimeManagement,
 }
@@ -124,15 +124,21 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking {
-            // Note: We do not support the "searchmoves" parameter.
+            // Note: We ignore the "searchmoves" parameter.
 
+            self.is_thinking = true;
+            self.is_pondering = ponder;
+            self.thinking_since = SystemTime::now();
+            self.searched_nodes = 0;
+            self.searched_time = 0;
+            self.searched_depth = 0;
+
+            // Figure out when we should stop thinking.
             let (time, inc) = if self.position.board().to_move() == WHITE {
                 (wtime, winc.unwrap_or(0))
             } else {
                 (btime, binc.unwrap_or(0))
             };
-            self.is_thinking = true;
-            self.is_pondering = ponder;
             self.stop_when = if infinite {
                 TimeManagement::Infinite
             } else if movetime.is_some() {
@@ -153,11 +159,8 @@ impl UciEngine for Engine {
                 let movetime = (time + inc * movestogo) / movestogo;
                 TimeManagement::MoveTimeHint(min(movetime, time / 2))
             };
-            self.thinking_since = SystemTime::now();
-            self.searched_nodes = 0;
-            self.searched_time = 0;
-            self.searched_depth = 0;
 
+            // Start a search with the maximum possible depth.
             self.commands
                 .send(search::Command::Search {
                     search_id: 0,
