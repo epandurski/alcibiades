@@ -144,7 +144,7 @@ impl UciEngine for Engine {
             self.searched_time = 0;
             self.curr_depth = 0;
             self.mangled_pv = false;
-            
+
             // Figure out when we should stop thinking.
             let (time, inc) = if self.position.board().to_move() == WHITE {
                 (wtime, winc.unwrap_or(0))
@@ -229,19 +229,7 @@ impl UciEngine for Engine {
                     search::Report::Progress { search_id, searched_nodes, depth }
                         if search_id == self.search_id => {
 
-                        let thinking_duration = self.thinking_since.elapsed().unwrap();
-                        self.searched_nodes = searched_nodes;
-                        self.searched_time = 1000 * thinking_duration.as_secs() +
-                                             (thinking_duration.subsec_nanos() / 1000000) as u64;
-                        self.nps = 1000 * (self.nps + self.searched_nodes) /
-                                   (1000 + self.searched_time);
-                        if self.curr_depth < depth {
-                            self.curr_depth = depth;
-                            self.report_pv(depth - 1);
-                            if !self.mangled_pv {
-                                self.report_progress();
-                            }
-                        }
+                        self.register_progress(depth, searched_nodes);
                         if self.no_report_since.elapsed().unwrap().as_secs() > 20 {
                             if self.mangled_pv {
                                 self.report_pv(depth - 1);
@@ -278,6 +266,22 @@ impl UciEngine for Engine {
 
 
 impl Engine {
+    // A helper method.
+    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
+        let thinking_duration = self.thinking_since.elapsed().unwrap();
+        self.searched_nodes = searched_nodes;
+        self.searched_time = 1000 * thinking_duration.as_secs() +
+                             (thinking_duration.subsec_nanos() / 1000000) as u64;
+        self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
+        if self.curr_depth < depth {
+            self.curr_depth = depth;
+            self.report_pv(depth - 1);
+            if !self.mangled_pv {
+                self.report_progress();
+            }
+        }
+    }
+
     // A helper method. It extracts the primary variation (PV) from
     // the transposition table (TT) and sends it to the GUI.
     fn report_pv(&mut self, depth: u8) {
