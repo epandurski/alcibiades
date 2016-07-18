@@ -231,11 +231,9 @@ impl UciEngine for Engine {
                         if self.curr_depth < depth {
                             self.report_pv();
                             self.curr_depth = depth;
-                            self.no_report_since = SystemTime::now();
                         }
                         if self.no_report_since.elapsed().unwrap().as_secs() > 30 {
                             self.report_progress();
-                            self.no_report_since = SystemTime::now();
                         }
                     }
                     search::Report::Done { search_id, .. } if search_id == self.search_id => {
@@ -331,6 +329,7 @@ impl Engine {
             ("nps".to_string(), format!("{}", nps)),
             ("pv".to_string(), pv_string),
         ]));
+        self.no_report_since = SystemTime::now();
     }
 
     // A helper method. It reports the depth, the node count, and
@@ -346,6 +345,7 @@ impl Engine {
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
         ]));
+        self.no_report_since = SystemTime::now();
     }
 
     fn get_best_move(&mut self) -> String {
