@@ -38,6 +38,7 @@ pub struct Engine {
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
     stop_when: TimeManagement,
+    no_report_since: SystemTime,
 }
 
 
@@ -75,6 +76,7 @@ impl Engine {
             searched_nodes: 0,
             searched_time: 0,
             stop_when: TimeManagement::Infinite,
+            no_report_since: SystemTime::now(),
         }
     }
 }
@@ -133,6 +135,7 @@ impl UciEngine for Engine {
             self.is_pondering = ponder;
             self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
             self.thinking_since = SystemTime::now();
+            self.no_report_since = SystemTime::now();
             self.searched_nodes = 0;
             self.searched_time = 0;
             self.curr_depth = 0;
@@ -228,6 +231,11 @@ impl UciEngine for Engine {
                         if self.curr_depth < depth {
                             self.report_pv();
                             self.curr_depth = depth;
+                            self.no_report_since = SystemTime::now();
+                        }
+                        if self.no_report_since.elapsed().unwrap().as_secs() > 30 {
+                            self.report_progress();
+                            self.no_report_since = SystemTime::now();
                         }
                     }
                     search::Report::Done { search_id, .. } if search_id == self.search_id => {
@@ -322,6 +330,21 @@ impl Engine {
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
             ("pv".to_string(), pv_string),
+        ]));
+    }
+
+    // A helper method. It reports the depth, the node count, and
+    // nodes per second to the GUI.
+    fn report_progress(&mut self) {
+        let nps = if self.searched_time == 0 {
+            0
+        } else {
+            1000 * self.searched_nodes / self.searched_time
+        };
+        self.replies.push(EngineReply::Info(vec![
+            ("depth".to_string(), format!("{}", self.curr_depth)),
+            ("nodes".to_string(), format!("{}", self.searched_nodes)),
+            ("nps".to_string(), format!("{}", nps)),
         ]));
     }
 
