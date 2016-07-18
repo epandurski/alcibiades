@@ -25,13 +25,18 @@ const MAX_DEPTH: u8 = 126;
 /// Implements `UciEngine` trait.
 pub struct Engine {
     position: Position,
-    pondering_is_allowed: bool,
-    is_thinking: bool,
-    is_pondering: bool,
-    replies: Vec<EngineReply>,
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
     reports: Receiver<search::Report>,
+    replies: Vec<EngineReply>,
+    
+    // Tells the engine if it will be allowed to ponder. This option
+    // is needed because the engine might change its time management
+    // algorithm when pondering is allowed.
+    pondering_is_allowed: bool,
+    
+    is_thinking: bool,
+    is_pondering: bool,
 
     // Search status info
     search_id: usize,
@@ -41,8 +46,8 @@ pub struct Engine {
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
     nps: u64,  // nodes per second
+    mangled_pv: bool, // `true` if the primary variation is imperfect
     stop_when: TimeManagement,
-    mangled_pv: bool,
 }
 
 
@@ -67,13 +72,13 @@ impl Engine {
                                           1")
                           .ok()
                           .unwrap(),
-            pondering_is_allowed: false,
-            is_thinking: false,
-            is_pondering: false,
-            replies: vec![],
             tt: tt,
             commands: commands_tx,
             reports: reports_rx,
+            replies: vec![],
+            pondering_is_allowed: false,
+            is_thinking: false,
+            is_pondering: false,
             search_id: 0,
             thinking_since: SystemTime::now(),
             no_reports_since: SystemTime::now(),
@@ -81,8 +86,8 @@ impl Engine {
             searched_nodes: 0,
             searched_time: 0,
             nps: 0,
-            stop_when: TimeManagement::Infinite,
             mangled_pv: false,
+            stop_when: TimeManagement::Infinite,
         }
     }
 }
@@ -91,10 +96,6 @@ impl Engine {
 impl UciEngine for Engine {
     fn set_option(&mut self, name: &str, value: &str) {
         match name {
-            // Tells the engine that it will be allowed to ponder.
-            // This option is needed because the engine might change
-            // its time management algorithm when pondering is
-            // allowed.
             "Ponder" => {
                 self.pondering_is_allowed = value == "true";
             }
@@ -135,16 +136,16 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking {
-            // Note: We ignore the "searchmoves" parameter.
+            // Note: We ignore "searchmoves" and "mate" parameters.
 
             self.is_thinking = true;
             self.is_pondering = ponder;
             self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
             self.thinking_since = SystemTime::now();
             self.no_reports_since = SystemTime::now();
+            self.current_depth = 0;
             self.searched_nodes = 0;
             self.searched_time = 0;
-            self.current_depth = 0;
             self.mangled_pv = false;
 
             // Figure out when we should stop thinking.
@@ -160,21 +161,15 @@ impl UciEngine for Engine {
             } else if nodes.is_some() {
                 TimeManagement::Nodes(nodes.unwrap())
             } else if depth.is_some() {
-                TimeManagement::Depth(min(depth.unwrap(), MAX_DEPTH as u64) as u8)
+                TimeManagement::Depth(depth.unwrap() as u8)
             } else {
-                // TODO: Robert Hyatt proposes this:
-                //
-                // nMoves =  min( numberOfMovesOutOfBook, 10 )
-                // factor = 2 - nMoves / 10
-                // target = timeLeft / numberOfMovesUntilNextTimeControl
-                // time   = factor * target
                 let time = time.unwrap_or(0);
                 let movestogo = movestogo.unwrap_or(40);
                 let movetime = (time + inc * movestogo) / movestogo;
                 TimeManagement::MoveTimeHint(min(movetime, time / 2))
             };
 
-            // Start a search with the maximum possible depth.
+            // Start deepening search to the maximum possible depth.
             self.commands
                 .send(search::Command::Search {
                     search_id: self.search_id,
@@ -210,7 +205,7 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        // TODO: implement panic mode for MoveTimeHint management.
+        // Check if we should stop thinking.
         if self.is_thinking && !self.is_pondering {
             if match self.stop_when {
                 TimeManagement::MoveTime(t) => self.searched_time >= t,
@@ -223,7 +218,7 @@ impl UciEngine for Engine {
             }
         }
 
-        // Empty the reports queue.
+        // Check the reports queue.
         while let Ok(report) = self.reports.try_recv() {
             if self.is_thinking {
                 match report {
