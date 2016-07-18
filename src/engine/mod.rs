@@ -220,26 +220,28 @@ impl UciEngine for Engine {
                     search::Report::Progress { search_id, searched_nodes, depth }
                         if search_id == self.search_id => {
 
+                        // Report search progress.
                         let thinking_duration = self.thinking_since.elapsed().unwrap();
                         self.searched_nodes = searched_nodes;
                         self.searched_time = 1000 * thinking_duration.as_secs() +
                                              (thinking_duration.subsec_nanos() / 1000000) as u64;
                         if self.curr_depth < depth {
-                            // We are done with the old depth, so we
-                            // report the current primary variation.
                             self.report_pv();
                             self.curr_depth = depth;
                         }
                     }
                     search::Report::Done { search_id, .. } if search_id == self.search_id => {
+                        // Terminate the search if not pondering of infinite.
                         if !self.is_pondering {
-                            if let TimeManagement::Infinite = self.stop_when {
-                                ()
+                            self.stop_when = if let TimeManagement::Infinite = self.stop_when {
+                                TimeManagement::Infinite
                             } else {
-                                self.stop()
-                            }
+                                TimeManagement::MoveTime(0)
+                            };
                         }
                     }
+
+                    // Stale reports from stopped searches.
                     _ => (),
                 }
             }
