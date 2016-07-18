@@ -190,11 +190,14 @@ impl UciEngine for Engine {
     fn stop(&mut self) {
         if self.is_thinking {
             self.commands.send(search::Command::Stop).unwrap();
+
+            // TODO: send ponder move as well.
             let best_move = self.get_best_move();
             self.reply_queue.push_back(EngineReply::BestMove {
                 best_move: best_move,
                 ponder_move: None,
             });
+
             self.is_thinking = false;
         }
     }
@@ -221,10 +224,9 @@ impl UciEngine for Engine {
         while let Ok(report) = self.reports.try_recv() {
             if self.is_thinking {
                 match report {
-                    // Search progress.
                     search::Report::Progress { search_id, searched_nodes, depth }
                         if search_id == self.search_id => {
-
+                        // Register search progress.
                         self.register_progress(depth, searched_nodes);
                         if self.no_reports_since.elapsed().unwrap().as_secs() > 20 {
                             if self.mangled_pv {
@@ -234,9 +236,8 @@ impl UciEngine for Engine {
                             }
                         }
                     }
-
-                    // Terminate the search (unless pondering of infinite).
                     search::Report::Done { search_id, .. } if search_id == self.search_id => {
+                        // Terminate the search (unless pondering of infinite).
                         if !self.is_pondering {
                             self.stop_when = if let TimeManagement::Infinite = self.stop_when {
                                 TimeManagement::Infinite
@@ -245,7 +246,7 @@ impl UciEngine for Engine {
                             };
                         }
                     }
-
+                    
                     // Stale reports from stopped searches.
                     _ => (),
                 }
