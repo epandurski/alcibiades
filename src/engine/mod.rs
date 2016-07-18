@@ -226,71 +226,8 @@ impl UciEngine for Engine {
                                              (thinking_duration.subsec_nanos() / 1000000) as u64;
                         if self.curr_depth < depth {
                             // We are done with the old depth, so we
-                            // extract the PV, the value, and the
-                            // score from the transposition table.
-                            let mut prev_move = None;
-                            let mut p = self.position.clone();
-                            let mut value = -20000;
-                            let mut bound = BOUND_LOWER;
-                            let mut pv = Vec::new();
-                            // TODO: check if the position is
-                            // repeated, in which case do not probe
-                            // the TT.
-                            while let Some(entry) = self.tt.probe(p.hash()) {
-                                if pv.len() < self.curr_depth as usize {
-                                    if let Some(m) = prev_move {
-                                        pv.push(m);
-                                    }
-                                    if pv.len() & 1 == 0 {
-                                        value = entry.value();
-                                        bound = entry.bound();
-                                    } else {
-                                        value = -entry.value();
-                                        bound = match entry.bound() {
-                                            BOUND_UPPER => BOUND_LOWER,
-                                            BOUND_LOWER => BOUND_UPPER,
-                                            x => x,
-                                        };
-                                    };
-                                    if bound == BOUND_EXACT {
-                                        if let Some(m) = p.try_move_digest(entry.move16()) {
-                                            if p.do_move(m) {
-                                                prev_move = Some(m);
-                                                continue;
-                                            }
-                                        }
-                                    }
-                                }
-                                break;
-                            }
-
-                            // Send the extracted info to the GUI.
-                            let score_suffix = match bound {
-                                BOUND_EXACT => "",
-                                BOUND_UPPER => " upperbound",
-                                BOUND_LOWER => " lowerbound",
-                                _ => panic!("unexpected bound type"),
-                            };
-                            let nps = if self.searched_time == 0 {
-                                0
-                            } else {
-                                1000 * searched_nodes / self.searched_time
-                            };
-                            let mut pv_string = String::new();
-                            for m in pv {
-                                pv_string.push(' ');
-                                pv_string.push_str(&m.notation());
-                            }
-                            self.replies.push(EngineReply::Info(vec![
-                                ("depth".to_string(), format!("{}", self.curr_depth)),
-                                ("score".to_string(), format!("cp {}{}", value, score_suffix)),
-                                ("time".to_string(), format!("{}", self.searched_time)),
-                                ("nodes".to_string(), format!("{}", searched_nodes)),
-                                ("nps".to_string(), format!("{}", nps)),
-                                ("pv".to_string(), pv_string),
-                            ]));
-
-                            // Update the old depth value.
+                            // report the current primary variation.
+                            self.report_pv();
                             self.curr_depth = depth;
                         }
                     }
@@ -318,6 +255,70 @@ impl UciEngine for Engine {
 
 
 impl Engine {
+    fn report_pv(&mut self) {
+        let mut prev_move = None;
+        let mut p = self.position.clone();
+        let mut value = -20000;
+        let mut bound = BOUND_LOWER;
+        let mut pv = Vec::new();
+        // TODO: check if the position is
+        // repeated, in which case do not probe
+        // the TT.
+        while let Some(entry) = self.tt.probe(p.hash()) {
+            if pv.len() < self.curr_depth as usize {
+                if let Some(m) = prev_move {
+                    pv.push(m);
+                }
+                if pv.len() & 1 == 0 {
+                    value = entry.value();
+                    bound = entry.bound();
+                } else {
+                    value = -entry.value();
+                    bound = match entry.bound() {
+                        BOUND_UPPER => BOUND_LOWER,
+                        BOUND_LOWER => BOUND_UPPER,
+                        x => x,
+                    };
+                };
+                if bound == BOUND_EXACT {
+                    if let Some(m) = p.try_move_digest(entry.move16()) {
+                        if p.do_move(m) {
+                            prev_move = Some(m);
+                            continue;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        // Send the extracted info to the GUI.
+        let score_suffix = match bound {
+            BOUND_EXACT => "",
+            BOUND_UPPER => " upperbound",
+            BOUND_LOWER => " lowerbound",
+            _ => panic!("unexpected bound type"),
+        };
+        let nps = if self.searched_time == 0 {
+            0
+        } else {
+            1000 * self.searched_nodes / self.searched_time
+        };
+        let mut pv_string = String::new();
+        for m in pv {
+            pv_string.push(' ');
+            pv_string.push_str(&m.notation());
+        }
+        self.replies.push(EngineReply::Info(vec![
+            ("depth".to_string(), format!("{}", self.curr_depth)),
+            ("score".to_string(), format!("cp {}{}", value, score_suffix)),
+            ("time".to_string(), format!("{}", self.searched_time)),
+            ("nodes".to_string(), format!("{}", self.searched_nodes)),
+            ("nps".to_string(), format!("{}", nps)),
+            ("pv".to_string(), pv_string),
+        ]));
+    }
+    
     fn get_best_move(&mut self) -> String {
         let mut m = match self.tt.probe(self.position.hash()) {
             Some(entry) => entry.move16(),
