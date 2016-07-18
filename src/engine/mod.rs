@@ -28,18 +28,20 @@ pub struct Engine {
     pondering_is_allowed: bool,
     is_thinking: bool,
     is_pondering: bool,
-    curr_depth: u8,
     replies: Vec<EngineReply>,
     tt: Arc<TranspositionTable>,
     commands: Sender<search::Command>,
     reports: Receiver<search::Report>,
+
+    // Search status info
     search_id: usize,
     thinking_since: SystemTime,
+    no_reports_since: SystemTime,
+    current_depth: u8,
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
+    nps: u64,  // nodes per second
     stop_when: TimeManagement,
-    no_report_since: SystemTime,
-    nps: u64,
     mangled_pv: bool,
 }
 
@@ -68,18 +70,18 @@ impl Engine {
             pondering_is_allowed: false,
             is_thinking: false,
             is_pondering: false,
-            curr_depth: 0,
             replies: vec![],
             tt: tt,
             commands: commands_tx,
             reports: reports_rx,
             search_id: 0,
             thinking_since: SystemTime::now(),
+            no_reports_since: SystemTime::now(),
+            current_depth: 0,
             searched_nodes: 0,
             searched_time: 0,
-            stop_when: TimeManagement::Infinite,
-            no_report_since: SystemTime::now(),
             nps: 0,
+            stop_when: TimeManagement::Infinite,
             mangled_pv: false,
         }
     }
@@ -139,10 +141,10 @@ impl UciEngine for Engine {
             self.is_pondering = ponder;
             self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
             self.thinking_since = SystemTime::now();
-            self.no_report_since = SystemTime::now();
+            self.no_reports_since = SystemTime::now();
             self.searched_nodes = 0;
             self.searched_time = 0;
-            self.curr_depth = 0;
+            self.current_depth = 0;
             self.mangled_pv = false;
 
             // Figure out when we should stop thinking.
@@ -214,7 +216,7 @@ impl UciEngine for Engine {
                 TimeManagement::MoveTime(t) => self.searched_time >= t,
                 TimeManagement::MoveTimeHint(t) => self.searched_time >= t,
                 TimeManagement::Nodes(n) => self.searched_nodes >= n,
-                TimeManagement::Depth(d) => self.curr_depth > d,
+                TimeManagement::Depth(d) => self.current_depth > d,
                 TimeManagement::Infinite => false,
             } {
                 self.stop();
@@ -230,7 +232,7 @@ impl UciEngine for Engine {
                         if search_id == self.search_id => {
 
                         self.register_progress(depth, searched_nodes);
-                        if self.no_report_since.elapsed().unwrap().as_secs() > 20 {
+                        if self.no_reports_since.elapsed().unwrap().as_secs() > 20 {
                             if self.mangled_pv {
                                 self.report_pv(depth - 1);
                             } else {
@@ -273,8 +275,8 @@ impl Engine {
         self.searched_time = 1000 * thinking_duration.as_secs() +
                              (thinking_duration.subsec_nanos() / 1000000) as u64;
         self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
-        if self.curr_depth < depth {
-            self.curr_depth = depth;
+        if self.current_depth < depth {
+            self.current_depth = depth;
             self.report_pv(depth - 1);
             if !self.mangled_pv {
                 self.report_progress();
@@ -344,18 +346,18 @@ impl Engine {
             ("nps".to_string(), format!("{}", self.nps)),
             ("pv".to_string(), pv_string),
         ]));
-        self.no_report_since = SystemTime::now();
+        self.no_reports_since = SystemTime::now();
     }
 
     // A helper method. It reports the depth, the node count, and
     // nodes per second to the GUI.
     fn report_progress(&mut self) {
         self.replies.push(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", self.curr_depth)),
+            ("depth".to_string(), format!("{}", self.current_depth)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", self.nps)),
         ]));
-        self.no_report_since = SystemTime::now();
+        self.no_reports_since = SystemTime::now();
     }
 
     fn get_best_move(&mut self) -> String {
