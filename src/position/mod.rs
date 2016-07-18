@@ -146,6 +146,20 @@ impl Position {
         unsafe { &*self.board.get() }
     }
 
+    /// Returns if the position is a draw due to repetition.
+    ///
+    /// **Important note:** Repeating positions are considered a draw
+    /// after the first repetition, not after the second one as the
+    /// official chess rules prescribe. This is done in the sake of
+    /// efficiency. In order to compensate for that
+    /// `Position::from_history` "forgets" all positions that have
+    /// occurred exactly once. Also, for the root positions created by
+    /// `Position::from_history`, `is_repeated` will always return
+    /// `false`.
+    pub fn is_repeated(&self) -> bool {
+        self.is_repeated.get()
+    }
+    
     /// Returns the count of half-moves since the beginning of the
     /// game.
     ///
@@ -187,11 +201,7 @@ impl Position {
     /// legal, then the position is final.)
     ///
     /// **Important note:** Repeating positions are considered final
-    /// (a draw) after the first repetition, not after the second one
-    /// as the official chess rules prescribe. This is done in the
-    /// sake of efficiency. In order to compensate for that
-    /// `Position::from_history` "forgets" all positions that have
-    /// occurred exactly once.
+    /// (a draw).
     #[inline]
     pub fn evaluate_final(&self) -> Value {
         if self.is_repeated.get() || self.board().checkers() == 0 {
@@ -319,11 +329,7 @@ impl Position {
     /// position is a draw due to repetition.
     ///
     /// **Important note:** Repeating positions are considered final
-    /// (and therefore, this method generates no moves) after the
-    /// first repetition, not after the second one as the official
-    /// chess rules prescribe. This is done in the sake of efficiency.
-    /// In order to compensate for that `Position::from_history`
-    /// "forgets" all positions that have occurred exactly once.
+    /// (and therefore, this method generates no moves).
     #[inline]
     pub fn generate_moves(&self, move_stack: &mut MoveStack) {
         if !self.is_repeated.get() {

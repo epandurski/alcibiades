@@ -258,12 +258,12 @@ impl Engine {
     fn report_pv(&mut self) {
         let mut prev_move = None;
         let mut p = self.position.clone();
+        let mut pv = Vec::new();
         let mut value = -20000;
         let mut bound = BOUND_LOWER;
-        let mut pv = Vec::new();
-        // TODO: check if the position is
-        // repeated, in which case do not probe
-        // the TT.
+
+        // Extract the primary variation, the value, and the bound
+        // from the transposition table.
         while let Some(entry) = self.tt.probe(p.hash()) {
             if pv.len() < self.curr_depth as usize {
                 if let Some(m) = prev_move {
@@ -273,6 +273,8 @@ impl Engine {
                     value = entry.value();
                     bound = entry.bound();
                 } else {
+                    // In this case the value stored in `entry` is
+                    // from other side's perspective.
                     value = -entry.value();
                     bound = match entry.bound() {
                         BOUND_UPPER => BOUND_LOWER,
@@ -282,7 +284,7 @@ impl Engine {
                 };
                 if bound == BOUND_EXACT {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
-                        if p.do_move(m) {
+                        if p.do_move(m) && !p.is_repeated() {
                             prev_move = Some(m);
                             continue;
                         }
@@ -318,7 +320,7 @@ impl Engine {
             ("pv".to_string(), pv_string),
         ]));
     }
-    
+
     fn get_best_move(&mut self) -> String {
         let mut m = match self.tt.probe(self.position.hash()) {
             Some(entry) => entry.move16(),
