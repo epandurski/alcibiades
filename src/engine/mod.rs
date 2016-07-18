@@ -203,9 +203,9 @@ impl UciEngine for Engine {
         // TODO: implement panic mode for MoveTimeHint management.
         if self.is_thinking && !self.is_pondering {
             if match self.stop_when {
-                TimeManagement::MoveTime(t) => self.searched_time > t,
-                TimeManagement::MoveTimeHint(t) => self.searched_time > t,
-                TimeManagement::Nodes(n) => self.searched_nodes > n,
+                TimeManagement::MoveTime(t) => self.searched_time >= t,
+                TimeManagement::MoveTimeHint(t) => self.searched_time >= t,
+                TimeManagement::Nodes(n) => self.searched_nodes >= n,
                 TimeManagement::Depth(d) => self.curr_depth > d,
                 TimeManagement::Infinite => false,
             } {
