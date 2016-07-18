@@ -255,15 +255,16 @@ impl UciEngine for Engine {
 
 
 impl Engine {
+    // A helper method. It extracts the primary variation (PV) from
+    // the transposition table (TT) and sends it to the GUI.
     fn report_pv(&mut self) {
         let mut prev_move = None;
         let mut p = self.position.clone();
+
+        // Extract the PV, the value, and the bound from the TT.
         let mut pv = Vec::new();
         let mut value = -20000;
         let mut bound = BOUND_LOWER;
-
-        // Extract the primary variation, the value, and the bound
-        // from the transposition table.
         while let Some(entry) = self.tt.probe(p.hash()) {
             if pv.len() < self.curr_depth as usize && entry.bound() != BOUND_NONE {
                 if let Some(m) = prev_move {
@@ -285,6 +286,7 @@ impl Engine {
                 if bound == BOUND_EXACT {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
+                            // Try to extend the PV.
                             prev_move = Some(m);
                             continue;
                         }
@@ -295,7 +297,7 @@ impl Engine {
         }
 
         // Send the extracted info to the GUI.
-        let score_suffix = match bound {
+        let value_suffix = match bound {
             BOUND_EXACT => "",
             BOUND_UPPER => " upperbound",
             BOUND_LOWER => " lowerbound",
@@ -313,7 +315,7 @@ impl Engine {
         }
         self.replies.push(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", self.curr_depth)),
-            ("score".to_string(), format!("cp {}{}", value, score_suffix)),
+            ("score".to_string(), format!("cp {}{}", value, value_suffix)),
             ("time".to_string(), format!("{}", self.searched_time)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
