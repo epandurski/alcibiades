@@ -233,17 +233,25 @@ impl UciEngine for Engine {
                             let mut value = -20000;
                             let mut bound = BOUND_LOWER;
                             let mut pv = Vec::new();
+                            // TODO: check if the position is
+                            // repeated, in which case do not probe
+                            // the TT.
                             while let Some(entry) = self.tt.probe(p.hash()) {
                                 if pv.len() < self.curr_depth as usize {
                                     if let Some(m) = prev_move {
                                         pv.push(m);
                                     }
-                                    value = if pv.len() & 1 == 0 {
-                                        entry.value()
+                                    if pv.len() & 1 == 0 {
+                                        value = entry.value();
+                                        bound = entry.bound();
                                     } else {
-                                        -entry.value()
+                                        value = -entry.value();
+                                        bound = match entry.bound() {
+                                            BOUND_UPPER => BOUND_LOWER,
+                                            BOUND_LOWER => BOUND_UPPER,
+                                            x => x,
+                                        };
                                     };
-                                    bound = entry.bound();
                                     if bound == BOUND_EXACT {
                                         if let Some(m) = p.try_move_digest(entry.move16()) {
                                             if p.do_move(m) {
@@ -287,7 +295,13 @@ impl UciEngine for Engine {
                         }
                     }
                     search::Report::Done { search_id, .. } if search_id == self.search_id => {
-                        self.stop()
+                        if !self.is_pondering {
+                            if let TimeManagement::Infinite = self.stop_when {
+                                ()
+                            } else {
+                                self.stop()
+                            }
+                        }
                     }
                     _ => (),
                 }
