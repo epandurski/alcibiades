@@ -58,16 +58,16 @@ impl Engine {
     pub fn new(tt_size_mb: usize) -> Engine {
         let mut tt = TranspositionTable::new();
         tt.resize(tt_size_mb);
-        let tt = Arc::new(tt);
+        let tt1 = Arc::new(tt);
+        let tt2 = tt1.clone();
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
-        let tt2 = tt.clone();
         thread::spawn(move || {
             search::run_deepening(tt2, commands_rx, reports_tx);
         });
 
         Engine {
-            tt: tt,
+            tt: tt1,
             reply_queue: VecDeque::new(),
             position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
                                           1")
