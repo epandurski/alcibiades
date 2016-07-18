@@ -35,72 +35,6 @@ pub enum Report {
 }
 
 
-pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
-    thread_local!(
-        static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
-    );
-    MOVE_STACK.with(|s| {
-        let mut move_stack = unsafe { &mut *s.get() };
-        let mut pending_command = None;
-        loop {
-            // If there is a pending command, we take it, otherwise we
-            // block and wait to receive a new one.
-            let command = match pending_command.take() {
-                Some(cmd) => cmd,
-                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
-            };
-
-            match command {
-                Command::Search { search_id, mut position, depth, lower_bound, upper_bound } => {
-                    let mut reported_nodes = 0;
-                    let mut unreported_nodes = 0;
-                    let value = search(&tt,
-                                       &mut position,
-                                       move_stack,
-                                       &mut unreported_nodes,
-                                       &mut |n| {
-                                           reported_nodes += n;
-                                           reports.send(Report::Progress {
-                                                      search_id: search_id,
-                                                      searched_nodes: reported_nodes,
-                                                      depth: depth,
-                                                  })
-                                                  .ok();
-                                           match commands.try_recv() {
-                                               Ok(x) => {
-                                                   pending_command = Some(x);
-                                                   Err(TerminatedSearch)
-                                               }
-                                               _ => Ok(()),
-                                           }
-                                       },
-                                       lower_bound,
-                                       upper_bound,
-                                       depth)
-                                    .ok();
-                    reported_nodes += unreported_nodes;
-                    reports.send(Report::Progress {
-                               search_id: search_id,
-                               searched_nodes: reported_nodes,
-                               depth: depth,
-                           })
-                           .ok();
-                    reports.send(Report::Done {
-                               search_id: search_id,
-                               searched_nodes: reported_nodes,
-                               value: value,
-                           })
-                           .ok();
-                    move_stack.clear();
-                }
-                Command::Stop => continue,
-                Command::Exit => break,
-            }
-        }
-    })
-}
-
-
 pub fn run_deepening(tt: Arc<TranspositionTable>,
                      commands: Receiver<Command>,
                      reports: Sender<Report>) {
@@ -181,6 +115,72 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
         }
     }
     slave.join().unwrap();
+}
+
+
+pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
+    thread_local!(
+        static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
+    );
+    MOVE_STACK.with(|s| {
+        let mut move_stack = unsafe { &mut *s.get() };
+        let mut pending_command = None;
+        loop {
+            // If there is a pending command, we take it, otherwise we
+            // block and wait to receive a new one.
+            let command = match pending_command.take() {
+                Some(cmd) => cmd,
+                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
+            };
+
+            match command {
+                Command::Search { search_id, mut position, depth, lower_bound, upper_bound } => {
+                    let mut reported_nodes = 0;
+                    let mut unreported_nodes = 0;
+                    let value = search(&tt,
+                                       &mut position,
+                                       move_stack,
+                                       &mut unreported_nodes,
+                                       &mut |n| {
+                                           reported_nodes += n;
+                                           reports.send(Report::Progress {
+                                                      search_id: search_id,
+                                                      searched_nodes: reported_nodes,
+                                                      depth: depth,
+                                                  })
+                                                  .ok();
+                                           match commands.try_recv() {
+                                               Ok(x) => {
+                                                   pending_command = Some(x);
+                                                   Err(TerminatedSearch)
+                                               }
+                                               _ => Ok(()),
+                                           }
+                                       },
+                                       lower_bound,
+                                       upper_bound,
+                                       depth)
+                                    .ok();
+                    reported_nodes += unreported_nodes;
+                    reports.send(Report::Progress {
+                               search_id: search_id,
+                               searched_nodes: reported_nodes,
+                               depth: depth,
+                           })
+                           .ok();
+                    reports.send(Report::Done {
+                               search_id: search_id,
+                               searched_nodes: reported_nodes,
+                               value: value,
+                           })
+                           .ok();
+                    move_stack.clear();
+                }
+                Command::Stop => continue,
+                Command::Exit => break,
+            }
+        }
+    })
 }
 
 
