@@ -239,15 +239,14 @@ impl UciEngine for Engine {
                     search::Report::Done { search_id, .. } if search_id == self.search_id => {
                         // Terminate the search (unless pondering of infinite).
                         if !self.is_pondering {
-                            self.stop_when = if let TimeManagement::Infinite = self.stop_when {
-                                TimeManagement::Infinite
-                            } else {
-                                TimeManagement::MoveTime(0)
+                            self.stop_when = match self.stop_when {
+                                TimeManagement::Infinite => TimeManagement::Infinite,
+                                _ => TimeManagement::MoveTime(0),
                             };
                         }
                     }
-                    
-                    // Stale reports from stopped searches.
+                    // We may still receive stale reports from already
+                    // stopped searches.
                     _ => (),
                 }
             }
