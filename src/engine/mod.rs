@@ -265,7 +265,7 @@ impl Engine {
         // Extract the primary variation, the value, and the bound
         // from the transposition table.
         while let Some(entry) = self.tt.probe(p.hash()) {
-            if pv.len() < self.curr_depth as usize {
+            if pv.len() < self.curr_depth as usize && entry.bound() != BOUND_NONE {
                 if let Some(m) = prev_move {
                     pv.push(m);
                 }
@@ -281,7 +281,7 @@ impl Engine {
                         BOUND_LOWER => BOUND_UPPER,
                         x => x,
                     };
-                };
+                }
                 if bound == BOUND_EXACT {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
