@@ -39,6 +39,7 @@ pub struct Engine {
     searched_time: u64, // milliseconds
     stop_when: TimeManagement,
     no_report_since: SystemTime,
+    nps: u64,
 }
 
 
@@ -77,6 +78,7 @@ impl Engine {
             searched_time: 0,
             stop_when: TimeManagement::Infinite,
             no_report_since: SystemTime::now(),
+            nps: 0,
         }
     }
 }
@@ -228,6 +230,8 @@ impl UciEngine for Engine {
                         self.searched_nodes = searched_nodes;
                         self.searched_time = 1000 * thinking_duration.as_secs() +
                                              (thinking_duration.subsec_nanos() / 1000000) as u64;
+                        self.nps = 1000 * (self.nps + self.searched_nodes) /
+                                   (1000 + self.searched_time);
                         if self.curr_depth < depth {
                             self.report_pv();
                             self.curr_depth = depth;
@@ -312,11 +316,6 @@ impl Engine {
             BOUND_LOWER => " lowerbound",
             _ => panic!("unexpected bound type"),
         };
-        let nps = if self.searched_time == 0 {
-            0
-        } else {
-            1000 * self.searched_nodes / self.searched_time
-        };
         let mut pv_string = String::new();
         for m in pv {
             pv_string.push(' ');
@@ -327,7 +326,7 @@ impl Engine {
             ("score".to_string(), format!("cp {}{}", value, value_suffix)),
             ("time".to_string(), format!("{}", self.searched_time)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
-            ("nps".to_string(), format!("{}", nps)),
+            ("nps".to_string(), format!("{}", self.nps)),
             ("pv".to_string(), pv_string),
         ]));
         self.no_report_since = SystemTime::now();
@@ -336,15 +335,10 @@ impl Engine {
     // A helper method. It reports the depth, the node count, and
     // nodes per second to the GUI.
     fn report_progress(&mut self) {
-        let nps = if self.searched_time == 0 {
-            0
-        } else {
-            1000 * self.searched_nodes / self.searched_time
-        };
         self.replies.push(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", self.curr_depth)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
-            ("nps".to_string(), format!("{}", nps)),
+            ("nps".to_string(), format!("{}", self.nps)),
         ]));
         self.no_report_since = SystemTime::now();
     }
