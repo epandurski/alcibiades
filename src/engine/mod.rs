@@ -2,6 +2,7 @@ pub mod search;
 
 use std::thread;
 use std::cmp::min;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
@@ -24,19 +25,22 @@ const MAX_DEPTH: u8 = 126;
 
 /// Implements `UciEngine` trait.
 pub struct Engine {
-    position: Position,
     tt: Arc<TranspositionTable>,
-    commands: Sender<search::Command>,
-    reports: Receiver<search::Report>,
-    replies: Vec<EngineReply>,
-    
+    reply_queue: VecDeque<EngineReply>,
+    position: Position,
+    is_thinking: bool,
+    is_pondering: bool,
+
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
     // algorithm when pondering is allowed.
     pondering_is_allowed: bool,
-    
-    is_thinking: bool,
-    is_pondering: bool,
+
+    // A channel for sending commands to the search thread.
+    commands: Sender<search::Command>,
+
+    // A channel for receiving reports from the search thread.
+    reports: Receiver<search::Report>,
 
     // Search status info
     search_id: usize,
@@ -45,7 +49,7 @@ pub struct Engine {
     current_depth: u8,
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
-    nps: u64,  // nodes per second
+    nps: u64, // nodes per second
     mangled_pv: bool, // `true` if the primary variation is imperfect
     stop_when: TimeManagement,
 }
@@ -68,17 +72,17 @@ impl Engine {
         });
 
         Engine {
+            tt: tt,
+            reply_queue: VecDeque::new(),
             position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
                                           1")
                           .ok()
                           .unwrap(),
-            tt: tt,
-            commands: commands_tx,
-            reports: reports_rx,
-            replies: vec![],
-            pondering_is_allowed: false,
             is_thinking: false,
             is_pondering: false,
+            pondering_is_allowed: false,
+            commands: commands_tx,
+            reports: reports_rx,
             search_id: 0,
             thinking_since: SystemTime::now(),
             no_reports_since: SystemTime::now(),
@@ -192,7 +196,7 @@ impl UciEngine for Engine {
         if self.is_thinking {
             self.commands.send(search::Command::Stop).unwrap();
             let best_move = self.get_best_move();
-            self.replies.push(EngineReply::BestMove {
+            self.reply_queue.push_back(EngineReply::BestMove {
                 best_move: best_move,
                 ponder_move: None,
             });
@@ -253,11 +257,7 @@ impl UciEngine for Engine {
             }
         }
 
-        if self.replies.len() > 0 {
-            Some(self.replies.remove(0))
-        } else {
-            None
-        }
+        self.reply_queue.pop_front()
     }
 }
 
@@ -333,7 +333,7 @@ impl Engine {
             pv_string.push(' ');
             pv_string.push_str(&m.notation());
         }
-        self.replies.push(EngineReply::Info(vec![
+        self.reply_queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("score".to_string(), format!("cp {}{}", value, value_suffix)),
             ("time".to_string(), format!("{}", self.searched_time)),
@@ -347,7 +347,7 @@ impl Engine {
     // A helper method. It reports the depth, the node count, and
     // nodes per second to the GUI.
     fn report_progress(&mut self) {
-        self.replies.push(EngineReply::Info(vec![
+        self.reply_queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", self.current_depth)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", self.nps)),
