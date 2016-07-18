@@ -156,6 +156,7 @@ impl Position {
     /// occurred exactly once. Also, for the root positions created by
     /// `Position::from_history`, `is_repeated` will always return
     /// `false`.
+    #[inline(always)]
     pub fn is_repeated(&self) -> bool {
         self.is_repeated.get()
     }
@@ -177,7 +178,7 @@ impl Position {
     /// boards will have different hashes.
     #[inline]
     pub fn hash(&self) -> u64 {
-        if self.is_repeated.get() {
+        if self.is_repeated() {
             // All repeated positions are evaluated as a draw, so for
             // our purposes they can be considered equal, and
             // therefore we generate the same hash for them.
@@ -204,7 +205,7 @@ impl Position {
     /// (a draw).
     #[inline]
     pub fn evaluate_final(&self) -> Value {
-        if self.is_repeated.get() || self.board().checkers() == 0 {
+        if self.is_repeated() || self.board().checkers() == 0 {
             // Repetition or stalemate.
             0
         } else {
@@ -230,7 +231,7 @@ impl Position {
     #[inline]
     pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
         assert!(lower_bound < upper_bound);
-        if self.is_repeated.get() {
+        if self.is_repeated() {
             0
         } else {
             evaluate_board(self.board(), lower_bound, upper_bound)
@@ -272,7 +273,7 @@ impl Position {
         thread_local!(
             static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
         );
-        if self.is_repeated.get() {
+        if self.is_repeated() {
             (0, 0)
         } else {
             let mut searched_nodes = 0;
@@ -332,7 +333,7 @@ impl Position {
     /// (and therefore, this method generates no moves).
     #[inline]
     pub fn generate_moves(&self, move_stack: &mut MoveStack) {
-        if !self.is_repeated.get() {
+        if !self.is_repeated() {
             self.board().generate_moves(true, move_stack);
         }
     }
@@ -360,7 +361,7 @@ impl Position {
     /// without calling `generate_moves`.
     #[inline]
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
-        if self.is_repeated.get() {
+        if self.is_repeated() {
             None
         } else {
             self.board().try_move_digest(move_digest)
@@ -395,7 +396,7 @@ impl Position {
     // mutable reference to `self`.
     #[inline]
     unsafe fn do_move_unsafe(&self, m: Move) -> bool {
-        if self.is_repeated.get() && Board::is_null_move(m) {
+        if self.is_repeated() && Board::is_null_move(m) {
             return false;
         }
         if let Some(h) = self.board_mut().do_move(m) {
@@ -776,7 +777,7 @@ impl Clone for Position {
                 board: UnsafeCell::new((*self.board.get()).clone()),
                 board_hash: Cell::new(self.board_hash.get()),
                 halfmove_count: Cell::new(self.halfmove_count.get()),
-                is_repeated: Cell::new(self.is_repeated.get()),
+                is_repeated: Cell::new(self.is_repeated()),
                 repeated_boards_hash: self.repeated_boards_hash,
                 encountered_boards: UnsafeCell::new(encountered_boards),
                 state_stack: UnsafeCell::new(state_stack),
