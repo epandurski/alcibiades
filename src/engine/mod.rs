@@ -40,7 +40,7 @@ pub struct Engine {
     // Search status info
     search_id: usize,
     thinking_since: SystemTime,
-    no_reports_since: SystemTime,
+    silent_since: SystemTime,
     current_depth: u8,
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
@@ -80,7 +80,7 @@ impl Engine {
             reports: reports_rx,
             search_id: 0,
             thinking_since: SystemTime::now(),
-            no_reports_since: SystemTime::now(),
+            silent_since: SystemTime::now(),
             current_depth: 0,
             searched_nodes: 0,
             searched_time: 0,
@@ -141,7 +141,7 @@ impl UciEngine for Engine {
             self.is_pondering = ponder;
             self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
             self.thinking_since = SystemTime::now();
-            self.no_reports_since = SystemTime::now();
+            self.silent_since = SystemTime::now();
             self.current_depth = 0;
             self.searched_nodes = 0;
             self.searched_time = 0;
@@ -224,11 +224,11 @@ impl UciEngine for Engine {
         while let Ok(report) = self.reports.try_recv() {
             if self.is_thinking {
                 match report {
-                    search::Report::Progress { search_id, searched_nodes, depth }
+                    search::Report::Progress { search_id, depth, searched_nodes }
                         if search_id == self.search_id => {
                         // Register search progress.
                         self.register_progress(depth, searched_nodes);
-                        if self.no_reports_since.elapsed().unwrap().as_secs() > 20 {
+                        if self.silent_since.elapsed().unwrap().as_secs() > 20 {
                             if self.mangled_pv {
                                 self.report_pv(depth - 1);
                             } else {
@@ -258,12 +258,14 @@ impl UciEngine for Engine {
 
 
 impl Engine {
-    // A helper method.
+    // A helper method. It updates the engine search status info and
+    // makes sure that the PV is sent to the GUI for every newly
+    // reached depth.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
         let thinking_duration = self.thinking_since.elapsed().unwrap();
-        self.searched_nodes = searched_nodes;
         self.searched_time = 1000 * thinking_duration.as_secs() +
                              (thinking_duration.subsec_nanos() / 1000000) as u64;
+        self.searched_nodes = searched_nodes;
         self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
         if self.current_depth < depth {
             self.current_depth = depth;
@@ -336,18 +338,18 @@ impl Engine {
             ("nps".to_string(), format!("{}", self.nps)),
             ("pv".to_string(), pv_string),
         ]));
-        self.no_reports_since = SystemTime::now();
+        self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It reports the depth, the node count, and
-    // nodes per second to the GUI.
+    // A helper method. It reports the current depth, the node count,
+    // and the nodes per second to the GUI.
     fn report_progress(&mut self) {
         self.reply_queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", self.current_depth)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", self.nps)),
         ]));
-        self.no_reports_since = SystemTime::now();
+        self.silent_since = SystemTime::now();
     }
 
     fn get_best_move(&mut self) -> String {
