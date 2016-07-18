@@ -40,6 +40,7 @@ pub struct Engine {
     stop_when: TimeManagement,
     no_report_since: SystemTime,
     nps: u64,
+    mangled_pv: bool,
 }
 
 
@@ -79,6 +80,7 @@ impl Engine {
             stop_when: TimeManagement::Infinite,
             no_report_since: SystemTime::now(),
             nps: 0,
+            mangled_pv: false,
         }
     }
 }
@@ -141,7 +143,8 @@ impl UciEngine for Engine {
             self.searched_nodes = 0;
             self.searched_time = 0;
             self.curr_depth = 0;
-
+            self.mangled_pv = false;
+            
             // Figure out when we should stop thinking.
             let (time, inc) = if self.position.board().to_move() == WHITE {
                 (wtime, winc.unwrap_or(0))
@@ -233,11 +236,18 @@ impl UciEngine for Engine {
                         self.nps = 1000 * (self.nps + self.searched_nodes) /
                                    (1000 + self.searched_time);
                         if self.curr_depth < depth {
-                            self.report_pv();
                             self.curr_depth = depth;
+                            self.report_pv(depth - 1);
+                            if !self.mangled_pv {
+                                self.report_progress();
+                            }
                         }
-                        if self.no_report_since.elapsed().unwrap().as_secs() > 30 {
-                            self.report_progress();
+                        if self.no_report_since.elapsed().unwrap().as_secs() > 20 {
+                            if self.mangled_pv {
+                                self.report_pv(depth - 1);
+                            } else {
+                                self.report_progress();
+                            }
                         }
                     }
 
@@ -270,7 +280,7 @@ impl UciEngine for Engine {
 impl Engine {
     // A helper method. It extracts the primary variation (PV) from
     // the transposition table (TT) and sends it to the GUI.
-    fn report_pv(&mut self) {
+    fn report_pv(&mut self, depth: u8) {
         let mut prev_move = None;
         let mut p = self.position.clone();
 
@@ -279,7 +289,7 @@ impl Engine {
         let mut value = -20000;
         let mut bound = BOUND_LOWER;
         while let Some(entry) = self.tt.probe(p.hash()) {
-            if pv.len() < self.curr_depth as usize && entry.bound() != BOUND_NONE {
+            if pv.len() < depth as usize && entry.bound() != BOUND_NONE {
                 if let Some(m) = prev_move {
                     pv.push(m);
                 }
@@ -308,6 +318,7 @@ impl Engine {
             }
             break;
         }
+        self.mangled_pv = bound != BOUND_EXACT || pv.len() < depth as usize;
 
         // Send the extracted info to the GUI.
         let value_suffix = match bound {
@@ -322,7 +333,7 @@ impl Engine {
             pv_string.push_str(&m.notation());
         }
         self.replies.push(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", self.curr_depth)),
+            ("depth".to_string(), format!("{}", depth)),
             ("score".to_string(), format!("cp {}{}", value, value_suffix)),
             ("time".to_string(), format!("{}", self.searched_time)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
