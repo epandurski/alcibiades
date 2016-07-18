@@ -13,15 +13,10 @@ use position::Position;
 use chess_move::*;
 use tt::*;
 
-// use rand;
-// use rand::distributions::{Sample, Range};
-// let mut rng = rand::thread_rng();
-// let mut between = Range::new(0, 10);
-// let x = between.sample(&mut rng);
-
 
 const VERSION: &'static str = "0.1";
 const MAX_DEPTH: u8 = 126;
+
 
 /// Implements `UciEngine` trait.
 pub struct Engine {

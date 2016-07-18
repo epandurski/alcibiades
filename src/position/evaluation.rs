@@ -41,3 +41,12 @@ pub fn evaluate_board(board: &Board, lower_bound: Value, upper_bound: Value) -> 
     hasher.write_u64(board.occupied());
     result + (hasher.finish() >> 59) as i16
 }
+
+
+// use rand;
+// use rand::distributions::{Sample, Range};
+// let mut rng = rand::thread_rng();
+// let mut between = Range::new(0, 10);
+// let x = between.sample(&mut rng);
+
+
