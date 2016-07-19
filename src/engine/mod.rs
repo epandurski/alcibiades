@@ -148,6 +148,8 @@ impl UciEngine for Engine {
             self.mangled_pv = false;
 
             // Figure out when we should stop thinking.
+            //
+            // TODO: Implement smarter time management.
             let (time, inc) = if self.position.board().to_move() == WHITE {
                 (wtime, winc.unwrap_or(0))
             } else {
@@ -190,14 +192,16 @@ impl UciEngine for Engine {
     fn stop(&mut self) {
         if self.is_thinking {
             self.commands.send(search::Command::Stop).unwrap();
-
-            // TODO: send ponder move as well.
-            let best_move = self.get_best_move();
+            let mut p = self.position.clone();
+            let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
+                (m.notation(), self.do_best_move(&mut p).map(|m| m.notation()))
+            } else {
+                ("0000".to_string(), None)
+            };
             self.reply_queue.push_back(EngineReply::BestMove {
                 best_move: best_move,
-                ponder_move: None,
+                ponder_move: ponder_move,
             });
-
             self.is_thinking = false;
         }
     }
@@ -258,9 +262,9 @@ impl UciEngine for Engine {
 
 
 impl Engine {
-    // A helper method. It updates the engine search status info and
-    // makes sure that the PV is sent to the GUI for every newly
-    // reached depth.
+    // A helper method. It updates the search status info and makes
+    // sure that a new PV is sent to the GUI for every newly reached
+    // depth.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
         let thinking_duration = self.thinking_since.elapsed().unwrap();
         self.searched_time = 1000 * thinking_duration.as_secs() +
@@ -316,6 +320,8 @@ impl Engine {
             }
             break;
         }
+
+        // Check if the extracted PV is imperfect.
         self.mangled_pv = bound != BOUND_EXACT || pv.len() < depth as usize;
 
         // Send the extracted info to the GUI.
@@ -341,8 +347,8 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It reports the current depth, the node count,
-    // and the nodes per second to the GUI.
+    // A helper method. It reports the current depth, the searched
+    // node count, and the nodes per second to the GUI.
     fn report_progress(&mut self) {
         self.reply_queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", self.current_depth)),
@@ -352,48 +358,31 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    fn get_best_move(&mut self) -> String {
-        let mut m = match self.tt.probe(self.position.hash()) {
-            Some(entry) => entry.move16(),
-            None => 0,
-        };
-        if m == 0 {
-            // Pick the first legal move.
-            let mut first_legal_move = Move::invalid();
-            let mut v = MoveStack::new();
-            self.position.generate_moves(&mut v);
-            while let Some(x) = v.pop() {
-                if self.position.do_move(x) {
-                    self.position.undo_move();
-                    first_legal_move = x;
-                    break;
-                }
+    // A helper method for `Engine::stop`. It probes the TT for the
+    // best move in the position `p`, plays it, and returns it. If the
+    // TT gives no move this function will play and return the first
+    // legal move. `None` is returned only when there are no legal
+    // moves.
+    fn do_best_move(&self, p: &mut Position) -> Option<Move> {
+        // Try to get best move from the TT.
+        let move16 = self.tt.probe(p.hash()).map_or(0, |entry| entry.move16());
+        if let Some(m) = p.try_move_digest(move16) {
+            if p.do_move(m) {
+                return Some(m);
             }
-            m = first_legal_move.digest();
         }
-        if m != 0 {
-            let move_type = move_type(m);
-            let orig_square = orig_square(m);
-            let dest_square = dest_square(m);
-            let promoted_piece = match aux_data(m) {
-                0 => "q",
-                1 => "r",
-                2 => "b",
-                3 => "n",
-                _ => panic!("invalid promoted piece code"),
-            };
-            format!("{}{}{}",
-                    notation(orig_square),
-                    notation(dest_square),
-                    if move_type == MOVE_PROMOTION {
-                        promoted_piece
-                    } else {
-                        ""
-                    })
+            
+        // Otherwise, pick the first legal move.
+        let mut s = MoveStack::new();
+        p.generate_moves(&mut s);
+        while let Some(m) = s.pop() {
+            if p.do_move(m) {
+                return Some(m);
+            }
+        }
 
-        } else {
-            "0000".to_string()
-        }
+        // No legal moves.
+        None
     }
 }
 
