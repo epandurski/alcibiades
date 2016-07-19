@@ -209,7 +209,7 @@ impl Position {
             // Repetition or stalemate.
             0
         } else {
-            // Checkmated.
+            // Checkmated -- better later than sooner.
             -29999 + self.halfmove_count() as Value
         }
     }
