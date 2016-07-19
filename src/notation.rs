@@ -66,7 +66,7 @@ pub fn parse_fen
             try!(parse_fen_enpassant_square(fileds[3])),
             try!(fileds[4].parse::<u8>().map_err(|_| ParseError)),
             match try!(fileds[5].parse::<u16>().map_err(|_| ParseError)) {
-            x if x == 0 || x > 4000 => return Err(ParseError),
+            x if x == 0 || x > 9000 => return Err(ParseError),
             x => x,
         }))
     } else {
