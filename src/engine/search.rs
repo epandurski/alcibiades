@@ -256,7 +256,7 @@ fn search(tt: &TranspositionTable,
                     *nc = 0;
                 }
 
-                let value = if no_moves_yet {
+                let mut value = if no_moves_yet {
                     // The first move we analyze with a fully open
                     // window (alpha, beta).
                     -try!(search(tt, p, moves, nc, report, -beta, -alpha, depth - 1))
@@ -273,6 +273,11 @@ fn search(tt: &TranspositionTable,
                         _ => -try!(search(tt, p, moves, nc, report, -beta, -alpha, depth - 1)),
                     }
                 };
+
+                // A checkmate in fewer moves is better.
+                if value > 20000 { value -= 1; }
+                if value < -20000 { value += 1; }
+                
                 no_moves_yet = false;
                 p.undo_move();
 

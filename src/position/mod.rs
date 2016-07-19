@@ -160,7 +160,7 @@ impl Position {
     pub fn is_repeated(&self) -> bool {
         self.is_repeated.get()
     }
-    
+
     /// Returns the count of half-moves since the beginning of the
     /// game.
     ///
@@ -209,8 +209,8 @@ impl Position {
             // Repetition or stalemate.
             0
         } else {
-            // Checkmated -- better later than sooner.
-            -29999 + (self.halfmove_count() >> 1) as Value
+            // Checkmated.
+            -29999
         }
     }
 
@@ -473,6 +473,8 @@ impl Position {
         // side to move is in check!)
         let stand_pat = if not_in_check {
             if let Some(value) = static_evaluation {
+                assert!(value > -20000);
+                assert!(value < 20000);
                 value
             } else {
                 eval_func(self.board(), lower_bound, upper_bound)
@@ -561,12 +563,16 @@ impl Position {
             }
         }
         move_stack.restore();
-        
-        // We should make sure that the returned value is bigger than
-        // -20000 even when checkmated, otherwise the engine might
-        // decline to checkmate the opponent seeking the huge material
-        // gain that the `qsearch` has promised.
-        max(lower_bound, -PIECE_VALUES[KING])
+
+        // We should make sure that the returned value is between
+        // -19999 and 19999, otherwise the engine might decline to
+        // checkmate the opponent seeking the huge material gain that
+        // `qsearch` had promised.
+        match lower_bound {
+            x if x < -19999 => -19999,
+            x if x > 19999 => 19999,
+            x => x,
+        }
     }
 
     // A helper method for `qsearch` and `evaluate_move`. It
@@ -969,7 +975,7 @@ mod tests {
 
     #[test]
     fn test_evaluate_move() {
-        let p = Position::from_fen("8/4P1kP/8/8/8/8/8/7K w - - 0 1")
+        let p = Position::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1")
                     .ok()
                     .unwrap();
         let mut s = MoveStack::new();
@@ -986,6 +992,9 @@ mod tests {
             }
             if m.notation() == "h1h2" {
                 assert_eq!(p.evaluate_move(m), 0);
+            }
+            if m.notation() == "h1g2" {
+                assert_eq!(p.evaluate_move(m), -10000);
             }
         }
     }
