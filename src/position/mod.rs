@@ -210,7 +210,7 @@ impl Position {
             0
         } else {
             // Checkmated -- better later than sooner.
-            -29999 + self.halfmove_count() as Value
+            -29999 + (self.halfmove_count() >> 1) as Value
         }
     }
 
