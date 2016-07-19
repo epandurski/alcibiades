@@ -325,8 +325,8 @@ mod tests {
                            &mut MoveStack::new(),
                            &mut 0,
                            &mut |_| Ok(()),
-                           -20000,
-                           20000,
+                           -30000,
+                           30000,
                            2)
                         .ok()
                         .unwrap();
@@ -336,9 +336,9 @@ mod tests {
                            &mut MoveStack::new(),
                            &mut 0,
                            &mut |_| Ok(()),
-                           -20000,
-                           20000,
-                           3)
+                           -30000,
+                           30000,
+                           4)
                         .ok()
                         .unwrap();
         assert!(value >= 20000);

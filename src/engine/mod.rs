@@ -90,7 +90,7 @@ impl Engine {
             nps: 0,
             mangled_pv: false,
             last_pv: vec![],
-            last_pv_value: -20000,
+            last_pv_value: -30000,
             last_pv_bound: BOUND_LOWER,
             stop_when: TimeManagement::Infinite,
         }
@@ -153,7 +153,7 @@ impl UciEngine for Engine {
             self.searched_time = 0;
             self.mangled_pv = false;
             self.last_pv = vec![];
-            self.last_pv_value = -20000;
+            self.last_pv_value = -30000;
             self.last_pv_bound = BOUND_LOWER;
 
             // Figure out when we should stop thinking.
@@ -185,8 +185,8 @@ impl UciEngine for Engine {
                     search_id: self.search_id,
                     position: self.position.clone(),
                     depth: MAX_DEPTH,
-                    lower_bound: -20000,
-                    upper_bound: 20000,
+                    lower_bound: -30000,
+                    upper_bound: 30000,
                 })
                 .unwrap();
         }
@@ -295,7 +295,7 @@ impl Engine {
 
         // Extract the PV, the value, and the bound from the TT.
         let mut pv = Vec::new();
-        let mut value = -20000;
+        let mut value = -30000;
         let mut bound = BOUND_LOWER;
         while let Some(entry) = self.tt.probe(p.hash()) {
             if pv.len() < depth as usize && entry.bound() != BOUND_NONE {
