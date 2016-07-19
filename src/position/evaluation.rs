@@ -20,6 +20,8 @@ use position::board::Board;
 /// evaluation is outside this interval, this method may return
 /// any value outside of the interval (including the bounds), but
 /// always staying on the correct side of the interval.
+///
+/// The returned value will always be between -19999 and 19999.
 #[inline]
 pub fn evaluate_board(board: &Board, lower_bound: Value, upper_bound: Value) -> Value {
     assert!(lower_bound <= upper_bound);
