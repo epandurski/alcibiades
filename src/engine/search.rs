@@ -86,10 +86,11 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                             }
                             Report::Done { searched_nodes, value, .. } => {
                                 searched_nodes_final += searched_nodes;
-                                if n == depth {
-                                    value_final = value;
-                                }
-                                if pending_command.is_some() {
+                                value_final = match value {
+                                    Some(v) if n == depth || v >= 20000 || v <= -20000 => Some(v),
+                                    _ => None,
+                                };
+                                if pending_command.is_some() || value_final.is_some() {
                                     break 'depthloop;
                                 }
                                 break;
@@ -240,10 +241,10 @@ fn search(tt: &TranspositionTable,
                     moves.remove_move(hash_move16);
                     generated = true;
                     continue;
-                },
+                }
                 Some(x) => x,
             };
-            
+
             if p.do_move(m) {
                 // From time to time, we report how many nodes had
                 // been searched since the last report. This also

@@ -46,9 +46,6 @@ pub struct Engine {
     searched_time: u64, // milliseconds
     nps: u64, // nodes per second
     mangled_pv: bool, // `true` if the primary variation is imperfect
-    last_pv: Vec<Move>,
-    last_pv_value: Value,
-    last_pv_bound: BoundType,
     stop_when: TimeManagement,
 }
 
@@ -89,9 +86,6 @@ impl Engine {
             searched_time: 0,
             nps: 0,
             mangled_pv: false,
-            last_pv: vec![],
-            last_pv_value: -30000,
-            last_pv_bound: BOUND_LOWER,
             stop_when: TimeManagement::Infinite,
         }
     }
@@ -152,9 +146,6 @@ impl UciEngine for Engine {
             self.searched_nodes = 0;
             self.searched_time = 0;
             self.mangled_pv = false;
-            self.last_pv = vec![];
-            self.last_pv_value = -30000;
-            self.last_pv_bound = BOUND_LOWER;
 
             // Figure out when we should stop thinking.
             //
@@ -245,7 +236,7 @@ impl UciEngine for Engine {
                             if self.mangled_pv {
                                 self.report_pv(depth - 1);
                             } else {
-                                self.report_progress(depth);
+                                self.report_progress();
                             }
                         }
                     }
@@ -282,7 +273,7 @@ impl Engine {
             self.current_depth = depth;
             self.report_pv(depth - 1);
             if !self.mangled_pv {
-                self.report_progress(depth);
+                self.report_progress();
             }
         }
     }
@@ -290,6 +281,9 @@ impl Engine {
     // A helper method. It extracts the primary variation (PV) from
     // the transposition table (TT) and sends it to the GUI.
     fn report_pv(&mut self, depth: u8) {
+        if depth == 0 {
+            return;
+        }
         let mut prev_move = None;
         let mut p = self.position.clone();
 
@@ -331,43 +325,34 @@ impl Engine {
         // Check if the extracted PV is imperfect.
         self.mangled_pv = bound != BOUND_EXACT || pv.len() < depth as usize;
 
-        if self.last_pv == pv && self.last_pv_value == value && self.last_pv_bound == bound {
-            // The newly extracted PV is the same as the last
-            // one. There is no point in sending it again, so we send
-            // a progress report instead.
-            self.report_progress(depth);
-        } else {
-            // Send the newly extracted PV to the GUI.
-            let value_suffix = match bound {
-                BOUND_EXACT => "",
-                BOUND_UPPER => " upperbound",
-                BOUND_LOWER => " lowerbound",
-                _ => panic!("unexpected bound type"),
-            };
-            let mut pv_string = String::new();
-            for m in &pv {
-                pv_string.push(' ');
-                pv_string.push_str(&m.notation());
-            }
-            self.reply_queue.push_back(EngineReply::Info(vec![
-                ("depth".to_string(), format!("{}", depth)),
-                ("score".to_string(), format!("cp {}{}", value, value_suffix)),
-                ("time".to_string(), format!("{}", self.searched_time)),
-                ("nodes".to_string(), format!("{}", self.searched_nodes)),
-                ("nps".to_string(), format!("{}", self.nps)),
-                ("pv".to_string(), pv_string),
-            ]));
-            self.last_pv = pv;
-            self.last_pv_value = value;
-            self.last_pv_bound = bound;
+        // Send the newly extracted PV to the GUI.
+        let value_suffix = match bound {
+            BOUND_EXACT => "",
+            BOUND_UPPER => " upperbound",
+            BOUND_LOWER => " lowerbound",
+            _ => panic!("unexpected bound type"),
+        };
+        let mut pv_string = String::new();
+        for m in &pv {
+            pv_string.push_str(&m.notation());
+            pv_string.push(' ');
         }
+        self.reply_queue.push_back(EngineReply::Info(vec![
+            ("depth".to_string(), format!("{}", depth)),
+            ("score".to_string(), format!("cp {}{}", value, value_suffix)),
+            ("time".to_string(), format!("{}", self.searched_time)),
+            ("nodes".to_string(), format!("{}", self.searched_nodes)),
+            ("nps".to_string(), format!("{}", self.nps)),
+            ("pv".to_string(), pv_string),
+        ]));
+        self.silent_since = SystemTime::now();
     }
 
     // A helper method. It reports the current depth, the searched
     // node count, and the nodes per second to the GUI.
-    fn report_progress(&mut self, depth: u8) {
+    fn report_progress(&mut self) {
         self.reply_queue.push_back(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", depth)),
+            ("depth".to_string(), format!("{}", self.current_depth)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", self.nps)),
         ]));
