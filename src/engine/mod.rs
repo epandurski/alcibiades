@@ -359,7 +359,7 @@ impl Engine {
             ]));
             self.last_pv = pv;
             self.last_pv_value = value;
-            self.last_pv_bound == bound;
+            self.last_pv_bound = bound;
         }
     }
 
