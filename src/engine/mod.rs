@@ -294,14 +294,17 @@ impl Engine {
         while let Some(entry) = self.tt.probe(p.hash()) {
             if pv.len() < depth as usize && entry.bound() != BOUND_NONE {
                 if let Some(m) = prev_move {
+                    // Extend the PV.
                     pv.push(m);
                 }
+
+                // Get the value and the bound type. In half of the
+                // cases the value stored in `entry` is from other
+                // side's perspective.
                 if pv.len() & 1 == 0 {
                     value = entry.value();
                     bound = entry.bound();
                 } else {
-                    // In this case the value stored in `entry` is
-                    // from other side's perspective.
                     value = -entry.value();
                     bound = match entry.bound() {
                         BOUND_UPPER => BOUND_LOWER,

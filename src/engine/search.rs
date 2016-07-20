@@ -274,9 +274,13 @@ fn search(tt: &TranspositionTable,
                 };
 
                 // A checkmate in fewer moves is better.
-                if value > 20000 { value -= 1; }
-                if value < -20000 { value += 1; }
-                
+                if value > 20000 {
+                    value -= 1;
+                }
+                if value < -20000 {
+                    value += 1;
+                }
+
                 no_moves_yet = false;
                 p.undo_move();
 
