@@ -86,11 +86,10 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                             }
                             Report::Done { searched_nodes, value, .. } => {
                                 searched_nodes_final += searched_nodes;
-                                value_final = match value {
-                                    Some(v) if n == depth || v >= 20000 || v <= -20000 => Some(v),
-                                    _ => None,
-                                };
-                                if pending_command.is_some() || value_final.is_some() {
+                                if n == depth {
+                                    value_final = value;
+                                }
+                                if pending_command.is_some() {
                                     break 'depthloop;
                                 }
                                 break;

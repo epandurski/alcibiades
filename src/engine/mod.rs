@@ -176,8 +176,8 @@ impl UciEngine for Engine {
                     search_id: self.search_id,
                     position: self.position.clone(),
                     depth: MAX_DEPTH,
-                    lower_bound: -30000,
-                    upper_bound: 30000,
+                    lower_bound: -20000,
+                    upper_bound: 20000,
                 })
                 .unwrap();
         }
