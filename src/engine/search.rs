@@ -201,32 +201,33 @@ fn search(tt: &TranspositionTable,
           depth: u8)
           -> Result<Value, TerminatedSearch> {
     assert!(alpha < beta);
+    
+    // Consult the transposition table.
+    let hash_move16 = if let Some(entry) = tt.probe(p.hash()) {
+        if entry.depth() >= depth {
+            let value = entry.value();
+            let bound = entry.bound();
+            if bound == BOUND_EXACT {
+                return Ok(value);
+            }
+            if bound == BOUND_LOWER && value >= beta {
+                return Ok(beta);
+            }
+            if bound == BOUND_UPPER && value <= alpha {
+                return Ok(alpha);
+            }
+        } 
+        entry.move16()
+    } else {
+        0
+    };
+
     if depth == 0 {
         // On leaf nodes, do quiescence search.
         let (value, nodes) = p.evaluate_quiescence(alpha, beta, None);
         *nc += nodes;
         Ok(value)
     } else {
-        // Consult the transposition table.
-        let hash_move16 = if let Some(entry) = tt.probe(p.hash()) {
-            if entry.depth() >= depth {
-                let value = entry.value();
-                let bound = entry.bound();
-                if bound == BOUND_EXACT {
-                    return Ok(value);
-                }
-                if bound == BOUND_LOWER && value >= beta {
-                    return Ok(beta);
-                }
-                if bound == BOUND_UPPER && value <= alpha {
-                    return Ok(alpha);
-                }
-            } 
-            entry.move16()
-        } else {
-            0
-        };
-
         moves.save();
 
         if hash_move16 != 0 {
