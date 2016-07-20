@@ -89,6 +89,150 @@ impl Engine {
             stop_when: TimeManagement::Infinite,
         }
     }
+
+    // A helper method. It updates the search status info and makes
+    // sure that a new PV is sent to the GUI for every newly reached
+    // depth.
+    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
+        let thinking_duration = self.thinking_since.elapsed().unwrap();
+        self.searched_time = 1000 * thinking_duration.as_secs() +
+                             (thinking_duration.subsec_nanos() / 1000000) as u64;
+        self.searched_nodes = searched_nodes;
+        self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
+        if self.current_depth < depth {
+            self.current_depth = depth;
+            self.report_pv(depth - 1);
+            if !self.mangled_pv {
+                self.report_progress();
+            }
+        }
+    }
+
+    // A helper method. It extracts the primary variation (PV) from
+    // the transposition table (TT) and sends it to the GUI.
+    fn report_pv(&mut self, depth: u8) {
+        if depth == 0 {
+            return;
+        }
+        let mut prev_move = None;
+        let mut p = self.position.clone();
+
+        // Extract the PV, the value, and the bound from the TT.
+        let mut pv = Vec::new();
+        let mut value = -30000;
+        let mut bound = BOUND_LOWER;
+        while let Some(entry) = self.tt.probe(p.hash()) {
+            if pv.len() < depth as usize && entry.bound() != BOUND_NONE {
+                if let Some(m) = prev_move {
+                    // Extend the PV.
+                    pv.push(m);
+                }
+
+                // Get the value and the bound type. In half of the
+                // cases the value stored in `entry` is from other
+                // side's perspective.
+                if pv.len() & 1 == 0 {
+                    value = entry.value();
+                    bound = entry.bound();
+                } else {
+                    value = -entry.value();
+                    bound = match entry.bound() {
+                        BOUND_UPPER => BOUND_LOWER,
+                        BOUND_LOWER => BOUND_UPPER,
+                        x => x,
+                    };
+                }
+
+                // The values under -19999 and over 19999 carry
+                // information in how many moves is the inevitable
+                // checkmate. We choose to not show this to the user,
+                // because it would complicate unnecessarily the PV
+                // extraction procedure.
+                if value >= 20000 && bound != BOUND_UPPER {
+                    value = 19999;
+                    bound = BOUND_EXACT
+                }
+                if value <= -20000 && bound != BOUND_LOWER {
+                    value = -19999;
+                    bound = BOUND_EXACT
+                }
+
+                // Try to extend the PV.
+                if bound == BOUND_EXACT {
+                    if let Some(m) = p.try_move_digest(entry.move16()) {
+                        if p.do_move(m) && !p.is_repeated() {
+                            prev_move = Some(m);
+                            continue;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        // Check if the extracted PV is imperfect.
+        self.mangled_pv = bound != BOUND_EXACT || pv.len() < depth as usize;
+
+        // Send the newly extracted PV to the GUI.
+        let value_suffix = match bound {
+            BOUND_EXACT => "",
+            BOUND_UPPER => " upperbound",
+            BOUND_LOWER => " lowerbound",
+            _ => panic!("unexpected bound type"),
+        };
+        let mut pv_string = String::new();
+        for m in &pv {
+            pv_string.push_str(&m.notation());
+            pv_string.push(' ');
+        }
+        self.reply_queue.push_back(EngineReply::Info(vec![
+            ("depth".to_string(), format!("{}", depth)),
+            ("score".to_string(), format!("cp {}{}", value, value_suffix)),
+            ("time".to_string(), format!("{}", self.searched_time)),
+            ("nodes".to_string(), format!("{}", self.searched_nodes)),
+            ("nps".to_string(), format!("{}", self.nps)),
+            ("pv".to_string(), pv_string),
+        ]));
+        self.silent_since = SystemTime::now();
+    }
+
+    // A helper method. It reports the current depth, the searched
+    // node count, and the nodes per second to the GUI.
+    fn report_progress(&mut self) {
+        self.reply_queue.push_back(EngineReply::Info(vec![
+            ("depth".to_string(), format!("{}", self.current_depth)),
+            ("nodes".to_string(), format!("{}", self.searched_nodes)),
+            ("nps".to_string(), format!("{}", self.nps)),
+        ]));
+        self.silent_since = SystemTime::now();
+    }
+
+    // A helper method for `Engine::stop`. It probes the TT for the
+    // best move in the position `p`, plays it, and returns it. If the
+    // TT gives no move this function will play and return the first
+    // legal move. `None` is returned only when there are no legal
+    // moves.
+    fn do_best_move(&self, p: &mut Position) -> Option<Move> {
+        // Try to get best move from the TT.
+        let move16 = self.tt.probe(p.hash()).map_or(0, |entry| entry.move16());
+        if let Some(m) = p.try_move_digest(move16) {
+            if p.do_move(m) {
+                return Some(m);
+            }
+        }
+
+        // Otherwise, pick the first legal move.
+        let mut s = MoveStack::new();
+        p.generate_moves(&mut s);
+        while let Some(m) = s.pop() {
+            if p.do_move(m) {
+                return Some(m);
+            }
+        }
+
+        // No legal moves.
+        None
+    }
 }
 
 
@@ -259,150 +403,12 @@ impl UciEngine for Engine {
 }
 
 
-impl Engine {
-    // A helper method. It updates the search status info and makes
-    // sure that a new PV is sent to the GUI for every newly reached
-    // depth.
-    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
-        let thinking_duration = self.thinking_since.elapsed().unwrap();
-        self.searched_time = 1000 * thinking_duration.as_secs() +
-                             (thinking_duration.subsec_nanos() / 1000000) as u64;
-        self.searched_nodes = searched_nodes;
-        self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
-        if self.current_depth < depth {
-            self.current_depth = depth;
-            self.report_pv(depth - 1);
-            if !self.mangled_pv {
-                self.report_progress();
-            }
-        }
-    }
-
-    // A helper method. It extracts the primary variation (PV) from
-    // the transposition table (TT) and sends it to the GUI.
-    fn report_pv(&mut self, depth: u8) {
-        if depth == 0 {
-            return;
-        }
-        let mut prev_move = None;
-        let mut p = self.position.clone();
-
-        // Extract the PV, the value, and the bound from the TT.
-        let mut pv = Vec::new();
-        let mut value = -30000;
-        let mut bound = BOUND_LOWER;
-        while let Some(entry) = self.tt.probe(p.hash()) {
-            if pv.len() < depth as usize && entry.bound() != BOUND_NONE {
-                if let Some(m) = prev_move {
-                    // Extend the PV.
-                    pv.push(m);
-                }
-
-                // Get the value and the bound type. In half of the
-                // cases the value stored in `entry` is from other
-                // side's perspective.
-                if pv.len() & 1 == 0 {
-                    value = entry.value();
-                    bound = entry.bound();
-                } else {
-                    value = -entry.value();
-                    bound = match entry.bound() {
-                        BOUND_UPPER => BOUND_LOWER,
-                        BOUND_LOWER => BOUND_UPPER,
-                        x => x,
-                    };
-                }
-
-                // The values under -19999 and over 19999 carry
-                // information in how many moves is the inevitable
-                // checkmate. We choose to not show this to the user,
-                // because it would complicate unnecessarily the PV
-                // extraction procedure.
-                if value >= 20000 && bound != BOUND_UPPER {
-                    value = 19999;
-                    bound = BOUND_EXACT
-                }
-                if value <= -20000 && bound != BOUND_LOWER {
-                    value = -19999;
-                    bound = BOUND_EXACT
-                }
-
-                // Try to extend the PV.
-                if bound == BOUND_EXACT {
-                    if let Some(m) = p.try_move_digest(entry.move16()) {
-                        if p.do_move(m) && !p.is_repeated() {
-                            prev_move = Some(m);
-                            continue;
-                        }
-                    }
-                }
-            }
-            break;
-        }
-
-        // Check if the extracted PV is imperfect.
-        self.mangled_pv = bound != BOUND_EXACT || pv.len() < depth as usize;
-
-        // Send the newly extracted PV to the GUI.
-        let value_suffix = match bound {
-            BOUND_EXACT => "",
-            BOUND_UPPER => " upperbound",
-            BOUND_LOWER => " lowerbound",
-            _ => panic!("unexpected bound type"),
-        };
-        let mut pv_string = String::new();
-        for m in &pv {
-            pv_string.push_str(&m.notation());
-            pv_string.push(' ');
-        }
-        self.reply_queue.push_back(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", depth)),
-            ("score".to_string(), format!("cp {}{}", value, value_suffix)),
-            ("time".to_string(), format!("{}", self.searched_time)),
-            ("nodes".to_string(), format!("{}", self.searched_nodes)),
-            ("nps".to_string(), format!("{}", self.nps)),
-            ("pv".to_string(), pv_string),
-        ]));
-        self.silent_since = SystemTime::now();
-    }
-
-    // A helper method. It reports the current depth, the searched
-    // node count, and the nodes per second to the GUI.
-    fn report_progress(&mut self) {
-        self.reply_queue.push_back(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", self.current_depth)),
-            ("nodes".to_string(), format!("{}", self.searched_nodes)),
-            ("nps".to_string(), format!("{}", self.nps)),
-        ]));
-        self.silent_since = SystemTime::now();
-    }
-
-    // A helper method for `Engine::stop`. It probes the TT for the
-    // best move in the position `p`, plays it, and returns it. If the
-    // TT gives no move this function will play and return the first
-    // legal move. `None` is returned only when there are no legal
-    // moves.
-    fn do_best_move(&self, p: &mut Position) -> Option<Move> {
-        // Try to get best move from the TT.
-        let move16 = self.tt.probe(p.hash()).map_or(0, |entry| entry.move16());
-        if let Some(m) = p.try_move_digest(move16) {
-            if p.do_move(m) {
-                return Some(m);
-            }
-        }
-
-        // Otherwise, pick the first legal move.
-        let mut s = MoveStack::new();
-        p.generate_moves(&mut s);
-        while let Some(m) = s.pop() {
-            if p.do_move(m) {
-                return Some(m);
-            }
-        }
-
-        // No legal moves.
-        None
-    }
+enum TimeManagement {
+    MoveTime(u64),
+    MoveTimeHint(u64),
+    Nodes(NodeCount),
+    Depth(u8),
+    Infinite,
 }
 
 
@@ -430,13 +436,4 @@ impl UciEngineFactory<Engine> for EngineFactory {
     fn create(&self, hash_size_mb: Option<usize>) -> Engine {
         Engine::new(hash_size_mb.unwrap_or(16))
     }
-}
-
-
-enum TimeManagement {
-    MoveTime(u64),
-    MoveTimeHint(u64),
-    Nodes(NodeCount),
-    Depth(u8),
-    Infinite,
 }
