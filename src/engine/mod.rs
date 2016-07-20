@@ -309,10 +309,25 @@ impl Engine {
                         x => x,
                     };
                 }
+                
+                // The values under -19999 and over 19999 carry
+                // information in how many moves is the inevitable
+                // checkmate. We choose to not show this to the user,
+                // because it would complicate unnecessarily the PV
+                // extraction procedure.
+                if value >= 20000 && bound == BOUND_LOWER {
+                    value = 19999;
+                    bound = BOUND_EXACT
+                }
+                if value <= -20000 && bound == BOUND_UPPER {
+                    value = -19999;
+                    bound = BOUND_EXACT
+                }
+
+                // Try to extend the PV.
                 if bound == BOUND_EXACT {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
-                            // Try to extend the PV.
                             prev_move = Some(m);
                             continue;
                         }
