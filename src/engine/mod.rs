@@ -312,7 +312,7 @@ impl Engine {
                         x => x,
                     };
                 }
-                
+
                 // The values under -19999 and over 19999 carry
                 // information in how many moves is the inevitable
                 // checkmate. We choose to not show this to the user,
