@@ -318,11 +318,11 @@ impl Engine {
                 // checkmate. We choose to not show this to the user,
                 // because it would complicate unnecessarily the PV
                 // extraction procedure.
-                if value >= 20000 && bound == BOUND_LOWER {
+                if value >= 20000 && bound != BOUND_UPPER {
                     value = 19999;
                     bound = BOUND_EXACT
                 }
-                if value <= -20000 && bound == BOUND_UPPER {
+                if value <= -20000 && bound != BOUND_LOWER {
                     value = -19999;
                     bound = BOUND_EXACT
                 }
