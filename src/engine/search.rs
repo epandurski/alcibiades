@@ -209,11 +209,19 @@ fn search(tt: &TranspositionTable,
     } else {
         // Consult the transposition table.
         let hash_move16 = if let Some(entry) = tt.probe(p.hash()) {
-            if entry.depth() >= depth && entry.bound() == BOUND_EXACT {
-                // We already know the exact value for this position
-                // for same depth or higher.
-                return Ok(entry.value());
-            }
+            if entry.depth() >= depth {
+                let value = entry.value();
+                let bound = entry.bound();
+                if bound == BOUND_EXACT {
+                    return Ok(value);
+                }
+                if bound == BOUND_LOWER && value >= beta {
+                    return Ok(beta);
+                }
+                if bound == BOUND_UPPER && value <= alpha {
+                    return Ok(alpha);
+                }
+            } 
             entry.move16()
         } else {
             0
