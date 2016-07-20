@@ -107,8 +107,8 @@ impl UciEngine for Engine {
     }
 
     fn new_game(&mut self) {
-        // Clearing the transposition table would not change anything,
-        // so we do nothing.
+        // Clearing the transposition table would not do any good, so
+        // we do nothing.
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
