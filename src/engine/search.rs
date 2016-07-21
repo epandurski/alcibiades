@@ -188,6 +188,64 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 struct TerminatedSearch;
 
 
+struct SearchState<'a> {
+    tt: &'a TranspositionTable,
+    position: Position,
+    moves: &'a mut MoveStack,
+    move16: MoveDigest,
+    state: usize,
+    node_count: NodeCount,
+    report_func: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
+}
+
+
+impl<'a> SearchState<'a> {
+    #[inline(always)]
+    fn position(&self) -> &Position {
+        &self.position
+    }
+
+    #[inline]
+    fn report_nodes(&mut self, n: NodeCount) -> Result<(), TerminatedSearch> {
+        self.node_count += n;
+        if self.node_count > NODE_COUNT_REPORT_INTERVAL {
+            try!((*self.report_func)(self.node_count));
+            self.node_count = 0;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn do_move(&mut self) -> Option<Move> {
+        if self.state == 0 && self.move16 != 0 {
+            self.state = 1;
+            let x = self.position.try_move_digest(self.move16);
+            if x.is_some() {
+                return x;
+            }
+        }
+        if self.state <= 1 {
+            self.state = 2;
+            self.position.generate_moves(self.moves);
+            if self.move16 != 0 {
+                self.moves.remove_move(self.move16);
+            }
+        }
+        if let Some(m) = self.moves.remove_best_move() {
+            if self.position.do_move(m) {
+                return Some(m)
+            }
+        }
+        None
+    }
+    
+    #[inline]
+    fn undo_move(&mut self) {
+        self.position.undo_move();
+    }
+}
+
+
 // Helper function for `run()`. It implements the principal variation
 // search algorithm. When returning `Err(TerminatedSearch)`, this
 // function may leave un-restored move lists in `moves`.
@@ -232,7 +290,7 @@ fn search(tt: &TranspositionTable,
             alpha = value;
             bound_type = BOUND_EXACT;
         }
-        
+
     } else {
         // On non-leaf nodes, try moves and make recursive calls.
         moves.save();
@@ -329,7 +387,6 @@ fn search(tt: &TranspositionTable,
 
 
 const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
-
 
 
 #[cfg(test)]
