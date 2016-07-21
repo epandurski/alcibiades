@@ -122,7 +122,7 @@ impl Engine {
         let mut value = -30000;
         let mut bound = BOUND_LOWER;
         while let Some(entry) = self.tt.probe(p.hash()) {
-            if pv.len() < depth as usize && entry.bound() != BOUND_NONE {
+            if entry.bound() != BOUND_NONE {
                 if let Some(m) = prev_move {
                     // Extend the PV.
                     pv.push(m);
