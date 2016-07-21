@@ -188,12 +188,19 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 struct TerminatedSearch;
 
 
+enum NodeState {
+    Pristine,
+    GeneratedMoves,
+    PlayedMove,
+}
+
+
 struct SearchState<'a> {
     tt: &'a TranspositionTable,
     position: Position,
     moves: &'a mut MoveStack,
     move16: MoveDigest,
-    state: usize,
+    state: NodeState,
     node_count: NodeCount,
     report_func: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
 }
@@ -217,33 +224,31 @@ impl<'a> SearchState<'a> {
 
     #[inline]
     pub fn do_move(&mut self) -> Option<Move> {
-        // 0, 1, or 2
-        if self.state == 2 {
-            // After calling `save_state()`, the state is 0.
-            self.save_state();
+        if let NodeState::PlayedMove = self.state {
+            // After calling `new_node()`, the state is `Pristine`.
+            self.new_node();
         }
 
-        // 0 or 1
-        if self.state == 0 && self.move16 != 0 {
-            if let Some(m) = self.position.try_move_digest(self.move16) {
-                if self.position.do_move(m) {
-                    self.state = 2;
-                    return Some(m);
+        if let NodeState::Pristine = self.state {
+            if self.move16 != 0 {
+                if let Some(m) = self.position.try_move_digest(self.move16) {
+                    if self.position.do_move(m) {
+                        self.state = NodeState::PlayedMove;
+                        return Some(m);
+                    }
                 }
             }
-        }
-        if self.state == 0 {
-            self.state = 1;
             self.position.generate_moves(self.moves);
             if self.move16 != 0 {
                 self.moves.remove_move(self.move16);
             }
+            self.state = NodeState::GeneratedMoves;
         }
-        
-        // 1
+
+        // The state is `GeneratedMoves` here.
         if let Some(m) = self.moves.remove_best_move() {
             if self.position.do_move(m) {
-                self.state = 2;
+                self.state = NodeState::PlayedMove;
                 return Some(m);
             }
         }
@@ -252,12 +257,12 @@ impl<'a> SearchState<'a> {
 
     #[inline]
     pub fn undo_move(&mut self) {
-        self.state = 1;
+        self.state = NodeState::GeneratedMoves;
         self.position.undo_move();
     }
 
     #[inline]
-    fn save_state(&mut self) {}
+    fn new_node(&mut self) {}
 }
 
 
