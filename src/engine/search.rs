@@ -224,8 +224,13 @@ fn search(tt: &TranspositionTable,
         // On leaf nodes, do quiescence search.
         let (value, nodes) = p.evaluate_quiescence(alpha, beta, &mut None);
         *nc += nodes;
-        alpha = value;
-        bound_type = BOUND_EXACT;
+        if value >= beta {
+            alpha = value;
+            bound_type = BOUND_LOWER;
+        } else if value > alpha {
+            alpha = value;
+            bound_type = BOUND_EXACT;
+        }
     } else {
         moves.save();
 
