@@ -203,7 +203,7 @@ fn search(tt: &TranspositionTable,
     assert!(alpha < beta);
 
     // Consult the transposition table.
-    let (hash_move16, eval_value) = if let Some(entry) = tt.probe(p.hash()) {
+    let (move16, eval_value) = if let Some(entry) = tt.probe(p.hash()) {
         if entry.depth() >= depth {
             let value = entry.value();
             let bound = entry.bound();
@@ -217,6 +217,7 @@ fn search(tt: &TranspositionTable,
         (0, p.evaluate_static())
     };
 
+    // Initial guests for the final result.
     let mut bound_type = BOUND_UPPER;
     let mut best_move = Move::invalid();
 
@@ -231,26 +232,28 @@ fn search(tt: &TranspositionTable,
             alpha = value;
             bound_type = BOUND_EXACT;
         }
+        
     } else {
+        // On non-leaf nodes, try moves and make recursive calls.
         moves.save();
+        let mut no_moves_yet = true;
 
-        // TODO: use `eval_value`.
-
-        if hash_move16 != 0 {
-            if let Some(m) = p.try_move_digest(hash_move16) {
+        // TODO: This is ugly.
+        if move16 != 0 {
+            if let Some(m) = p.try_move_digest(move16) {
                 moves.push(m);
             }
         }
         let mut generated = false;
 
-        let mut no_moves_yet = true;
+        // Try some moves.
         loop {
-            // TODO: This is ugly, and probably inefficient.
+            // TODO: This is ugly.
             let m = match moves.remove_best_move() {
                 None if generated => break,
                 None => {
                     p.generate_moves(moves);
-                    moves.remove_move(hash_move16);
+                    moves.remove_move(move16);
                     generated = true;
                     continue;
                 }
@@ -268,6 +271,7 @@ fn search(tt: &TranspositionTable,
                     *nc = 0;
                 }
 
+                // Make a recursive call.
                 let value = if no_moves_yet {
                     // The first move we analyze with a fully open
                     // window (alpha, beta).
@@ -286,9 +290,9 @@ fn search(tt: &TranspositionTable,
                     }
                 };
 
-                no_moves_yet = false;
+                // See how good this move is.
                 p.undo_move();
-
+                no_moves_yet = false;
                 if value >= beta {
                     // This move is too good, so that the opponent
                     // will not allow this line of play to
@@ -306,14 +310,18 @@ fn search(tt: &TranspositionTable,
                 }
             }
         }
-        moves.restore();
+
+        // Check if we are in a final position (no legal moves). Then
+        // we are done.
         if no_moves_yet {
-            // No legal moves -- this is a final position.
+            // Final positions we can evaluate 100% correctly.
             alpha = p.evaluate_final();
             bound_type = BOUND_EXACT;
         }
+        moves.restore();
     }
 
+    // Store the final result in the transposition table and return.
     tt.store(p.hash(),
              EntryData::new(alpha, bound_type, depth, best_move.digest(), eval_value));
     Ok(alpha)
