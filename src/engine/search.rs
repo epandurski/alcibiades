@@ -201,12 +201,12 @@ struct SearchState<'a> {
 
 impl<'a> SearchState<'a> {
     #[inline(always)]
-    fn position(&self) -> &Position {
+    pub fn position(&self) -> &Position {
         &self.position
     }
 
     #[inline]
-    fn report_nodes(&mut self, n: NodeCount) -> Result<(), TerminatedSearch> {
+    pub fn report_nodes(&mut self, n: NodeCount) -> Result<(), TerminatedSearch> {
         self.node_count += n;
         if self.node_count > NODE_COUNT_REPORT_INTERVAL {
             try!((*self.report_func)(self.node_count));
@@ -216,33 +216,48 @@ impl<'a> SearchState<'a> {
     }
 
     #[inline]
-    fn do_move(&mut self) -> Option<Move> {
+    pub fn do_move(&mut self) -> Option<Move> {
+        // 0, 1, or 2
+        if self.state == 2 {
+            // After calling `save_state()`, the state is 0.
+            self.save_state();
+        }
+
+        // 0 or 1
         if self.state == 0 && self.move16 != 0 {
-            self.state = 1;
-            let x = self.position.try_move_digest(self.move16);
-            if x.is_some() {
-                return x;
+            if let Some(m) = self.position.try_move_digest(self.move16) {
+                if self.position.do_move(m) {
+                    self.state = 2;
+                    return Some(m);
+                }
             }
         }
-        if self.state <= 1 {
-            self.state = 2;
+        if self.state == 0 {
+            self.state = 1;
             self.position.generate_moves(self.moves);
             if self.move16 != 0 {
                 self.moves.remove_move(self.move16);
             }
         }
+        
+        // 1
         if let Some(m) = self.moves.remove_best_move() {
             if self.position.do_move(m) {
-                return Some(m)
+                self.state = 2;
+                return Some(m);
             }
         }
         None
     }
-    
+
     #[inline]
-    fn undo_move(&mut self) {
+    pub fn undo_move(&mut self) {
+        self.state = 1;
         self.position.undo_move();
     }
+
+    #[inline]
+    fn save_state(&mut self) {}
 }
 
 
