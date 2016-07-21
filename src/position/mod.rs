@@ -250,17 +250,14 @@ impl Position {
     /// required. If during the calculation it is determined that the
     /// evaluation is outside this interval, this method may return
     /// any value outside of the interval (including the bounds), but
-    /// always staying on the correct side of the
-    /// interval. `static_evaluation` should be a reference to a
-    /// variable containing the value returned by
-    /// `self.evaluate_static()`. If a reference to `None` is passed,
-    /// the static evaluation will be calculated and set as the new
-    /// value of the variable referenced by `static_evaluation`.
+    /// always staying on the correct side of the interval. If not
+    /// `None`, `static_evaluation` should be the value returned by
+    /// `self.evaluate_static()`.
     #[inline]
     pub fn evaluate_quiescence(&self,
                                lower_bound: Value,
                                upper_bound: Value,
-                               static_evaluation: &mut Option<Value>)
+                               static_evaluation: Option<Value>)
                                -> (Value, NodeCount) {
         assert!(lower_bound < upper_bound);
         thread_local!(
@@ -447,7 +444,7 @@ impl Position {
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
-                      static_evaluation: &mut Option<Value>,
+                      static_evaluation: Option<Value>,
                       mut recapture_squares: u64,
                       ply: u8,
                       move_stack: &mut MoveStack,
@@ -465,13 +462,12 @@ impl Position {
         // stand pat value. (Note that this is not true if the the
         // side to move is in check!)
         let stand_pat = if not_in_check {
-            if let Some(value) = *static_evaluation {
+            if let Some(value) = static_evaluation {
                 assert!(value > -20000 && value < 20000);
                 value
             } else {
                 let value = eval_func(self.board());
                 assert!(value > -20000 && value < 20000);
-                *static_evaluation = Some(value);
                 value
             }
         } else {
@@ -538,7 +534,7 @@ impl Position {
                 *searched_nodes += 1;
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
-                                          &mut None,
+                                          None,
                                           recapture_squares ^ dest_square_bb,
                                           ply + 1,
                                           move_stack,

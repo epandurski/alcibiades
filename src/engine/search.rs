@@ -203,7 +203,7 @@ fn search(tt: &TranspositionTable,
     assert!(alpha < beta);
 
     // Consult the transposition table.
-    let hash_move16 = if let Some(entry) = tt.probe(p.hash()) {
+    let (hash_move16, eval_value) = if let Some(entry) = tt.probe(p.hash()) {
         if entry.depth() >= depth {
             let value = entry.value();
             let bound = entry.bound();
@@ -212,9 +212,9 @@ fn search(tt: &TranspositionTable,
                 return Ok(value);
             }
         }
-        entry.move16()
+        (entry.move16(), entry.eval_value())
     } else {
-        0
+        (0, p.evaluate_static())
     };
 
     let mut bound_type = BOUND_UPPER;
@@ -222,7 +222,7 @@ fn search(tt: &TranspositionTable,
 
     if depth == 0 {
         // On leaf nodes, do quiescence search.
-        let (value, nodes) = p.evaluate_quiescence(alpha, beta, &mut None);
+        let (value, nodes) = p.evaluate_quiescence(alpha, beta, Some(eval_value));
         *nc += nodes;
         if value >= beta {
             alpha = value;
@@ -233,6 +233,8 @@ fn search(tt: &TranspositionTable,
         }
     } else {
         moves.save();
+
+        // TODO: use `eval_value`.
 
         if hash_move16 != 0 {
             if let Some(m) = p.try_move_digest(hash_move16) {
@@ -313,7 +315,7 @@ fn search(tt: &TranspositionTable,
     }
 
     tt.store(p.hash(),
-             EntryData::new(alpha, bound_type, depth, move16, 0));
+             EntryData::new(alpha, bound_type, depth, move16, eval_value));
     Ok(alpha)
 }
 
