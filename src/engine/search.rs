@@ -201,32 +201,31 @@ fn search(tt: &TranspositionTable,
           depth: u8)
           -> Result<Value, TerminatedSearch> {
     assert!(alpha < beta);
-    
+
     // Consult the transposition table.
     let hash_move16 = if let Some(entry) = tt.probe(p.hash()) {
         if entry.depth() >= depth {
             let value = entry.value();
             let bound = entry.bound();
-            if bound == BOUND_EXACT {
+            if (value >= beta && bound == BOUND_LOWER) ||
+               (value <= alpha && bound == BOUND_UPPER) || (bound == BOUND_EXACT) {
                 return Ok(value);
             }
-            if bound == BOUND_LOWER && value >= beta {
-                return Ok(beta);
-            }
-            if bound == BOUND_UPPER && value <= alpha {
-                return Ok(alpha);
-            }
-        } 
+        }
         entry.move16()
     } else {
         0
     };
 
+    let mut bound_type = BOUND_UPPER;
+    let mut move16 = 0;
+
     if depth == 0 {
         // On leaf nodes, do quiescence search.
         let (value, nodes) = p.evaluate_quiescence(alpha, beta, None);
         *nc += nodes;
-        Ok(value)
+        alpha = value;
+        bound_type = BOUND_EXACT;
     } else {
         moves.save();
 
@@ -237,8 +236,6 @@ fn search(tt: &TranspositionTable,
         }
         let mut generated = false;
 
-        let mut bound_type = BOUND_UPPER;
-        let mut move16 = 0;
         let mut no_moves_yet = true;
         loop {
             // TODO: This is ugly, and probably inefficient.
@@ -264,7 +261,7 @@ fn search(tt: &TranspositionTable,
                     *nc = 0;
                 }
 
-                let mut value = if no_moves_yet {
+                let value = if no_moves_yet {
                     // The first move we analyze with a fully open
                     // window (alpha, beta).
                     -try!(search(tt, p, moves, nc, report, -beta, -alpha, depth - 1))
@@ -282,14 +279,6 @@ fn search(tt: &TranspositionTable,
                     }
                 };
 
-                // A checkmate in fewer moves is better.
-                if value > 20000 {
-                    value -= 1;
-                }
-                if value < -20000 {
-                    value += 1;
-                }
-
                 no_moves_yet = false;
                 p.undo_move();
 
@@ -297,7 +286,7 @@ fn search(tt: &TranspositionTable,
                     // This move is too good, so that the opponent
                     // will not allow this line of play to
                     // happen. Therefore we can stop here.
-                    alpha = beta;
+                    alpha = value;
                     bound_type = BOUND_LOWER;
                     move16 = m.digest();
                     break;
@@ -316,11 +305,11 @@ fn search(tt: &TranspositionTable,
             alpha = p.evaluate_final();
             bound_type = BOUND_EXACT;
         }
-        // TODO: Do not store values with too small `depth`.
-        tt.store(p.hash(),
-                 EntryData::new(alpha, bound_type, depth, move16, 0));
-        Ok(alpha)
     }
+
+    tt.store(p.hash(),
+             EntryData::new(alpha, bound_type, depth, move16, 0));
+    Ok(alpha)
 }
 
 
