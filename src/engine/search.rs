@@ -3,7 +3,7 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
-use chess_move::MoveStack;
+use chess_move::*;
 use tt::*;
 use position::Position;
 
@@ -218,7 +218,7 @@ fn search(tt: &TranspositionTable,
     };
 
     let mut bound_type = BOUND_UPPER;
-    let mut move16 = 0;
+    let mut best_move = Move::invalid();
 
     if depth == 0 {
         // On leaf nodes, do quiescence search.
@@ -295,14 +295,14 @@ fn search(tt: &TranspositionTable,
                     // happen. Therefore we can stop here.
                     alpha = value;
                     bound_type = BOUND_LOWER;
-                    move16 = m.digest();
+                    best_move = m;
                     break;
                 }
                 if value > alpha {
                     // We found ourselves a new best move.
                     alpha = value;
                     bound_type = BOUND_EXACT;
-                    move16 = m.digest();
+                    best_move = m;
                 }
             }
         }
@@ -315,7 +315,7 @@ fn search(tt: &TranspositionTable,
     }
 
     tt.store(p.hash(),
-             EntryData::new(alpha, bound_type, depth, move16, eval_value));
+             EntryData::new(alpha, bound_type, depth, best_move.digest(), eval_value));
     Ok(alpha)
 }
 
