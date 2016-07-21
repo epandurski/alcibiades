@@ -225,7 +225,7 @@ fn search(tt: &TranspositionTable,
         let (value, nodes) = p.evaluate_quiescence(alpha, beta, Some(eval_value));
         *nc += nodes;
         if value >= beta {
-            alpha = value;
+            alpha = beta;
             bound_type = BOUND_LOWER;
         } else if value > alpha {
             alpha = value;
@@ -293,7 +293,7 @@ fn search(tt: &TranspositionTable,
                     // This move is too good, so that the opponent
                     // will not allow this line of play to
                     // happen. Therefore we can stop here.
-                    alpha = value;
+                    alpha = beta;
                     bound_type = BOUND_LOWER;
                     best_move = m;
                     break;
