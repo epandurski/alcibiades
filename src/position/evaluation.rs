@@ -21,6 +21,12 @@ pub fn evaluate_board(board: &Board) -> Value {
     
     const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
     
+    if board.checkers() != 0 {
+        // In positions under check we can be vastly incorrect with no
+        // negative consequences.
+        return -19999;
+    }
+    
     let piece_type = board.piece_type();
     let color = board.color();
     let us = board.to_move();
