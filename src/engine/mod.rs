@@ -143,7 +143,7 @@ impl Engine {
                     };
                 }
 
-                // The values under -19999 and over 19999 carry
+                // The values under -19999 and over 19999 may carry
                 // information in how many moves is the inevitable
                 // checkmate. We choose to not show this to the user,
                 // because it would complicate unnecessarily the PV
