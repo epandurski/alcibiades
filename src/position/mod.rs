@@ -221,20 +221,12 @@ impl Position {
     /// pending tactical threats, this function will return a grossly
     /// incorrect evaluation. Therefore, it should be relied upon only
     /// for reasonably "quiet" positions.
-    /// 
-    /// `lower_bound` and `upper_bound` together give the interval
-    /// within which an as precise as possible evaluation is
-    /// required. If during the calculation it is determined that the
-    /// evaluation is outside this interval, this method may return
-    /// any value outside of the interval (including the bounds), but
-    /// always staying on the correct side of the interval.
     #[inline]
-    pub fn evaluate_static(&self, lower_bound: Value, upper_bound: Value) -> Value {
-        assert!(lower_bound < upper_bound);
+    pub fn evaluate_static(&self) -> Value {
         if self.is_repeated() {
             0
         } else {
-            evaluate_board(self.board(), lower_bound, upper_bound)
+            evaluate_board(self.board())
         }
     }
 
@@ -258,16 +250,17 @@ impl Position {
     /// required. If during the calculation it is determined that the
     /// evaluation is outside this interval, this method may return
     /// any value outside of the interval (including the bounds), but
-    /// always staying on the correct side of the interval. If
-    /// supplied, `static_evaluation` should be the exact (within the
-    /// bounds) value returned by the `evaluate_static` method for the
-    /// same position. If `None` is passed, the static evaluation will
-    /// be calculated.
+    /// always staying on the correct side of the
+    /// interval. `static_evaluation` should be a reference to a
+    /// variable containing the value returned by
+    /// `self.evaluate_static()`. If a reference to `None` is passed,
+    /// the static evaluation will be calculated and set as the new
+    /// value of the variable referenced by `static_evaluation`.
     #[inline]
     pub fn evaluate_quiescence(&self,
                                lower_bound: Value,
                                upper_bound: Value,
-                               static_evaluation: Option<Value>)
+                               static_evaluation: &mut Option<Value>)
                                -> (Value, NodeCount) {
         assert!(lower_bound < upper_bound);
         thread_local!(
@@ -454,11 +447,11 @@ impl Position {
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
-                      static_evaluation: Option<Value>,
+                      static_evaluation: &mut Option<Value>,
                       mut recapture_squares: u64,
                       ply: u8,
                       move_stack: &mut MoveStack,
-                      eval_func: &Fn(&Board, Value, Value) -> Value,
+                      eval_func: &Fn(&Board) -> Value,
                       searched_nodes: &mut NodeCount)
                       -> Value {
         assert!(lower_bound < upper_bound);
@@ -472,12 +465,14 @@ impl Position {
         // stand pat value. (Note that this is not true if the the
         // side to move is in check!)
         let stand_pat = if not_in_check {
-            if let Some(value) = static_evaluation {
-                assert!(value > -20000);
-                assert!(value < 20000);
+            if let Some(value) = *static_evaluation {
+                assert!(value > -20000 && value < 20000);
                 value
             } else {
-                eval_func(self.board(), lower_bound, upper_bound)
+                let value = eval_func(self.board());
+                assert!(value > -20000 && value < 20000);
+                *static_evaluation = Some(value);
+                value
             }
         } else {
             lower_bound
@@ -543,7 +538,7 @@ impl Position {
                 *searched_nodes += 1;
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
-                                          None,
+                                          &mut None,
                                           recapture_squares ^ dest_square_bb,
                                           ply + 1,
                                           move_stack,
