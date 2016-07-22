@@ -237,6 +237,8 @@ impl<'a> SearchState<'a> {
             // We save the move list in the last possible moment,
             // because most of the nodes are leafs.
             self.moves.save();
+
+            // We always try the hash move first.
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
                 if let Some(m) = self.position.try_move_digest(state.entry.move16()) {
@@ -249,6 +251,9 @@ impl<'a> SearchState<'a> {
         }
 
         if let NodePhase::TriedHashMove = state.phase {
+            // After the hash move, we generate all pseudo-legal
+            // moves. But we should not forget to remove the already
+            // tried hash move from the list.
             self.position.generate_moves(self.moves);
             if state.entry.move16() != 0 {
                 self.moves.remove_move(state.entry.move16());
@@ -256,6 +261,7 @@ impl<'a> SearchState<'a> {
             state.phase = NodePhase::GeneratedMoves;
         }
 
+        // For the last, we spit the generated moves out.
         while let Some(m) = self.moves.remove_best_move() {
             if self.position.do_move(m) {
                 self.played_move = true;
@@ -285,6 +291,7 @@ impl<'a> SearchState<'a> {
 
     #[inline]
     fn new_node(&mut self) -> EntryData {
+        // Consult the transposition table.
         let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
             e
         } else {
