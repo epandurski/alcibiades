@@ -220,8 +220,13 @@ impl<'a> SearchState<'a> {
         &self.position
     }
 
+    #[inline(always)]
+    pub fn node_count(&self) -> NodeCount {
+        self.node_count
+    }
+    
     #[inline]
-    fn node_begin(&mut self) -> EntryData {
+    pub fn node_begin(&mut self) -> EntryData {
         // Consult the transposition table.
         let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
             e
@@ -236,7 +241,7 @@ impl<'a> SearchState<'a> {
     }
 
     #[inline]
-    fn node_end(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
+    pub fn node_end(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         // Store the updated info in the transposition table.
         {
             let entry = &self.state_stack.last().unwrap().entry;
