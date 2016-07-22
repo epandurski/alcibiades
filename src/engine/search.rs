@@ -372,44 +372,46 @@ fn search(state: &mut SearchState,
         }
 
     } else {
-        // On non-leaf nodes, try some moves.
+        // On non-leaf nodes, try moves.
         let mut no_moves_yet = true;
         while let Some(m) = state.do_move() {
             try!(state.report_progress(1));
 
             // Make a recursive call.
             let value = if no_moves_yet {
-                // The first move we analyze with a fully open
-                // window (alpha, beta).
+                // The first move we analyze with a fully open window
+                // (alpha, beta). If this happens to be a good move,
+                // it will probably raise `alpha`.
                 no_moves_yet = false;
                 -try!(search(state, -beta, -alpha, depth - 1))
             } else {
-                // For the next moves we first try to prove that
-                // they are not better than our current best
-                // move. For this purpose we analyze them with a
-                // null window (alpha, alpha + 1). This is faster
-                // than a full window search. Only when we are
-                // certain that the move is better than our
-                // current best move, we do a full-window search.
+                // For the next moves we first try to prove that they
+                // are not better than our current best move. For this
+                // purpose we analyze them with a null window (alpha,
+                // alpha + 1). This is faster than a full window
+                // search. Only if we are certain that the move is
+                // better than our current best move, we do a
+                // full-window search.
                 match -try!(search(state, -alpha - 1, -alpha, depth - 1)) {
                     x if x <= alpha => x,
                     _ => -try!(search(state, -beta, -alpha, depth - 1)),
                 }
             };
-
-            // See how good this move is.
             state.undo_move();
+
+            // See how good this move was.
             if value >= beta {
-                // This move is too good, so that the opponent
-                // will not allow this line of play to
-                // happen. Therefore we can stop here.
+                // This move is so good, that the opponent will
+                // probably not allow this line of play to
+                // happen. Therefore we should not lose any more time
+                // on this position.
                 alpha = beta;
                 bound = BOUND_LOWER;
                 best_move = m;
                 break;
             }
             if value > alpha {
-                // We found ourselves a new best move.
+                // We found a new best move.
                 alpha = value;
                 bound = BOUND_EXACT;
                 best_move = m;
