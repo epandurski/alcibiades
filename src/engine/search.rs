@@ -201,10 +201,12 @@ struct NodeState {
 }
 
 
+const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
+
+
 struct SearchState<'a> {
     tt: &'a TranspositionTable,
     position: Position,
-    played_move: bool,
     moves: &'a mut MoveStack,
     state_stack: Vec<NodeState>,
     node_count: NodeCount,
@@ -219,18 +221,45 @@ impl<'a> SearchState<'a> {
     }
 
     #[inline]
-    pub fn report_nodes(&mut self, n: NodeCount) -> Result<(), TerminatedSearch> {
-        self.node_count += n;
-        if self.node_count > NODE_COUNT_REPORT_INTERVAL {
-            try!((*self.report_func)(self.node_count));
-            self.node_count = 0;
+    fn node_begin(&mut self) -> EntryData {
+        // Consult the transposition table.
+        let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
+            e
+        } else {
+            EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
+        };
+        self.state_stack.push(NodeState {
+            phase: NodePhase::Pristine,
+            entry: entry,
+        });
+        entry
+    }
+
+    #[inline]
+    fn node_end(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
+        // Store the updated info in the transposition table.
+        {
+            let entry = &self.state_stack.last().unwrap().entry;
+            let move16 = match best_move.digest() {
+                0 => entry.move16(),
+                x => x,
+            };
+            self.tt.store(self.position.hash(),
+                          EntryData::new(value, bound, depth, move16, entry.eval_value()));
         }
-        Ok(())
+
+        // Go back to the parent node.
+        if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
+            // For pristine nodes we have not saved the move list
+            // yet, so we should not restore it.
+        } else {
+            self.moves.restore();
+        }
+        self.state_stack.pop();
     }
 
     #[inline]
     pub fn do_move(&mut self) -> Option<Move> {
-        assert!(!self.played_move);
         let state = self.state_stack.last_mut().unwrap();
 
         if let NodePhase::Pristine = state.phase {
@@ -243,7 +272,6 @@ impl<'a> SearchState<'a> {
             if state.entry.move16() != 0 {
                 if let Some(m) = self.position.try_move_digest(state.entry.move16()) {
                     if self.position.do_move(m) {
-                        self.played_move = true;
                         return Some(m);
                     }
                 }
@@ -264,7 +292,6 @@ impl<'a> SearchState<'a> {
         // For the last, we spit the generated moves out.
         while let Some(m) = self.moves.remove_best_move() {
             if self.position.do_move(m) {
-                self.played_move = true;
                 return Some(m);
             }
         }
@@ -274,34 +301,16 @@ impl<'a> SearchState<'a> {
     #[inline]
     pub fn undo_move(&mut self) {
         self.position.undo_move();
-        if self.played_move {
-            // We do not leave the current node.
-            self.played_move = false;
-        } else {
-            // We go back to the parent node.
-            if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
-                // For pristine nodes we have not saved the move list
-                // yet, so we should not restore it.
-            } else {
-                self.moves.restore();
-            }
-            self.state_stack.pop();
-        }
     }
 
     #[inline]
-    fn new_node(&mut self) -> EntryData {
-        // Consult the transposition table.
-        let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
-            e
-        } else {
-            EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
-        };
-        self.state_stack.push(NodeState {
-            phase: NodePhase::Pristine,
-            entry: entry,
-        });
-        entry
+    pub fn report_progress(&mut self, new_nodes: NodeCount) -> Result<(), TerminatedSearch> {
+        self.node_count += new_nodes;
+        if self.node_count > NODE_COUNT_REPORT_INTERVAL {
+            try!((*self.report_func)(self.node_count));
+            self.node_count = 0;
+        }
+        Ok(())
     }
 }
 
@@ -444,9 +453,6 @@ fn search(tt: &TranspositionTable,
              EntryData::new(alpha, bound_type, depth, best_move.digest(), eval_value));
     Ok(alpha)
 }
-
-
-const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 #[cfg(test)]
