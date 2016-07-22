@@ -265,16 +265,20 @@ impl<'a> SearchState<'a> {
 
     #[inline]
     pub fn undo_move(&mut self) {
+        self.position.undo_move();
         if self.played_move {
+            // We do not leave the current node.
             self.played_move = false;
         } else {
+            // We go back to the parent node.
             if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
+                // For pristine nodes we have not saved the move list
+                // yet, so we should not restore it.
             } else {
                 self.moves.restore();
             }
             self.state_stack.pop();
         }
-        self.position.undo_move();
     }
 
     #[inline]
