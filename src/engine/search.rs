@@ -188,16 +188,15 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 struct TerminatedSearch;
 
 
-enum Phase {
+enum NodePhase {
     Pristine,
     TriedHashMove,
     GeneratedMoves,
-    SortedMoves,
 }
 
 
 struct NodeState {
-    phase: Phase,
+    phase: NodePhase,
     entry: EntryData,
 }
 
@@ -231,14 +230,12 @@ impl<'a> SearchState<'a> {
 
     #[inline]
     pub fn do_move(&mut self) -> Option<Move> {
-        if self.played_move {
-            self.new_node();
-        }
+        assert!(!self.played_move);
         let state = self.state_stack.last_mut().unwrap();
-        
-        if let Phase::Pristine = state.phase {
+
+        if let NodePhase::Pristine = state.phase {
             self.moves.save();
-            state.phase = Phase::TriedHashMove;
+            state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
                 if let Some(m) = self.position.try_move_digest(state.entry.move16()) {
                     if self.position.do_move(m) {
@@ -248,13 +245,13 @@ impl<'a> SearchState<'a> {
                 }
             }
         }
-        
-        if let Phase::TriedHashMove = state.phase {
+
+        if let NodePhase::TriedHashMove = state.phase {
             self.position.generate_moves(self.moves);
             if state.entry.move16() != 0 {
                 self.moves.remove_move(state.entry.move16());
             }
-            state.phase = Phase::GeneratedMoves;
+            state.phase = NodePhase::GeneratedMoves;
         }
 
         while let Some(m) = self.moves.remove_best_move() {
@@ -271,23 +268,27 @@ impl<'a> SearchState<'a> {
         if self.played_move {
             self.played_move = false;
         } else {
+            if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
+            } else {
+                self.moves.restore();
+            }
             self.state_stack.pop();
-            self.moves.restore();
         }
         self.position.undo_move();
     }
 
     #[inline]
-    fn new_node(&mut self) {
+    fn new_node(&mut self) -> EntryData {
         let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
             e
         } else {
             EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
         };
         self.state_stack.push(NodeState {
-            phase: Phase::Pristine,
+            phase: NodePhase::Pristine,
             entry: entry,
         });
+        entry
     }
 }
 
