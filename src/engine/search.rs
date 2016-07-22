@@ -343,7 +343,7 @@ fn search(state: &mut SearchState,
 
     let entry = state.node_begin();
 
-    // Check if the TT entry gives the results.
+    // Check if the TT entry gives the result.
     if entry.depth() >= depth {
         let value = entry.value();
         let bound = entry.bound();
@@ -355,7 +355,7 @@ fn search(state: &mut SearchState,
     }
 
     // Initial guests for the final result.
-    let mut bound_type = BOUND_UPPER;
+    let mut bound = BOUND_UPPER;
     let mut best_move = Move::invalid();
 
     if depth == 0 {
@@ -365,17 +365,15 @@ fn search(state: &mut SearchState,
         try!(state.report_progress(nodes));
         if value >= beta {
             alpha = beta;
-            bound_type = BOUND_LOWER;
+            bound = BOUND_LOWER;
         } else if value > alpha {
             alpha = value;
-            bound_type = BOUND_EXACT;
+            bound = BOUND_EXACT;
         }
 
     } else {
-        // On non-leaf nodes, try moves and make recursive calls.
+        // On non-leaf nodes, try some moves.
         let mut no_moves_yet = true;
-
-        // Try some moves.
         while let Some(m) = state.do_move() {
             try!(state.report_progress(1));
 
@@ -383,6 +381,7 @@ fn search(state: &mut SearchState,
             let value = if no_moves_yet {
                 // The first move we analyze with a fully open
                 // window (alpha, beta).
+                no_moves_yet = false;
                 -try!(search(state, -beta, -alpha, depth - 1))
             } else {
                 // For the next moves we first try to prove that
@@ -400,34 +399,31 @@ fn search(state: &mut SearchState,
 
             // See how good this move is.
             state.undo_move();
-            no_moves_yet = false;
             if value >= beta {
                 // This move is too good, so that the opponent
                 // will not allow this line of play to
                 // happen. Therefore we can stop here.
                 alpha = beta;
-                bound_type = BOUND_LOWER;
+                bound = BOUND_LOWER;
                 best_move = m;
                 break;
             }
             if value > alpha {
                 // We found ourselves a new best move.
                 alpha = value;
-                bound_type = BOUND_EXACT;
+                bound = BOUND_EXACT;
                 best_move = m;
             }
         }
 
-        // Check if we are in a final position (no legal moves). Then
-        // we are done.
+        // Check if we are in a final position (no legal moves).
         if no_moves_yet {
-            // Final positions we can evaluate 100% correctly.
             alpha = state.position.evaluate_final();
-            bound_type = BOUND_EXACT;
+            bound = BOUND_EXACT;
         }
     }
 
-    state.node_store(alpha, bound_type, depth, best_move);
+    state.node_store(alpha, bound, depth, best_move);
     state.node_end();
     Ok(alpha)
 }
