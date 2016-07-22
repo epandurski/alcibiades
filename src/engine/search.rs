@@ -234,6 +234,8 @@ impl<'a> SearchState<'a> {
         let state = self.state_stack.last_mut().unwrap();
 
         if let NodePhase::Pristine = state.phase {
+            // We save the move list in the last possible moment,
+            // because most of the nodes are leafs.
             self.moves.save();
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
