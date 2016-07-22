@@ -188,19 +188,26 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 struct TerminatedSearch;
 
 
-enum NodeState {
+enum Phase {
     Pristine,
+    TriedHashMove,
     GeneratedMoves,
-    PlayedMove,
+    SortedMoves,
+}
+
+
+struct NodeState {
+    phase: Phase,
+    entry: EntryData,
 }
 
 
 struct SearchState<'a> {
     tt: &'a TranspositionTable,
     position: Position,
+    played_move: bool,
     moves: &'a mut MoveStack,
-    move16: MoveDigest,
-    state: NodeState,
+    state_stack: Vec<NodeState>,
     node_count: NodeCount,
     report_func: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
 }
@@ -224,31 +231,35 @@ impl<'a> SearchState<'a> {
 
     #[inline]
     pub fn do_move(&mut self) -> Option<Move> {
-        if let NodeState::PlayedMove = self.state {
-            // After calling `new_node()`, the state is `Pristine`.
+        if self.played_move {
             self.new_node();
         }
-
-        if let NodeState::Pristine = self.state {
-            if self.move16 != 0 {
-                if let Some(m) = self.position.try_move_digest(self.move16) {
+        let state = self.state_stack.last_mut().unwrap();
+        
+        if let Phase::Pristine = state.phase {
+            self.moves.save();
+            state.phase = Phase::TriedHashMove;
+            if state.entry.move16() != 0 {
+                if let Some(m) = self.position.try_move_digest(state.entry.move16()) {
                     if self.position.do_move(m) {
-                        self.state = NodeState::PlayedMove;
+                        self.played_move = true;
                         return Some(m);
                     }
                 }
             }
+        }
+        
+        if let Phase::TriedHashMove = state.phase {
             self.position.generate_moves(self.moves);
-            if self.move16 != 0 {
-                self.moves.remove_move(self.move16);
+            if state.entry.move16() != 0 {
+                self.moves.remove_move(state.entry.move16());
             }
-            self.state = NodeState::GeneratedMoves;
+            state.phase = Phase::GeneratedMoves;
         }
 
-        // The state is `GeneratedMoves` here.
-        if let Some(m) = self.moves.remove_best_move() {
+        while let Some(m) = self.moves.remove_best_move() {
             if self.position.do_move(m) {
-                self.state = NodeState::PlayedMove;
+                self.played_move = true;
                 return Some(m);
             }
         }
@@ -257,12 +268,27 @@ impl<'a> SearchState<'a> {
 
     #[inline]
     pub fn undo_move(&mut self) {
-        self.state = NodeState::GeneratedMoves;
+        if self.played_move {
+            self.played_move = false;
+        } else {
+            self.state_stack.pop();
+            self.moves.restore();
+        }
         self.position.undo_move();
     }
 
     #[inline]
-    fn new_node(&mut self) {}
+    fn new_node(&mut self) {
+        let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
+            e
+        } else {
+            EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
+        };
+        self.state_stack.push(NodeState {
+            phase: Phase::Pristine,
+            entry: entry,
+        });
+    }
 }
 
 
