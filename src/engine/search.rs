@@ -139,7 +139,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                         tt: &tt,
                         position: position,
                         moves: move_stack,
-                        state_stack: vec![],
+                        state_stack: Vec::with_capacity(32),
                         reported_nodes: 0,
                         unreported_nodes: 0,
                         report_func: &mut |n| {
