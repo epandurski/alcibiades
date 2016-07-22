@@ -880,7 +880,7 @@ mod tests {
     // This is a very simple evaluation function used for the testing
     // of `qsearch`.
     #[allow(unused_variables)]
-    fn simple_eval(board: &Board, lower_bound: Value, upper_bound: Value) -> Value {
+    fn simple_eval(board: &Board) -> Value {
         use basetypes::*;
         use bitsets::*;
         let piece_type = board.piece_type();
@@ -961,7 +961,7 @@ mod tests {
         assert!(Position::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
                     .ok()
                     .unwrap()
-                    .evaluate_static(-1000, 1000) < -20);
+                    .evaluate_static() < -20);
     }
 
     #[test]
