@@ -363,6 +363,8 @@ fn search(state: &mut SearchState,
         let (value, nodes) = state.position()
                                   .evaluate_quiescence(alpha, beta, Some(entry.eval_value()));
         try!(state.report_progress(nodes));
+
+        // See how good this position is.
         if value >= beta {
             alpha = beta;
             bound = BOUND_LOWER;
