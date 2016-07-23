@@ -174,8 +174,8 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 }
 
 
-// Represents a terminated search condition.
-struct TerminatedSearch;
+/// Represents a terminated search condition.
+pub struct TerminatedSearch;
 
 
 enum NodePhase {
@@ -194,7 +194,7 @@ struct NodeState {
 const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
-struct Search<'a> {
+pub struct Search<'a> {
     tt: &'a TranspositionTable,
     position: Position,
     moves: &'a mut MoveStack,
@@ -207,11 +207,12 @@ struct Search<'a> {
 
 
 impl<'a> Search<'a> {
-    fn new(tt: &'a TranspositionTable,
-           position: Position,
-           moves: &'a mut MoveStack,
-           report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
-           -> Search<'a> {
+    /// Creates a new instance.
+    pub fn new(tt: &'a TranspositionTable,
+               position: Position,
+               moves: &'a mut MoveStack,
+               report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
+               -> Search<'a> {
         let moves_starting_ply = moves.ply();
         Search {
             tt: tt,
@@ -225,14 +226,17 @@ impl<'a> Search<'a> {
         }
     }
 
-    // Helper function for `run()`. It implements the principal variation
-    // search algorithm. When returning `Err(TerminatedSearch)`, this
-    // function may leave un-restored move lists in `moves`.
-    fn run(&mut self,
-           mut alpha: Value, // lower bound
-           beta: Value, // upper bound
-           depth: u8)
-           -> Result<Value, TerminatedSearch> {
+    /// Performs a principal variation search and returns a result.
+    ///
+    /// **Important note**: This method may leave un-restored move
+    /// lists in the move stack. Call `reset` if you want the move
+    /// stack to be restored to the state it had when the search
+    /// instance was created.
+    pub fn run(&mut self,
+               mut alpha: Value, // lower bound
+               beta: Value, // upper bound
+               depth: u8)
+               -> Result<Value, TerminatedSearch> {
         assert!(alpha < beta);
 
         let entry = self.node_begin();
@@ -326,11 +330,28 @@ impl<'a> Search<'a> {
         Ok(alpha)
     }
 
+    /// Returns the number of searched positions.
     #[inline(always)]
     pub fn node_count(&self) -> NodeCount {
         self.reported_nodes + self.unreported_nodes
     }
 
+    /// Resets the instance to the state it had when it was created.
+    #[inline]
+    pub fn reset(&mut self) {
+        while self.moves.ply() > self.moves_starting_ply {
+            self.moves.restore();
+        }
+        self.state_stack.clear();
+        self.reported_nodes = 0;
+        self.unreported_nodes = 0;
+    }
+
+    // Declares that we are starting to process a new node.
+    //
+    // Each recursive call to `run` begins with a call to
+    // `node_begin`. The returned value is a TT entry telling
+    // everything we know about the current position.
     #[inline]
     fn node_begin(&mut self) -> EntryData {
         // Consult the transposition table.
@@ -346,7 +367,9 @@ impl<'a> Search<'a> {
         entry
     }
 
-    // Go back to the parent node.
+    // Declares that we are done processing the current node.
+    //
+    // Each recursive call to `run` ends with a call to `node_end`.
     #[inline]
     fn node_end(&mut self) {
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
@@ -358,12 +381,21 @@ impl<'a> Search<'a> {
         self.state_stack.pop();
     }
 
+    // Plays the next legal move in the current position and returns
+    // it.
+    //
+    // Each call to `do_move` for the same position will play and
+    // return a different move. When all legal moves has been played,
+    // `None` will be returned. `do_move` will do whatever it can to
+    // play the best moves first, and the worst last. It will also try
+    // to be efficient, for example it will generate the list of all
+    // pseudo-legal moves at the last possible moment.
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
         let state = self.state_stack.last_mut().unwrap();
 
         if let NodePhase::Pristine = state.phase {
-            // We save the move list in the last possible moment,
+            // We save the move list at the last possible moment,
             // because most of the nodes are leafs.
             self.moves.save();
 
@@ -398,12 +430,13 @@ impl<'a> Search<'a> {
         None
     }
 
+    // Takes the last played move back.
     #[inline]
     fn undo_move(&mut self) {
         self.position.undo_move();
     }
 
-    // Store the updated info in the transposition table.
+    // Stores updated node information in the transposition table.
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
@@ -415,9 +448,11 @@ impl<'a> Search<'a> {
                       EntryData::new(value, bound, depth, move16, entry.eval_value()));
     }
 
-    // From time to time, we report how many nodes had been searched
-    // since the last report. This also gives an opportunity for the
-    // search to be terminated.
+    // Reports search progress.
+    //
+    // From time to time, we should report how many nodes had been
+    // searched since the beginning of the search. This also gives an
+    // opportunity for the search to be terminated.
     #[inline]
     fn report_progress(&mut self, new_nodes: NodeCount) -> Result<(), TerminatedSearch> {
         self.unreported_nodes += new_nodes;
@@ -427,16 +462,6 @@ impl<'a> Search<'a> {
             try!((*self.report_function)(self.reported_nodes));
         }
         Ok(())
-    }
-
-    #[inline]
-    pub fn reset(&mut self) {
-        while self.moves.ply() > self.moves_starting_ply {
-            self.moves.restore();
-        }
-        self.state_stack.clear();
-        self.reported_nodes = 0;
-        self.unreported_nodes = 0;
     }
 }
 
