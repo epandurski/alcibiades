@@ -198,6 +198,7 @@ struct Search<'a> {
     tt: &'a TranspositionTable,
     position: Position,
     moves: &'a mut MoveStack,
+    moves_starting_ply: usize,
     state_stack: Vec<NodeState>,
     reported_nodes: NodeCount,
     unreported_nodes: NodeCount,
@@ -211,10 +212,12 @@ impl<'a> Search<'a> {
            moves: &'a mut MoveStack,
            report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
            -> Search<'a> {
+        let moves_starting_ply = moves.ply();
         Search {
             tt: tt,
             position: position,
             moves: moves,
+            moves_starting_ply: moves_starting_ply,
             state_stack: Vec::with_capacity(32),
             reported_nodes: 0,
             unreported_nodes: 0,
@@ -428,7 +431,9 @@ impl<'a> Search<'a> {
 
     #[inline]
     pub fn reset(&mut self) {
-        self.moves.clear();
+        while self.moves.ply() > self.moves_starting_ply {
+            self.moves.restore();
+        }
         self.state_stack.clear();
         self.reported_nodes = 0;
         self.unreported_nodes = 0;

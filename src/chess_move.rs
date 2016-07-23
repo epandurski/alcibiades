@@ -358,7 +358,7 @@ impl MoveStack {
             first_move_index: 0,
         }
     }
-
+    
     /// Clears the stack of states, removing all saved move lists.
     #[inline]
     pub fn clear(&mut self) {
@@ -386,6 +386,15 @@ impl MoveStack {
     pub fn restore(&mut self) {
         self.moves.truncate(self.first_move_index);
         self.first_move_index = self.savepoints.pop().unwrap();
+    }
+
+    /// Returns the number of saved move lists.
+    ///
+    /// The number of saved move lists is incremented on each call to
+    /// `save`, and decremented on each call to `restore`.
+    #[inline]
+    pub fn ply(&self) -> usize {
+        self.savepoints.len()
     }
 
     /// Returns the length of the current move list.
