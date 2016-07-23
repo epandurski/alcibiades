@@ -390,8 +390,9 @@ impl MoveStack {
 
     /// Returns the number of saved move lists.
     ///
-    /// The number of saved move lists is incremented on each call to
-    /// `save`, and decremented on each call to `restore`.
+    /// The number of saved move lists starts at zero. It is
+    /// incremented on each call to `save`, and decremented on each
+    /// call to `restore`.
     #[inline]
     pub fn ply(&self) -> usize {
         self.savepoints.len()

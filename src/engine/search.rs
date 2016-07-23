@@ -215,14 +215,14 @@ impl<'a> Search<'a> {
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
                tt: &'a TranspositionTable,
-               moves: &'a mut MoveStack,
+               move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
-        let moves_starting_ply = moves.ply();
+        let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
             position: root,
-            moves: moves,
+            moves: move_stack,
             moves_starting_ply: moves_starting_ply,
             state_stack: Vec::with_capacity(32),
             reported_nodes: 0,
