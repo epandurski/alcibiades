@@ -231,7 +231,25 @@ impl<'a> Search<'a> {
         }
     }
 
-    /// Performs a principal variation search and returns a result.
+    /// Performs a principal variation search (PVS) and returns a
+    /// result.
+    ///
+    /// The alpha-beta algorithm is a significant enhancement to the
+    /// minimax search algorithm that eliminates the need to search
+    /// large portions of the game tree applying a branch-and-bound
+    /// technique. Remarkably, it does this without any potential of
+    /// overlooking a better move. If one already has found a quite
+    /// good move and search for alternatives, one refutation is
+    /// enough to avoid it. No need to look for even stronger
+    /// refutations. The algorithm maintains two values, alpha and
+    /// beta. They represent the minimum score that the maximizing
+    /// player is assured of and the maximum score that the minimizing
+    /// player is assured of respectively. PVS is an enhancement to
+    /// the alpha-beta search, based on zero (null) window searches of
+    /// none PV-nodes, to prove a move is worse or not than an already
+    /// safe score from the principal variation. (The principal
+    /// variation (PV) is a sequence of moves that the program
+    /// considers best and therefore expects to be played.)
     ///
     /// **Important note**: This method may leave un-restored move
     /// lists in the move stack. Call `reset` if you want the move
