@@ -150,7 +150,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                             _ => Ok(()),
                         }
                     };
-                    let mut search = Search::new(&tt, position, move_stack, &mut report);
+                    let mut search = Search::new(position, &tt, move_stack, &mut report);
                     let value = search.run(lower_bound, upper_bound, depth).ok();
                     reports.send(Report::Progress {
                                search_id: search_id,
@@ -208,15 +208,15 @@ pub struct Search<'a> {
 
 impl<'a> Search<'a> {
     /// Creates a new instance.
-    pub fn new(tt: &'a TranspositionTable,
-               position: Position,
+    pub fn new(p: Position,
+               tt: &'a TranspositionTable,
                moves: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
                -> Search<'a> {
         let moves_starting_ply = moves.ply();
         Search {
             tt: tt,
-            position: position,
+            position: p,
             moves: moves,
             moves_starting_ply: moves_starting_ply,
             state_stack: Vec::with_capacity(32),
@@ -479,7 +479,7 @@ mod tests {
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
         let mut report = |_| Ok(());
-        let mut search = Search::new(&tt, p, &mut moves, &mut report);
+        let mut search = Search::new(p, &tt, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2)
                           .ok()
                           .unwrap();
