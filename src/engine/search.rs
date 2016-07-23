@@ -142,12 +142,11 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                                    depth: depth,
                                })
                                .ok();
-                        match commands.try_recv() {
-                            Ok(x) => {
-                                pending_command = Some(x);
-                                Err(TerminatedSearch)
-                            }
-                            _ => Ok(()),
+                        if let Ok(cmd) = commands.try_recv() {
+                            pending_command = Some(cmd);
+                            true
+                        } else {
+                            false
                         }
                     };
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
@@ -202,7 +201,7 @@ pub struct Search<'a> {
     state_stack: Vec<NodeState>,
     reported_nodes: NodeCount,
     unreported_nodes: NodeCount,
-    report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
+    report_function: &'a mut FnMut(NodeCount) -> bool,
 }
 
 
@@ -211,11 +210,13 @@ impl<'a> Search<'a> {
     ///
     /// `report_function` should be a function that registers the
     /// search progress. It will be called with the number of searched
-    /// positions from the beginning of the search to this moment.
+    /// positions from the beginning of the search to this moment. The
+    /// function should return `true` if the search should be
+    /// terminated, otherwise it should return `false`.
     pub fn new(p: Position,
                tt: &'a TranspositionTable,
                moves: &'a mut MoveStack,
-               report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
+               report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
         let moves_starting_ply = moves.ply();
         Search {
@@ -463,7 +464,9 @@ impl<'a> Search<'a> {
         if self.unreported_nodes > NODE_COUNT_REPORT_INTERVAL {
             self.reported_nodes += self.unreported_nodes;
             self.unreported_nodes = 0;
-            try!((*self.report_function)(self.reported_nodes));
+            if (*self.report_function)(self.reported_nodes) {
+                return Err(TerminatedSearch);
+            }
         }
         Ok(())
     }
@@ -482,7 +485,7 @@ mod tests {
         let p = Position::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1").ok().unwrap();
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
-        let mut report = |_| Ok(());
+        let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2)
                           .ok()
