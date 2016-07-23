@@ -17,6 +17,11 @@ use tt::*;
 const VERSION: &'static str = "0.1";
 const MAX_DEPTH: u8 = 126;
 
+// The number of nodes that can be searched without reporting search
+// progress. If this value is too small the engine may become slow, if
+// this value is too big the engine may become unresponsive.
+const NODE_COUNT_REPORT_INTERVAL: NodeCount = 50000;
+
 
 /// Implements `UciEngine` trait.
 pub struct Engine {
@@ -94,6 +99,9 @@ impl Engine {
     // sure that a new PV is sent to the GUI for every newly reached
     // depth.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
+        if searched_nodes < NODE_COUNT_REPORT_INTERVAL || depth == 0 {
+            return;
+        }
         let thinking_duration = self.thinking_since.elapsed().unwrap();
         self.searched_time = 1000 * thinking_duration.as_secs() +
                              (thinking_duration.subsec_nanos() / 1000000) as u64;
@@ -102,18 +110,12 @@ impl Engine {
         if self.current_depth < depth {
             self.current_depth = depth;
             self.report_pv(depth);
-            if !self.mangled_pv {
-                self.report_progress();
-            }
         }
     }
 
     // A helper method. It extracts the primary variation (PV) from
     // the transposition table (TT) and sends it to the GUI.
     fn report_pv(&mut self, depth: u8) {
-        if depth == 0 {
-            return;
-        }
         let mut prev_move = None;
         let mut p = self.position.clone();
 
