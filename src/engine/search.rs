@@ -193,6 +193,7 @@ struct NodeState {
 const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
+/// Represents a game tree search.        
 pub struct Search<'a> {
     tt: &'a TranspositionTable,
     position: Position,
