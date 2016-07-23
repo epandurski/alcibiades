@@ -213,7 +213,7 @@ impl<'a> Search<'a> {
     /// positions from the beginning of the search to this moment. The
     /// function should return `true` if the search should be
     /// terminated, otherwise it should return `false`.
-    pub fn new(p: Position,
+    pub fn new(root: Position,
                tt: &'a TranspositionTable,
                moves: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
@@ -221,7 +221,7 @@ impl<'a> Search<'a> {
         let moves_starting_ply = moves.ply();
         Search {
             tt: tt,
-            position: p,
+            position: root,
             moves: moves,
             moves_starting_ply: moves_starting_ply,
             state_stack: Vec::with_capacity(32),
