@@ -135,43 +135,36 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 
             match command {
                 Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                    let mut state = SearchState {
-                        tt: &tt,
-                        position: position,
-                        moves: move_stack,
-                        state_stack: Vec::with_capacity(32),
-                        reported_nodes: 0,
-                        unreported_nodes: 0,
-                        report_func: &mut |n| {
-                            reports.send(Report::Progress {
-                                       search_id: search_id,
-                                       searched_nodes: n,
-                                       depth: depth,
-                                   })
-                                   .ok();
-                            match commands.try_recv() {
-                                Ok(x) => {
-                                    pending_command = Some(x);
-                                    Err(TerminatedSearch)
-                                }
-                                _ => Ok(()),
+                    let report_func = &mut |n| {
+                        reports.send(Report::Progress {
+                                   search_id: search_id,
+                                   searched_nodes: n,
+                                   depth: depth,
+                               })
+                               .ok();
+                        match commands.try_recv() {
+                            Ok(x) => {
+                                pending_command = Some(x);
+                                Err(TerminatedSearch)
                             }
-                        },
+                            _ => Ok(()),
+                        }
                     };
-                    let value = search(&mut state, lower_bound, upper_bound, depth).ok();
+                    let mut search = Search::new(&tt, position, move_stack, report_func);
+                    let value = search.run(lower_bound, upper_bound, depth).ok();
                     reports.send(Report::Progress {
                                search_id: search_id,
-                               searched_nodes: state.node_count(),
+                               searched_nodes: search.node_count(),
                                depth: depth,
                            })
                            .ok();
                     reports.send(Report::Done {
                                search_id: search_id,
-                               searched_nodes: state.node_count(),
+                               searched_nodes: search.node_count(),
                                value: value,
                            })
                            .ok();
-                    state.clear();
+                    search.reset();
                 }
                 Command::Stop => continue,
                 Command::Exit => break,
@@ -201,7 +194,7 @@ struct NodeState {
 const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
-struct SearchState<'a> {
+struct Search<'a> {
     tt: &'a TranspositionTable,
     position: Position,
     moves: &'a mut MoveStack,
@@ -212,10 +205,122 @@ struct SearchState<'a> {
 }
 
 
-impl<'a> SearchState<'a> {
-    #[inline(always)]
-    pub fn position(&self) -> &Position {
-        &self.position
+impl<'a> Search<'a> {
+    fn new(tt: &'a TranspositionTable,
+           position: Position,
+           moves: &'a mut MoveStack,
+           report_func: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
+           -> Search<'a> {
+        Search {
+            tt: tt,
+            position: position,
+            moves: moves,
+            state_stack: Vec::with_capacity(32),
+            reported_nodes: 0,
+            unreported_nodes: 0,
+            report_func: report_func,
+        }
+    }
+
+    // Helper function for `run()`. It implements the principal variation
+    // search algorithm. When returning `Err(TerminatedSearch)`, this
+    // function may leave un-restored move lists in `moves`.
+    fn run(&mut self,
+           mut alpha: Value, // lower bound
+           beta: Value, // upper bound
+           depth: u8)
+           -> Result<Value, TerminatedSearch> {
+        assert!(alpha < beta);
+
+        let entry = self.node_begin();
+
+        // Check if the TT entry gives the result.
+        if entry.depth() >= depth {
+            let value = entry.value();
+            let bound = entry.bound();
+            if (value >= beta && bound == BOUND_LOWER) ||
+               (value <= alpha && bound == BOUND_UPPER) || (bound == BOUND_EXACT) {
+                self.node_end();
+                return Ok(value);
+            }
+        }
+
+        // Initial guests for the final result.
+        let mut bound = BOUND_UPPER;
+        let mut best_move = Move::invalid();
+
+        if depth == 0 {
+            // On leaf nodes, do quiescence search.
+            let (value, nodes) = self.position
+                                     .evaluate_quiescence(alpha, beta, Some(entry.eval_value()));
+            try!(self.report_progress(nodes));
+
+            // See how good this position is.
+            if value >= beta {
+                alpha = beta;
+                bound = BOUND_LOWER;
+            } else if value > alpha {
+                alpha = value;
+                bound = BOUND_EXACT;
+            }
+
+        } else {
+            // On non-leaf nodes, try moves.
+            let mut no_moves_yet = true;
+            while let Some(m) = self.do_move() {
+                try!(self.report_progress(1));
+
+                // Make a recursive call.
+                let value = if no_moves_yet {
+                    // The first move we analyze with a fully open window
+                    // (alpha, beta). If this happens to be a good move,
+                    // it will probably raise `alpha`.
+                    no_moves_yet = false;
+                    -try!(self.run(-beta, -alpha, depth - 1))
+                } else {
+                    // For the next moves we first try to prove that they
+                    // are not better than our current best move. For this
+                    // purpose we analyze them with a null window (alpha,
+                    // alpha + 1). This is faster than a full window
+                    // search. Only if we are certain that the move is
+                    // better than our current best move, we do a
+                    // full-window search.
+                    match -try!(self.run(-alpha - 1, -alpha, depth - 1)) {
+                        x if x <= alpha => x,
+                        _ => -try!(self.run(-beta, -alpha, depth - 1)),
+                    }
+                };
+                self.undo_move();
+
+                // See how good this move was.
+                if value >= beta {
+                    // This move is so good, that the opponent will
+                    // probably not allow this line of play to
+                    // happen. Therefore we should not lose any more time
+                    // on this position.
+                    alpha = beta;
+                    bound = BOUND_LOWER;
+                    best_move = m;
+                    break;
+                }
+                if value > alpha {
+                    // We found a new best move.
+                    alpha = value;
+                    bound = BOUND_EXACT;
+                    best_move = m;
+                }
+            }
+
+            // Check if we are in a final position (no legal moves).
+            if no_moves_yet {
+                alpha = self.position.evaluate_final();
+                bound = BOUND_EXACT;
+            }
+        }
+
+        self.store(alpha, bound, depth, best_move);
+        self.node_end();
+        Ok(alpha)
     }
 
     #[inline(always)]
@@ -224,7 +329,7 @@ impl<'a> SearchState<'a> {
     }
 
     #[inline]
-    pub fn node_begin(&mut self) -> EntryData {
+    fn node_begin(&mut self) -> EntryData {
         // Consult the transposition table.
         let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
             e
@@ -238,21 +343,9 @@ impl<'a> SearchState<'a> {
         entry
     }
 
-    // Store the updated info in the transposition table.
-    #[inline]
-    pub fn node_store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
-        let entry = &self.state_stack.last().unwrap().entry;
-        let move16 = match best_move.digest() {
-            0 => entry.move16(),
-            x => x,
-        };
-        self.tt.store(self.position.hash(),
-                      EntryData::new(value, bound, depth, move16, entry.eval_value()));
-    }
-
     // Go back to the parent node.
     #[inline]
-    pub fn node_end(&mut self) {
+    fn node_end(&mut self) {
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved the move list
             // yet, so we should not restore it.
@@ -263,7 +356,7 @@ impl<'a> SearchState<'a> {
     }
 
     #[inline]
-    pub fn do_move(&mut self) -> Option<Move> {
+    fn do_move(&mut self) -> Option<Move> {
         let state = self.state_stack.last_mut().unwrap();
 
         if let NodePhase::Pristine = state.phase {
@@ -303,15 +396,27 @@ impl<'a> SearchState<'a> {
     }
 
     #[inline]
-    pub fn undo_move(&mut self) {
+    fn undo_move(&mut self) {
         self.position.undo_move();
+    }
+
+    // Store the updated info in the transposition table.
+    #[inline]
+    fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
+        let entry = &self.state_stack.last().unwrap().entry;
+        let move16 = match best_move.digest() {
+            0 => entry.move16(),
+            x => x,
+        };
+        self.tt.store(self.position.hash(),
+                      EntryData::new(value, bound, depth, move16, entry.eval_value()));
     }
 
     // From time to time, we report how many nodes had been searched
     // since the last report. This also gives an opportunity for the
     // search to be terminated.
     #[inline]
-    pub fn report_progress(&mut self, new_nodes: NodeCount) -> Result<(), TerminatedSearch> {
+    fn report_progress(&mut self, new_nodes: NodeCount) -> Result<(), TerminatedSearch> {
         self.unreported_nodes += new_nodes;
         if self.unreported_nodes > NODE_COUNT_REPORT_INTERVAL {
             self.reported_nodes += self.unreported_nodes;
@@ -322,7 +427,7 @@ impl<'a> SearchState<'a> {
     }
 
     #[inline]
-    pub fn clear(&mut self) {
+    pub fn reset(&mut self) {
         self.moves.clear();
         self.state_stack.clear();
         self.reported_nodes = 0;
@@ -331,111 +436,9 @@ impl<'a> SearchState<'a> {
 }
 
 
-// Helper function for `run()`. It implements the principal variation
-// search algorithm. When returning `Err(TerminatedSearch)`, this
-// function may leave un-restored move lists in `moves`.
-fn search(state: &mut SearchState,
-          mut alpha: Value, // lower bound
-          beta: Value, // upper bound
-          depth: u8)
-          -> Result<Value, TerminatedSearch> {
-    assert!(alpha < beta);
-
-    let entry = state.node_begin();
-
-    // Check if the TT entry gives the result.
-    if entry.depth() >= depth {
-        let value = entry.value();
-        let bound = entry.bound();
-        if (value >= beta && bound == BOUND_LOWER) || (value <= alpha && bound == BOUND_UPPER) ||
-           (bound == BOUND_EXACT) {
-            state.node_end();
-            return Ok(value);
-        }
-    }
-
-    // Initial guests for the final result.
-    let mut bound = BOUND_UPPER;
-    let mut best_move = Move::invalid();
-
-    if depth == 0 {
-        // On leaf nodes, do quiescence search.
-        let (value, nodes) = state.position()
-                                  .evaluate_quiescence(alpha, beta, Some(entry.eval_value()));
-        try!(state.report_progress(nodes));
-
-        // See how good this position is.
-        if value >= beta {
-            alpha = beta;
-            bound = BOUND_LOWER;
-        } else if value > alpha {
-            alpha = value;
-            bound = BOUND_EXACT;
-        }
-
-    } else {
-        // On non-leaf nodes, try moves.
-        let mut no_moves_yet = true;
-        while let Some(m) = state.do_move() {
-            try!(state.report_progress(1));
-
-            // Make a recursive call.
-            let value = if no_moves_yet {
-                // The first move we analyze with a fully open window
-                // (alpha, beta). If this happens to be a good move,
-                // it will probably raise `alpha`.
-                no_moves_yet = false;
-                -try!(search(state, -beta, -alpha, depth - 1))
-            } else {
-                // For the next moves we first try to prove that they
-                // are not better than our current best move. For this
-                // purpose we analyze them with a null window (alpha,
-                // alpha + 1). This is faster than a full window
-                // search. Only if we are certain that the move is
-                // better than our current best move, we do a
-                // full-window search.
-                match -try!(search(state, -alpha - 1, -alpha, depth - 1)) {
-                    x if x <= alpha => x,
-                    _ => -try!(search(state, -beta, -alpha, depth - 1)),
-                }
-            };
-            state.undo_move();
-
-            // See how good this move was.
-            if value >= beta {
-                // This move is so good, that the opponent will
-                // probably not allow this line of play to
-                // happen. Therefore we should not lose any more time
-                // on this position.
-                alpha = beta;
-                bound = BOUND_LOWER;
-                best_move = m;
-                break;
-            }
-            if value > alpha {
-                // We found a new best move.
-                alpha = value;
-                bound = BOUND_EXACT;
-                best_move = m;
-            }
-        }
-
-        // Check if we are in a final position (no legal moves).
-        if no_moves_yet {
-            alpha = state.position.evaluate_final();
-            bound = BOUND_EXACT;
-        }
-    }
-
-    state.node_store(alpha, bound, depth, best_move);
-    state.node_end();
-    Ok(alpha)
-}
-
-
 #[cfg(test)]
 mod tests {
-    use super::{search, SearchState};
+    use super::Search;
     use chess_move::*;
     use tt::*;
     use position::Position;
@@ -443,7 +446,7 @@ mod tests {
     #[test]
     fn test_search() {
         let p = Position::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1").ok().unwrap();
-        let mut state = SearchState {
+        let mut search = Search {
             tt: &TranspositionTable::new(),
             position: p,
             moves: &mut MoveStack::new(),
@@ -452,14 +455,14 @@ mod tests {
             unreported_nodes: 0,
             report_func: &mut |_| Ok(()),
         };
-        let value = search(&mut state, -30000, 30000, 2)
-                        .ok()
-                        .unwrap();
+        let value = search.run(-30000, 30000, 2)
+                          .ok()
+                          .unwrap();
         assert!(value < -300);
-        state.clear();
-        let value = search(&mut state, -30000, 30000, 4)
-                        .ok()
-                        .unwrap();
+        search.reset();
+        let value = search.run(-30000, 30000, 4)
+                          .ok()
+                          .unwrap();
         assert!(value >= 20000);
     }
 }
