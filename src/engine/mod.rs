@@ -101,7 +101,7 @@ impl Engine {
         self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
         if self.current_depth < depth {
             self.current_depth = depth;
-            self.report_pv(depth - 1);
+            self.report_pv(depth);
             if !self.mangled_pv {
                 self.report_progress();
             }
@@ -378,7 +378,7 @@ impl UciEngine for Engine {
                         self.register_progress(depth, searched_nodes);
                         if self.silent_since.elapsed().unwrap().as_secs() > 20 {
                             if self.mangled_pv {
-                                self.report_pv(depth - 1);
+                                self.report_pv(depth);
                             } else {
                                 self.report_progress();
                             }

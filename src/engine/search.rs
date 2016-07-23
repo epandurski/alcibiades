@@ -69,11 +69,15 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                      .unwrap();
                     loop {
                         match slave_reports_rx.recv().unwrap() {
-                            Report::Progress { searched_nodes, .. } => {
+                            Report::Progress { depth, searched_nodes, .. } => {
                                 reports.send(Report::Progress {
                                            search_id: search_id,
                                            searched_nodes: searched_nodes_final + searched_nodes,
-                                           depth: n,
+                                           depth: if depth == 0 {
+                                               n - 1
+                                           } else {
+                                               depth
+                                           },
                                        })
                                        .ok();
                                 if pending_command.is_none() {
@@ -141,7 +145,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                         reports.send(Report::Progress {
                                    search_id: search_id,
                                    searched_nodes: n,
-                                   depth: depth,
+                                   depth: 0,
                                })
                                .ok();
                         if let Ok(cmd) = commands.try_recv() {
