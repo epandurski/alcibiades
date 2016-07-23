@@ -208,6 +208,10 @@ pub struct Search<'a> {
 
 impl<'a> Search<'a> {
     /// Creates a new instance.
+    ///
+    /// `report_function` should be a function that registers the
+    /// search progress. It will be called with the number of searched
+    /// positions from the beginning of the search to this moment.
     pub fn new(p: Position,
                tt: &'a TranspositionTable,
                moves: &'a mut MoveStack,
