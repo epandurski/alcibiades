@@ -1,3 +1,5 @@
+//! Implements the game tree search.
+
 use std::thread;
 use std::cell::UnsafeCell;
 use std::sync::Arc;
@@ -175,22 +177,6 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 
 /// Represents a terminated search condition.
 pub struct TerminatedSearch;
-
-
-enum NodePhase {
-    Pristine,
-    TriedHashMove,
-    GeneratedMoves,
-}
-
-
-struct NodeState {
-    phase: NodePhase,
-    entry: EntryData,
-}
-
-
-const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 /// Represents a game tree search.        
@@ -490,6 +476,22 @@ impl<'a> Search<'a> {
         Ok(())
     }
 }
+
+
+enum NodePhase {
+    Pristine,
+    TriedHashMove,
+    GeneratedMoves,
+}
+
+
+struct NodeState {
+    phase: NodePhase,
+    entry: EntryData,
+}
+
+
+const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 #[cfg(test)]
