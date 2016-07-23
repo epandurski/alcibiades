@@ -135,7 +135,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 
             match command {
                 Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                    let report_func = &mut |n| {
+                    let mut report = |n| {
                         reports.send(Report::Progress {
                                    search_id: search_id,
                                    searched_nodes: n,
@@ -150,7 +150,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                             _ => Ok(()),
                         }
                     };
-                    let mut search = Search::new(&tt, position, move_stack, report_func);
+                    let mut search = Search::new(&tt, position, move_stack, &mut report);
                     let value = search.run(lower_bound, upper_bound, depth).ok();
                     reports.send(Report::Progress {
                                search_id: search_id,
@@ -201,7 +201,7 @@ struct Search<'a> {
     state_stack: Vec<NodeState>,
     reported_nodes: NodeCount,
     unreported_nodes: NodeCount,
-    report_func: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
+    report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>,
 }
 
 
@@ -209,7 +209,7 @@ impl<'a> Search<'a> {
     fn new(tt: &'a TranspositionTable,
            position: Position,
            moves: &'a mut MoveStack,
-           report_func: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
+           report_function: &'a mut FnMut(NodeCount) -> Result<(), TerminatedSearch>)
            -> Search<'a> {
         Search {
             tt: tt,
@@ -218,7 +218,7 @@ impl<'a> Search<'a> {
             state_stack: Vec::with_capacity(32),
             reported_nodes: 0,
             unreported_nodes: 0,
-            report_func: report_func,
+            report_function: report_function,
         }
     }
 
@@ -421,7 +421,7 @@ impl<'a> Search<'a> {
         if self.unreported_nodes > NODE_COUNT_REPORT_INTERVAL {
             self.reported_nodes += self.unreported_nodes;
             self.unreported_nodes = 0;
-            try!((*self.report_func)(self.reported_nodes));
+            try!((*self.report_function)(self.reported_nodes));
         }
         Ok(())
     }
@@ -446,15 +446,10 @@ mod tests {
     #[test]
     fn test_search() {
         let p = Position::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1").ok().unwrap();
-        let mut search = Search {
-            tt: &TranspositionTable::new(),
-            position: p,
-            moves: &mut MoveStack::new(),
-            state_stack: vec![],
-            reported_nodes: 0,
-            unreported_nodes: 0,
-            report_func: &mut |_| Ok(()),
-        };
+        let tt = TranspositionTable::new();
+        let mut moves = MoveStack::new();
+        let mut report = |_| Ok(());
+        let mut search = Search::new(&tt, p, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2)
                           .ok()
                           .unwrap();
