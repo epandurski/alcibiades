@@ -481,7 +481,7 @@ impl<'a> Search<'a> {
 // The number of nodes that can be searched without reporting search
 // progress. If this value is too small the engine may become slow, if
 // this value is too big the engine may become unresponsive.
-const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
+const NODE_COUNT_REPORT_INTERVAL: NodeCount = 100000;
 
 
 enum NodePhase {
