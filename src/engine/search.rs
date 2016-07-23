@@ -466,7 +466,7 @@ impl<'a> Search<'a> {
     #[inline]
     fn report_progress(&mut self, new_nodes: NodeCount) -> Result<(), TerminatedSearch> {
         self.unreported_nodes += new_nodes;
-        if self.unreported_nodes > NODE_COUNT_REPORT_INTERVAL {
+        if self.unreported_nodes >= NODE_COUNT_REPORT_INTERVAL {
             self.reported_nodes += self.unreported_nodes;
             self.unreported_nodes = 0;
             if (*self.report_function)(self.reported_nodes) {
