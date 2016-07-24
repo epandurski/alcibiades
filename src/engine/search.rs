@@ -472,8 +472,29 @@ impl<'a> Search<'a> {
             // Before trying the quiet moves, we should assign proper
             // move scores to them.
             if let NodePhase::TriedBadCaptures = state.phase {
-                // TODO: Assign the remaining moves scores here using
-                // the killer move heuristics and history heuristics.
+                // TODO: Assign the moves scores here using the killer
+                // move heuristics and the history heuristics.
+
+                // We use the score field (2 bits) to properly order
+                // quiet movies. Moves which destination square is
+                // more advanced into enemy's territory are tried
+                // first. The logic is that those moves are riskier,
+                // so if such a move loses material this will be
+                // detected early and the search tree will be pruned,
+                // but if the move does not lose material, chances are
+                // that it is a very good move.
+                const SCORE_LOOKUP: [[u32; 8]; 2] = [// white
+                                                     [0, 1, 2, 3, 4, 5, 6, 7],
+                                                     // black
+                                                     [7, 6, 5, 4, 3, 2, 1, 0]];
+                for m in self.moves.iter_mut() {
+                    let rank = rank(m.dest_square());
+                    m.set_score(unsafe {
+                        *SCORE_LOOKUP.get_unchecked(self.position.board().to_move())
+                                     .get_unchecked(rank)
+                    });
+                }
+
                 state.phase = NodePhase::SortedQuietMoves;
             }
 
