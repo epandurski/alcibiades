@@ -146,6 +146,12 @@ impl Position {
         unsafe { &*self.board.get() }
     }
 
+    /// Returns if the side to move is in check.
+    #[inline]
+    pub fn is_check(&self) -> bool {
+        self.board().checkers() != 0
+    }
+    
     /// Returns if the position is a draw due to repetition.
     ///
     /// **Important note:** Repeating positions are considered a draw
