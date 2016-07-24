@@ -184,6 +184,7 @@ impl Move {
     /// Assigns a new score for the move (between 0 and `MOVE_SCORE_MAX`).
     #[inline(always)]
     pub fn set_score(&mut self, score: u32) {
+        assert!(score <= MOVE_SCORE_MAX);
         self.0 &= (!0u32) as u64;
         self.0 |= (score as u64) << 32;
     }
