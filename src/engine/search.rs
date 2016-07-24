@@ -409,12 +409,12 @@ impl<'a> Search<'a> {
     fn do_move(&mut self) -> Option<Move> {
         let state = self.state_stack.last_mut().unwrap();
 
+        // Try the hash move first.
         if let NodePhase::Pristine = state.phase {
             // We save the move list at the last possible moment,
             // because most of the nodes are leafs.
             self.moves.save();
 
-            // We always try the hash move first.
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
                 if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
@@ -440,7 +440,7 @@ impl<'a> Search<'a> {
         // Spit out the generated moves.
         while let Some(mut m) = self.moves.remove_best_move() {
 
-            // First, try the good captures.
+            // First, the good captures.
             if let NodePhase::GeneratedMoves = state.phase {
                 if m.score() == MOVE_SCORE_MAX {
                     if self.position.evaluate_move(m) >= 0 {
@@ -458,7 +458,7 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedGoodCaptures;
             }
 
-            // Second, try the bad captures.
+            // Second, the bad captures.
             if let NodePhase::TriedGoodCaptures = state.phase {
                 if m.score() == MOVE_SCORE_MAX - 1 {
                     if self.position.do_move(m) {
@@ -469,13 +469,15 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedBadCaptures;
             }
 
+            // Before trying the quiet moves, we should assign proper
+            // move scores to them.
             if let NodePhase::TriedBadCaptures = state.phase {
-                // TODO: Sort the remaining moves here using the
-                // killer move heuristics and history heuristics.
+                // TODO: Assign the remaining moves scores here using
+                // the killer move heuristics and history heuristics.
                 state.phase = NodePhase::SortedQuietMoves;
             }
 
-            // Then try everything else.
+            // Last, quiet moves.
             if self.position.do_move(m) {
                 if state.is_check {
                     // When in check, we set a high move score to all
