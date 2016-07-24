@@ -468,7 +468,13 @@ impl<'a> Search<'a> {
                 }
                 state.phase = NodePhase::TriedBadCaptures;
             }
-            
+
+            if let NodePhase::TriedBadCaptures = state.phase {
+                // TODO: Sort the remaining moves here using the
+                // killer move heuristics and history heuristics.
+                state.phase = NodePhase::SortedQuietMoves;
+            }
+
             // Then try everything else.
             if self.position.do_move(m) {
                 if state.is_check {
@@ -526,6 +532,7 @@ enum NodePhase {
     GeneratedMoves,
     TriedGoodCaptures,
     TriedBadCaptures,
+    SortedQuietMoves,
 }
 
 
