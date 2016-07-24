@@ -104,9 +104,9 @@ impl Move {
     ///
     /// The initial move score for the new move will be:
     ///
-    /// * `MAX_MOVE_SCORE` for captures and pawn promotions to queen.
+    /// * `MOVE_SCORE_MAX` for captures and pawn promotions to queen.
     /// 
-    /// * less than `MAX_MOVE_SCORE` for all other moves, including
+    /// * less than `MOVE_SCORE_MAX` for all other moves, including
     ///   those captures that are also pawn promotions to a piece
     ///   other than queen.
     #[inline(always)]
@@ -162,7 +162,7 @@ impl Move {
         let mut score_shifted = if captured_piece == NO_PIECE {
             unsafe { *SCORE_LOOKUP.get_unchecked(us).get_unchecked(rank(dest_square)) }
         } else {
-            MAX_MOVE_SCORE << M_SHIFT_SCORE
+            MOVE_SCORE_MAX << M_SHIFT_SCORE
         };
 
         // Figure out what `aux_data` should contain. In the mean
@@ -170,7 +170,7 @@ impl Move {
         // scores.
         let aux_data = if move_type == MOVE_PROMOTION {
             score_shifted = if promoted_piece_code == 0 {
-                MAX_MOVE_SCORE << M_SHIFT_SCORE
+                MOVE_SCORE_MAX << M_SHIFT_SCORE
             } else {
                 0 << M_SHIFT_SCORE
             };
@@ -193,10 +193,10 @@ impl Move {
         Move(0)
     }
 
-    /// Assigns a new score for the move (between 0 and `MAX_MOVE_SCORE`).
+    /// Assigns a new score for the move (between 0 and `MOVE_SCORE_MAX`).
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
-        assert!(score <= MAX_MOVE_SCORE);
+        assert!(score <= MOVE_SCORE_MAX);
         self.0 &= !M_MASK_SCORE;
         self.0 |= score << M_SHIFT_SCORE;
     }
@@ -499,7 +499,11 @@ impl MoveStack {
 
 
 /// The maximum possible move score.
-pub const MAX_MOVE_SCORE: usize = M_MASK_SCORE >> M_SHIFT_SCORE;
+pub const MOVE_SCORE_MAX: usize = M_MASK_SCORE >> M_SHIFT_SCORE;
+
+/// The move score assigned to seemingly losing captures.
+pub const MOVE_SCORE_LOSING_CAPTURE: usize = 2;
+
 
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
 /// `MOVE_NORMAL`.
@@ -617,8 +621,8 @@ mod tests {
         assert_eq!(m.castling().value(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
-        m.set_score(MAX_MOVE_SCORE);
-        assert_eq!(m.score(), MAX_MOVE_SCORE);
+        m.set_score(MOVE_SCORE_MAX);
+        assert_eq!(m.score(), MOVE_SCORE_MAX);
         m.set_score(3);
         assert_eq!(m.score(), 3);
         assert!(m > m2);

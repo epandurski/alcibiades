@@ -424,10 +424,10 @@ impl<'a> Search<'a> {
             }
         }
 
+        // After the hash move, we generate all pseudo-legal
+        // moves. But we should not forget to remove the already tried
+        // hash move from the list.
         if let NodePhase::TriedHashMove = state.phase {
-            // After the hash move, we generate all pseudo-legal
-            // moves. But we should not forget to remove the already
-            // tried hash move from the list.
             self.position.generate_moves(self.moves);
             if state.entry.move16() != 0 {
                 self.moves.remove_move(state.entry.move16());
@@ -435,8 +435,26 @@ impl<'a> Search<'a> {
             state.phase = NodePhase::GeneratedMoves;
         }
 
-        // For the last, we spit the generated moves out.
-        while let Some(m) = self.moves.remove_best_move() {
+        // Spit out the generated moves.
+        while let Some(mut m) = self.moves.remove_best_move() {
+
+            // First, try the good captures.
+            if let NodePhase::GeneratedMoves = state.phase {
+                if m.score() == MOVE_SCORE_MAX {
+                    if self.position.evaluate_move(m) >= 0 {
+                        if self.position.do_move(m) {
+                            return Some(m);
+                        }
+                        continue;
+                    }
+                    m.set_score(MOVE_SCORE_LOSING_CAPTURE);
+                    self.moves.push(m);
+                    continue;
+                }
+                state.phase = NodePhase::TriedGoodCaptures;
+            }
+
+            // Then try everything else.
             if self.position.do_move(m) {
                 return Some(m);
             }
@@ -486,6 +504,7 @@ enum NodePhase {
     Pristine,
     TriedHashMove,
     GeneratedMoves,
+    TriedGoodCaptures,
 }
 
 

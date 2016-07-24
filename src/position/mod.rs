@@ -988,6 +988,7 @@ mod tests {
                 assert_eq!(p.evaluate_move(m), -10000);
             }
         }
+        assert_eq!(p.evaluate_move(p.null_move()), 0);
     }
 
     #[test]
