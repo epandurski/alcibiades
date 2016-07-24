@@ -501,9 +501,6 @@ impl MoveStack {
 /// The maximum possible move score.
 pub const MOVE_SCORE_MAX: usize = M_MASK_SCORE >> M_SHIFT_SCORE;
 
-/// The move score assigned to seemingly losing captures.
-pub const MOVE_SCORE_LOSING_CAPTURE: usize = 2;
-
 
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
 /// `MOVE_NORMAL`.

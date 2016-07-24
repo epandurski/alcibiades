@@ -448,7 +448,7 @@ impl<'a> Search<'a> {
                         }
                         continue;
                     }
-                    m.set_score(MOVE_SCORE_LOSING_CAPTURE);
+                    m.set_score(MOVE_SCORE_MAX - 1);
                     self.moves.push(m);
                     continue;
                 }
