@@ -39,7 +39,8 @@ pub type MoveDigest = u16;
 /// 2. Information needed so as to be able to undo the move and
 ///    restore the board into the exact same state as before.
 ///
-/// 3. Move ordering info -- moves with higher value are tried first.
+/// 3. Move ordering info -- moves with higher move score are tried
+///    first.
 ///
 /// Bits 0-15 contain the whole information about the move itself
 /// (type 1). This is called **"move digest"** and is laid out the
@@ -96,7 +97,8 @@ pub type MoveDigest = u16;
 ///  ```
 ///
 /// The "Move score" field (32-bits) is used to influence move
-/// ordering. Ideally the best move should have the highest vaule.
+/// ordering. Ideally the best move should have the highest move
+/// score.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
