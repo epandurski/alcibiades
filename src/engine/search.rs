@@ -416,8 +416,9 @@ impl<'a> Search<'a> {
             // We always try the hash move first.
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
-                if let Some(m) = self.position.try_move_digest(state.entry.move16()) {
+                if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
                     if self.position.do_move(m) {
+                        m.set_score(MOVE_SCORE_MAX);
                         return Some(m);
                     }
                 }
