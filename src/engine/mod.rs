@@ -130,7 +130,7 @@ impl Engine {
         const DELTA: Value = 20;
         
         // Extract the PV, the leaf value, the root value, and the
-        // bound from the TT.
+        // bound type from the TT.
         let mut p = self.position.clone();
         let mut our_turn = true;
         let mut prev_move = None;
