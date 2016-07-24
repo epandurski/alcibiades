@@ -377,6 +377,7 @@ impl<'a> Search<'a> {
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
             entry: entry,
+            is_check: self.position.is_check(),
         });
         entry
     }
@@ -448,6 +449,8 @@ impl<'a> Search<'a> {
                         }
                         continue;
                     }
+                    // This is a bad capture -- push it back to the
+                    // move stack.
                     m.set_score(MOVE_SCORE_MAX - 1);
                     self.moves.push(m);
                     continue;
@@ -455,8 +458,24 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedGoodCaptures;
             }
 
+            // Second, try the bad captures.
+            if let NodePhase::TriedGoodCaptures = state.phase {
+                if m.score() == MOVE_SCORE_MAX - 1 {
+                    if self.position.do_move(m) {
+                        return Some(m);
+                    }
+                    continue;
+                }
+                state.phase = NodePhase::TriedBadCaptures;
+            }
+            
             // Then try everything else.
             if self.position.do_move(m) {
+                if state.is_check {
+                    // When in check, we set a high move score to all
+                    // moves to avoid search depth reductions.
+                    m.set_score(MOVE_SCORE_MAX - 1);
+                }
                 return Some(m);
             }
         }
@@ -506,12 +525,14 @@ enum NodePhase {
     TriedHashMove,
     GeneratedMoves,
     TriedGoodCaptures,
+    TriedBadCaptures,
 }
 
 
 struct NodeState {
     phase: NodePhase,
     entry: EntryData,
+    is_check: bool,
 }
 
 
