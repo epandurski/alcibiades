@@ -160,7 +160,7 @@ impl Engine {
                 }
 
                 // Try to extend the PV.
-                if bound == BOUND_EXACT {
+                if pv.len() < depth as usize && bound == BOUND_EXACT {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
                             prev_move = Some(m);
