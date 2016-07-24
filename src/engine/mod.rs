@@ -115,29 +115,39 @@ impl Engine {
 
     // A helper method. It extracts the primary variation (PV) from
     // the transposition table (TT) and sends it to the GUI.
+    //
+    // **Note:** Some imperfections in the reported PV values is
+    // unavoidable because the the search runs continuously, so that
+    // the PV is a moving target.
     fn report_pv(&mut self, depth: u8) {
-        let mut prev_move = None;
+        if depth == 0 {
+            return;
+        }
+        
+        // A tolerably small value (in centipawns). We turn a blind
+        // eye if the value at the root of the PV differs from the
+        // value at the leaf by less than that value.
+        const DELTA: Value = 20;
+        
+        // Extract the PV, the leaf value, the root value, and the
+        // bound from the TT.
         let mut p = self.position.clone();
-
-        // Extract the PV, the value, and the bound from the TT.
+        let mut our_turn = true;
+        let mut prev_move = None;
         let mut pv = Vec::new();
-        let mut value = -30000;
+        let mut leaf_value = -19999;
+        let mut root_value = leaf_value;
         let mut bound = BOUND_LOWER;
         while let Some(entry) = self.tt.probe(p.hash()) {
             if entry.bound() != BOUND_NONE {
-                if let Some(m) = prev_move {
-                    // Extend the PV.
-                    pv.push(m);
-                }
-
                 // Get the value and the bound type. In half of the
                 // cases the value stored in `entry` is from other
                 // side's perspective.
-                if pv.len() & 1 == 0 {
-                    value = entry.value();
+                if our_turn {
+                    leaf_value = entry.value();
                     bound = entry.bound();
                 } else {
-                    value = -entry.value();
+                    leaf_value = -entry.value();
                     bound = match entry.bound() {
                         BOUND_UPPER => BOUND_LOWER,
                         BOUND_LOWER => BOUND_UPPER,
@@ -150,20 +160,34 @@ impl Engine {
                 // checkmate. We choose to not show this to the user,
                 // because it would complicate unnecessarily the PV
                 // extraction procedure.
-                if value >= 20000 && bound != BOUND_UPPER {
-                    value = 19999;
-                    bound = BOUND_EXACT
+                if leaf_value >= 20000 {
+                    leaf_value = 19999;
+                    if bound == BOUND_LOWER {
+                        bound = BOUND_EXACT
+                    }
                 }
-                if value <= -20000 && bound != BOUND_LOWER {
-                    value = -19999;
-                    bound = BOUND_EXACT
+                if leaf_value <= -20000 {
+                    leaf_value = -19999;
+                    if bound == BOUND_UPPER {
+                        bound = BOUND_EXACT
+                    }
                 }
 
-                // Try to extend the PV.
-                if pv.len() < depth as usize && bound == BOUND_EXACT {
+                if let Some(m) = prev_move {
+                    // Extend the PV with the previous move.
+                    pv.push(m);
+                } else {
+                    // We are at the root -- set the root value.
+                    root_value = leaf_value;
+                }
+
+                // Try to to extend the PV with one more move.
+                if pv.len() < depth as usize && bound == BOUND_EXACT &&
+                   (leaf_value - root_value).abs() < DELTA {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
                             prev_move = Some(m);
+                            our_turn = !our_turn;
                             continue;
                         }
                     }
@@ -172,11 +196,20 @@ impl Engine {
             break;
         }
 
-        // Check if the extracted PV is imperfect.
+        // Correct the bound type if the leaf value in the PV differs
+        // too much from the root value. If this is this case the PV
+        // is mangled.
+        bound = match leaf_value - root_value {
+            x if x >= DELTA && bound != BOUND_UPPER => BOUND_LOWER,
+            x if x <= -DELTA && bound != BOUND_LOWER => BOUND_UPPER,
+            _ => bound,
+        };
+
+        // Check if the extracted PV is mangled.
         self.mangled_pv = bound != BOUND_EXACT || pv.len() < depth as usize;
 
         // Send the newly extracted PV to the GUI.
-        let value_suffix = match bound {
+        let score_suffix = match bound {
             BOUND_EXACT => "",
             BOUND_UPPER => " upperbound",
             BOUND_LOWER => " lowerbound",
@@ -189,7 +222,7 @@ impl Engine {
         }
         self.reply_queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
-            ("score".to_string(), format!("cp {}{}", value, value_suffix)),
+            ("score".to_string(), format!("cp {}{}", root_value, score_suffix)),
             ("time".to_string(), format!("{}", self.searched_time)),
             ("nodes".to_string(), format!("{}", self.searched_nodes)),
             ("nps".to_string(), format!("{}", self.nps)),
