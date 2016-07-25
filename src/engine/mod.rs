@@ -100,6 +100,7 @@ impl Engine {
     // depth.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
         if searched_nodes < NODE_COUNT_REPORT_INTERVAL || depth == 0 {
+            // No meaningful progress yet.
             return;
         }
         let thinking_duration = self.thinking_since.elapsed().unwrap();
