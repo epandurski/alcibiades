@@ -235,7 +235,7 @@ impl TranspositionTable {
     }
 
     /// Returns the size of the transposition table in Mbytes.
-    pub fn size(&mut self) -> usize {
+    pub fn size(&self) -> usize {
         unsafe { &*self.table.get() }.len() * std::mem::size_of::<[Entry; 4]>() / 1024 / 1024
     }
 
