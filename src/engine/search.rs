@@ -65,6 +65,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
 
                 let mut searched_nodes_final = 0;
                 let mut value_final = None;
+                // let mut value_current = None;
                 let mut n = 1;
                 'depthloop: while n <= depth {
                     // if depth == 4 {
@@ -80,6 +81,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     // }
                     // let (lower_bound, upper_bound) = (curr_lower_bound, curr_upper_bound);
 
+                    // Tell the slave thread to run a search with dept `n`.
                     slave_commands_tx.send(Command::Search {
                                          search_id: n as usize,
                                          position: position.clone(),
@@ -88,6 +90,8 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                          upper_bound: upper_bound,
                                      })
                                      .unwrap();
+
+                    // Process the reports coming from the slave thread.
                     loop {
                         match slave_reports_rx.recv().unwrap() {
                             Report::Progress { depth, searched_nodes, .. } => {
@@ -102,16 +106,14 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                        })
                                        .ok();
                                 if pending_command.is_none() {
-                                    pending_command = match commands.try_recv() {
-                                        Ok(cmd) => {
-                                            slave_commands_tx.send(Command::Stop).unwrap();
-                                            Some(cmd)
-                                        }
-                                        _ => None,
+                                    if let Ok(cmd) = commands.try_recv() {
+                                        slave_commands_tx.send(Command::Stop).unwrap();
+                                        pending_command = Some(cmd);
                                     }
                                 }
                             }
                             Report::Done { searched_nodes, value, .. } => {
+                                // value_current = value;
                                 searched_nodes_final += searched_nodes;
                                 if n == depth {
                                     value_final = value;
@@ -119,7 +121,6 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                 if pending_command.is_some() {
                                     break 'depthloop;
                                 }
-                                // curr_value = value.unwrap();
                                 break;
                             }
                         }
