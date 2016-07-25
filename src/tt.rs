@@ -239,11 +239,14 @@ impl TranspositionTable {
         unsafe { &*self.table.get() }.len() * std::mem::size_of::<[Entry; 4]>() / 1024 / 1024
     }
 
-    /// Clears the transpositon table.
-    ///
-    /// All remaining entries in the table will be removed.
-    pub fn clear(&mut self) {
-        self.table = UnsafeCell::new(vec![Default::default(); self.cluster_count]);
+    /// Removes all entries in the table.
+    pub fn clear(&self) {
+        let table = unsafe { self.table.get().as_mut().unwrap() };
+        for cluster in table {
+            for entry in cluster.iter_mut() {
+                entry.key = 0;
+            }
+        }
     }
 
     /// Signals that a new search is about to begin.
@@ -378,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_store_and_probe() {
-        let mut tt = TranspositionTable::new();
+        let tt = TranspositionTable::new();
         assert!(tt.probe(1).is_none());
         let data = EntryData::new(0, 0, 100, 666, 0);
         assert_eq!(data.depth(), 100);
