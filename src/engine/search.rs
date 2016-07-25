@@ -65,7 +65,8 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
 
                 let mut searched_nodes_final = 0;
                 let mut value_final = None;
-                'depthloop: for n in 1..(depth + 1) {
+                let mut n = 1;
+                'depthloop: while n <= depth {
                     // if depth == 4 {
                     //     // We will limit the search window for the first time.
                     //     curr_lower_bound = max(lower_bound, curr_value - delta);
@@ -78,7 +79,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     //     curr_upper_bound = min(curr_value + delta, upper_bound);
                     // }
                     // let (lower_bound, upper_bound) = (curr_lower_bound, curr_upper_bound);
-                    
+
                     slave_commands_tx.send(Command::Search {
                                          search_id: n as usize,
                                          position: position.clone(),
@@ -123,6 +124,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                             }
                         }
                     }
+                    n += 1;
                 }
                 reports.send(Report::Done {
                            search_id: search_id,
