@@ -63,8 +63,8 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                 // let mut curr_lower_bound = lower_bound;
                 // let mut curr_upper_bound = upper_bound;
 
-                let mut searched_nodes_final = 0;
-                let mut value_final = None;
+                let mut current_searched_nodes = 0;
+                let mut current_value = None;
                 // let mut value_current = None;
                 let mut n = 1;
                 'depthloop: while n <= depth {
@@ -97,7 +97,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                             Report::Progress { depth, searched_nodes, .. } => {
                                 reports.send(Report::Progress {
                                            search_id: search_id,
-                                           searched_nodes: searched_nodes_final + searched_nodes,
+                                           searched_nodes: current_searched_nodes + searched_nodes,
                                            depth: if depth == n {
                                                n
                                            } else {
@@ -113,24 +113,26 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                 }
                             }
                             Report::Done { searched_nodes, value, .. } => {
-                                // value_current = value;
-                                searched_nodes_final += searched_nodes;
-                                if n == depth {
-                                    value_final = value;
-                                }
-                                if pending_command.is_some() {
+                                current_searched_nodes += searched_nodes;
+                                current_value = value;
+                                if pending_command.is_none() {
+                                    n += 1;
+                                    continue 'depthloop;
+                                } else {
                                     break 'depthloop;
                                 }
-                                break;
                             }
                         }
                     }
-                    n += 1;
                 }
                 reports.send(Report::Done {
                            search_id: search_id,
-                           searched_nodes: searched_nodes_final,
-                           value: value_final,
+                           searched_nodes: current_searched_nodes,
+                           value: if pending_command.is_none() {
+                               current_value
+                           } else {
+                               None
+                           },
                        })
                        .ok();
             }
