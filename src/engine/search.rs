@@ -1,6 +1,7 @@
 //! Implements the game tree search.
 
 use std::thread;
+use std::cmp::{min, max};
 use std::cell::UnsafeCell;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
@@ -56,9 +57,28 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
 
         match command {
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
+                // // The variables controlling the aspiration window:
+                // let mut delta = 33;
+                // let mut curr_value = 0;
+                // let mut curr_lower_bound = lower_bound;
+                // let mut curr_upper_bound = upper_bound;
+
                 let mut searched_nodes_final = 0;
                 let mut value_final = None;
                 'depthloop: for n in 1..(depth + 1) {
+                    // if depth == 4 {
+                    //     // We will limit the search window for the first time.
+                    //     curr_lower_bound = max(lower_bound, curr_value - delta);
+                    //     curr_upper_bound = min(curr_value + delta, upper_bound);
+                    // } else if curr_value <= curr_lower_bound {
+                    //     // The last search falied low.
+                    //     curr_lower_bound = max(lower_bound, curr_value - delta);
+                    // } else if curr_value >= curr_upper_bound {
+                    //     // The last search falied high.
+                    //     curr_upper_bound = min(curr_value + delta, upper_bound);
+                    // }
+                    // let (lower_bound, upper_bound) = (curr_lower_bound, curr_upper_bound);
+                    
                     slave_commands_tx.send(Command::Search {
                                          search_id: n as usize,
                                          position: position.clone(),
@@ -98,6 +118,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                 if pending_command.is_some() {
                                     break 'depthloop;
                                 }
+                                // curr_value = value.unwrap();
                                 break;
                             }
                         }
