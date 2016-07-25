@@ -123,12 +123,12 @@ impl Engine {
         if depth == 0 {
             return;
         }
-        
+
         // A tolerably small value (in centipawns). We turn a blind
         // eye if the value at the root of the PV differs from the
         // value at the leaf by less than that value.
         const DELTA: Value = 20;
-        
+
         // Extract the PV, the leaf value, the root value, and the
         // bound type from the TT.
         let mut p = self.position.clone();
@@ -183,7 +183,7 @@ impl Engine {
 
                 // Try to to extend the PV with one more move.
                 if pv.len() < depth as usize && bound == BOUND_EXACT &&
-                   (leaf_value - root_value).abs() < DELTA {
+                   (leaf_value - root_value).abs() <= DELTA {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
                             prev_move = Some(m);
@@ -200,13 +200,13 @@ impl Engine {
         // too much from the root value. If this is this case the PV
         // is mangled.
         bound = match leaf_value - root_value {
-            x if x >= DELTA && bound != BOUND_UPPER => BOUND_LOWER,
-            x if x <= -DELTA && bound != BOUND_LOWER => BOUND_UPPER,
+            x if x > DELTA && bound != BOUND_UPPER => BOUND_LOWER,
+            x if x < -DELTA && bound != BOUND_LOWER => BOUND_UPPER,
             _ => bound,
         };
 
         // Check if the extracted PV is mangled.
-        self.mangled_pv = bound != BOUND_EXACT || pv.len() < depth as usize;
+        self.mangled_pv = bound != BOUND_EXACT;
 
         // Send the newly extracted PV to the GUI.
         let score_suffix = match bound {
