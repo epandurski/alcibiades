@@ -41,11 +41,14 @@ pub enum Report {
 pub fn run_deepening(tt: Arc<TranspositionTable>,
                      commands: Receiver<Command>,
                      reports: Sender<Report>) {
+    // Start a slave thread that will be commanded to run searches
+    // with increasing depths (search deepening).
     let (slave_commands_tx, slave_commands_rx) = channel();
     let (slave_reports_tx, slave_reports_rx) = channel();
     let slave = thread::spawn(move || {
         run(tt, slave_commands_rx, slave_reports_tx);
     });
+
     let mut pending_command = None;
     loop {
         // If there is a pending command, we take it, otherwise we
@@ -59,23 +62,18 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                 let mut current_searched_nodes = 0;
                 let mut current_value = None;
-                let mut n = 1;
-                'depth: while n <= depth {
-                    // if depth == 4 {
-                    //     // We will limit the search window for the first time.
-                    //     curr_lower_bound = max(lower_bound, curr_value - delta);
-                    //     curr_upper_bound = min(curr_value + delta, upper_bound);
-                    // } else if curr_value <= curr_lower_bound {
-                    //     // The last search falied low.
-                    //     curr_lower_bound = max(lower_bound, curr_value - delta);
-                    // } else if curr_value >= curr_upper_bound {
-                    //     // The last search falied high.
-                    //     curr_upper_bound = min(curr_value + delta, upper_bound);
-                    // }
-                    // let (lower_bound, upper_bound) = (curr_lower_bound, curr_upper_bound);
+                let mut current_depth = 1;
 
-                    let mut delta = 16;
-                    let (mut alpha, mut beta) = if n < 5 {
+                'depthloop: while current_depth <= depth {
+                    // Set up the aspiration window. Aspiration windows are a way to
+                    // reduce the search space in the search. We use `current_value` from
+                    // the last iteration of `depth`, and calculate a window around this
+                    // as the alpha-beta bounds. Because the window is narrower, more beta
+                    // cutoffs are achieved, and the search takes a shorter time. The
+                    // drawback is that if the true score is outside this window, then a
+                    // costly re-search must be made.
+                    let mut delta = 16; // The initial half-width of the window.
+                    let (mut alpha, mut beta) = if current_depth < 5 {
                         (lower_bound, upper_bound)
                     } else {
                         (max(lower_bound, current_value.unwrap() - delta),
@@ -83,28 +81,30 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     };
 
                     'aspiration: loop {
-                        // Tell the slave thread to run a search with dept `n`.
                         slave_commands_tx.send(Command::Search {
-                                             search_id: n as usize,
+                                             search_id: current_depth as usize,
                                              position: position.clone(),
-                                             depth: n,
-                                             lower_bound: lower_bound,
-                                             upper_bound: upper_bound,
+                                             depth: current_depth,
+                                             lower_bound: alpha,
+                                             upper_bound: beta,
                                          })
                                          .unwrap();
 
-                        // Process the reports coming from the slave thread.
                         'report: loop {
+                            // In this loop we process the reports coming from the slave
+                            // thread, but we also constantly check if there is a new
+                            // pending command for us, in which case we have to terminate
+                            // the search.
                             match slave_reports_rx.recv().unwrap() {
                                 Report::Progress { depth, searched_nodes, .. } => {
                                     reports.send(Report::Progress {
                                                search_id: search_id,
                                                searched_nodes: current_searched_nodes +
                                                                searched_nodes,
-                                               depth: if depth == n {
-                                                   n
+                                               depth: if depth == current_depth {
+                                                   current_depth
                                                } else {
-                                                   n - 1
+                                                   current_depth - 1
                                                },
                                            })
                                            .ok();
@@ -121,15 +121,31 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                     if pending_command.is_none() {
                                         break 'report;
                                     } else {
-                                        break 'depth;
+                                        break 'depthloop;
                                     }
                                 }
                             }
-                        } // 'report
-                        break 'aspiration;
-                    } // 'aspiration
-                    n += 1;
-                } // 'depth
+                        } // end of 'report
+
+                        // Check if the `current_value` is within the aspiration window
+                        // (alpha, beta). If not so, we must consider running a re-search.
+                        let v = current_value.unwrap();
+                        if v <= alpha && lower_bound < alpha {
+                            alpha = max(lower_bound, v - delta);
+                        } else if v >= beta && upper_bound > beta {
+                            beta = min(v + delta, upper_bound);
+                        } else {
+                            break 'aspiration;
+                        }
+                        delta += 3 * delta / 8; // Increase the half-width of the window.
+
+                    } // end of 'aspiration
+
+                    current_depth += 1;
+
+                } // end of 'depthloop
+
+                // The search is done -- send a final report.
                 reports.send(Report::Done {
                            search_id: search_id,
                            searched_nodes: current_searched_nodes,
@@ -141,10 +157,12 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                        })
                        .ok();
             }
+
             Command::Stop => {
                 slave_commands_tx.send(Command::Stop).unwrap();
                 continue;
             }
+
             Command::Exit => {
                 slave_commands_tx.send(Command::Exit).unwrap();
                 break;
