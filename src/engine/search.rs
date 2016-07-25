@@ -98,10 +98,10 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                 reports.send(Report::Progress {
                                            search_id: search_id,
                                            searched_nodes: searched_nodes_final + searched_nodes,
-                                           depth: if depth == 0 {
-                                               n - 1
+                                           depth: if depth == n {
+                                               n
                                            } else {
-                                               depth
+                                               n - 1
                                            },
                                        })
                                        .ok();
