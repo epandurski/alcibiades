@@ -57,17 +57,10 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
 
         match command {
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                // // The variables controlling the aspiration window:
-                // let mut delta = 33;
-                // let mut curr_value = 0;
-                // let mut curr_lower_bound = lower_bound;
-                // let mut curr_upper_bound = upper_bound;
-
                 let mut current_searched_nodes = 0;
                 let mut current_value = None;
-                // let mut value_current = None;
                 let mut n = 1;
-                'depthloop: while n <= depth {
+                'depth: while n <= depth {
                     // if depth == 4 {
                     //     // We will limit the search window for the first time.
                     //     curr_lower_bound = max(lower_bound, curr_value - delta);
@@ -81,50 +74,62 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     // }
                     // let (lower_bound, upper_bound) = (curr_lower_bound, curr_upper_bound);
 
-                    // Tell the slave thread to run a search with dept `n`.
-                    slave_commands_tx.send(Command::Search {
-                                         search_id: n as usize,
-                                         position: position.clone(),
-                                         depth: n,
-                                         lower_bound: lower_bound,
-                                         upper_bound: upper_bound,
-                                     })
-                                     .unwrap();
+                    let mut delta = 16;
+                    let (mut alpha, mut beta) = if n < 5 {
+                        (lower_bound, upper_bound)
+                    } else {
+                        (max(lower_bound, current_value.unwrap() - delta),
+                         min(current_value.unwrap() + delta, upper_bound))
+                    };
 
-                    // Process the reports coming from the slave thread.
-                    loop {
-                        match slave_reports_rx.recv().unwrap() {
-                            Report::Progress { depth, searched_nodes, .. } => {
-                                reports.send(Report::Progress {
-                                           search_id: search_id,
-                                           searched_nodes: current_searched_nodes + searched_nodes,
-                                           depth: if depth == n {
-                                               n
-                                           } else {
-                                               n - 1
-                                           },
-                                       })
-                                       .ok();
-                                if pending_command.is_none() {
-                                    if let Ok(cmd) = commands.try_recv() {
-                                        slave_commands_tx.send(Command::Stop).unwrap();
-                                        pending_command = Some(cmd);
+                    'aspiration: loop {
+                        // Tell the slave thread to run a search with dept `n`.
+                        slave_commands_tx.send(Command::Search {
+                                             search_id: n as usize,
+                                             position: position.clone(),
+                                             depth: n,
+                                             lower_bound: lower_bound,
+                                             upper_bound: upper_bound,
+                                         })
+                                         .unwrap();
+
+                        // Process the reports coming from the slave thread.
+                        'report: loop {
+                            match slave_reports_rx.recv().unwrap() {
+                                Report::Progress { depth, searched_nodes, .. } => {
+                                    reports.send(Report::Progress {
+                                               search_id: search_id,
+                                               searched_nodes: current_searched_nodes +
+                                                               searched_nodes,
+                                               depth: if depth == n {
+                                                   n
+                                               } else {
+                                                   n - 1
+                                               },
+                                           })
+                                           .ok();
+                                    if pending_command.is_none() {
+                                        if let Ok(cmd) = commands.try_recv() {
+                                            slave_commands_tx.send(Command::Stop).unwrap();
+                                            pending_command = Some(cmd);
+                                        }
+                                    }
+                                }
+                                Report::Done { searched_nodes, value, .. } => {
+                                    current_searched_nodes += searched_nodes;
+                                    current_value = value;
+                                    if pending_command.is_none() {
+                                        break 'report;
+                                    } else {
+                                        break 'depth;
                                     }
                                 }
                             }
-                            Report::Done { searched_nodes, value, .. } => {
-                                current_searched_nodes += searched_nodes;
-                                current_value = value;
-                                if pending_command.is_none() {
-                                    n += 1;
-                                    continue 'depthloop;
-                                } else {
-                                    break 'depthloop;
-                                }
-                            }
-                        }
-                    }
-                }
+                        } // 'report
+                        break 'aspiration;
+                    } // 'aspiration
+                    n += 1;
+                } // 'depth
                 reports.send(Report::Done {
                            search_id: search_id,
                            searched_nodes: current_searched_nodes,
