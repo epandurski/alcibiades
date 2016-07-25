@@ -241,10 +241,13 @@ impl TranspositionTable {
 
     /// Removes all entries in the table.
     pub fn clear(&self) {
-        let table = unsafe { self.table.get().as_mut().unwrap() };
-        for cluster in table {
-            for entry in cluster.iter_mut() {
-                entry.key = 0;
+        unsafe {
+            let table = self.table.get().as_mut().unwrap();
+            for cluster in table {
+                for entry in cluster.iter_mut() {
+                    entry.key = 0;
+                    entry.data = transmute(0u64);
+                }
             }
         }
     }
