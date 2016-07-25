@@ -287,7 +287,9 @@ impl UciEngine for Engine {
     }
 
     fn new_game(&mut self) {
-        self.tt.clear();
+        if !self.is_thinking() {
+            self.tt.clear();
+        }
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
