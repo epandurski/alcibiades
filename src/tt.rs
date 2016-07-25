@@ -107,12 +107,12 @@ impl EntryData {
     pub fn depth(&self) -> u8 {
         self.depth
     }
-    
+
     #[inline(always)]
     pub fn move16(&self) -> MoveDigest {
         self.move16
     }
-    
+
     #[inline(always)]
     pub fn eval_value(&self) -> Value {
         self.eval_value
@@ -201,10 +201,12 @@ impl TranspositionTable {
         }
     }
 
-    /// Resizes the transpositon table.
+    /// Resizes the transpositon table. All entries in the table will
+    /// be lost.
     ///
-    /// `size_mb` is the desired new size in Mbytes. All entries in
-    /// the table will be lost.
+    /// `size_mb` is the desired new size in Mbytes. If `size_mb` is
+    /// not in the form "2**n", the new size of the transposition
+    /// table will be as close as possible, but less than `size_mb`.
     pub fn resize(&mut self, size_mb: usize) {
         // The cluster count should be in the form "2**n", so the best
         // we can do is to ensure that the new cluster count will be
@@ -230,6 +232,11 @@ impl TranspositionTable {
             self.cluster_count = new_cluster_count;
             self.table = UnsafeCell::new(vec![Default::default(); new_cluster_count]);
         }
+    }
+
+    /// Returns the size of the transposition table in Mbytes.
+    pub fn size(&mut self) -> usize {
+        unsafe { &*self.table.get() }.len() * std::mem::size_of::<[Entry; 4]>() / 1024 / 1024
     }
 
     /// Clears the transpositon table.
@@ -365,8 +372,7 @@ mod tests {
         let mut tt = TranspositionTable::new();
         assert_eq!(unsafe { &*tt.table.get() }.capacity(), 1);
         tt.resize(1);
-        assert_eq!(unsafe { &*tt.table.get() }.capacity(),
-                   1024 * 1024 / std::mem::size_of::<[Entry; 4]>());
+        assert_eq!(tt.size(), 1);
         tt.clear();
     }
 
