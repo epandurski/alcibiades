@@ -185,14 +185,18 @@ impl Engine {
                     root_value = leaf_value;
                 }
 
-                // Try to to extend the PV with one more move.
-                if pv.len() < depth as usize && bound == BOUND_EXACT &&
-                   (leaf_value - root_value).abs() <= DELTA {
+                if pv.len() < depth as usize && (leaf_value - root_value).abs() <= DELTA {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
-                            prev_move = Some(m);
-                            our_turn = !our_turn;
-                            continue;
+                            if bound == BOUND_EXACT {
+                                // Extend the PV with one more move.
+                                prev_move = Some(m);
+                                our_turn = !our_turn;
+                                continue;
+                            } else {
+                                // Extend the PV with one last move.
+                                pv.push(m);
+                            }
                         }
                     }
                 }
