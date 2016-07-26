@@ -75,7 +75,43 @@ pub enum Report {
 }
 
 
-pub fn search(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
+/// Listens for commands, executes simple searches, sends reports
+/// back.
+///
+/// This function will block and wait to receive commands on the
+/// `commands` channel to start, stop, or exit searches. It is
+/// intended to be called in a separate thread. While the search is
+/// executed, regular `Report::Progress` messages will be send back to
+/// the master thread via the `reports` channel. When the search is
+/// done, a final `Report::Done` message will be sent via the
+/// `reports` channel.
+///
+/// # Example:
+///
+/// ```rust
+/// // Spawn a slave thread:
+/// let tt = Arc::new(tt);
+/// let (commands_tx, commands_rx) = channel();
+/// let (reports_tx, reports_rx) = channel();
+/// thread::spawn(move || {
+///     serve_simple(tt, commands_rx, reports_tx);
+/// });
+///
+/// // Send a command to start a new search:
+/// commands_tx.send(Command::Search {
+///     search_id: 0,
+///     position: Position::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
+///     depth: 5,
+///     lower_bound: -20000,
+///     upper_bound: 20000,
+/// }).unwrap();
+/// ```
+///
+/// This function executes sequential (non-parallel) search to a fixed
+/// depth.
+pub fn serve_simple(tt: Arc<TranspositionTable>,
+                    commands: Receiver<Command>,
+                    reports: Sender<Report>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -140,15 +176,50 @@ pub fn search(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports:
 }
 
 
-pub fn search_deepening(tt: Arc<TranspositionTable>,
-                        commands: Receiver<Command>,
-                        reports: Sender<Report>) {
+/// Listens for commands, executes deepening searches, sends reports
+/// back.
+///
+/// This function will block and wait to receive commands on the
+/// `commands` channel to start, stop, or exit searches. It is
+/// intended to be called in a separate thread. While the search is
+/// executed, regular `Report::Progress` messages will be send back to
+/// the master thread via the `reports` channel. When the search is
+/// done, a final `Report::Done` message will be sent via the
+/// `reports` channel.
+///
+/// # Example:
+///
+/// ```rust
+/// // Spawn a slave thread:
+/// let tt = Arc::new(tt);
+/// let (commands_tx, commands_rx) = channel();
+/// let (reports_tx, reports_rx) = channel();
+/// thread::spawn(move || {
+///     serve_deepening(tt, commands_rx, reports_tx);
+/// });
+///
+/// // Send a command to start a new search:
+/// commands_tx.send(Command::Search {
+///     search_id: 0,
+///     position: Position::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
+///     depth: 5,
+///     lower_bound: -20000,
+///     upper_bound: 20000,
+/// }).unwrap();
+/// ```
+///
+/// This function executes a deepening search. It starts at depth `1`
+/// and consequently increases it until the specified final depth is
+/// reached.
+pub fn serve_deepening(tt: Arc<TranspositionTable>,
+                       commands: Receiver<Command>,
+                       reports: Sender<Report>) {
     // Start a slave thread that will be commanded to run searches
     // with increasing depths (search deepening).
     let (slave_commands_tx, slave_commands_rx) = channel();
     let (slave_reports_tx, slave_reports_rx) = channel();
     let slave = thread::spawn(move || {
-        search(tt, slave_commands_rx, slave_reports_tx);
+        serve_simple(tt, slave_commands_rx, slave_reports_tx);
     });
 
     let mut pending_command = None;

@@ -74,7 +74,7 @@ impl Engine {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         thread::spawn(move || {
-            search_deepening(tt2, commands_rx, reports_tx);
+            serve_deepening(tt2, commands_rx, reports_tx);
         });
 
         Engine {
