@@ -208,9 +208,9 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
 /// }).unwrap();
 /// ```
 ///
-/// This function executes a deepening search. It starts at depth `1`
-/// and consequently increases it until the specified final depth is
-/// reached.
+/// This function executes a deepening search with aspiration
+/// window. It starts at depth `1` and consequently increases it until
+/// the specified final depth is reached.
 pub fn serve_deepening(tt: Arc<TranspositionTable>,
                        commands: Receiver<Command>,
                        reports: Sender<Report>) {
@@ -248,9 +248,9 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
                     // will be much faster, because many positions will be remembered from
                     // the TT.
                     //
-                    // Here `delta` is the initial half-width of the window, which will be
-                    // increased each time the search failed. We use `isize` type to avoid
-                    // overflows.
+                    // Here `delta` is the initial half-width of the window, that will be
+                    // exponentially increased each time the search failed. We use `isize`
+                    // type to avoid overflows.
                     let mut delta = super::DELTA as isize;
                     let (mut alpha, mut beta) = if current_depth < 5 {
                         (lower_bound, upper_bound)
