@@ -90,6 +90,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     };
 
                     'aspiration: loop {
+                        // Command the slave thread to run a search.
                         slave_commands_tx.send(Command::Search {
                                              search_id: current_depth as usize,
                                              position: position.clone(),
@@ -152,6 +153,8 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
 
                     } // end of 'aspiration
 
+                    // Send a progress report with `current_value` for
+                    // every completed depth.
                     reports.send(Report::Progress {
                                search_id: search_id,
                                searched_nodes: current_searched_nodes,
