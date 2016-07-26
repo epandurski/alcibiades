@@ -319,8 +319,15 @@ impl<'a> Search<'a> {
         if entry.depth() >= depth {
             let value = entry.value();
             let bound = entry.bound();
-            if (value >= beta && bound == BOUND_LOWER) ||
-               (value <= alpha && bound == BOUND_UPPER) || (bound == BOUND_EXACT) {
+            if value >= beta && bound & BOUND_LOWER != 0 {
+                self.node_end();
+                return Ok(beta);
+            }
+            if value <= alpha && bound & BOUND_UPPER != 0 {
+                self.node_end();
+                return Ok(alpha);
+            }
+            if bound == BOUND_EXACT {
                 self.node_end();
                 return Ok(value);
             }
@@ -394,8 +401,15 @@ impl<'a> Search<'a> {
 
             // Check if we are in a final position (no legal moves).
             if no_moves_yet {
-                alpha = self.position.evaluate_final();
-                bound = BOUND_EXACT;
+                let value = self.position.evaluate_final();
+                if value >= beta {
+                    alpha = beta;
+                    bound = BOUND_LOWER;
+                }
+                if value > alpha {
+                    alpha = value;
+                    bound = BOUND_EXACT;
+                }
             }
         }
 
