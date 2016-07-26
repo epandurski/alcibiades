@@ -136,7 +136,7 @@ impl Engine {
         // Extract the PV, the leaf value, the root value, and the
         // bound type from the TT. We turn a blind eye if the value at
         // the root of the PV differs from the value at the leaf by
-        // less than `DELTA`.
+        // no more than `DELTA`.
         let mut p = self.position.clone();
         let mut our_turn = true;
         let mut prev_move = None;
