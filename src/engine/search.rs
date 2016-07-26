@@ -74,7 +74,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     // cutoffs are achieved, and the search takes a shorter time. The
                     // drawback is that if the true score is outside this window, then a
                     // costly re-search must be made.
-                    let mut delta = 16 as isize; // The initial half-width of the window.
+                    let mut delta = super::DELTA as isize; // Initial half-width of the window.
                     let (mut alpha, mut beta) = if current_depth < 5 {
                         (lower_bound, upper_bound)
                     } else {

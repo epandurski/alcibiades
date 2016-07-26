@@ -17,6 +17,9 @@ use tt::*;
 const VERSION: &'static str = "0.1";
 const MAX_DEPTH: u8 = 126;
 
+// The initial half-with of the aspiration window (in centipawns).
+const DELTA: Value = 16;
+
 // The number of nodes that can be searched without reporting search
 // progress. If this value is too small the engine may become slow, if
 // this value is too big the engine may become unresponsive.
@@ -128,13 +131,10 @@ impl Engine {
             return;
         }
 
-        // A tolerably small value (in centipawns). We turn a blind
-        // eye if the value at the root of the PV differs from the
-        // value at the leaf by less than that value.
-        const DELTA: Value = 20;
-
         // Extract the PV, the leaf value, the root value, and the
-        // bound type from the TT.
+        // bound type from the TT. We turn a blind eye if the value at
+        // the root of the PV differs from the value at the leaf by
+        // less than `DELTA`.
         let mut p = self.position.clone();
         let mut our_turn = true;
         let mut prev_move = None;
