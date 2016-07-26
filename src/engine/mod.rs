@@ -17,6 +17,8 @@ use self::threading::*;
 
 
 const VERSION: &'static str = "0.1";
+
+// The maximum possible search depth.
 const MAX_DEPTH: u8 = 126;
 
 // The initial half-with of the aspiration window (in centipawns).
