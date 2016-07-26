@@ -47,6 +47,7 @@ pub struct Engine {
     thinking_since: SystemTime,
     silent_since: SystemTime,
     current_depth: u8,
+    current_value: Option<Value>,
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
     nps: u64, // nodes per second
@@ -87,6 +88,7 @@ impl Engine {
             thinking_since: SystemTime::now(),
             silent_since: SystemTime::now(),
             current_depth: 0,
+            current_value: None,
             searched_nodes: 0,
             searched_time: 0,
             nps: 0,
@@ -98,7 +100,7 @@ impl Engine {
     // A helper method. It updates the search status info and makes
     // sure that a new PV is sent to the GUI for every newly reached
     // depth.
-    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
+    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
         if searched_nodes < NODE_COUNT_REPORT_INTERVAL || depth == 0 {
             // No meaningful progress yet.
             return;
@@ -108,8 +110,9 @@ impl Engine {
                              (thinking_duration.subsec_nanos() / 1000000) as u64;
         self.searched_nodes = searched_nodes;
         self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
-        if self.current_depth < depth {
+        if self.current_depth < depth || self.current_value != value {
             self.current_depth = depth;
+            self.current_value = value;
             self.report_pv(depth);
         }
     }
@@ -415,7 +418,7 @@ impl UciEngine for Engine {
                                                value }
                         if search_id == self.search_id => {
                         // Register search progress.
-                        self.register_progress(searched_depth, searched_nodes);
+                        self.register_progress(searched_depth, searched_nodes, value);
                         if self.silent_since.elapsed().unwrap().as_secs() > 20 {
                             if self.mangled_pv {
                                 self.report_pv(searched_depth);
