@@ -374,7 +374,7 @@ impl UciEngine for Engine {
     }
 
     fn ponder_hit(&mut self) {
-        if self.is_thinking && self.is_pondering {
+        if self.is_thinking {
             self.is_pondering = false;
         }
     }
