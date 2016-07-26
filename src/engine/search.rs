@@ -67,14 +67,20 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                 let mut current_depth = 1;
 
                 'depthloop: while current_depth <= depth {
-                    // Set up the aspiration window. Aspiration windows are a way to
-                    // reduce the search space in the search. We use `current_value` from
-                    // the last iteration of `depth`, and calculate a window around this
-                    // as the alpha-beta bounds. Because the window is narrower, more beta
-                    // cutoffs are achieved, and the search takes a shorter time. The
+                    // First we set up the aspiration window. Aspiration windows are a way
+                    // to reduce the search space in the search. We use `current_value`
+                    // from the last iteration of `depth`, and calculate a window around
+                    // this as the alpha-beta bounds. Because the window is narrower, more
+                    // beta cutoffs are achieved, and the search takes a shorter time. The
                     // drawback is that if the true score is outside this window, then a
-                    // costly re-search must be made.
-                    let mut delta = super::DELTA as isize; // Initial half-width of the window.
+                    // costly re-search must be made. But then most probably the re-search
+                    // will be much faster, because many positions will be remembered from
+                    // the TT.
+                    //
+                    // Here `delta` is the initial half-width of the window, which will be
+                    // increased each time the search failed. We use `isize` type to avoid
+                    // overflows.
+                    let mut delta = super::DELTA as isize;
                     let (mut alpha, mut beta) = if current_depth < 5 {
                         (lower_bound, upper_bound)
                     } else {
