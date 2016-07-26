@@ -74,12 +74,13 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     // cutoffs are achieved, and the search takes a shorter time. The
                     // drawback is that if the true score is outside this window, then a
                     // costly re-search must be made.
-                    let mut delta = 16; // The initial half-width of the window.
+                    let mut delta = 16 as isize; // The initial half-width of the window.
                     let (mut alpha, mut beta) = if current_depth < 5 {
                         (lower_bound, upper_bound)
                     } else {
-                        (max(lower_bound, current_value.unwrap() - delta),
-                         min(current_value.unwrap() + delta, upper_bound))
+                        let v = current_value.unwrap() as isize;
+                        (max(lower_bound as isize, v - delta) as Value,
+                         min(v + delta, upper_bound as isize) as Value)
                     };
 
                     'aspiration: loop {
@@ -128,15 +129,20 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
 
                         // Check if the `current_value` is within the aspiration window
                         // (alpha, beta). If not so, we must consider running a re-search.
-                        let v = current_value.unwrap();
-                        if v <= alpha && lower_bound < alpha {
-                            alpha = max(lower_bound, v - delta);
-                        } else if v >= beta && upper_bound > beta {
-                            beta = min(v + delta, upper_bound);
+                        let v = current_value.unwrap() as isize;
+                        if current_value.unwrap() <= alpha && lower_bound < alpha {
+                            alpha = max(lower_bound as isize, v - delta) as Value;
+                        } else if current_value.unwrap() >= beta && upper_bound > beta {
+                            beta = min(v + delta, upper_bound as isize) as Value;
                         } else {
                             break 'aspiration;
                         }
-                        delta += 3 * delta / 8; // Increase the half-width of the window.
+
+                        // Increase the half-width of the aspiration window.
+                        delta += 3 * delta / 8;
+                        if delta > 1500 {
+                            delta = 1_000_000;
+                        }
 
                     } // end of 'aspiration
 
