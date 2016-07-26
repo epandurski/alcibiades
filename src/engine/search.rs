@@ -29,6 +29,7 @@ pub enum Report {
         search_id: usize,
         searched_nodes: NodeCount,
         depth: u8,
+        value: Option<Value>,
     },
     Done {
         search_id: usize,
@@ -96,16 +97,13 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                             // pending command for us, in which case we have to terminate
                             // the search.
                             match slave_reports_rx.recv().unwrap() {
-                                Report::Progress { depth, searched_nodes, .. } => {
+                                Report::Progress { searched_nodes, .. } => {
                                     reports.send(Report::Progress {
                                                search_id: search_id,
                                                searched_nodes: current_searched_nodes +
                                                                searched_nodes,
-                                               depth: if depth == current_depth {
-                                                   current_depth
-                                               } else {
-                                                   current_depth - 1
-                                               },
+                                               depth: current_depth - 1,
+                                               value: current_value,
                                            })
                                            .ok();
                                     if pending_command.is_none() {
@@ -141,6 +139,13 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
 
                     } // end of 'aspiration
 
+                    reports.send(Report::Progress {
+                               search_id: search_id,
+                               searched_nodes: current_searched_nodes,
+                               depth: current_depth,
+                               value: current_value,
+                           })
+                           .ok();
                     current_depth += 1;
 
                 } // end of 'depthloop
@@ -195,6 +200,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                                    search_id: search_id,
                                    searched_nodes: n,
                                    depth: 0,
+                                   value: None,
                                })
                                .ok();
                         if let Ok(cmd) = commands.try_recv() {
@@ -209,7 +215,12 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                     reports.send(Report::Progress {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
-                               depth: depth,
+                               depth: if value.is_some() {
+                                   depth
+                               } else {
+                                   0
+                               },
+                               value: value,
                            })
                            .ok();
                     reports.send(Report::Done {

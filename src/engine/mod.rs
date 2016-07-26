@@ -409,7 +409,7 @@ impl UciEngine for Engine {
         while let Ok(report) = self.reports.try_recv() {
             if self.is_thinking {
                 match report {
-                    search::Report::Progress { search_id, depth, searched_nodes }
+                    search::Report::Progress { search_id, depth, value, searched_nodes }
                         if search_id == self.search_id => {
                         // Register search progress.
                         self.register_progress(depth, searched_nodes);
