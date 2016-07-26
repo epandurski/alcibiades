@@ -75,6 +75,71 @@ pub enum Report {
 }
 
 
+pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
+    thread_local!(
+        static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
+    );
+    MOVE_STACK.with(|s| {
+        let mut move_stack = unsafe { &mut *s.get() };
+        let mut pending_command = None;
+        loop {
+            // If there is a pending command, we take it, otherwise we
+            // block and wait to receive a new one.
+            let command = match pending_command.take() {
+                Some(cmd) => cmd,
+                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
+            };
+
+            match command {
+                Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
+                    let mut report = |searched_nodes| {
+                        reports.send(Report::Progress {
+                                   search_id: search_id,
+                                   searched_nodes: searched_nodes,
+                                   searched_depth: 0,
+                                   value: None,
+                               })
+                               .ok();
+                        if let Ok(cmd) = commands.try_recv() {
+                            pending_command = Some(cmd);
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    let mut search = Search::new(position, &tt, move_stack, &mut report);
+                    let value = search.run(lower_bound, upper_bound, depth).ok();
+                    let searched_depth = if value.is_some() {
+                        depth
+                    } else {
+                        0
+                    };
+                    reports.send(Report::Progress {
+                               search_id: search_id,
+                               searched_nodes: search.node_count(),
+                               searched_depth: searched_depth,
+                               value: value,
+                           })
+                           .ok();
+                    reports.send(Report::Done {
+                               search_id: search_id,
+                               searched_nodes: search.node_count(),
+                               searched_depth: searched_depth,
+                               value: value,
+                           })
+                           .ok();
+                    search.reset();
+                }
+                
+                Command::Stop => continue,
+                
+                Command::Exit => break,
+            }
+        }
+    })
+}
+
+
 pub fn run_deepening(tt: Arc<TranspositionTable>,
                      commands: Receiver<Command>,
                      reports: Sender<Report>) {
@@ -224,70 +289,3 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
     }
     slave.join().unwrap();
 }
-
-
-pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
-    thread_local!(
-        static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
-    );
-    MOVE_STACK.with(|s| {
-        let mut move_stack = unsafe { &mut *s.get() };
-        let mut pending_command = None;
-        loop {
-            // If there is a pending command, we take it, otherwise we
-            // block and wait to receive a new one.
-            let command = match pending_command.take() {
-                Some(cmd) => cmd,
-                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
-            };
-
-            match command {
-                Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                    let mut report = |searched_nodes| {
-                        reports.send(Report::Progress {
-                                   search_id: search_id,
-                                   searched_nodes: searched_nodes,
-                                   searched_depth: 0,
-                                   value: None,
-                               })
-                               .ok();
-                        if let Ok(cmd) = commands.try_recv() {
-                            pending_command = Some(cmd);
-                            true
-                        } else {
-                            false
-                        }
-                    };
-                    let mut search = Search::new(position, &tt, move_stack, &mut report);
-                    let value = search.run(lower_bound, upper_bound, depth).ok();
-                    let searched_depth = if value.is_some() {
-                        depth
-                    } else {
-                        0
-                    };
-                    reports.send(Report::Progress {
-                               search_id: search_id,
-                               searched_nodes: search.node_count(),
-                               searched_depth: searched_depth,
-                               value: value,
-                           })
-                           .ok();
-                    reports.send(Report::Done {
-                               search_id: search_id,
-                               searched_nodes: search.node_count(),
-                               searched_depth: searched_depth,
-                               value: value,
-                           })
-                           .ok();
-                    search.reset();
-                }
-                
-                Command::Stop => continue,
-                
-                Command::Exit => break,
-            }
-        }
-    })
-}
-
-
