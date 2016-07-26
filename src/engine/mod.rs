@@ -1,4 +1,5 @@
 pub mod search;
+pub mod threading;
 
 use std::thread;
 use std::cmp::min;
@@ -12,6 +13,7 @@ use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescriptio
 use position::Position;
 use chess_move::*;
 use tt::*;
+use self::threading::*;
 
 
 const VERSION: &'static str = "0.1";
@@ -40,10 +42,10 @@ pub struct Engine {
     pondering_is_allowed: bool,
 
     // A channel for sending commands to the search thread.
-    commands: Sender<search::Command>,
+    commands: Sender<Command>,
 
     // A channel for receiving reports from the search thread.
-    reports: Receiver<search::Report>,
+    reports: Receiver<Report>,
 
     // Search status info
     search_id: usize,
@@ -72,7 +74,7 @@ impl Engine {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         thread::spawn(move || {
-            search::run_deepening(tt2, commands_rx, reports_tx);
+            run_deepening(tt2, commands_rx, reports_tx);
         });
 
         Engine {
@@ -360,7 +362,7 @@ impl UciEngine for Engine {
 
             // Start deepening search to the maximum possible depth.
             self.commands
-                .send(search::Command::Search {
+                .send(Command::Search {
                     search_id: self.search_id,
                     position: self.position.clone(),
                     depth: MAX_DEPTH,
@@ -379,7 +381,7 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking {
-            self.commands.send(search::Command::Stop).unwrap();
+            self.commands.send(Command::Stop).unwrap();
             let mut p = self.position.clone();
             let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
                 (m.notation(), self.do_best_move(&mut p).map(|m| m.notation()))
@@ -416,10 +418,7 @@ impl UciEngine for Engine {
         while let Ok(report) = self.reports.try_recv() {
             if self.is_thinking {
                 match report {
-                    search::Report::Progress { search_id,
-                                               searched_nodes,
-                                               searched_depth,
-                                               value }
+                    Report::Progress { search_id, searched_nodes, searched_depth, value }
                         if search_id == self.search_id => {
                         // Register search progress.
                         self.register_progress(searched_depth, searched_nodes, value);
@@ -431,7 +430,7 @@ impl UciEngine for Engine {
                             }
                         }
                     }
-                    search::Report::Done { search_id, .. } if search_id == self.search_id => {
+                    Report::Done { search_id, .. } if search_id == self.search_id => {
                         // Terminate the search if not infinite.
                         self.stop_when = match self.stop_when {
                             TimeManagement::Infinite => TimeManagement::Infinite,
