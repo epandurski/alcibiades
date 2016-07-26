@@ -254,7 +254,7 @@ impl Engine {
 
     // A helper method for `Engine::stop`. It probes the TT for the
     // best move in the position `p`, plays it, and returns it. If the
-    // TT gives no move this function will play and return the first
+    // TT gives no move, this function will play and return the first
     // legal move. `None` is returned only when there are no legal
     // moves.
     fn do_best_move(&self, p: &mut Position) -> Option<Move> {
