@@ -208,10 +208,10 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 
             match command {
                 Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                    let mut report = |n| {
+                    let mut report = |searched_nodes| {
                         reports.send(Report::Progress {
                                    search_id: search_id,
-                                   searched_nodes: n,
+                                   searched_nodes: searched_nodes,
                                    searched_depth: 0,
                                    value: None,
                                })
@@ -246,7 +246,9 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                            .ok();
                     search.reset();
                 }
+                
                 Command::Stop => continue,
+                
                 Command::Exit => break,
             }
         }
