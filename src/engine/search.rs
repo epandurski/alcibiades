@@ -28,12 +28,13 @@ pub enum Report {
     Progress {
         search_id: usize,
         searched_nodes: NodeCount,
-        depth: u8,
+        searched_depth: u8,
         value: Option<Value>,
     },
     Done {
         search_id: usize,
         searched_nodes: NodeCount,
+        searched_depth: u8,
         value: Option<Value>,
     },
 }
@@ -102,7 +103,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                                search_id: search_id,
                                                searched_nodes: current_searched_nodes +
                                                                searched_nodes,
-                                               depth: current_depth - 1,
+                                               searched_depth: current_depth - 1,
                                                value: current_value,
                                            })
                                            .ok();
@@ -115,8 +116,8 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                                 }
                                 Report::Done { searched_nodes, value, .. } => {
                                     current_searched_nodes += searched_nodes;
-                                    current_value = value;
                                     if pending_command.is_none() {
+                                        current_value = value;
                                         break 'report;
                                     } else {
                                         break 'depthloop;
@@ -142,7 +143,7 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                     reports.send(Report::Progress {
                                search_id: search_id,
                                searched_nodes: current_searched_nodes,
-                               depth: current_depth,
+                               searched_depth: current_depth,
                                value: current_value,
                            })
                            .ok();
@@ -154,11 +155,8 @@ pub fn run_deepening(tt: Arc<TranspositionTable>,
                 reports.send(Report::Done {
                            search_id: search_id,
                            searched_nodes: current_searched_nodes,
-                           value: if pending_command.is_none() {
-                               current_value
-                           } else {
-                               None
-                           },
+                           searched_depth: current_depth - 1,
+                           value: current_value,
                        })
                        .ok();
             }
@@ -199,7 +197,7 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                         reports.send(Report::Progress {
                                    search_id: search_id,
                                    searched_nodes: n,
-                                   depth: 0,
+                                   searched_depth: 0,
                                    value: None,
                                })
                                .ok();
@@ -212,20 +210,22 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                     };
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
                     let value = search.run(lower_bound, upper_bound, depth).ok();
+                    let searched_depth = if value.is_some() {
+                        depth
+                    } else {
+                        0
+                    };
                     reports.send(Report::Progress {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
-                               depth: if value.is_some() {
-                                   depth
-                               } else {
-                                   0
-                               },
+                               searched_depth: searched_depth,
                                value: value,
                            })
                            .ok();
                     reports.send(Report::Done {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
+                               searched_depth: searched_depth,
                                value: value,
                            })
                            .ok();
