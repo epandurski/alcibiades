@@ -1,4 +1,4 @@
-//! Implements search parallelization routines.
+//! Implements search parallelization facilities.
 
 use std::thread;
 use std::cmp::{min, max};
@@ -18,23 +18,23 @@ pub enum Command {
     Search {
         /// A number identifying the new search.
         search_id: usize,
-        
+
         /// The root position.
         position: Position,
-        
+
         /// The requested search depth.
         depth: u8,
-        
+
         /// The lower bound for the new search.
         lower_bound: Value,
-        
+
         /// The upper bound for the new search.
         upper_bound: Value,
     },
-    
+
     /// Stops the currently running search.
     Stop,
-    
+
     /// Stops the currently running search and exits the search
     /// thread.
     Exit,
@@ -47,35 +47,35 @@ pub enum Report {
     Progress {
         /// The ID passed with the search command.
         search_id: usize,
-        
+
         /// The number of positions searched so far.
         searched_nodes: NodeCount,
-        
+
         /// The search depth completed so far.
         searched_depth: u8,
-        
+
         /// The evaluation of the root position so far.
         value: Option<Value>,
     },
-    
+
     /// Reports that the search is finished.
     Done {
         /// The ID passed with the search command.
         search_id: usize,
-        
+
         /// The total number of positions searched.
         searched_nodes: NodeCount,
-        
+
         /// The search depth completed.
         searched_depth: u8,
-        
+
         /// The evaluation of the root position.
         value: Option<Value>,
     },
 }
 
 
-pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
+pub fn search(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Sender<Report>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -130,9 +130,9 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
                            .ok();
                     search.reset();
                 }
-                
+
                 Command::Stop => continue,
-                
+
                 Command::Exit => break,
             }
         }
@@ -140,15 +140,15 @@ pub fn run(tt: Arc<TranspositionTable>, commands: Receiver<Command>, reports: Se
 }
 
 
-pub fn run_deepening(tt: Arc<TranspositionTable>,
-                     commands: Receiver<Command>,
-                     reports: Sender<Report>) {
+pub fn search_deepening(tt: Arc<TranspositionTable>,
+                        commands: Receiver<Command>,
+                        reports: Sender<Report>) {
     // Start a slave thread that will be commanded to run searches
     // with increasing depths (search deepening).
     let (slave_commands_tx, slave_commands_rx) = channel();
     let (slave_reports_tx, slave_reports_rx) = channel();
     let slave = thread::spawn(move || {
-        run(tt, slave_commands_rx, slave_reports_tx);
+        search(tt, slave_commands_rx, slave_reports_tx);
     });
 
     let mut pending_command = None;
