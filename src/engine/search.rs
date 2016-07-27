@@ -271,6 +271,10 @@ impl<'a> Search<'a> {
         // moves. But we should not forget to remove the already tried
         // hash move from the list.
         if let NodePhase::TriedHashMove = state.phase {
+            // TODO: `generate_moves` needs `_checkers` and `_pinned`
+            // to do its work. At this time we might already have
+            // generated them during the trying of the best move --
+            // use them if possible.
             self.position.generate_moves(self.moves);
             if state.entry.move16() != 0 {
                 self.moves.remove_move(state.entry.move16());
