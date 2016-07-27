@@ -260,7 +260,7 @@ impl<'a> Search<'a> {
             if state.entry.move16() != 0 {
                 if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
                     if self.position.do_move(m) {
-                        m.set_score(MOVE_SCORE_MAX);
+                        m.set_score(MAX_MOVE_SCORE);
                         return Some(m);
                     }
                 }
@@ -283,7 +283,7 @@ impl<'a> Search<'a> {
 
             // First, the good captures.
             if let NodePhase::GeneratedMoves = state.phase {
-                if m.score() == MOVE_SCORE_MAX {
+                if m.score() == MAX_MOVE_SCORE {
                     if self.position.evaluate_move(m) >= 0 {
                         if self.position.do_move(m) {
                             return Some(m);
@@ -292,7 +292,7 @@ impl<'a> Search<'a> {
                     }
                     // This is a bad capture -- push it back to the
                     // move stack.
-                    m.set_score(MOVE_SCORE_MAX - 1);
+                    m.set_score(MAX_MOVE_SCORE - 1);
                     self.moves.push(m);
                     continue;
                 }
@@ -301,7 +301,7 @@ impl<'a> Search<'a> {
 
             // Second, the bad captures.
             if let NodePhase::TriedGoodCaptures = state.phase {
-                if m.score() == MOVE_SCORE_MAX - 1 {
+                if m.score() == MAX_MOVE_SCORE - 1 {
                     if self.position.do_move(m) {
                         return Some(m);
                     }
@@ -344,7 +344,7 @@ impl<'a> Search<'a> {
                 if state.is_check {
                     // When in check, we set a high move score to all
                     // moves to avoid search depth reductions.
-                    m.set_score(MOVE_SCORE_MAX - 1);
+                    m.set_score(MAX_MOVE_SCORE - 1);
                 }
                 return Some(m);
             }

@@ -118,10 +118,10 @@ impl Move {
     ///
     /// The initial move score for the new move will be:
     ///
-    /// * `MOVE_SCORE_MAX - 1` for pawn promotions to pieces other
+    /// * `MAX_MOVE_SCORE - 1` for pawn promotions to pieces other
     ///   than queen.
     ///
-    /// * `MOVE_SCORE_MAX` for captures and pawn promotions to queen.
+    /// * `MAX_MOVE_SCORE` for captures and pawn promotions to queen.
     /// 
     /// * `0` for all other moves.
     #[inline(always)]
@@ -148,7 +148,7 @@ impl Move {
         let mut score_shifted = if captured_piece == NO_PIECE {
             0 << 32
         } else {
-            (MOVE_SCORE_MAX as u64) << 32
+            (MAX_MOVE_SCORE as u64) << 32
         };
 
         // Figure out what `aux_data` should contain. In the mean
@@ -156,9 +156,9 @@ impl Move {
         // scores.
         let aux_data = if move_type == MOVE_PROMOTION {
             score_shifted = if promoted_piece_code == 0 {
-                (MOVE_SCORE_MAX as u64) << 32
+                (MAX_MOVE_SCORE as u64) << 32
             } else {
-                ((MOVE_SCORE_MAX - 1) as u64) << 32
+                ((MAX_MOVE_SCORE - 1) as u64) << 32
             };
             promoted_piece_code
         } else {
@@ -181,10 +181,10 @@ impl Move {
         Move(0)
     }
 
-    /// Assigns a new score for the move (between 0 and `MOVE_SCORE_MAX`).
+    /// Assigns a new score for the move (between 0 and `MAX_MOVE_SCORE`).
     #[inline(always)]
     pub fn set_score(&mut self, score: u32) {
-        assert!(score <= MOVE_SCORE_MAX);
+        assert!(score <= MAX_MOVE_SCORE);
         self.0 &= (!0u32) as u64;
         self.0 |= (score as u64) << 32;
     }
@@ -488,7 +488,7 @@ impl MoveStack {
 
 
 /// The maximum possible move score.
-pub const MOVE_SCORE_MAX: u32 = std::u32::MAX;
+pub const MAX_MOVE_SCORE: u32 = std::u32::MAX;
 
 
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
@@ -605,8 +605,8 @@ mod tests {
         assert_eq!(m.castling().value(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
-        m.set_score(MOVE_SCORE_MAX);
-        assert_eq!(m.score(), MOVE_SCORE_MAX);
+        m.set_score(MAX_MOVE_SCORE);
+        assert_eq!(m.score(), MAX_MOVE_SCORE);
         m.set_score(3);
         assert_eq!(m.score(), 3);
         assert!(m > m2);
