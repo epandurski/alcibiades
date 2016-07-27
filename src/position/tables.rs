@@ -196,7 +196,7 @@ impl BoardGeometry {
                            *self.blockers_and_beyond
                                 .get_unchecked(piece)
                                 .get_unchecked(from_square);
-        while blockers != EMPTY_SET {
+        while blockers != BB_EMPTY_SET {
             attacks &= !*behind.get_unchecked(bitscan_forward_and_reset(&mut blockers));
         }
         attacks

@@ -68,8 +68,8 @@ impl Board {
             castling: castling,
             en_passant_file: en_passant_file,
             _occupied: placement.color[WHITE] | placement.color[BLACK],
-            _checkers: Cell::new(UNIVERSAL_SET),
-            _pinned: Cell::new(UNIVERSAL_SET),
+            _checkers: Cell::new(BB_UNIVERSAL_SET),
+            _pinned: Cell::new(BB_UNIVERSAL_SET),
             _king_square: Cell::new(64),
         };
 
@@ -124,7 +124,7 @@ impl Board {
     /// king.
     #[inline]
     pub fn checkers(&self) -> u64 {
-        if self._checkers.get() == UNIVERSAL_SET {
+        if self._checkers.get() == BB_UNIVERSAL_SET {
             self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
         }
         self._checkers.get()
@@ -134,7 +134,7 @@ impl Board {
     /// of the side to move.
     #[inline]
     pub fn pinned(&self) -> u64 {
-        if self._pinned.get() == UNIVERSAL_SET {
+        if self._pinned.get() == BB_UNIVERSAL_SET {
             self._pinned.set(self.find_pinned());
         }
         self._pinned.get()
@@ -225,7 +225,7 @@ impl Board {
             0 =>
                 // Not in check -- every move destination may be
                 // considered "covering".
-                UNIVERSAL_SET,
+                BB_UNIVERSAL_SET,
 
             x if x == checkers =>
                 // Single check -- calculate the check covering
@@ -243,10 +243,10 @@ impl Board {
 
             _ =>
                 // Double check -- no covering moves.
-                EMPTY_SET,
+                BB_EMPTY_SET,
         };
 
-        if legal_dests != EMPTY_SET {
+        if legal_dests != BB_EMPTY_SET {
             // This block is not executed when the king is in double
             // check.
 
@@ -268,7 +268,7 @@ impl Board {
 
                 for piece in QUEEN..PAWN {
                     let mut bb = unsafe { *self.piece_type.get_unchecked(piece) } & occupied_by_us;
-                    while bb != EMPTY_SET {
+                    while bb != BB_EMPTY_SET {
                         let piece_bb = ls1b(bb);
                         bb ^= piece_bb;
                         let orig_square = bitscan_1bit(piece_bb);
@@ -310,7 +310,7 @@ impl Board {
                 let all_pawns = self.piece_type[PAWN] & occupied_by_us;
                 let mut pinned_pawns = all_pawns & pinned;
                 let free_pawns = all_pawns ^ pinned_pawns;
-                if free_pawns != EMPTY_SET {
+                if free_pawns != BB_EMPTY_SET {
                     self.push_pawn_moves_to_stack(free_pawns,
                                                   en_passant_bb,
                                                   pawn_legal_dests,
@@ -319,7 +319,7 @@ impl Board {
                 }
 
                 // Find pinned pawn moves pawn by pawn.
-                while pinned_pawns != EMPTY_SET {
+                while pinned_pawns != BB_EMPTY_SET {
                     let pawn_bb = ls1b(pinned_pawns);
                     pinned_pawns ^= pawn_bb;
                     let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
@@ -444,7 +444,7 @@ impl Board {
 
         if piece != KING {
             pseudo_legal_dests &= match ls1b(checkers) {
-                0 => UNIVERSAL_SET,
+                0 => BB_UNIVERSAL_SET,
                 x if x == checkers => {
                     // We are in check.
                     x |
@@ -679,8 +679,8 @@ impl Board {
             // Update "_occupied", "_checkers", "_pinned", and
             // "_king_square".
             self._occupied = self.color[WHITE] | self.color[BLACK];
-            self._checkers.set(UNIVERSAL_SET);
-            self._pinned.set(UNIVERSAL_SET);
+            self._checkers.set(BB_UNIVERSAL_SET);
+            self._pinned.set(BB_UNIVERSAL_SET);
             self._king_square.set(64);
         }
 
@@ -770,8 +770,8 @@ impl Board {
             // Update "_occupied", "_checkers", "_pinned", and
             // "_king_square".
             self._occupied = self.color[WHITE] | self.color[BLACK];
-            self._checkers.set(UNIVERSAL_SET);
-            self._pinned.set(UNIVERSAL_SET);
+            self._checkers.set(BB_UNIVERSAL_SET);
+            self._pinned.set(BB_UNIVERSAL_SET);
             self._king_square.set(64);
         }
 
@@ -810,7 +810,7 @@ impl Board {
             if acc & x == 0 {
                 acc | x
             } else {
-                UNIVERSAL_SET
+                BB_UNIVERSAL_SET
             }
         });  // Returns "UNIVERSAL_SET" if "self.piece_type" is messed up.
 
@@ -821,7 +821,7 @@ impl Board {
         let their_king_bb = self.piece_type[KING] & o_them;
         let pawns = self.piece_type[PAWN];
 
-        occupied != UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
+        occupied != BB_UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
         pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
         pop_count(pawns & o_us) <= 8 &&
         pop_count(pawns & o_them) <= 8 && pop_count(o_us) <= 16 &&
@@ -840,7 +840,7 @@ impl Board {
         (!self.castling.can_castle(BLACK, KINGSIDE) ||
          (self.piece_type[ROOK] & self.color[BLACK] & 1 << H8 != 0) &&
          (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
-        (en_passant_bb == EMPTY_SET ||
+        (en_passant_bb == BB_EMPTY_SET ||
          {
             let dest_square_bb = gen_shift(en_passant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
             let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
@@ -848,16 +848,16 @@ impl Board {
             let checkers = self.attacks_to(them, our_king_square);
             (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
             (orig_square_bb & !occupied != 0) &&
-            (checkers == EMPTY_SET || checkers == dest_square_bb ||
+            (checkers == BB_EMPTY_SET || checkers == dest_square_bb ||
              (pop_count(checkers) == 1 &&
               self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
               orig_square_bb != 0))
         }) &&
         {
             assert_eq!(self._occupied, occupied);
-            assert!(self._checkers.get() == UNIVERSAL_SET ||
+            assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
-            assert!(self._pinned.get() == UNIVERSAL_SET ||
+            assert!(self._pinned.get() == BB_UNIVERSAL_SET ||
                     self._pinned.get() == self.find_pinned());
             assert!(self._king_square.get() > 63 ||
                     self._king_square.get() == bitscan_1bit(our_king_bb));
@@ -869,7 +869,10 @@ impl Board {
     // `try_move_digest`. It calculates pawn destination bitboards.
     #[inline]
     fn calc_pawn_dest_sets(&self, pawns: u64, en_passant_bb: u64, dest_sets: &mut [u64; 4]) {
-        const PAWN_MOVE_QUIET: [u64; 4] = [UNIVERSAL_SET, UNIVERSAL_SET, EMPTY_SET, EMPTY_SET];
+        const PAWN_MOVE_QUIET: [u64; 4] = [BB_UNIVERSAL_SET,
+                                           BB_UNIVERSAL_SET,
+                                           BB_EMPTY_SET,
+                                           BB_EMPTY_SET];
         const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
                                                 BB_RANK_2 | BB_RANK_7,
                                                 !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
@@ -906,7 +909,7 @@ impl Board {
         let mut dest_set = unsafe {
             self.geometry.piece_attacks_from(self.occupied(), piece, orig_square)
         } & legal_dests;
-        while dest_set != EMPTY_SET {
+        while dest_set != BB_EMPTY_SET {
             let dest_bb = ls1b(dest_set);
             dest_set ^= dest_bb;
             let dest_square = bitscan_1bit(dest_bb);
@@ -961,7 +964,7 @@ impl Board {
         let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
         for i in 0..4 {
             let s = unsafe { dest_sets.get_unchecked_mut(i) };
-            while *s != EMPTY_SET {
+            while *s != BB_EMPTY_SET {
                 let pawn_bb = ls1b(*s);
                 *s ^= pawn_bb;
                 let dest_square = bitscan_1bit(pawn_bb);
@@ -1030,7 +1033,7 @@ impl Board {
     fn push_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
 
         // We can not castle if in check.
-        if self.checkers() == EMPTY_SET {
+        if self.checkers() == BB_EMPTY_SET {
 
             // Try queen-side and king-side castling.
             for side in 0..2 {
@@ -1083,8 +1086,8 @@ impl Board {
             straight_sliders & self.geometry.piece_attacks_from(straight_sliders, ROOK, king_square)
         };
 
-        if pinners == EMPTY_SET {
-            EMPTY_SET
+        if pinners == BB_EMPTY_SET {
+            BB_EMPTY_SET
         } else {
             let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
             let between_king_square_and = unsafe {
@@ -1093,11 +1096,11 @@ impl Board {
                     .get_unchecked(king_square)
             };
             let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
-            let mut pinned_or_discovered_checkers = EMPTY_SET;
+            let mut pinned_or_discovered_checkers = BB_EMPTY_SET;
 
             // Scan all potential pinners and see if there is one and only
             // one piece between the pinner and our king.
-            while pinners != EMPTY_SET {
+            while pinners != BB_EMPTY_SET {
                 let pinner_square = bitscan_forward_and_reset(&mut pinners);
                 let blockers_group = unsafe {
                     between_king_square_and.get_unchecked(pinner_square)
@@ -1158,23 +1161,23 @@ impl Board {
             let occupied_by_them = *self.color.get_unchecked(them);
 
             (self.geometry.piece_attacks_from(occupied, ROOK, square) & occupied_by_them &
-             (self.piece_type[ROOK] | self.piece_type[QUEEN])) != EMPTY_SET ||
+             (self.piece_type[ROOK] | self.piece_type[QUEEN])) != BB_EMPTY_SET ||
             (self.geometry.piece_attacks_from(occupied, BISHOP, square) & occupied_by_them &
-             (self.piece_type[BISHOP] | self.piece_type[QUEEN])) != EMPTY_SET ||
+             (self.piece_type[BISHOP] | self.piece_type[QUEEN])) != BB_EMPTY_SET ||
             (self.geometry.piece_attacks_from(occupied, KNIGHT, square) & occupied_by_them &
-             self.piece_type[KNIGHT]) != EMPTY_SET ||
+             self.piece_type[KNIGHT]) != BB_EMPTY_SET ||
             (self.geometry.piece_attacks_from(occupied, KING, square) & occupied_by_them &
-             self.piece_type[KING]) != EMPTY_SET ||
+             self.piece_type[KING]) != BB_EMPTY_SET ||
             {
                 let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(them);
                 let square_bb = 1 << square;
 
                 (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
                  self.piece_type[PAWN] &
-                 !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) != EMPTY_SET ||
+                 !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) != BB_EMPTY_SET ||
                 (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
                  self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8)) !=
-                EMPTY_SET
+                BB_EMPTY_SET
             }
         }
     }
@@ -1185,7 +1188,7 @@ impl Board {
     // the bitboard `square_bb`.
     #[inline(always)]
     fn get_piece_type_at(&self, square_bb: u64) -> PieceType {
-        assert!(square_bb != EMPTY_SET);
+        assert!(square_bb != BB_EMPTY_SET);
         assert_eq!(square_bb, ls1b(square_bb));
         let bb = square_bb & self.occupied();
         if bb == 0 {
@@ -1225,7 +1228,7 @@ impl Board {
                 self.geometry.piece_attacks_from(occupied, ROOK, king_square)
             } & occupied_by_them &
                            (self.piece_type[ROOK] | self.piece_type[QUEEN]);
-            checkers == EMPTY_SET
+            checkers == BB_EMPTY_SET
         }
     }
 

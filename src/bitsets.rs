@@ -13,11 +13,12 @@ use basetypes::*;
 
 
 /// An empty bitboard.
-pub const EMPTY_SET: u64 = 0;
+pub const BB_EMPTY_SET: u64 = 0;
 
 /// A completely full bitboard.
-pub const UNIVERSAL_SET: u64 = 0xffffffffffffffff;
+pub const BB_UNIVERSAL_SET: u64 = 0xffffffffffffffff;
 
+// Ranks 1-8.
 pub const BB_RANK_1: u64 = 0b11111111;
 pub const BB_RANK_2: u64 = BB_RANK_1 << 8;
 pub const BB_RANK_3: u64 = BB_RANK_2 << 8;
@@ -27,6 +28,7 @@ pub const BB_RANK_6: u64 = BB_RANK_5 << 8;
 pub const BB_RANK_7: u64 = BB_RANK_6 << 8;
 pub const BB_RANK_8: u64 = BB_RANK_7 << 8;
 
+// Files A-H.
 pub const BB_FILE_A: u64 = 0x0101010101010101;
 pub const BB_FILE_B: u64 = BB_FILE_A << 1;
 pub const BB_FILE_C: u64 = BB_FILE_B << 1;
@@ -36,6 +38,7 @@ pub const BB_FILE_F: u64 = BB_FILE_E << 1;
 pub const BB_FILE_G: u64 = BB_FILE_F << 1;
 pub const BB_FILE_H: u64 = BB_FILE_G << 1;
 
+// Rank 1 or 8.
 pub const BB_PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 
 

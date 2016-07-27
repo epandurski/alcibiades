@@ -727,7 +727,7 @@ impl Position {
         for color in 0..2 {
             for piece in 0..6 {
                 let mut bb = self.board().color()[color] & self.board().piece_type()[piece];
-                while bb != EMPTY_SET {
+                while bb != BB_EMPTY_SET {
                     let square = bitscan_forward_and_reset(&mut bb);
                     hash ^= zobrist.pieces[color][piece][square];
                 }
@@ -867,7 +867,7 @@ fn consider_xrays(geometry: &BoardGeometry,
 fn get_least_valuable_piece(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
     for p in (KING..NO_PIECE).rev() {
         let piece_subset = unsafe { *piece_type_array.get_unchecked(p) } & set;
-        if piece_subset != EMPTY_SET {
+        if piece_subset != BB_EMPTY_SET {
             return (p, ls1b(piece_subset));
         }
     }
