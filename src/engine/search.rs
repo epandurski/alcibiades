@@ -238,6 +238,8 @@ impl<'a> Search<'a> {
         self.state_stack.pop();
     }
 
+    // TODO: Implement do_null_move() method?
+    
     // Plays the next legal move in the current position and returns
     // it.
     //
