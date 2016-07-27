@@ -1,6 +1,7 @@
 //! Implements single-threaded game tree search.
 
 use basetypes::*;
+use bitsets::*;
 use chess_move::*;
 use tt::*;
 use position::Position;
@@ -218,7 +219,7 @@ impl<'a> Search<'a> {
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
             entry: entry,
-            checkers: self.position.board().checkers(),
+            checkers: BB_UNIVERSAL_SET,
         });
         entry
     }
@@ -255,6 +256,14 @@ impl<'a> Search<'a> {
             // We save the move list at the last possible moment,
             // because most of the nodes are leafs.
             self.moves.save();
+            
+            // We save the checkers bitboard also, because we will
+            // need this information later many times, and we do not
+            // want to recalculate it needlessly.
+            //
+            // TODO: Verify if this is the best place to calculate
+            // checkers, especially in relation to trying null moves.
+            state.checkers = self.position.board().checkers();
 
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
@@ -272,9 +281,10 @@ impl<'a> Search<'a> {
         // hash move from the list.
         if let NodePhase::TriedHashMove = state.phase {
             // TODO: `generate_moves` needs `_checkers` and `_pinned`
-            // to do its work. At this time we might already have
-            // generated them during the trying of the best move --
-            // use them if possible.
+            // to do its work. At this time we already have generated
+            // them, so we should use them.
+            self.position.board()._checkers.set(state.checkers);
+            
             self.position.generate_moves(self.moves);
             if state.entry.move16() != 0 {
                 self.moves.remove_move(state.entry.move16());
