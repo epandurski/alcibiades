@@ -348,7 +348,7 @@ impl MoveStack {
         }
     }
 
-    /// Clears the stack of states, removing all saved move lists.
+    /// Deletes all saved move lists.
     #[inline]
     pub fn clear(&mut self) {
         self.moves.clear();
