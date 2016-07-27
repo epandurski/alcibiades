@@ -302,30 +302,30 @@ impl Move {
 }
 
 
-/// Extracts the move type from a move digest.
+/// Extracts the move type from a `MoveDigest`.
 #[inline(always)]
-pub fn move_type(move_digest: MoveDigest) -> MoveType {
+pub fn get_move_type(move_digest: MoveDigest) -> MoveType {
     ((move_digest & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
 }
 
 
-/// Extracts the origin square from a move digest.
+/// Extracts the origin square from a `MoveDigest`.
 #[inline(always)]
-pub fn orig_square(move_digest: MoveDigest) -> Square {
+pub fn get_orig_square(move_digest: MoveDigest) -> Square {
     ((move_digest & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
 }
 
 
-/// Extracts the destination square from a move digest.
+/// Extracts the destination square from a `MoveDigest`.
 #[inline(always)]
-pub fn dest_square(move_digest: MoveDigest) -> Square {
+pub fn get_dest_square(move_digest: MoveDigest) -> Square {
     ((move_digest & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
 }
 
 
-/// Extracts the auxiliary data from a move digest.
+/// Extracts the auxiliary data from a `MoveDigest`.
 #[inline(always)]
-pub fn aux_data(move_digest: MoveDigest) -> usize {
+pub fn get_aux_data(move_digest: MoveDigest) -> usize {
     ((move_digest & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
 }
 

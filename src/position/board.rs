@@ -390,9 +390,9 @@ impl Board {
     /// method will return `Some(m)`. Otherwise it will return `None`.
     #[inline]
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
-        let move_type = move_type(move_digest);
-        let orig_square = orig_square(move_digest);
-        let dest_square = dest_square(move_digest);
+        let move_type = get_move_type(move_digest);
+        let orig_square = get_orig_square(move_digest);
+        let dest_square = get_dest_square(move_digest);
         let king_square = self.king_square();
         let checkers = self.checkers();
         assert!(self.to_move <= 1);
@@ -501,7 +501,7 @@ impl Board {
                     if move_type != MOVE_PROMOTION {
                         return None;
                     }
-                    promoted_piece_code = aux_data(move_digest);
+                    promoted_piece_code = get_aux_data(move_digest);
                 }
                 _ => {
                     if move_type != MOVE_NORMAL {
