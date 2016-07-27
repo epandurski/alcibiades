@@ -58,7 +58,7 @@ pub struct Engine {
     searched_nodes: NodeCount,
     searched_time: u64, // milliseconds
     nps: u64, // nodes per second
-    mangled_pv: bool, // `true` if the primary variation is imperfect
+    perfect_pv: bool, // `true` if the primary variation is flawless
     stop_when: TimeManagement,
 }
 
@@ -99,7 +99,7 @@ impl Engine {
             searched_nodes: 0,
             searched_time: 0,
             nps: 0,
-            mangled_pv: false,
+            perfect_pv: false,
             stop_when: TimeManagement::Infinite,
         }
     }
@@ -108,10 +108,6 @@ impl Engine {
     // sure that a new PV is sent to the GUI for every newly reached
     // depth.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
-        if searched_nodes < NODE_COUNT_REPORT_INTERVAL || depth == 0 {
-            // No meaningful progress yet.
-            return;
-        }
         let thinking_duration = self.thinking_since.elapsed().unwrap();
         self.searched_time = 1000 * thinking_duration.as_secs() +
                              (thinking_duration.subsec_nanos() / 1000000) as u64;
@@ -120,7 +116,9 @@ impl Engine {
         if self.current_depth < depth || self.current_value != value {
             self.current_depth = depth;
             self.current_value = value;
-            self.report_pv(depth);
+            if searched_nodes >= NODE_COUNT_REPORT_INTERVAL {
+                self.report_pv(depth);
+            }
         }
     }
 
@@ -218,7 +216,7 @@ impl Engine {
         };
 
         // Check if the extracted PV is mangled.
-        self.mangled_pv = bound != BOUND_EXACT;
+        self.perfect_pv = bound == BOUND_EXACT;
 
         // Send the newly extracted PV to the GUI.
         let score_suffix = match bound {
@@ -337,7 +335,7 @@ impl UciEngine for Engine {
             self.current_depth = 0;
             self.searched_nodes = 0;
             self.searched_time = 0;
-            self.mangled_pv = false;
+            self.perfect_pv = false;
 
             // Figure out when we should stop thinking.
             //
@@ -383,7 +381,16 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking {
+            // Send a stop command to the search thread.
             self.commands.send(Command::Stop).unwrap();
+            
+            // Report one last PV if the last one was imperfect.
+            if !self.perfect_pv {
+                let depth = self.current_depth;
+                self.report_pv(depth);
+            }
+            
+            // Extract best and ponder moves from the TT.
             let mut p = self.position.clone();
             let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
                 (m.notation(), self.do_best_move(&mut p).map(|m| m.notation()))
@@ -394,6 +401,7 @@ impl UciEngine for Engine {
                 best_move: best_move,
                 ponder_move: ponder_move,
             });
+            
             self.is_thinking = false;
         }
     }
@@ -424,11 +432,11 @@ impl UciEngine for Engine {
                         if search_id == self.search_id => {
                         // Register search progress.
                         self.register_progress(searched_depth, searched_nodes, value);
-                        if self.silent_since.elapsed().unwrap().as_secs() > 20 {
-                            if self.mangled_pv {
-                                self.report_pv(searched_depth);
-                            } else {
+                        if self.silent_since.elapsed().unwrap().as_secs() > 10 {
+                            if self.perfect_pv {
                                 self.report_progress();
+                            } else {
+                                self.report_pv(searched_depth);
                             }
                         }
                     }
