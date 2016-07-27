@@ -356,12 +356,12 @@ impl MoveStack {
         self.first_move_index = 0;
     }
 
-    /// Clears the current move list, saving it so that it can be
-    /// restored.
+    /// Saves the current move list and replaces it with an empty one.
     ///
     /// This method can be called many times. At each call the current
-    /// move list will be cleared, and saved to the stack of states
-    /// that can later be restored.
+    /// move list will saved to the stack of states that can later be
+    /// restored. After calling `save` the new current move list is
+    /// empty.
     #[inline]
     pub fn save(&mut self) {
         self.savepoints.push(self.first_move_index);
