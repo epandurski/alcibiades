@@ -471,7 +471,7 @@ pub trait UciEngine {
     /// indicating a new/updated information item.
     fn get_reply(&mut self) -> Option<EngineReply>;
     
-    /// Stops the engine permanently.
+    /// Terminates the engine permanently.
     ///
     /// After calling `exit`, no other methods on this instance should
     /// be called.
