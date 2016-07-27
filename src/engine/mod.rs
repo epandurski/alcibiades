@@ -384,7 +384,7 @@ impl UciEngine for Engine {
             // Send a stop command to the search thread.
             self.commands.send(Command::Stop).unwrap();
             
-            // Report one last PV if the last one was imperfect.
+            // Report one last PV if the previous one was imperfect.
             if !self.perfect_pv {
                 let depth = self.current_depth;
                 self.report_pv(depth);
