@@ -327,6 +327,9 @@ impl<'a, F, E> Server<'a, F, E>
         }
 
         // End of the UCI session.
+        if let Some(ref mut engine) = self.engine {
+            engine.exit();
+        }
         read_thread.join().unwrap()
     }
 }
@@ -467,6 +470,12 @@ pub trait UciEngine {
     /// indicating the best move found, or `EngineReply::Info`
     /// indicating a new/updated information item.
     fn get_reply(&mut self) -> Option<EngineReply>;
+    
+    /// Stops the engine permanently.
+    ///
+    /// After calling `exit`, no other methods on this instance should
+    /// be called.
+    fn exit(&mut self);
 }
 
 

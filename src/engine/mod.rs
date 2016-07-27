@@ -33,6 +33,7 @@ const NODE_COUNT_REPORT_INTERVAL: NodeCount = 50000;
 /// Implements `UciEngine` trait.
 pub struct Engine {
     tt: Arc<TranspositionTable>,
+    search_thread: Option<thread::JoinHandle<()>>,
     reply_queue: VecDeque<EngineReply>,
     position: Position,
     is_thinking: bool,
@@ -75,12 +76,13 @@ impl Engine {
         let tt2 = tt1.clone();
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
-        thread::spawn(move || {
+        let search_thread = thread::spawn(move || {
             serve_deepening(tt2, commands_rx, reports_tx);
         });
 
         Engine {
             tt: tt1,
+            search_thread: Some(search_thread),
             reply_queue: VecDeque::new(),
             position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
                                           1")
@@ -383,13 +385,13 @@ impl UciEngine for Engine {
         if self.is_thinking {
             // Send a stop command to the search thread.
             self.commands.send(Command::Stop).unwrap();
-            
+
             // Report one last PV if the previous one was imperfect.
             if !self.perfect_pv {
                 let depth = self.current_depth;
                 self.report_pv(depth);
             }
-            
+
             // Extract best and ponder moves from the TT.
             let mut p = self.position.clone();
             let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
@@ -401,7 +403,7 @@ impl UciEngine for Engine {
                 best_move: best_move,
                 ponder_move: ponder_move,
             });
-            
+
             self.is_thinking = false;
         }
     }
@@ -455,6 +457,11 @@ impl UciEngine for Engine {
         }
 
         self.reply_queue.pop_front()
+    }
+
+    fn exit(&mut self) {
+        self.commands.send(Command::Exit).unwrap();
+        self.search_thread.take().unwrap().join().unwrap();
     }
 }
 
