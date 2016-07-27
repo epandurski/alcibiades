@@ -67,7 +67,7 @@ impl EntryData {
     ///
     /// * `value` -- the value assigned to the position;
     /// 
-    /// * `bound` -- the meaning of the assigned value;
+    /// * `bound` -- the meaning of the assigned `value`;
     /// 
     /// * `depth` -- the depth of search;
     /// 
