@@ -218,7 +218,7 @@ impl<'a> Search<'a> {
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
             entry: entry,
-            is_check: self.position.is_check(),
+            checkers: self.position.board().checkers(),
         });
         entry
     }
@@ -341,7 +341,7 @@ impl<'a> Search<'a> {
 
             // Last, quiet moves.
             if self.position.do_move(m) {
-                if state.is_check {
+                if state.checkers != 0 {
                     // When in check, we set a high move score to all
                     // moves to avoid search depth reductions.
                     m.set_score(MAX_MOVE_SCORE - 1);
@@ -403,7 +403,7 @@ enum NodePhase {
 struct NodeState {
     phase: NodePhase,
     entry: EntryData,
-    is_check: bool,
+    checkers: u64,
 }
 
 

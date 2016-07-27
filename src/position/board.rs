@@ -32,9 +32,15 @@ pub struct Board {
     castling: CastlingRights,
     en_passant_file: usize,
     _occupied: u64, // will always be equal to self.color[0] | self.color[1]
-    _checkers: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
-    _pinned: Cell<u64>, // lazily calculated, "UNIVERSAL_SET" if not calculated yet
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
+    
+    /// Lazily calculated bitboard of all checkers --
+    /// `BB_UNIVERSAL_SET` if not calculated yet.
+    pub _checkers: Cell<u64>,
+    
+    /// Lazily calculated bitboard of all pinned pieces and pawns --
+    /// `BB_UNIVERSAL_SET` if not calculated yet.
+    pub _pinned: Cell<u64>,
 }
 
 
@@ -68,9 +74,9 @@ impl Board {
             castling: castling,
             en_passant_file: en_passant_file,
             _occupied: placement.color[WHITE] | placement.color[BLACK],
+            _king_square: Cell::new(64),
             _checkers: Cell::new(BB_UNIVERSAL_SET),
             _pinned: Cell::new(BB_UNIVERSAL_SET),
-            _king_square: Cell::new(64),
         };
 
         if b.is_legal() {
@@ -120,8 +126,13 @@ impl Board {
         self._occupied
     }
 
-    /// Returns a bitboard of all checkers that are attacking the
+    /// Returns the bitboard of all checkers that are attacking the
     /// king.
+    ///
+    /// The bitboard of all checkers is calculated the first time it
+    /// is needed and is saved to the `_checkers` filed, in case it is
+    /// needed again. If there is a saved value already, the call to
+    /// `checkers` is practically free.
     #[inline]
     pub fn checkers(&self) -> u64 {
         if self._checkers.get() == BB_UNIVERSAL_SET {
@@ -130,8 +141,13 @@ impl Board {
         self._checkers.get()
     }
 
-    /// Returns a bitboard of all pinned pieces and pawns of the color
-    /// of the side to move.
+    /// Returns the bitboard of all pinned pieces and pawns of the
+    /// color of the side to move.
+    ///
+    /// The bitboard of all pinned pieces and pawns is calculated the
+    /// first time it is needed and is saved to the `_pinned` filed,
+    /// in case it is needed again. If there is a saved value already,
+    /// the call to `pinned` is practically free.
     #[inline]
     pub fn pinned(&self) -> u64 {
         if self._pinned.get() == BB_UNIVERSAL_SET {
@@ -679,9 +695,9 @@ impl Board {
             // Update "_occupied", "_checkers", "_pinned", and
             // "_king_square".
             self._occupied = self.color[WHITE] | self.color[BLACK];
+            self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
             self._pinned.set(BB_UNIVERSAL_SET);
-            self._king_square.set(64);
         }
 
         assert!(self.is_legal());
@@ -770,9 +786,9 @@ impl Board {
             // Update "_occupied", "_checkers", "_pinned", and
             // "_king_square".
             self._occupied = self.color[WHITE] | self.color[BLACK];
+            self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
             self._pinned.set(BB_UNIVERSAL_SET);
-            self._king_square.set(64);
         }
 
         assert!(self.is_legal());
