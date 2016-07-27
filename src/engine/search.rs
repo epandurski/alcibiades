@@ -1,4 +1,4 @@
-//! Implements the game tree search.
+//! Implements single-threaded game tree search.
 
 use basetypes::*;
 use chess_move::*;

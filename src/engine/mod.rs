@@ -1,3 +1,5 @@
+//! Implements game tree searching.
+
 pub mod search;
 pub mod threading;
 

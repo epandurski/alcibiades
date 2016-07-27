@@ -11,7 +11,7 @@ use basetypes::*;
 /// in the following way:
 ///
 /// ```text
-///  usize             3           0
+///  usize                    3   2   1   0
 ///  +----------------------+---+---+---+---+
 ///  |                      |   |   |   |   |
 ///  |    Unused (zeros)    |Castling flags |
