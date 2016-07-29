@@ -81,46 +81,15 @@ impl<'a> Search<'a> {
                -> Result<Value, TerminatedSearch> {
         assert!(alpha < beta);
 
-        let entry = self.node_begin();
-
-        // Check if the TT entry gives the result.
-        if entry.depth() >= depth {
-            let value = entry.value();
-            let bound = entry.bound();
-            if value >= beta && bound & BOUND_LOWER != 0 {
-                self.node_end();
-                return Ok(beta);
-            }
-            if value <= alpha && bound & BOUND_UPPER != 0 {
-                self.node_end();
-                return Ok(alpha);
-            }
-            if bound == BOUND_EXACT {
-                self.node_end();
-                return Ok(value);
-            }
-        }
-
-        // Initial guests for the final result.
-        let mut bound = BOUND_UPPER;
-        let mut best_move = Move::invalid();
-
-        if depth == 0 {
-            // On leaf nodes, do quiescence search.
-            let (value, nodes) = self.position
-                                     .evaluate_quiescence(alpha, beta, Some(entry.eval_value()));
-            try!(self.report_progress(nodes));
-
-            // See how good this position is.
-            if value >= beta {
-                alpha = beta;
-                bound = BOUND_LOWER;
-            } else if value > alpha {
-                alpha = value;
-                bound = BOUND_EXACT;
-            }
+        if let Some(value) = self.node_begin(alpha, beta, depth) {
+            // We already have the position's value.
+            alpha = value;
 
         } else {
+            // Initial guests for the final result.
+            let mut bound = BOUND_UPPER;
+            let mut best_move = Move::invalid();
+
             // On non-leaf nodes, try moves.
             let mut no_moves_yet = true;
             while let Some(m) = self.do_move() {
@@ -179,9 +148,11 @@ impl<'a> Search<'a> {
                     bound = BOUND_EXACT;
                 }
             }
+
+            // Store the result to the TT.
+            self.store(alpha, bound, depth, best_move);
         }
 
-        self.store(alpha, bound, depth, best_move);
         self.node_end();
         Ok(alpha)
     }
@@ -206,10 +177,11 @@ impl<'a> Search<'a> {
     // Declares that we are starting to process a new node.
     //
     // Each recursive call to `run` begins with a call to
-    // `node_begin`. The returned value is a TT entry telling
-    // everything we know about the current position.
+    // `node_begin`. The returned value (if not `None`) is the value
+    // assigned to the node (taken from the TT or, on leaf nodes --
+    // calculated by performing quiescence search).
     #[inline]
-    fn node_begin(&mut self) -> EntryData {
+    fn node_begin(&mut self, alpha: Value, beta: Value, depth: u8) -> Option<Value> {
         // Consult the transposition table.
         let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
             e
@@ -221,7 +193,43 @@ impl<'a> Search<'a> {
             entry: entry,
             checkers: BB_UNIVERSAL_SET,
         });
-        entry
+
+        // Check if the TT entry gives the result.
+        if entry.depth() >= depth {
+            let value = entry.value();
+            let bound = entry.bound();
+            if value >= beta && bound & BOUND_LOWER != 0 {
+                return Some(beta);
+            }
+            if value <= alpha && bound & BOUND_UPPER != 0 {
+                return Some(alpha);
+            }
+            if bound == BOUND_EXACT {
+                return Some(value);
+            };
+        };
+
+        // On leaf nodes, do quiescence search.
+        if depth == 0 {
+            let eval_value = entry.eval_value();
+            let (mut value, nodes) = self.position
+                                         .evaluate_quiescence(alpha, beta, Some(eval_value));
+            self.report_progress(nodes).ok();
+            let bound = if value >= beta {
+                value = beta;
+                BOUND_LOWER
+            } else if value <= alpha {
+                value = alpha;
+                BOUND_UPPER
+            } else {
+                BOUND_EXACT
+            };
+            self.tt.store(self.position.hash(),
+                          EntryData::new(value, bound, 0, 0, eval_value));
+            return Some(value);
+        }
+
+        None
     }
 
     // Declares that we are done processing the current node.
