@@ -24,7 +24,7 @@ const VERSION: &'static str = "0.1";
 const MAX_DEPTH: u8 = 126;
 
 // The initial half-with of the aspiration window (in centipawns).
-const DELTA: Value = 16;
+const DELTA: Value = 17; //16;
 
 // The number of half-moves with which the search depth will be
 // reduced when trying null moves.
