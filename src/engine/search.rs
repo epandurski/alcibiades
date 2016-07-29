@@ -82,15 +82,15 @@ impl<'a> Search<'a> {
         assert!(alpha < beta);
 
         if let Some(value) = self.node_begin(alpha, beta, depth) {
-            // We already have the position's value.
+            // We already have the final result.
             alpha = value;
 
         } else {
-            // Initial guests for the final result.
+            // Initial guests.
             let mut bound = BOUND_UPPER;
             let mut best_move = Move::invalid();
 
-            // On non-leaf nodes, try moves.
+            // Try moves.
             let mut no_moves_yet = true;
             while let Some(m) = self.do_move() {
                 try!(self.report_progress(1));
