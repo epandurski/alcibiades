@@ -189,7 +189,8 @@ impl<'a> Search<'a> {
                   null_move_allowed: bool)
                   -> Result<Option<Value>, TerminatedSearch> {
         // Consult the transposition table.
-        let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
+        let hash = self.position.hash();
+        let entry = if let Some(e) = self.tt.probe(hash) {
             e
         } else {
             EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
@@ -217,8 +218,8 @@ impl<'a> Search<'a> {
         };
 
         // On leaf nodes, do quiescence search.
+        let eval_value = entry.eval_value();
         if depth == 0 {
-            let eval_value = entry.eval_value();
             let (mut value, nodes) = self.position
                                          .evaluate_quiescence(alpha, beta, Some(eval_value));
             try!(self.report_progress(nodes));
@@ -231,8 +232,7 @@ impl<'a> Search<'a> {
             } else {
                 BOUND_EXACT
             };
-            self.tt.store(self.position.hash(),
-                          EntryData::new(value, bound, 0, 0, eval_value));
+            self.tt.store(hash, EntryData::new(value, bound, 0, 0, eval_value));
             return Ok(Some(value));
         }
 
@@ -249,19 +249,22 @@ impl<'a> Search<'a> {
         self.moves.save();
 
         // Try the null move.
-        if null_move_allowed && entry.eval_value() >= beta {
+        //
+        // TODO: Do not try null move in zugzwang-y positions.
+        if null_move_allowed && eval_value >= beta {
             let m = self.position.null_move();
             if self.position.do_move(m) {
                 // TODO: check the TT before calling self.run().
-                let depth = if depth > 3 {
+                let depth_reduced = if depth > 3 {
                     depth - 1 - 2
                 } else {
                     depth - 1
                 };
-                let value = -try!(self.run(-beta, -alpha, depth, false));
+                let value = -try!(self.run(-beta, -alpha, depth_reduced, false));
                 self.position.undo_move();
                 if value >= beta {
-                    // TODO: store to TT?
+                    self.tt.store(hash,
+                                  EntryData::new(beta, BOUND_LOWER, depth, 0, eval_value));
                     return Ok(Some(value));
                 }
             }
