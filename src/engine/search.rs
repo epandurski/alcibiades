@@ -239,7 +239,7 @@ impl<'a> Search<'a> {
     }
 
     // TODO: Implement do_null_move() method?
-    
+
     // Plays the next legal move in the current position and returns
     // it.
     //
@@ -258,7 +258,7 @@ impl<'a> Search<'a> {
             // We save the move list at the last possible moment,
             // because most of the nodes are leafs.
             self.moves.save();
-            
+
             // We save the checkers bitboard also, because we will
             // need this information later many times, and we do not
             // want to recalculate it needlessly.
@@ -286,7 +286,7 @@ impl<'a> Search<'a> {
             // to do its work. At this time we already have generated
             // them, so we should use them.
             self.position.board()._checkers.set(state.checkers);
-            
+
             self.position.generate_moves(self.moves);
             if state.entry.move16() != 0 {
                 self.moves.remove_move(state.entry.move16());
@@ -378,12 +378,8 @@ impl<'a> Search<'a> {
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
-        let move16 = match best_move.digest() {
-            0 => entry.move16(),
-            x => x,
-        };
         self.tt.store(self.position.hash(),
-                      EntryData::new(value, bound, depth, move16, entry.eval_value()));
+                      EntryData::new(value, bound, depth, best_move.digest(), entry.eval_value()));
     }
 
     // Reports search progress.
