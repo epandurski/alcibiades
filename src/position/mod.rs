@@ -151,7 +151,7 @@ impl Position {
     pub fn is_check(&self) -> bool {
         self.board().checkers() != 0
     }
-    
+
     /// Returns if the position is a draw due to repetition.
     ///
     /// **Important note:** Repeating positions are considered a draw
@@ -301,16 +301,8 @@ impl Position {
     /// for the current position on the board.
     #[inline]
     pub fn evaluate_move(&self, m: Move) -> Value {
-        let piece;
-        (if m.move_type() == MOVE_PROMOTION {
-            piece = Move::piece_from_aux_data(m.aux_data());
-            PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
-        } else {
-            piece = m.piece();
-            0
-        }) +
         self.calc_see(self.board().to_move(),
-                      piece,
+                      m.piece(),
                       m.orig_square(),
                       m.dest_square(),
                       m.captured_piece())
@@ -979,10 +971,10 @@ mod tests {
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "e7e8q" {
-                assert_eq!(p.evaluate_move(m), 875);
+                assert!(p.evaluate_move(m) >= 0);
             }
             if m.notation() == "e7e8r" {
-                assert_eq!(p.evaluate_move(m), 400);
+                assert!(p.evaluate_move(m) >= 0);
             }
             if m.notation() == "h7h8r" {
                 assert_eq!(p.evaluate_move(m), -100);
@@ -995,6 +987,18 @@ mod tests {
             }
         }
         assert_eq!(p.evaluate_move(p.null_move()), 0);
+        let p = Position::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1")
+                    .ok()
+                    .unwrap();
+        p.generate_moves(&mut s);
+        while let Some(m) = s.pop() {
+            if m.notation() == "b7b8q" {
+                assert!(p.evaluate_move(m) >= 0);
+            }
+            if m.notation() == "b7b8q" {
+                assert!(p.evaluate_move(m) >= 0);
+            }
+        }
     }
 
     #[test]
