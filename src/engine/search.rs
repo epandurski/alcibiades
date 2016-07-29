@@ -260,8 +260,8 @@ impl<'a> Search<'a> {
             let reduced_depth = depth as i8 - R as i8;
 
             // Check if TT indicates that trying a null move is
-            // futile. We exploit on the fact that if no normal move
-            // can reach `beta`, a null move will not do it either.
+            // futile. We exploit the fact that if no normal move can
+            // reach `beta`, a null move will not do it either.
             if entry.depth() >= max(0, reduced_depth) as u8 && entry.value() < beta &&
                entry.bound() & BOUND_UPPER != 0 {
                 return Ok(None);
