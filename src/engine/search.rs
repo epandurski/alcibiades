@@ -254,20 +254,21 @@ impl<'a> Search<'a> {
         //
         // TODO: Do not try null move in zugzwang-y positions.
         if null_move_allowed && eval_value >= beta {
+            let reduced_depth = if depth > 7 {
+                depth as i8 - R as i8
+            } else {
+                depth as i8 - R as i8 + 1
+            };
+            // TODO: check the TT here.
+
             let m = self.position.null_move();
             if self.position.do_move(m) {
-                // TODO: check the TT before calling self.run().
-                let reduced_depth = if depth > 7 {
-                    depth as i8 - 1 - R as i8
-                } else {
-                    depth as i8 - R as i8
-                };
-                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth) as u8, false));
+                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
                 self.position.undo_move();
                 if value >= beta {
                     self.tt.store(hash,
                                   EntryData::new(beta, BOUND_LOWER, depth, 0, eval_value));
-                    return Ok(Some(value));
+                    return Ok(Some(beta));
                 }
             }
         }
