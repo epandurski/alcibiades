@@ -26,6 +26,10 @@ const MAX_DEPTH: u8 = 126;
 // The initial half-with of the aspiration window (in centipawns).
 const DELTA: Value = 16;
 
+// The number of half-moves with which the search depth will be
+// reduced when trying null moves.
+const R: u8 = 3;
+
 // The number of nodes that can be searched without reporting search
 // progress. If this value is too small the engine may become slow, if
 // this value is too big the engine may become unresponsive.

@@ -1,10 +1,12 @@
 //! Implements single-threaded game tree search.
 
+use std::cmp::max;
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
 use tt::*;
 use position::Position;
+use super::R;
 
 
 /// Represents a terminated search condition.
@@ -255,12 +257,12 @@ impl<'a> Search<'a> {
             let m = self.position.null_move();
             if self.position.do_move(m) {
                 // TODO: check the TT before calling self.run().
-                let depth_reduced = if depth > 3 {
-                    depth - 1 - 2
+                let reduced_depth = if depth > 7 {
+                    depth as i8 - 1 - R as i8
                 } else {
-                    depth - 1
+                    depth as i8 - R as i8
                 };
-                let value = -try!(self.run(-beta, -alpha, depth_reduced, false));
+                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth) as u8, false));
                 self.position.undo_move();
                 if value >= beta {
                     self.tt.store(hash,
