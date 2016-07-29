@@ -192,6 +192,7 @@ impl<'a> Search<'a> {
             phase: NodePhase::Pristine,
             entry: entry,
             checkers: BB_UNIVERSAL_SET,
+            pinned: BB_UNIVERSAL_SET,
         });
 
         // Check if the TT entry gives the result.
@@ -229,6 +230,20 @@ impl<'a> Search<'a> {
             return Some(value);
         }
 
+        // We save checkers and pinned bitboards, because we will need
+        // this information later many times, and we do not want to
+        // recalculate it needlessly.
+        let state = self.state_stack.last_mut().unwrap();
+        state.checkers = self.position.board().checkers();
+        state.pinned = self.position.board().pinned();
+
+        // Before trying the null move, we should not forget the save
+        // the current move list.
+        self.moves.save();
+
+        // TODO: Try the null move here.
+        state.phase = NodePhase::TriedNullMove;
+        
         None
     }
 
@@ -261,20 +276,12 @@ impl<'a> Search<'a> {
     fn do_move(&mut self) -> Option<Move> {
         let state = self.state_stack.last_mut().unwrap();
 
-        // Try the hash move first.
         if let NodePhase::Pristine = state.phase {
-            // We save the move list at the last possible moment,
-            // because most of the nodes are leafs.
-            self.moves.save();
-
-            // We save the checkers bitboard also, because we will
-            // need this information later many times, and we do not
-            // want to recalculate it needlessly.
-            //
-            // TODO: Verify if this is the best place to calculate
-            // checkers, especially in relation to trying null moves.
-            state.checkers = self.position.board().checkers();
-
+            panic!("wrong node state");
+        }
+            
+        // Try the hash move first.
+        if let NodePhase::TriedNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
                 if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
@@ -412,6 +419,7 @@ impl<'a> Search<'a> {
 
 enum NodePhase {
     Pristine,
+    TriedNullMove,
     TriedHashMove,
     GeneratedMoves,
     TriedGoodCaptures,
@@ -424,6 +432,7 @@ struct NodeState {
     phase: NodePhase,
     entry: EntryData,
     checkers: u64,
+    pinned: u64,
 }
 
 
