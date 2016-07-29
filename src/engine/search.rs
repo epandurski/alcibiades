@@ -77,11 +77,12 @@ impl<'a> Search<'a> {
     pub fn run(&mut self,
                mut alpha: Value, // lower bound
                beta: Value, // upper bound
-               depth: u8)
+               depth: u8,
+               null_move_allowed: bool)
                -> Result<Value, TerminatedSearch> {
         assert!(alpha < beta);
 
-        if let Some(value) = self.node_begin(alpha, beta, depth) {
+        if let Some(value) = try!(self.node_begin(alpha, beta, depth, null_move_allowed)) {
             // We already have the final result.
             alpha = value;
 
@@ -101,7 +102,7 @@ impl<'a> Search<'a> {
                     // (alpha, beta). If this happens to be a good move,
                     // it will probably raise `alpha`.
                     no_moves_yet = false;
-                    -try!(self.run(-beta, -alpha, depth - 1))
+                    -try!(self.run(-beta, -alpha, depth - 1, true))
                 } else {
                     // For the next moves we first try to prove that they
                     // are not better than our current best move. For this
@@ -110,9 +111,9 @@ impl<'a> Search<'a> {
                     // search. Only if we are certain that the move is
                     // better than our current best move, we do a
                     // full-window search.
-                    match -try!(self.run(-alpha - 1, -alpha, depth - 1)) {
+                    match -try!(self.run(-alpha - 1, -alpha, depth - 1, true)) {
                         x if x <= alpha => x,
-                        _ => -try!(self.run(-beta, -alpha, depth - 1)),
+                        _ => -try!(self.run(-beta, -alpha, depth - 1, true)),
                     }
                 };
                 self.undo_move();
@@ -177,11 +178,16 @@ impl<'a> Search<'a> {
     // Declares that we are starting to process a new node.
     //
     // Each recursive call to `run` begins with a call to
-    // `node_begin`. The returned value (if not `None`) is the value
-    // assigned to the node (taken from the TT or, on leaf nodes --
-    // calculated by performing quiescence search).
+    // `node_begin`. The returned Ok-value (if not `None`) is the
+    // value assigned to the node (taken from the TT or, on leaf nodes
+    // -- calculated by performing quiescence search).
     #[inline]
-    fn node_begin(&mut self, alpha: Value, beta: Value, depth: u8) -> Option<Value> {
+    fn node_begin(&mut self,
+                  alpha: Value,
+                  beta: Value,
+                  depth: u8,
+                  null_move_allowed: bool)
+                  -> Result<Option<Value>, TerminatedSearch> {
         // Consult the transposition table.
         let entry = if let Some(e) = self.tt.probe(self.position.hash()) {
             e
@@ -200,13 +206,13 @@ impl<'a> Search<'a> {
             let value = entry.value();
             let bound = entry.bound();
             if value >= beta && bound & BOUND_LOWER != 0 {
-                return Some(beta);
+                return Ok(Some(beta));
             }
             if value <= alpha && bound & BOUND_UPPER != 0 {
-                return Some(alpha);
+                return Ok(Some(alpha));
             }
             if bound == BOUND_EXACT {
-                return Some(value);
+                return Ok(Some(value));
             };
         };
 
@@ -215,7 +221,7 @@ impl<'a> Search<'a> {
             let eval_value = entry.eval_value();
             let (mut value, nodes) = self.position
                                          .evaluate_quiescence(alpha, beta, Some(eval_value));
-            self.report_progress(nodes).ok();
+            try!(self.report_progress(nodes));
             let bound = if value >= beta {
                 value = beta;
                 BOUND_LOWER
@@ -227,24 +233,41 @@ impl<'a> Search<'a> {
             };
             self.tt.store(self.position.hash(),
                           EntryData::new(value, bound, 0, 0, eval_value));
-            return Some(value);
+            return Ok(Some(value));
         }
 
         // We save checkers and pinned bitboards, because we will need
         // this information later many times, and we do not want to
-        // recalculate it needlessly.
-        let state = self.state_stack.last_mut().unwrap();
-        state.checkers = self.position.board().checkers();
-        state.pinned = self.position.board().pinned();
-
-        // Before trying the null move, we should not forget the save
-        // the current move list.
+        // recalculate it needlessly. Also, before trying the null
+        // move, we should not forget the save the current move list.
+        {
+            let state = self.state_stack.last_mut().unwrap();
+            state.checkers = self.position.board().checkers();
+            state.pinned = self.position.board().pinned();
+            state.phase = NodePhase::TriedNullMove;
+        }
         self.moves.save();
 
-        // TODO: Try the null move here.
-        state.phase = NodePhase::TriedNullMove;
-        
-        None
+        // Try the null move.
+        if null_move_allowed && entry.eval_value() >= beta {
+            let m = self.position.null_move();
+            if self.position.do_move(m) {
+                // TODO: check the TT before calling self.run().
+                let depth = if depth > 3 {
+                    depth - 1 - 2
+                } else {
+                    depth - 1
+                };
+                let value = -try!(self.run(-beta, -alpha, depth, false));
+                self.position.undo_move();
+                if value >= beta {
+                    // TODO: store to TT?
+                    return Ok(Some(value));
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     // Declares that we are done processing the current node.
@@ -279,7 +302,7 @@ impl<'a> Search<'a> {
         if let NodePhase::Pristine = state.phase {
             panic!("wrong node state");
         }
-            
+
         // Try the hash move first.
         if let NodePhase::TriedNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
@@ -450,12 +473,12 @@ mod tests {
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
-        let value = search.run(-30000, 30000, 2)
+        let value = search.run(-30000, 30000, 2, true)
                           .ok()
                           .unwrap();
         assert!(value < -300);
         search.reset();
-        let value = search.run(-30000, 30000, 4)
+        let value = search.run(-30000, 30000, 4, true)
                           .ok()
                           .unwrap();
         assert!(value >= 20000);

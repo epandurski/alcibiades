@@ -144,7 +144,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                         }
                     };
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
-                    let value = search.run(lower_bound, upper_bound, depth).ok();
+                    let value = search.run(lower_bound, upper_bound, depth, true).ok();
                     let searched_depth = if value.is_some() {
                         depth
                     } else {
