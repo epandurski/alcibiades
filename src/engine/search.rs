@@ -241,7 +241,7 @@ impl<'a> Search<'a> {
         // We save checkers and pinned bitboards, because we will need
         // this information later many times, and we do not want to
         // recalculate it needlessly. Also, before trying the null
-        // move, we should not forget the save the current move list.
+        // move, we should not forget to save the current move list.
         {
             let state = self.state_stack.last_mut().unwrap();
             state.checkers = self.position.board().checkers();
@@ -250,17 +250,24 @@ impl<'a> Search<'a> {
         }
         self.moves.save();
 
-        // Try the null move.
+        // Try a null move.
         //
-        // TODO: Do not try null move in zugzwang-y positions.
+        // TODO: Do not try a null move in zugzwang-y positions.
         if null_move_allowed && eval_value >= beta {
-            let reduced_depth = if depth > 7 {
-                depth as i8 - R as i8
-            } else {
-                depth as i8 - R as i8 + 1
-            };
-            // TODO: check the TT here.
+            // TODO: See if we can increase `R` in case `depth > 7`.
+            // This probably will not work without implementing
+            // extensions/reductions first.
+            let reduced_depth = depth as i8 - R as i8;
 
+            // Check if TT indicates that trying a null move is
+            // futile. We exploit on the fact that if no normal move
+            // can reach `beta`, a null move will not do it either.
+            if entry.depth() >= max(0, reduced_depth) as u8 && entry.value() < beta &&
+               entry.bound() & BOUND_UPPER != 0 {
+                return Ok(None);
+            }
+
+            // Play a null move.
             let m = self.position.null_move();
             if self.position.do_move(m) {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
