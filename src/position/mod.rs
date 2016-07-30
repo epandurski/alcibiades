@@ -146,10 +146,15 @@ impl Position {
         unsafe { &*self.board.get() }
     }
 
-    /// Returns if the side to move is in check.
+    /// Returns if the position is unlikely to be a zugzwang.
+    ///
+    /// In many endgame positions there is a relatively high
+    /// probability of zugzwang occurring. For such positions, this
+    /// method will return `false`. For all "normal" positions it will
+    /// return `true`.
     #[inline]
-    pub fn is_check(&self) -> bool {
-        self.board().checkers() != 0
+    pub fn is_zugzwang_safe(&self) -> bool {
+        true
     }
 
     /// Returns if the position is a draw due to repetition.

@@ -215,10 +215,9 @@ impl<'a> Search<'a> {
         };
 
         // On leaf nodes, do quiescence search.
-        let eval_value = entry.eval_value();
         if depth == 0 {
             let (value, nodes) = self.position
-                                     .evaluate_quiescence(alpha, beta, Some(eval_value));
+                                     .evaluate_quiescence(alpha, beta, Some(entry.eval_value()));
             try!(self.report_progress(nodes));
             let bound = if value >= beta {
                 BOUND_LOWER
@@ -227,33 +226,36 @@ impl<'a> Search<'a> {
             } else {
                 BOUND_EXACT
             };
-            self.tt.store(hash, EntryData::new(value, bound, 0, 0, eval_value));
+            self.tt.store(hash, EntryData::new(value, bound, 0, 0, entry.eval_value()));
             return Ok(Some(value));
         }
 
-        // We save checkers and pinned bitboards, because we will need
-        // this information later many times, and we do not want to
-        // recalculate it needlessly. Also, before trying the null
-        // move, we should not forget to save the current move list.
+        // Consider null move pruning. In positions that are not prone
+        // to zugzwang, we attempt to reduce the search space by
+        // trying a "null" or "passing" move, then seeing if the score
+        // of the sub-tree search is still high enough to cause a beta
+        // cutoff. Nodes are saved by reducing the depth of the
+        // sub-tree under the null move.
         {
+            // Save the current move list. Also, save checkers and
+            // pinned bitboards, because we will need them at later
+            // phases.
+            self.moves.save();
             let state = self.state_stack.last_mut().unwrap();
             state.checkers = self.position.board().checkers();
             state.pinned = self.position.board().pinned();
-            state.phase = NodePhase::TriedNullMove;
+            state.phase = NodePhase::ConsideredNullMove;
         }
-        self.moves.save();
-
-        // Try a null move.
-        //
-        // TODO: Do not try a null move in zugzwang-y positions.
-        if null_move_allowed && eval_value >= beta {
+        if null_move_allowed && entry.eval_value() >= beta && self.position.is_zugzwang_safe() {
+            // Calculate the reduced depth.
+            //
             // TODO: See if we can increase `R` in case `depth > 7`.
             // This probably will not work without implementing
             // extensions/reductions first.
             let reduced_depth = depth as i8 - R as i8;
 
-            // Check if TT indicates that trying a null move is
-            // futile. We exploit the fact that if no normal move can
+            // Check if the TT indicates that trying a null move is
+            // futile. We rely on the fact that if no normal move can
             // reach `beta`, a null move will not do it either.
             if entry.depth() >= max(0, reduced_depth) as u8 && entry.value() < beta &&
                entry.bound() & BOUND_UPPER != 0 {
@@ -266,16 +268,18 @@ impl<'a> Search<'a> {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
                 self.position.undo_move();
                 if value >= beta {
-                    // The result we about to return is a more or less
-                    // a lie, and therefore we better tell a smaller
-                    // lie and return `beta` here instead of `value`.
+                    // The result we are about to return is a more or
+                    // less a lie (because of the depth reduction),
+                    // and therefore we better tell a smaller lie and
+                    // return `beta` here instead of `value`.
                     self.tt.store(hash,
-                                  EntryData::new(beta, BOUND_LOWER, depth, 0, eval_value));
+                                  EntryData::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
                     return Ok(Some(beta));
                 }
             }
         }
 
+        // We do not know the the value yet.
         Ok(None)
     }
 
@@ -313,7 +317,7 @@ impl<'a> Search<'a> {
         }
 
         // Try the hash move first.
-        if let NodePhase::TriedNullMove = state.phase {
+        if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
                 self.position.board()._checkers.set(state.checkers);
@@ -450,7 +454,7 @@ impl<'a> Search<'a> {
 
 enum NodePhase {
     Pristine,
-    TriedNullMove,
+    ConsideredNullMove,
     TriedHashMove,
     GeneratedMoves,
     TriedGoodCaptures,
