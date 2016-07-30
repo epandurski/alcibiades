@@ -176,12 +176,14 @@ impl<'a> Search<'a> {
         self.unreported_nodes = 0;
     }
 
-    // Declares that we are starting to process a new node.
+    // A helper method for `Search::run`. Each call to `Search::run`
+    // begins with a call to `Search::node_begin`. This method tries
+    // to calculate and return the value for the node. It basically
+    // does 3 things:
     //
-    // Each recursive call to `run` begins with a call to
-    // `node_begin`. The returned Ok-value (if not `None`) is the
-    // value assigned to the node (taken from the TT or, on leaf nodes
-    // -- calculated by performing quiescence search).
+    // 1. Checks if the transposition table has the result.
+    // 2. On leaf nodes, performs quiescence search.
+    // 3. Performs null move pruning if possible.
     #[inline]
     fn node_begin(&mut self,
                   alpha: Value,
@@ -189,7 +191,7 @@ impl<'a> Search<'a> {
                   depth: u8,
                   null_move_allowed: bool)
                   -> Result<Option<Value>, TerminatedSearch> {
-        // Consult the transposition table.
+        // Probe the transposition table.
         let hash = self.position.hash();
         let entry = if let Some(e) = self.tt.probe(hash) {
             e
@@ -279,13 +281,12 @@ impl<'a> Search<'a> {
             }
         }
 
-        // We do not know the value yet.
+        // Well, we do not know the value yet.
         Ok(None)
     }
 
-    // Declares that we are done processing the current node.
-    //
-    // Each recursive call to `run` ends with a call to `node_end`.
+    // A helper method for `Search::run`. Each call to `Search::run`
+    // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
@@ -297,10 +298,8 @@ impl<'a> Search<'a> {
         self.state_stack.pop();
     }
 
-    // TODO: Implement do_null_move() method?
-
-    // Plays the next legal move in the current position and returns
-    // it.
+    // A helper method for `Search::run`. It plays the next legal move
+    // in the current position and returns it.
     //
     // Each call to `do_move` for the same position will play and
     // return a different move. When all legal moves has been played,
@@ -418,7 +417,8 @@ impl<'a> Search<'a> {
         None
     }
 
-    // Takes the last played move back.
+    // A helper method for `Search::run`. It takes back the last move
+    // played by `Search::do_move`.
     #[inline]
     fn undo_move(&mut self) {
         self.position.undo_move();
