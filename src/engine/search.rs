@@ -311,9 +311,11 @@ impl<'a> Search<'a> {
     fn do_move(&mut self) -> Option<Move> {
         let state = self.state_stack.last_mut().unwrap();
 
-        if let NodePhase::Pristine = state.phase {
-            panic!("wrong node state");
-        }
+        assert!(if let NodePhase::Pristine = state.phase {
+            false
+        } else {
+            true
+        });
 
         // Try the hash move first.
         if let NodePhase::ConsideredNullMove = state.phase {
