@@ -154,6 +154,7 @@ impl Position {
     /// return `true`.
     #[inline]
     pub fn is_zugzwang_safe(&self) -> bool {
+        // TODO: Write a real implementation.
         true
     }
 
