@@ -279,7 +279,7 @@ impl<'a> Search<'a> {
             }
         }
 
-        // We do not know the the value yet.
+        // We do not know the value yet.
         Ok(None)
     }
 
