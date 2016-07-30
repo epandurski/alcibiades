@@ -386,8 +386,8 @@ impl<'a> Search<'a> {
             // Before trying the quiet moves, we should assign proper
             // move scores to them.
             if let NodePhase::TriedBadCaptures = state.phase {
-                // TODO: Assign the moves scores here using the killer
-                // move heuristics and the history heuristics.
+                // TODO: Assign the moves scores here using the
+                // history and countermove heuristics.
 
                 // We use the score field (2 bits) to properly order
                 // quiet movies. Moves which destination square is
