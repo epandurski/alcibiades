@@ -262,7 +262,7 @@ impl<'a> Search<'a> {
                 return Ok(None);
             }
 
-            // Play a null move.
+            // Play a null move and search.
             let m = self.position.null_move();
             if self.position.do_move(m) {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
