@@ -370,6 +370,8 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedGoodCaptures;
             }
 
+            // TODO: play the killer moves here.
+            
             // Second, the bad captures.
             if let NodePhase::TriedGoodCaptures = state.phase {
                 if m.score() == MAX_MOVE_SCORE - 1 {
