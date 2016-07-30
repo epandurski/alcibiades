@@ -128,6 +128,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
 
             match command {
                 Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
+                    assert!(lower_bound < upper_bound);
                     let mut report = |searched_nodes| {
                         reports.send(Report::Progress {
                                    search_id: search_id,
@@ -233,6 +234,7 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
 
         match command {
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
+                assert!(lower_bound < upper_bound);
                 let mut current_searched_nodes = 0;
                 let mut current_value = None;
                 let mut current_depth = 1;
@@ -261,6 +263,13 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
                     };
 
                     'aspiration: loop {
+                        if alpha >= beta {
+                            // This may happen if (v - delta, v + delta) and
+                            // (lower_bound, upper_bound) do not intersect.
+                            alpha = lower_bound;
+                            beta = upper_bound;
+                        }
+                        
                         // Command the slave thread to run a search.
                         slave_commands_tx.send(Command::Search {
                                              search_id: current_depth as usize,

@@ -1,5 +1,6 @@
 //! Implements single-threaded game tree search.
 
+use std::i16::MIN as VALUE_MINIMUM;
 use std::cmp::max;
 use basetypes::*;
 use bitsets::*;
@@ -83,27 +84,26 @@ impl<'a> Search<'a> {
                null_move_allowed: bool)
                -> Result<Value, TerminatedSearch> {
         assert!(alpha < beta);
+        let mut value = VALUE_MINIMUM;
 
-        if let Some(value) = try!(self.node_begin(alpha, beta, depth, null_move_allowed)) {
+        if let Some(v) = try!(self.node_begin(alpha, beta, depth, null_move_allowed)) {
             // We already have the final result.
-            alpha = value;
+            value = v;
 
         } else {
             // Initial guests.
-            let mut bound = BOUND_UPPER;
+            let mut bound = BOUND_EXACT;
             let mut best_move = Move::invalid();
 
             // Try moves.
-            let mut no_moves_yet = true;
             while let Some(m) = self.do_move() {
                 try!(self.report_progress(1));
 
                 // Make a recursive call.
-                let value = if no_moves_yet {
+                let v = if value == VALUE_MINIMUM {
                     // The first move we analyze with a fully open window
                     // (alpha, beta). If this happens to be a good move,
                     // it will probably raise `alpha`.
-                    no_moves_yet = false;
                     -try!(self.run(-beta, -alpha, depth - 1, true))
                 } else {
                     // For the next moves we first try to prove that they
@@ -114,50 +114,49 @@ impl<'a> Search<'a> {
                     // better than our current best move, we do a
                     // full-window search.
                     match -try!(self.run(-alpha - 1, -alpha, depth - 1, true)) {
-                        x if x <= alpha => x,
+                        v if v <= alpha => v,
                         _ => -try!(self.run(-beta, -alpha, depth - 1, true)),
                     }
                 };
                 self.undo_move();
+                assert!(v > VALUE_MINIMUM);
 
                 // See how good this move was.
-                if value >= beta {
+                if v >= beta {
                     // This move is so good, that the opponent will
                     // probably not allow this line of play to
                     // happen. Therefore we should not lose any more time
                     // on this position.
-                    alpha = beta;
-                    bound = BOUND_LOWER;
                     best_move = m;
+                    value = v;
+                    bound = BOUND_LOWER;
                     break;
                 }
-                if value > alpha {
+                if v > value {
                     // We found a new best move.
-                    alpha = value;
-                    bound = BOUND_EXACT;
                     best_move = m;
+                    value = v;
+                    bound = if v > alpha {
+                        alpha = v;
+                        BOUND_EXACT
+                    } else {
+                        BOUND_UPPER
+                    };
                 }
             }
 
             // Check if we are in a final position (no legal moves).
-            if no_moves_yet {
-                let value = self.position.evaluate_final();
-                if value >= beta {
-                    alpha = beta;
-                    bound = BOUND_LOWER;
-                }
-                if value > alpha {
-                    alpha = value;
-                    bound = BOUND_EXACT;
-                }
+            if value == VALUE_MINIMUM {
+                value = self.position.evaluate_final();
+                assert_eq!(bound, BOUND_EXACT);
             }
 
             // Store the result to the TT.
-            self.store(alpha, bound, depth, best_move);
+            self.store(value, bound, depth, best_move);
         }
 
         self.node_end();
-        Ok(alpha)
+        Ok(value)
     }
 
     /// Returns the number of searched positions.
@@ -208,13 +207,9 @@ impl<'a> Search<'a> {
         if entry.depth() >= depth {
             let value = entry.value();
             let bound = entry.bound();
-            if value >= beta && bound & BOUND_LOWER != 0 {
-                return Ok(Some(beta));
-            }
-            if value <= alpha && bound & BOUND_UPPER != 0 {
-                return Ok(Some(alpha));
-            }
-            if bound == BOUND_EXACT {
+            if (value >= beta && bound & BOUND_LOWER != 0) ||
+               (value <= alpha && bound & BOUND_UPPER != 0) ||
+               (bound == BOUND_EXACT) {
                 return Ok(Some(value));
             };
         };
@@ -222,14 +217,12 @@ impl<'a> Search<'a> {
         // On leaf nodes, do quiescence search.
         let eval_value = entry.eval_value();
         if depth == 0 {
-            let (mut value, nodes) = self.position
-                                         .evaluate_quiescence(alpha, beta, Some(eval_value));
+            let (value, nodes) = self.position
+                                     .evaluate_quiescence(alpha, beta, Some(eval_value));
             try!(self.report_progress(nodes));
             let bound = if value >= beta {
-                value = beta;
                 BOUND_LOWER
             } else if value <= alpha {
-                value = alpha;
                 BOUND_UPPER
             } else {
                 BOUND_EXACT
@@ -273,6 +266,7 @@ impl<'a> Search<'a> {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
                 self.position.undo_move();
                 if value >= beta {
+                    // TODO: What should we store here?
                     self.tt.store(hash,
                                   EntryData::new(beta, BOUND_LOWER, depth, 0, eval_value));
                     return Ok(Some(beta));
