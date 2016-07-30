@@ -424,7 +424,8 @@ impl<'a> Search<'a> {
         self.position.undo_move();
     }
 
-    // Stores updated node information in the transposition table.
+    // A helper method for `Search::run`. It stores the updated node
+    // information in the transposition table.
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
@@ -432,9 +433,9 @@ impl<'a> Search<'a> {
                       EntryData::new(value, bound, depth, best_move.digest(), entry.eval_value()));
     }
 
-    // Reports search progress.
+    // A helper method for `Search::run`. It reports search progress.
     //
-    // From time to time, we should report how many nodes had been
+    // From time to time, we should report how many nodes has been
     // searched since the beginning of the search. This also gives an
     // opportunity for the search to be terminated.
     #[inline]
