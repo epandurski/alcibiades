@@ -266,9 +266,12 @@ impl<'a> Search<'a> {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
                 self.position.undo_move();
                 if value >= beta {
+                    // The result we about to return is a more or less
+                    // a lie, and therefore we better tell a smaller
+                    // lie and return `beta` here instead of `value`.
                     self.tt.store(hash,
-                                  EntryData::new(value, BOUND_LOWER, depth, 0, eval_value));
-                    return Ok(Some(value));
+                                  EntryData::new(beta, BOUND_LOWER, depth, 0, eval_value));
+                    return Ok(Some(beta));
                 }
             }
         }
