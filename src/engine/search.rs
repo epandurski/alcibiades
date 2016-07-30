@@ -321,6 +321,8 @@ impl<'a> Search<'a> {
         if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
+                assert_eq!(self.position.board().checkers(), state.checkers);
+                assert_eq!(self.position.board().pinned(), state.pinned);
                 self.position.board()._checkers.set(state.checkers);
                 self.position.board()._pinned.set(state.pinned);
                 if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
@@ -336,6 +338,8 @@ impl<'a> Search<'a> {
         // moves. But we should not forget to remove the already tried
         // hash move from the list.
         if let NodePhase::TriedHashMove = state.phase {
+            assert_eq!(self.position.board().checkers(), state.checkers);
+            assert_eq!(self.position.board().pinned(), state.pinned);
             self.position.board()._checkers.set(state.checkers);
             self.position.board()._pinned.set(state.pinned);
             self.position.generate_moves(self.moves);
