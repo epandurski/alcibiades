@@ -266,10 +266,9 @@ impl<'a> Search<'a> {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
                 self.position.undo_move();
                 if value >= beta {
-                    // TODO: What should we store here?
                     self.tt.store(hash,
-                                  EntryData::new(beta, BOUND_LOWER, depth, 0, eval_value));
-                    return Ok(Some(beta));
+                                  EntryData::new(value, BOUND_LOWER, depth, 0, eval_value));
+                    return Ok(Some(value));
                 }
             }
         }
