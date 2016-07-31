@@ -343,9 +343,9 @@ impl<'a> Search<'a> {
             }
         }
 
-        // After the hash move, we generate all pseudo-legal
-        // moves. But we should not forget to remove the already tried
-        // hash move from the list.
+        // After the hash move, we generate all pseudo-legal moves. We
+        // should not forget to remove the already tried hash move
+        // from the list.
         if let NodePhase::TriedHashMove = state.phase {
             assert_eq!(self.position.board().checkers(), state.checkers);
             assert_eq!(self.position.board().pinned(), state.pinned);
@@ -371,7 +371,7 @@ impl<'a> Search<'a> {
                         continue;
                     }
                     // This is a bad capture -- push it back to the
-                    // move stack.
+                    // move stack with a lesser score.
                     m.set_score(MAX_MOVE_SCORE - 1);
                     self.moves.push(m);
                     continue;
@@ -396,16 +396,10 @@ impl<'a> Search<'a> {
             // move scores to them.
             if let NodePhase::TriedBadCaptures = state.phase {
                 // TODO: Assign the moves scores here using the
-                // history and countermove heuristics.
-
-                // We use the score field (2 bits) to properly order
-                // quiet movies. Moves which destination square is
-                // more advanced into enemy's territory are tried
-                // first. The logic is that those moves are riskier,
-                // so if such a move loses material this will be
-                // detected early and the search tree will be pruned,
-                // but if the move does not lose material, chances are
-                // that it is a very good move.
+                // history and countermove heuristics. Temporarily, we
+                // apply a very simple quiet move ordering. Moves
+                // which destination square is more advanced into
+                // enemy's territory are tried first.
                 const SCORE_LOOKUP: [[u32; 8]; 2] = [// white
                                                      [0, 1, 2, 3, 4, 5, 6, 7],
                                                      // black
