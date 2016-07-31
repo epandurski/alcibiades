@@ -230,7 +230,7 @@ impl<'a> Search<'a> {
         } else {
             // TODO: Try to fetch a face value in case `depth == 0`.
             //       For example:
-            //       
+            //
             // let eval_value_approx = (-prev_eval_value) + last_move.captured_piece().value();
             // let eval_value = if depth == 0 && eval_value_approx - 200 > beta {
             //     beta
@@ -319,6 +319,9 @@ impl<'a> Search<'a> {
                                   EntryData::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
                     return Ok(Some(beta));
                 }
+                assert_eq!(self.position.board().checkers(),
+                           self.state_stack.last().unwrap().checkers);
+                self.position.board()._checkers.set(self.state_stack.last().unwrap().checkers);
             }
         }
 
