@@ -174,11 +174,14 @@ impl Move {
               aux_data << M_SHIFT_AUX_DATA) as u64)
     }
 
-    /// Creates a new instance with all fields set to `0` (an invalid
-    /// move).
+    /// Creates an invalid move instance.
+    ///
+    /// The returned instance mimics a valid move, but its move digest
+    /// equals `0`.
     #[inline(always)]
     pub fn invalid() -> Move {
-        Move(0)
+        Move((MAX_MOVE_SCORE as u64) << 32 |
+             ((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
     }
 
     /// Assigns a new score for the move (between 0 and `MAX_MOVE_SCORE`).
@@ -262,6 +265,19 @@ impl Move {
         const C: usize = (!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE;
         (self.0 as usize & M_MASK_PIECE | C) ^ (self.0 as usize & M_MASK_CAPTURED_PIECE | P) >=
         M_MASK_PIECE
+    }
+
+    /// Returns if the move is a null move.
+    ///
+    /// "Null move" is an illegal pseudo-move that changes nothing on
+    /// the board except the side to move (and the en-passant file, of
+    /// course). It is sometimes useful to include a speculative null
+    /// move in the search tree so as to achieve more aggressive
+    /// pruning. Null moves are represented as normal moves for which
+    /// the origin and destination squares are the same.
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 
     /// Returns the least significant 16 bits of the raw move value.
@@ -618,6 +634,8 @@ mod tests {
         assert!(!n2.is_pawn_advance_or_capure());
         assert!(n4.is_pawn_advance_or_capure());
         assert!(n5.is_pawn_advance_or_capure());
+        assert!(!Move::invalid().is_null());
+        assert_eq!(Move::invalid().digest(), 0);
     }
 
     #[test]

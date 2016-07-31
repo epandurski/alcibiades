@@ -390,7 +390,7 @@ impl Position {
     // mutable reference to `self`.
     #[inline]
     unsafe fn do_move_unsafe(&self, m: Move) -> bool {
-        if self.is_repeated() && Board::is_null_move(m) {
+        if self.is_repeated() && m.is_null() {
             return false;
         }
         if let Some(h) = self.board_mut().do_move(m) {
