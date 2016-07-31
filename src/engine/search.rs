@@ -80,7 +80,7 @@ impl<'a> Search<'a> {
     /// but always staying on the correct side of the
     /// interval. `depth` is the desired search depth in
     /// half-moves. `last_move` is the move that led to the current
-    /// (`root`) position.
+    /// position.
     ///
     /// **Important note**: This method may leave un-restored move
     /// lists in the move stack. Call `reset` if you want the move
