@@ -81,12 +81,12 @@ impl<'a> Search<'a> {
                mut alpha: Value, // lower bound
                beta: Value, // upper bound
                depth: u8,
-               null_move_allowed: bool)
+               last_move: Move)
                -> Result<Value, TerminatedSearch> {
         assert!(alpha < beta);
         let mut value = VALUE_MINIMUM;
 
-        if let Some(v) = try!(self.node_begin(alpha, beta, depth, null_move_allowed)) {
+        if let Some(v) = try!(self.node_begin(alpha, beta, depth, last_move)) {
             // We already have the final result.
             value = v;
 
@@ -104,7 +104,7 @@ impl<'a> Search<'a> {
                     // The first move we analyze with a fully open window
                     // (alpha, beta). If this happens to be a good move,
                     // it will probably raise `alpha`.
-                    -try!(self.run(-beta, -alpha, depth - 1, true))
+                    -try!(self.run(-beta, -alpha, depth - 1, m))
                 } else {
                     // For the next moves we first try to prove that they
                     // are not better than our current best move. For this
@@ -113,9 +113,9 @@ impl<'a> Search<'a> {
                     // search. Only if we are certain that the move is
                     // better than our current best move, we do a
                     // full-window search.
-                    match -try!(self.run(-alpha - 1, -alpha, depth - 1, true)) {
+                    match -try!(self.run(-alpha - 1, -alpha, depth - 1, m)) {
                         v if v <= alpha => v,
-                        _ => -try!(self.run(-beta, -alpha, depth - 1, true)),
+                        _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
                     }
                 };
                 self.undo_move();
@@ -189,7 +189,7 @@ impl<'a> Search<'a> {
                   alpha: Value,
                   beta: Value,
                   depth: u8,
-                  null_move_allowed: bool)
+                  last_move: Move)
                   -> Result<Option<Value>, TerminatedSearch> {
         // Probe the transposition table.
         let hash = self.position.hash();
@@ -248,7 +248,7 @@ impl<'a> Search<'a> {
             state.pinned = self.position.board().pinned();
             state.phase = NodePhase::ConsideredNullMove;
         }
-        if null_move_allowed && entry.eval_value() >= beta && self.position.is_zugzwang_safe() {
+        if !last_move.is_null() && entry.eval_value() >= beta && self.position.is_zugzwang_safe() {
             // Calculate the reduced depth.
             //
             // TODO: See if we can increase `R` in case `depth > 7`.
@@ -267,7 +267,7 @@ impl<'a> Search<'a> {
             // Play a null move and search.
             let m = self.position.null_move();
             if self.position.do_move(m) {
-                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, false));
+                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, m));
                 self.position.undo_move();
                 if value >= beta {
                     // The result we are about to return is a more or
@@ -371,7 +371,7 @@ impl<'a> Search<'a> {
             }
 
             // TODO: play the killer moves here.
-            
+
             // Second, the bad captures.
             if let NodePhase::TriedGoodCaptures = state.phase {
                 if m.score() == MAX_MOVE_SCORE - 1 {
@@ -494,12 +494,12 @@ mod tests {
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
-        let value = search.run(-30000, 30000, 2, true)
+        let value = search.run(-30000, 30000, 2, Move::invalid())
                           .ok()
                           .unwrap();
         assert!(value < -300);
         search.reset();
-        let value = search.run(-30000, 30000, 4, true)
+        let value = search.run(-30000, 30000, 4, Move::invalid())
                           .ok()
                           .unwrap();
         assert!(value >= 20000);

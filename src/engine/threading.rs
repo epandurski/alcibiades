@@ -145,7 +145,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                         }
                     };
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
-                    let value = search.run(lower_bound, upper_bound, depth, true).ok();
+                    let value = search.run(lower_bound, upper_bound, depth, Move::invalid()).ok();
                     let searched_depth = if value.is_some() {
                         depth
                     } else {
@@ -269,7 +269,7 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
                             alpha = lower_bound;
                             beta = upper_bound;
                         }
-                        
+
                         // Command the slave thread to run a search.
                         slave_commands_tx.send(Command::Search {
                                              search_id: current_depth as usize,
