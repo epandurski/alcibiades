@@ -28,7 +28,7 @@ const DELTA: Value = 17; //16;
 
 // The number of half-moves with which the search depth will be
 // reduced when trying null moves.
-const R: u8 = 2;
+const R: u8 = 3;
 
 // The number of nodes that can be searched without reporting search
 // progress. If this value is too small the engine may become slow, if

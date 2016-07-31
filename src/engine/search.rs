@@ -282,11 +282,11 @@ impl<'a> Search<'a> {
         }
         if !last_move.is_null() && entry.eval_value() >= beta && self.position.is_zugzwang_safe() {
             // Calculate the reduced depth.
-            //
-            // TODO: See if we can increase `R` in case `depth > 7`.
-            // This probably will not work without implementing
-            // extensions/reductions first.
-            let reduced_depth = depth as i8 - R as i8;
+            let reduced_depth = if depth > 7 {
+                depth as i8 - R as i8 - 1
+            } else {
+                depth as i8 - R as i8
+            };
 
             // Check if the TT indicates that trying a null move is
             // futile. We rely on the fact that if no normal move can
