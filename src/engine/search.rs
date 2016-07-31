@@ -101,6 +101,7 @@ impl<'a> Search<'a> {
 
         } else {
             // Initial guests.
+            assert!(depth > 0);
             let mut bound = BOUND_EXACT;
             let mut best_move = Move::invalid();
 
@@ -121,8 +122,13 @@ impl<'a> Search<'a> {
                         depth - 1
                     }
                 } else {
-                    // -1 reduction
-                    max(0, depth as i8 - 2) as u8
+                    if depth < 2 {
+                        // no reduction
+                        depth - 1
+                    } else {
+                        // -1 reduction
+                        depth - 2
+                    }
                 };
 
                 // Make a recursive call.
