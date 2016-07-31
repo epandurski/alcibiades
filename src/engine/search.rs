@@ -319,9 +319,6 @@ impl<'a> Search<'a> {
                                   EntryData::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
                     return Ok(Some(beta));
                 }
-                assert_eq!(self.position.board().checkers(),
-                           self.state_stack.last().unwrap().checkers);
-                self.position.board()._checkers.set(self.state_stack.last().unwrap().checkers);
             }
         }
 
