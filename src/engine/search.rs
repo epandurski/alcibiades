@@ -108,12 +108,29 @@ impl<'a> Search<'a> {
             while let Some(m) = self.do_move() {
                 try!(self.report_progress(1));
 
+                // Decide whether to apply depth reduction or not.
+                let next_depth = if m.score() > REDUCTION_THRESHOLD {
+                    if last_move.score() <= REDUCTION_THRESHOLD &&
+                       self.position.board().checkers() != 0 {
+                        // The last move was erroneously reduced
+                        // because we did not know that it gives a
+                        // check -- +1 extension.
+                        depth
+                    } else {
+                        // no reduction
+                        depth - 1
+                    }
+                } else {
+                    // -1 reduction
+                    max(0, depth as i8 - 2) as u8
+                };
+
                 // Make a recursive call.
                 let v = if value == VALUE_MINIMUM {
                     // The first move we analyze with a fully open window
                     // (alpha, beta). If this happens to be a good move,
                     // it will probably raise `alpha`.
-                    -try!(self.run(-beta, -alpha, depth - 1, m))
+                    -try!(self.run(-beta, -alpha, next_depth, m))
                 } else {
                     // For the next moves we first try to prove that they
                     // are not better than our current best move. For this
@@ -122,9 +139,9 @@ impl<'a> Search<'a> {
                     // search. Only if we are certain that the move is
                     // better than our current best move, we do a
                     // full-window search.
-                    match -try!(self.run(-alpha - 1, -alpha, depth - 1, m)) {
+                    match -try!(self.run(-alpha - 1, -alpha, next_depth, m)) {
                         v if v <= alpha => v,
-                        _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
+                        _ => -try!(self.run(-beta, -alpha, next_depth, m)),
                     }
                 };
                 self.undo_move();
@@ -464,6 +481,12 @@ impl<'a> Search<'a> {
 }
 
 
+// Moves with move scores higher than this number will be searched at
+// full depth. Moves with move scores lesser or equal to this number
+// will be searched at reduced depth.
+const REDUCTION_THRESHOLD: u32 = MAX_MOVE_SCORE >> 1;
+
+
 enum NodePhase {
     Pristine,
     ConsideredNullMove,
@@ -502,7 +525,7 @@ mod tests {
                           .unwrap();
         assert!(value < -300);
         search.reset();
-        let value = search.run(-30000, 30000, 4, Move::invalid())
+        let value = search.run(-30000, 30000, 8, Move::invalid())
                           .ok()
                           .unwrap();
         assert!(value >= 20000);
