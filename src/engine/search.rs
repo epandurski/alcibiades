@@ -279,7 +279,7 @@ impl<'a> Search<'a> {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, m));
                 self.position.undo_move();
                 if value >= beta {
-                    // The result we are about to return is a more or
+                    // The result we are about to return is more or
                     // less a lie (because of the depth reduction),
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
