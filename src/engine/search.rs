@@ -74,13 +74,12 @@ impl<'a> Search<'a> {
     ///
     /// `alpha` and `beta` together give the interval within which an
     /// as precise as possible evaluation is required. If during the
-    /// search it is determined that the exact evaluation is outside
-    /// of this interval, this method may return a value that is
-    /// closer to the the interval bounds than the exact evaluation,
-    /// but always staying on the correct side of the
-    /// interval. `depth` is the desired search depth in
-    /// half-moves. `last_move` is the move that led to the current
-    /// position.
+    /// search is determined that the exact evaluation is outside of
+    /// this interval, this method may return a value that is closer
+    /// to the the interval bounds than the exact evaluation, but
+    /// always staying on the correct side of the interval. `depth` is
+    /// the desired search depth in half-moves. `last_move` is the
+    /// move that led to the current position.
     ///
     /// **Important note**: This method may leave un-restored move
     /// lists in the move stack. Call `reset` if you want the move
@@ -260,7 +259,7 @@ impl<'a> Search<'a> {
         // On leaf nodes, do quiescence search.
         if depth == 0 {
             let (value, nodes) = self.position
-                                     .evaluate_quiescence(alpha, beta, Some(entry.eval_value()));
+                                     .evaluate_quiescence(alpha, beta, entry.eval_value());
             try!(self.report_progress(nodes));
             let bound = if value >= beta {
                 BOUND_LOWER

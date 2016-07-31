@@ -32,7 +32,8 @@ pub type NodeCount = u64;
 /// to move is a pawn ahead.
 ///
 /// Values over `19999` and under `-19999` designate a certain
-/// win/loss.
+/// win/loss. The constant `VALUE_UNKNOWN` equals to `-32768`, and has
+/// the special meaning of "unknown value".
 pub type Value = i16;
 
 
@@ -135,6 +136,9 @@ pub const E8: Square = 4 + 7 * 8;
 pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
+
+// Value
+pub const VALUE_UNKNOWN: Value = ::std::i16::MIN;
 
 
 /// Returns the square on given file and rank.
