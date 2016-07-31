@@ -60,17 +60,27 @@ impl<'a> Search<'a> {
     /// window searches of none PV-nodes. (The principal variation
     /// (PV) is a sequence of moves that the program considers best
     /// and therefore expects to be played.) The classical alpha-beta
-    /// search is a significant enhancement to the minimax search
-    /// algorithm that eliminates the need to search large portions of
-    /// the game tree by applying a branch-and-bound
-    /// technique. Remarkably, it does this without any potential of
-    /// overlooking a better move. If one already has found a quite
-    /// good move and searches for alternatives, one refutation is
-    /// enough to avoid it -- no need to look for even stronger
-    /// refutations. The algorithm maintains two values, alpha and
-    /// beta. They represent the minimum score that the maximizing
-    /// player is assured of and the maximum score that the minimizing
-    /// player is assured of respectively.
+    /// search is a huge enhancement to the minimax search algorithm,
+    /// that eliminates the need to search large portions of the game
+    /// tree by applying a branch-and-bound technique. Remarkably, it
+    /// does this without any potential of overlooking a better
+    /// move. If one already has found a quite good move and searches
+    /// for alternatives, one refutation is enough to avoid it -- no
+    /// need to look for even stronger refutations. The algorithm
+    /// maintains two values, alpha and beta. They represent the
+    /// minimum score that the maximizing player is assured of and the
+    /// maximum score that the minimizing player is assured of
+    /// respectively.
+    ///
+    /// `alpha` and `beta` together give the interval within which an
+    /// as precise as possible evaluation is required. If during the
+    /// search it is determined that the exact evaluation is outside
+    /// of this interval, this method may return a value that is
+    /// closer to the the interval bounds than the exact evaluation,
+    /// but always staying on the correct side of the
+    /// interval. `depth` is the desired search depth in
+    /// half-moves. `last_move` is the move that led to the current
+    /// (`root`) position.
     ///
     /// **Important note**: This method may leave un-restored move
     /// lists in the move stack. Call `reset` if you want the move

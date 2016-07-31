@@ -260,11 +260,11 @@ impl Position {
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
     /// required. If during the calculation it is determined that the
-    /// evaluation is outside this interval, this method may return
-    /// any value outside of the interval (including the bounds), but
-    /// always staying on the correct side of the interval. If not
-    /// `None`, `static_evaluation` should be the value returned by
-    /// `self.evaluate_static()`.
+    /// exact evaluation is outside of this interval, this method may
+    /// return a value that is closer to the the interval bounds than
+    /// the exact evaluation, but always staying on the correct side
+    /// of the interval. If not `None`, `static_evaluation` should be
+    /// the value returned by `self.evaluate_static()`.
     #[inline]
     pub fn evaluate_quiescence(&self,
                                lower_bound: Value,
