@@ -228,7 +228,7 @@ impl<'a> Search<'a> {
         let entry = if let Some(e) = self.tt.probe(hash) {
             e
         } else {
-            // TODO: Try to fetch a face value in case `depth == 0`.
+            // TODO: Try to fetch a fake value in case `depth == 0`.
             //       For example:
             //
             // let eval_value_approx = (-prev_eval_value) + last_move.captured_piece().value();
