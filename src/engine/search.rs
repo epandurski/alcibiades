@@ -1,6 +1,5 @@
 //! Implements single-threaded game tree search.
 
-use std::i16::MIN as VALUE_MINIMUM;
 use std::cmp::max;
 use basetypes::*;
 use bitsets::*;
@@ -92,7 +91,7 @@ impl<'a> Search<'a> {
                last_move: Move)
                -> Result<Value, TerminatedSearch> {
         assert!(alpha < beta);
-        let mut value = VALUE_MINIMUM;
+        let mut value = VALUE_UNKNOWN;
 
         if let Some(v) = try!(self.node_begin(alpha, beta, depth, last_move)) {
             // We already have the final result.
@@ -118,7 +117,7 @@ impl<'a> Search<'a> {
                 };
 
                 // Make a recursive call.
-                let v = if value == VALUE_MINIMUM {
+                let v = if value == VALUE_UNKNOWN {
                     // The first move we analyze with a fully open window
                     // (alpha, beta). If this happens to be a good move,
                     // it will probably raise `alpha`.
@@ -137,7 +136,7 @@ impl<'a> Search<'a> {
                     }
                 };
                 self.undo_move();
-                assert!(v > VALUE_MINIMUM);
+                assert!(v > VALUE_UNKNOWN);
 
                 // See how good this move was.
                 if v >= beta {
@@ -164,7 +163,7 @@ impl<'a> Search<'a> {
             }
 
             // Check if we are in a final position (no legal moves).
-            if value == VALUE_MINIMUM {
+            if value == VALUE_UNKNOWN {
                 value = self.position.evaluate_final();
                 assert_eq!(bound, BOUND_EXACT);
             }
