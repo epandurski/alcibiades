@@ -109,25 +109,12 @@ impl<'a> Search<'a> {
                 try!(self.report_progress(1));
 
                 // Decide whether to apply depth reduction or not.
-                let next_depth = if m.score() > REDUCTION_THRESHOLD {
-                    if last_move.score() <= REDUCTION_THRESHOLD &&
-                       self.position.board().checkers() != 0 {
-                        // The last move was erroneously reduced
-                        // because we did not know that it gives a
-                        // check -- +1 extension.
-                        depth
-                    } else {
-                        // no reduction
-                        depth - 1
-                    }
+                let next_depth = if depth < 2 || m.score() > REDUCTION_THRESHOLD {
+                    // no reduction
+                    depth - 1
                 } else {
-                    if depth < 2 {
-                        // no reduction
-                        depth - 1
-                    } else {
-                        // -1 reduction
-                        depth - 2
-                    }
+                    // -1 reduction
+                    depth - 2
                 };
 
                 // Make a recursive call.
@@ -410,7 +397,8 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedGoodCaptures;
             }
 
-            // TODO: play the killer moves here.
+            // TODO: play the killer moves here. Do not forget to set
+            // the move score properly (is it check?).
 
             // Second, the bad captures.
             if let NodePhase::TriedGoodCaptures = state.phase {
@@ -448,9 +436,10 @@ impl<'a> Search<'a> {
 
             // Last, quiet moves.
             if self.position.do_move(m) {
-                if state.checkers != 0 {
-                    // When in check, we set a high move score to all
-                    // moves to avoid search depth reductions.
+                if state.checkers != 0 || self.position.board().checkers() != 0 {
+                    // When evading check or giving check -- set a
+                    // high move score to avoid search depth
+                    // reductions.
                     m.set_score(MAX_MOVE_SCORE - 1);
                 }
                 return Some(m);
