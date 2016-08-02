@@ -439,8 +439,7 @@ impl Position {
                searched_nodes: &mut NodeCount)
                -> Value {
         assert!(lower_bound < upper_bound);
-        let board = unsafe { self.board_mut() };
-        let not_in_check = board.checkers() == 0;
+        let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
         // is used to establish a lower bound on the score
@@ -454,7 +453,7 @@ impl Position {
                 assert!(static_evaluation > -20000 && static_evaluation < 20000);
                 static_evaluation
             } else {
-                let v = eval_func(board);
+                let v = eval_func(self.board());
                 assert!(v > -20000 && v < 20000);
                 v
             }
@@ -471,7 +470,7 @@ impl Position {
 
         // Generate all non-quiet moves.
         move_stack.save();
-        board.generate_moves(false, move_stack);
+        self.board().generate_moves(false, move_stack);
 
         // Try all generated moves one by one. Moves with higher
         // scores are tried before moves with lower scores.
@@ -503,7 +502,7 @@ impl Position {
                 // one recapture at the capture square is tried, no
                 // matter the SSE.)
                 if recapture_squares & dest_square_bb == 0 {
-                    match self.calc_see(board.to_move(),
+                    match self.calc_see(self.board().to_move(),
                                         m.piece(),
                                         m.orig_square(),
                                         dest_square,
@@ -518,27 +517,29 @@ impl Position {
             // Recursively call `qsearch` for the next move and update
             // the lower bound according to the recursively calculated
             // value.
-            if board.do_move(m).is_some() {
-                *searched_nodes += 1;
-                let value = -self.qsearch(-upper_bound,
-                                          -lower_bound,
-                                          VALUE_UNKNOWN,
-                                          recapture_squares ^ dest_square_bb,
-                                          ply + 1,
-                                          move_stack,
-                                          eval_func,
-                                          searched_nodes);
-                board.undo_move(m);
-                if value >= upper_bound {
-                    lower_bound = value;
-                    break;
-                }
-                if value > lower_bound {
-                    lower_bound = value;
-                }
+            unsafe {
+                if self.board_mut().do_move(m).is_some() {
+                    *searched_nodes += 1;
+                    let value = -self.qsearch(-upper_bound,
+                                              -lower_bound,
+                                              VALUE_UNKNOWN,
+                                              recapture_squares ^ dest_square_bb,
+                                              ply + 1,
+                                              move_stack,
+                                              eval_func,
+                                              searched_nodes);
+                    self.board_mut().undo_move(m);
+                    if value >= upper_bound {
+                        lower_bound = value;
+                        break;
+                    }
+                    if value > lower_bound {
+                        lower_bound = value;
+                    }
 
-                // Mark that a recapture at this field had been tried.
-                recapture_squares &= !dest_square_bb;
+                    // Mark that a recapture at this field had been tried.
+                    recapture_squares &= !dest_square_bb;
+                }
             }
         }
         move_stack.restore();
