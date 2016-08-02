@@ -170,10 +170,11 @@ impl Engine {
                 }
 
                 // The values under -19999 and over 19999 may carry
-                // information in how many moves is the inevitable
-                // checkmate. We choose to not show this to the user,
-                // because it would complicate unnecessarily the PV
-                // extraction procedure.
+                // additional information (for example, in how many
+                // moves is the inevitable checkmate). However, we
+                // choose to not show this to the user, because it
+                // would complicate unnecessarily the PV extraction
+                // procedure.
                 if leaf_value >= 20000 {
                     leaf_value = 19999;
                     if bound == BOUND_LOWER {

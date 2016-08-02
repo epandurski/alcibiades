@@ -206,12 +206,12 @@ impl Position {
 
     /// Evaluates a final position.
     ///
-    /// In final positions this method is guaranteed to return the
-    /// correct value of the position (white wins, black wins, a
-    /// draw). A position is guaranteed to be final if
-    /// `generate_moves` method generates no legal moves. (It may
-    /// generate some pseudo-legal moves, but if none of them is
-    /// legal, then the position is final.)
+    /// In final positions this method will return the correct value
+    /// of the position (`0` for a draw, `-29999` for a checkmate). A
+    /// position is guaranteed to be final if `generate_moves` method
+    /// generates no legal moves. (It may generate some pseudo-legal
+    /// moves, but if none of them is legal, then the position is
+    /// final.)
     ///
     /// **Important note:** Repeating positions are considered final
     /// (a draw).
