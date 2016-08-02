@@ -343,15 +343,19 @@ impl<'a> Search<'a> {
         } else {
             true
         });
+        
+        // Restore board's `_checkers` and `_pinned` fields. This is
+        // merely an optimization -- instead of recalculating them
+        // again and again, we recall them from the state stack.
+        assert_eq!(self.position.board().checkers(), state.checkers);
+        assert_eq!(self.position.board().pinned(), state.pinned);
+        self.position.board()._checkers.set(state.checkers);
+        self.position.board()._pinned.set(state.pinned);
 
         // Try the hash move first.
         if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
             if state.entry.move16() != 0 {
-                assert_eq!(self.position.board().checkers(), state.checkers);
-                assert_eq!(self.position.board().pinned(), state.pinned);
-                self.position.board()._checkers.set(state.checkers);
-                self.position.board()._pinned.set(state.pinned);
                 if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
                     if self.position.do_move(m) {
                         m.set_score(MAX_MOVE_SCORE);
@@ -365,10 +369,6 @@ impl<'a> Search<'a> {
         // should not forget to remove the already tried hash move
         // from the list.
         if let NodePhase::TriedHashMove = state.phase {
-            assert_eq!(self.position.board().checkers(), state.checkers);
-            assert_eq!(self.position.board().pinned(), state.pinned);
-            self.position.board()._checkers.set(state.checkers);
-            self.position.board()._pinned.set(state.pinned);
             self.position.generate_moves(self.moves);
             if state.entry.move16() != 0 {
                 self.moves.remove_move(state.entry.move16());
@@ -377,10 +377,6 @@ impl<'a> Search<'a> {
         }
 
         // Spit out the generated moves.
-        assert_eq!(self.position.board().checkers(), state.checkers);
-        assert_eq!(self.position.board().pinned(), state.pinned);
-        self.position.board()._checkers.set(state.checkers);
-        self.position.board()._pinned.set(state.pinned);
         while let Some(mut m) = self.moves.remove_best_move() {
 
             // First, the good captures.
