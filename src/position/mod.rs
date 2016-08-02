@@ -231,8 +231,8 @@ impl Position {
     /// This method considers only static material and positional
     /// properties of the position. If the position is dynamic, with
     /// pending tactical threats, this function will return a grossly
-    /// incorrect evaluation. Therefore, it should be relied upon only
-    /// for reasonably "quiet" positions.
+    /// incorrect evaluation. The returned value will be between
+    /// `-19999` and `19999`.
     #[inline]
     pub fn evaluate_static(&self) -> Value {
         if self.is_repeated() {
@@ -264,7 +264,8 @@ impl Position {
     /// return a value that is closer to the the interval bounds than
     /// the exact evaluation, but always staying on the correct side
     /// of the interval. `static_evaluation` should be the value
-    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`.
+    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
+    /// returned value will be between `-19999` and `19999`.
     #[inline]
     pub fn evaluate_quiescence(&self,
                                lower_bound: Value,
