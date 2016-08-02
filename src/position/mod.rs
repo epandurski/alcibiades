@@ -244,18 +244,15 @@ impl Position {
 
     /// Performs a "quiescence search" and returns an evaluation.
     ///
-    /// The goal of the "quiescence search" is to statically evaluate
-    /// only "quiet" positions (positions where there are no winning
-    /// tactical moves to be made). In order to do that, without
-    /// analyzing too much nodes, it considers only captures, pawn
-    /// promotions to queen, and check evasions. Even then, the search
-    /// tree can get quite large quickly. So, static exchange
-    /// evaluation heuristics is used to eliminate those captures that
-    /// are likely to lead to material loss. Although "quiescence
-    /// search" can cheaply and correctly resolve many tactical
-    /// issues, it is particularly blind to other simple tactical
-    /// threads like most kinds of forks, checks, and even a checkmate
-    /// in one move.
+    /// The "quiescence search" is a rathrer restricted tree search
+    /// which consisers only a limited set of moves (for example:
+    /// winning captures, pawn promotions to queen, check
+    /// evasions). The goal is to statically evaluate only "quiet"
+    /// positions (positions where there are no winning tactical moves
+    /// to be made). Although this search can cheaply and correctly
+    /// resolve many tactical issues, it is particularly blind to
+    /// other simple tactical threads like most kinds of forks,
+    /// checks, even a checkmate in one move.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
@@ -446,9 +443,10 @@ impl Position {
         self.state_stack_mut().pop();
     }
 
-    // A helper method for `evaluate`. It is needed because`qsearch`
-    // should be able to call itself recursively, which should not
-    // complicate `evaluate`'s public-facing interface.
+    // A helper method for `evaluate_quiescence`. It is needed
+    // because`qsearch` should be able to call itself recursively,
+    // which should not complicate `evaluate_quiescence`'s
+    // public-facing interface.
     unsafe fn qsearch(&self,
                       mut lower_bound: Value,
                       upper_bound: Value,
@@ -575,14 +573,9 @@ impl Position {
     }
 
     // A helper method for `qsearch` and `evaluate_move`. It
-    // calculates the static evaluation exchange value of a capture.
-    //
-    // The impemented algorithm creates a swap-list of best case
-    // material gains by traversing a "square attacked/defended by"
-    // set in least valuable piece order from pawn, knight, bishop,
-    // rook, queen until king, with alternating sides. The swap-list
-    // (an unary tree since there are no branches but just a series of
-    // captures) is negamaxed for a final static exchange evaluation.
+    // calculates the static evaluation exchange (SSE) value of a
+    // capture. SSE heuristics is used to recognize those captures
+    // that are likely to lead to material loss.
     //
     // The returned value is the material that is expected to be
     // gained in the exchange by the attacking side (`us`), when
@@ -597,6 +590,14 @@ impl Position {
                 dest_square: Square,
                 captured_piece: PieceType)
                 -> Value {
+        // The impemented algorithm creates a swap-list of best case
+        // material gains by traversing the "attackers and defenders"
+        // set in least valuable piece order from pawn, knight,
+        // bishop, rook, queen until king, with alternating sides. The
+        // swap-list (an unary tree since there are no branches but
+        // just a series of captures) is negamaxed for a final static
+        // exchange evaluation.
+        
         assert!(us <= 1);
         assert!(piece < NO_PIECE);
         assert!(orig_square <= 63);
