@@ -377,6 +377,10 @@ impl<'a> Search<'a> {
         }
 
         // Spit out the generated moves.
+        assert_eq!(self.position.board().checkers(), state.checkers);
+        assert_eq!(self.position.board().pinned(), state.pinned);
+        self.position.board()._checkers.set(state.checkers);
+        self.position.board()._pinned.set(state.pinned);
         while let Some(mut m) = self.moves.remove_best_move() {
 
             // First, the good captures.
