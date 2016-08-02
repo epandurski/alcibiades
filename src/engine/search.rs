@@ -77,12 +77,13 @@ impl<'a> Search<'a> {
     /// this interval, this method may return a value that is closer
     /// to the the interval bounds than the exact evaluation, but
     /// always staying on the correct side of the interval. `depth` is
-    /// the desired search depth in half-moves. `last_move` is the
-    /// move that led to the current position.
+    /// the desired search depth in half-moves. `last_move` should be
+    /// the move that led to the current position, or `Move::invalid()`
+    /// if the last move is unknown.
     ///
     /// **Important note**: This method may leave un-restored move
-    /// lists in the move stack. Call `reset` if you want the move
-    /// stack to be restored to the state it had when the search
+    /// lists in `move_stack`. Call the `reset` method if you want the
+    /// move stack to be restored to the state it had when the search
     /// instance was created.
     pub fn run(&mut self,
                mut alpha: Value, // lower bound
