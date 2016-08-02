@@ -211,6 +211,9 @@ impl Board {
 
     /// Generates pseudo-legal moves.
     ///
+    /// A pseudo-legal move is a move that is otherwise legal, except
+    /// it might leave the king in check. Every legal move is a
+    /// pseudo-legal move, but not every pseudo-legal move is legal.
     /// The generated moves will be pushed to `move_stack`. When `all`
     /// is `true`, all pseudo-legal moves will be generated. When
     /// `all` is `false`, only captures, pawn promotions to queen, and
