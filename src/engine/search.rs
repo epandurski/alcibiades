@@ -335,7 +335,6 @@ impl<'a> Search<'a> {
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
         let state = self.state_stack.last_mut().unwrap();
-
         assert!(if let NodePhase::Pristine = state.phase {
             false
         } else {

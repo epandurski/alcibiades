@@ -106,7 +106,7 @@ impl Position {
                                                   last_move: Move::invalid(),
                                               }]),
         };
-        p.board_hash.set(p.calc_board_hash());
+        p.board_hash.set(p.board().calc_hash());
         Ok(p)
     }
 
@@ -714,31 +714,6 @@ impl Position {
             *self.state_stack_mut() = vec![state];
             self.state_stack_mut().reserve(32);
         }
-    }
-
-    // A helper method for `from_fen`.
-    //
-    // It calculates and returns the Zobrist hash for the board.
-    fn calc_board_hash(&self) -> u64 {
-        let zobrist = ZobristArrays::get();
-        let mut hash = 0;
-        for color in 0..2 {
-            for piece in 0..6 {
-                let mut bb = self.board().color()[color] & self.board().piece_type()[piece];
-                while bb != BB_EMPTY_SET {
-                    let square = bitscan_forward_and_reset(&mut bb);
-                    hash ^= zobrist.pieces[color][piece][square];
-                }
-            }
-        }
-        hash ^= zobrist.castling[self.board().castling().value()];
-        if let Some(en_passant_file) = self.board().en_passant_file() {
-            hash ^= zobrist.en_passant[en_passant_file];
-        }
-        if self.board().to_move() == BLACK {
-            hash ^= zobrist.to_move;
-        }
-        hash
     }
 
     // Returns `true` if the root position can not be reached from the

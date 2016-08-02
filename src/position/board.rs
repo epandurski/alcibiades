@@ -784,6 +784,26 @@ impl Board {
         assert!(self.is_legal());
     }
 
+    /// Calculates and returns the Zobrist hash for the board.
+    pub fn calc_hash(&self) -> u64 {
+        let mut hash = 0;
+        for color in 0..2 {
+            for piece in 0..6 {
+                let mut bb = self.color[color] & self.piece_type[piece];
+                while bb != BB_EMPTY_SET {
+                    let square = bitscan_forward_and_reset(&mut bb);
+                    hash ^= self.zobrist.pieces[color][piece][square];
+                }
+            }
+        }
+        hash ^= self.zobrist.castling[self.castling.value()];
+        hash ^= self.zobrist.en_passant[self.en_passant_file];
+        if self.to_move == BLACK {
+            hash ^= self.zobrist.to_move;
+        }
+        hash
+    }
+
     // Analyzes the board and decides if it is a legal board.
     //
     // In addition to the obviously wrong boards (that for example
