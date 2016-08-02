@@ -176,7 +176,7 @@ impl Move {
 
     /// Creates an invalid move instance.
     ///
-    /// The returned instance mimics a valid move, but its move digest
+    /// The returned instance mimics a legal move, but its move digest
     /// equals `0`.
     #[inline(always)]
     pub fn invalid() -> Move {
