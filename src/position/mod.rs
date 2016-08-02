@@ -700,8 +700,9 @@ impl Position {
         self.state_stack.reserve(32);
     }
 
-    // Returns `true` if the root position can not be reached from the
-    // current position, `false` otherwise.
+    // A helper method for `Position::hash`. It returns `true` if the
+    // root position can not be reached from the current position,
+    // `false` otherwise.
     #[inline(always)]
     fn root_is_unreachable(&self) -> bool {
         self.encountered_boards.len() > self.state().halfmove_clock as usize
