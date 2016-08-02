@@ -209,21 +209,23 @@ impl Board {
         }
     }
 
-    /// Generates pseudo-legal moves and pushes them to `move_stack`.
+    /// Generates pseudo-legal moves.
     ///
-    /// When `all` is `true`, all pseudo-legal moves will be
-    /// considered. When `all` is `false`, only captures, pawn
-    /// promotions to queen, and check evasions will be considered.
-    /// It is guaranteed, that all generated moves with pieces other
-    /// than the king are legal. It is possible that some of the
-    /// king's moves are illegal because the destination square is
-    /// under check, or when castling, king's passing square is
-    /// attacked. This is because verifying that these squares are not
-    /// under attack is quite expensive, and therefore we hope that
-    /// the alpha-beta pruning will eliminate the need for this
-    /// verification at all.
+    /// The generated moves will be pushed to `move_stack`. When `all`
+    /// is `true`, all pseudo-legal moves will be generated. When
+    /// `all` is `false`, only captures, pawn promotions to queen, and
+    /// check evasions will be generated.
     #[inline]
     pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
+        // All generated moves with pieces other than the king will be
+        // legal. It is possible that some of the king's moves are
+        // illegal because the destination square is under check, or
+        // when castling, king's passing square is attacked. This is
+        // because verifying that these squares are not under attack
+        // is quite expensive, and therefore we hope that the
+        // alpha-beta pruning will eliminate the need for this
+        // verification at all.
+        
         assert!(self.is_legal());
         let king_square = self.king_square();
         let checkers = self.checkers();
