@@ -83,8 +83,9 @@ pub enum Report {
 /// intended to be called in a separate thread. While the search is
 /// executed, regular `Report::Progress` messages will be send back to
 /// the master thread via the `reports` channel. When the search is
-/// done, a final `Report::Done` message will be sent via the
-/// `reports` channel.
+/// done, a final `Report::Done` message, duplicating the last
+/// `Report::Progress` message, will be sent via the `reports`
+/// channel.
 ///
 /// # Example:
 ///
@@ -185,8 +186,9 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
 /// intended to be called in a separate thread. While the search is
 /// executed, regular `Report::Progress` messages will be send back to
 /// the master thread via the `reports` channel. When the search is
-/// done, a final `Report::Done` message will be sent via the
-/// `reports` channel.
+/// done, a final `Report::Done` message, duplicating the last
+/// `Report::Progress` message, will be sent via the `reports`
+/// channel.
 ///
 /// # Example:
 ///
