@@ -6,7 +6,7 @@ pub mod evaluation;
 
 use std::mem;
 use std::cmp::max;
-use std::cell::{Cell, UnsafeCell};
+use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use bitsets::*;
@@ -51,22 +51,20 @@ pub struct IllegalPosition;
 /// mainly because it impossible to implement it 100% correctly with
 /// relation to the transposition table.
 pub struct Position {
-    // We use `Cell` and `UnsafeCell` for the members, because
-    // evaluation methods logically are non-mutating, but internally
-    // they try moves on the board and then undoes them, leaving
-    // everything the way it was.
-    //
-    // The current board.
+    // The current board.  We use `UnsafeCell` for it, because the
+    // `evaluate_quiescence` method logically is non-mutating, but
+    // internally it tries moves on the board and then undoes them,
+    // always leaving everything the way it was.
     board: UnsafeCell<Board>,
 
     // The Zobrist hash value for the current board.
-    board_hash: Cell<u64>,
+    board_hash: u64,
 
     // The count of half-moves since the beginning of the game.
-    halfmove_count: Cell<u16>,
+    halfmove_count: u16,
 
     // `true ` if the position is a draw by repetition.
-    is_repeated: Cell<bool>,
+    is_repeated: bool,
 
     // A hash value for the set of boards that are still reachable
     // from the root position, and had occurred at least twice before
@@ -74,11 +72,11 @@ pub struct Position {
     repeated_boards_hash: u64,
 
     // Information needed so as to be able to undo the played moves.
-    state_stack: UnsafeCell<Vec<StateInfo>>,
+    state_stack: Vec<StateInfo>,
 
     // A list of boards that had occurred during the game. This is
     // needed so as to be able to detect repeated positions.
-    encountered_boards: UnsafeCell<Vec<u64>>,
+    encountered_boards: Vec<u64>,
 }
 
 
@@ -90,23 +88,23 @@ impl Position {
     pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
-        let p = Position {
+        let mut p = Position {
             board: UnsafeCell::new(try!(Board::create(placement,
                                                       to_move,
                                                       castling,
                                                       en_passant_square)
                                             .map_err(|_| IllegalPosition))),
-            board_hash: Cell::new(0),
-            halfmove_count: Cell::new(((fullmove_number - 1) << 1) + to_move as u16),
-            is_repeated: Cell::new(false),
+            board_hash: 0,
+            halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
+            is_repeated: false,
             repeated_boards_hash: 0,
-            encountered_boards: UnsafeCell::new(vec![0; halfmove_clock as usize]),
-            state_stack: UnsafeCell::new(vec![StateInfo {
-                                                  halfmove_clock: halfmove_clock,
-                                                  last_move: Move::invalid(),
-                                              }]),
+            encountered_boards: vec![0; halfmove_clock as usize],
+            state_stack: vec![StateInfo {
+                                  halfmove_clock: halfmove_clock,
+                                  last_move: Move::invalid(),
+                              }],
         };
-        p.board_hash.set(p.board().calc_hash());
+        p.board_hash = p.board().calc_hash();
         Ok(p)
     }
 
@@ -170,7 +168,7 @@ impl Position {
     /// `false`.
     #[inline(always)]
     pub fn is_repeated(&self) -> bool {
-        self.is_repeated.get()
+        self.is_repeated
     }
 
     /// Returns the count of half-moves since the beginning of the
@@ -180,7 +178,7 @@ impl Position {
     /// incremented after anyone's move.
     #[inline(always)]
     pub fn halfmove_count(&self) -> u16 {
-        self.halfmove_count.get()
+        self.halfmove_count
     }
 
     /// Returns an almost unique hash value for the position.
@@ -197,9 +195,9 @@ impl Position {
             1
         } else {
             if self.root_is_unreachable() {
-                self.board_hash.get()
+                self.board_hash
             } else {
-                self.board_hash.get() ^ self.repeated_boards_hash
+                self.board_hash ^ self.repeated_boards_hash
             }
         }
     }
@@ -377,50 +375,36 @@ impl Position {
     /// check or the position is a draw due to repetition.
     #[inline]
     pub fn do_move(&mut self, m: Move) -> bool {
-        unsafe { self.do_move_unsafe(m) }
-    }
-
-    /// Takes back the last played move.
-    #[inline]
-    pub fn undo_move(&mut self) {
-        unsafe { self.undo_move_unsafe() }
-    }
-
-    // A helper method for `do_move` and `qsearch`. It is needed
-    // because`qsearch` plays moves and undoes them without having a
-    // mutable reference to `self`.
-    #[inline]
-    unsafe fn do_move_unsafe(&self, m: Move) -> bool {
         if self.is_repeated() && m.is_null() {
             return false;
         }
-        if let Some(h) = self.board_mut().do_move(m) {
-            let state = self.state();
-            let encountered_boards = self.encountered_boards_mut();
+        if let Some(h) = unsafe { self.board_mut().do_move(m) } {
             let halfmove_clock = if m.is_pawn_advance_or_capure() {
                 0
             } else {
-                state.halfmove_clock + 1
+                self.state().halfmove_clock + 1
             };
-            self.halfmove_count.set(self.halfmove_count.get() + 1);
-            encountered_boards.push(self.board_hash.get());
-            self.board_hash.set(self.board_hash.get() ^ h);
-            assert!(encountered_boards.len() >= halfmove_clock as usize);
+            self.halfmove_count += 1;
+            self.encountered_boards.push(self.board_hash);
+            self.board_hash ^= h;
+            assert!(self.encountered_boards.len() >= halfmove_clock as usize);
 
             // Figure out if the new position is repeated.
             if halfmove_clock >= 4 {
-                let last_irrev = (encountered_boards.len() - (halfmove_clock as usize)) as isize;
-                let mut i = (encountered_boards.len() - 4) as isize;
+                let last_irrev =
+                    (self.encountered_boards.len() - (halfmove_clock as usize)) as isize;
+                let mut i = (self.encountered_boards.len() - 4) as isize;
                 while i >= last_irrev {
-                    if self.board_hash.get() == *encountered_boards.get_unchecked(i as usize) {
-                        self.is_repeated.set(true);
+                    if self.board_hash ==
+                       unsafe { *self.encountered_boards.get_unchecked(i as usize) } {
+                        self.is_repeated = true;
                         break;
                     }
                     i -= 2;
                 }
             }
 
-            self.state_stack_mut().push(StateInfo {
+            self.state_stack.push(StateInfo {
                 halfmove_clock: halfmove_clock,
                 last_move: m,
             });
@@ -430,35 +414,36 @@ impl Position {
         }
     }
 
-    // A helper method for `do_move` and `qsearch`. It is needed
-    // because`qsearch` plays moves and undoes them without having a
-    // mutable reference to `self`.
+    /// Takes back the last played move.
     #[inline]
-    unsafe fn undo_move_unsafe(&self) {
-        assert!(self.state_stack_mut().len() > 1);
-        self.board_mut().undo_move(self.state().last_move);
-        self.halfmove_count.set(self.halfmove_count.get() - 1);
-        self.board_hash.set(self.encountered_boards_mut().pop().unwrap());
-        self.is_repeated.set(false);
-        self.state_stack_mut().pop();
+    pub fn undo_move(&mut self) {
+        assert!(self.state_stack.len() > 1);
+        unsafe {
+            self.board_mut().undo_move(self.state().last_move);
+        }
+        self.halfmove_count -= 1;
+        self.board_hash = self.encountered_boards.pop().unwrap();
+        self.is_repeated = false;
+        self.state_stack.pop();
     }
 
     // A helper method for `evaluate_quiescence`. It is needed
     // because`qsearch` should be able to call itself recursively,
     // which should not complicate `evaluate_quiescence`'s
     // public-facing interface.
-    unsafe fn qsearch(&self,
-                      mut lower_bound: Value,
-                      upper_bound: Value,
-                      static_evaluation: Value,
-                      mut recapture_squares: u64,
-                      ply: u8,
-                      move_stack: &mut MoveStack,
-                      eval_func: &Fn(&Board) -> Value,
-                      searched_nodes: &mut NodeCount)
-                      -> Value {
+    fn qsearch(&self,
+               mut lower_bound: Value,
+               upper_bound: Value,
+               static_evaluation: Value,
+               mut recapture_squares: u64,
+               ply: u8,
+               move_stack: &mut MoveStack,
+               eval_func: &Fn(&Board) -> Value,
+               searched_nodes: &mut NodeCount)
+               -> Value {
         assert!(lower_bound < upper_bound);
-        let not_in_check = self.board().checkers() == 0;
+        let board = unsafe { self.board_mut() };
+        let not_in_check = board.checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
         // is used to establish a lower bound on the score
@@ -472,7 +457,7 @@ impl Position {
                 assert!(static_evaluation > -20000 && static_evaluation < 20000);
                 static_evaluation
             } else {
-                let v = eval_func(self.board());
+                let v = eval_func(board);
                 assert!(v > -20000 && v < 20000);
                 v
             }
@@ -489,27 +474,27 @@ impl Position {
 
         // Generate all non-quiet moves.
         move_stack.save();
-        self.board().generate_moves(false, move_stack);
+        board.generate_moves(false, move_stack);
 
         // Try all generated moves one by one. Moves with higher
         // scores are tried before moves with lower scores.
-        while let Some(next_move) = move_stack.remove_best_move() {
+        while let Some(m) = move_stack.remove_best_move() {
             // Check if the potential material gain from this move is
             // big enough to warrant trying the move.
-            let move_type = next_move.move_type();
-            let captured_piece = next_move.captured_piece();
+            let move_type = m.move_type();
+            let captured_piece = m.captured_piece();
             let material_gain = if move_type == MOVE_PROMOTION {
-                *PIECE_VALUES.get_unchecked(captured_piece) +
-                *PIECE_VALUES.get_unchecked(Move::piece_from_aux_data(next_move.aux_data())) -
+                PIECE_VALUES[captured_piece] +
+                PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
                 PIECE_VALUES[PAWN]
             } else {
-                *PIECE_VALUES.get_unchecked(captured_piece)
+                unsafe { *PIECE_VALUES.get_unchecked(captured_piece) }
             };
             if material_gain < obligatory_material_gain {
                 continue;
             }
 
-            let dest_square = next_move.dest_square();
+            let dest_square = m.dest_square();
             let dest_square_bb = 1 << dest_square;
 
             // Calculate the static exchange evaluation, and decide
@@ -521,9 +506,9 @@ impl Position {
                 // one recapture at the capture square is tried, no
                 // matter the SSE.)
                 if recapture_squares & dest_square_bb == 0 {
-                    match self.calc_see(self.board().to_move(),
-                                        next_move.piece(),
-                                        next_move.orig_square(),
+                    match self.calc_see(board.to_move(),
+                                        m.piece(),
+                                        m.orig_square(),
                                         dest_square,
                                         captured_piece) {
                         x if x < 0 => continue,
@@ -536,7 +521,7 @@ impl Position {
             // Recursively call `qsearch` for the next move and update
             // the lower bound according to the recursively calculated
             // value.
-            if self.do_move_unsafe(next_move) {
+            if board.do_move(m).is_some() {
                 *searched_nodes += 1;
                 let value = -self.qsearch(-upper_bound,
                                           -lower_bound,
@@ -546,7 +531,7 @@ impl Position {
                                           move_stack,
                                           eval_func,
                                           searched_nodes);
-                self.undo_move_unsafe();
+                board.undo_move(m);
                 if value >= upper_bound {
                     lower_bound = value;
                     break;
@@ -597,7 +582,7 @@ impl Position {
         // swap-list (an unary tree since there are no branches but
         // just a series of captures) is negamaxed for a final static
         // exchange evaluation.
-        
+
         assert!(us <= 1);
         assert!(piece < NO_PIECE);
         assert!(orig_square <= 63);
@@ -681,93 +666,76 @@ impl Position {
     // all encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
         let state = *self.state();
-        unsafe {
-            let repeated_boards = {
-                // Forget all encountered boards before the last
-                // irreversible move.
-                let boards = self.encountered_boards_mut();
-                let last_irrev = boards.len() - state.halfmove_clock as usize;
-                *boards = boards.split_off(last_irrev);
-                boards.reserve(32);
+        let repeated_boards = {
+            // Forget all encountered boards before the last
+            // irreversible move.
+            let last_irrev = self.encountered_boards.len() - state.halfmove_clock as usize;
+            self.encountered_boards = self.encountered_boards.split_off(last_irrev);
+            self.encountered_boards.reserve(32);
 
-                // Because we assign a draw score on the first repetition
-                // of the same position, we have to remove from
-                // `self.encountered_boards` all positions that occurred
-                // only once.
-                set_non_repeated_values(boards, 0)
-            };
+            // Because we assign a draw score on the first repetition
+            // of the same position, we have to remove from
+            // `self.encountered_boards` all positions that occurred
+            // only once.
+            set_non_repeated_values(&mut self.encountered_boards, 0)
+        };
 
-            // We calculate a single hash value representing the set
-            // of all previously repeated, still reachable boards. We
-            // will XOR that value with the board hash each time we
-            // calculate position's hash. That way we guarantee that
-            // two positions that have the same boards, but differ in
-            // their set of previously repeated, still reachable
-            // boards will have different hashes.
-            self.repeated_boards_hash = if repeated_boards.is_empty() {
-                0
-            } else {
-                let mut hasher = SipHasher::new();
-                for x in repeated_boards {
-                    hasher.write_u64(x);
-                }
-                hasher.finish()
-            };
-            self.is_repeated.set(false);
+        // We calculate a single hash value representing the set
+        // of all previously repeated, still reachable boards. We
+        // will XOR that value with the board hash each time we
+        // calculate position's hash. That way we guarantee that
+        // two positions that have the same boards, but differ in
+        // their set of previously repeated, still reachable
+        // boards will have different hashes.
+        self.repeated_boards_hash = if repeated_boards.is_empty() {
+            0
+        } else {
+            let mut hasher = SipHasher::new();
+            for x in repeated_boards {
+                hasher.write_u64(x);
+            }
+            hasher.finish()
+        };
+        self.is_repeated = false;
 
-            // Remove all states but the last one from `state_stack`.
-            *self.state_stack_mut() = vec![state];
-            self.state_stack_mut().reserve(32);
-        }
+        // Remove all states but the last one from `state_stack`.
+        self.state_stack = vec![state];
+        self.state_stack.reserve(32);
     }
 
     // Returns `true` if the root position can not be reached from the
     // current position, `false` otherwise.
     #[inline(always)]
     fn root_is_unreachable(&self) -> bool {
-        unsafe { self.encountered_boards_mut().len() > self.state().halfmove_clock as usize }
+        self.encountered_boards.len() > self.state().halfmove_clock as usize
     }
 
     #[inline(always)]
     fn state(&self) -> &StateInfo {
-        unsafe { (&*self.state_stack.get()).last().unwrap() }
+        self.state_stack.last().unwrap()
     }
 
     #[inline(always)]
     unsafe fn board_mut(&self) -> &mut Board {
         &mut *self.board.get()
     }
-
-    #[inline(always)]
-    unsafe fn state_stack_mut(&self) -> &mut Vec<StateInfo> {
-        &mut *self.state_stack.get()
-    }
-
-    #[inline(always)]
-    unsafe fn encountered_boards_mut(&self) -> &mut Vec<u64> {
-        &mut *self.encountered_boards.get()
-    }
 }
 
 
 impl Clone for Position {
     fn clone(&self) -> Self {
-        unsafe {
-            let eb = &*self.encountered_boards.get();
-            let ss = &*self.state_stack.get();
-            let mut encountered_boards = Vec::with_capacity(eb.capacity());
-            let mut state_stack = Vec::with_capacity(ss.capacity());
-            encountered_boards.extend_from_slice(eb);
-            state_stack.extend_from_slice(ss);
-            Position {
-                board: UnsafeCell::new((*self.board.get()).clone()),
-                board_hash: Cell::new(self.board_hash.get()),
-                halfmove_count: Cell::new(self.halfmove_count.get()),
-                is_repeated: Cell::new(self.is_repeated()),
-                repeated_boards_hash: self.repeated_boards_hash,
-                encountered_boards: UnsafeCell::new(encountered_boards),
-                state_stack: UnsafeCell::new(state_stack),
-            }
+        let mut encountered_boards = Vec::with_capacity(self.encountered_boards.capacity());
+        let mut state_stack = Vec::with_capacity(self.state_stack.capacity());
+        encountered_boards.extend_from_slice(&self.encountered_boards);
+        state_stack.extend_from_slice(&self.state_stack);
+        Position {
+            board: UnsafeCell::new(self.board().clone()),
+            board_hash: self.board_hash,
+            halfmove_count: self.halfmove_count,
+            is_repeated: self.is_repeated,
+            repeated_boards_hash: self.repeated_boards_hash,
+            encountered_boards: encountered_boards,
+            state_stack: state_stack,
         }
     }
 }
@@ -990,103 +958,101 @@ mod tests {
     #[test]
     fn test_qsearch() {
         let mut s = MoveStack::new();
-        unsafe {
-            let p = Position::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000,
-                                 1000,
-                                 VALUE_UNKNOWN,
-                                 0,
-                                 0,
-                                 &mut s,
-                                 &simple_eval,
-                                 &mut 0),
-                       0);
+        let p = Position::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1").ok().unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   0);
 
-            let p = Position::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000,
-                                 1000,
-                                 VALUE_UNKNOWN,
-                                 0,
-                                 0,
-                                 &mut s,
-                                 &simple_eval,
-                                 &mut 0),
-                       225);
+        let p = Position::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1").ok().unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   225);
 
-            let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000,
-                                 1000,
-                                 VALUE_UNKNOWN,
-                                 0,
-                                 0,
-                                 &mut s,
-                                 &simple_eval,
-                                 &mut 0),
-                       0);
+        let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   0);
 
-            let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
-            assert_eq!(p.qsearch(-1000,
-                                 1000,
-                                 VALUE_UNKNOWN,
-                                 0,
-                                 0,
-                                 &mut s,
-                                 &simple_eval,
-                                 &mut 0),
-                       -100);
+        let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   -100);
 
-            let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP2PPP/R2QKB1R \
-                                        w - - 5 1")
-                        .ok()
-                        .unwrap();
-            assert_eq!(p.qsearch(-1000,
-                                 1000,
-                                 VALUE_UNKNOWN,
-                                 0,
-                                 0,
-                                 &mut s,
-                                 &simple_eval,
-                                 &mut 0),
-                       0);
+        let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP2PPP/R2QKB1R w - \
+                                    - 5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   0);
 
-            let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2PPP/R2QKB1R b \
-                                        - - 5 1")
-                        .ok()
-                        .unwrap();
-            assert_eq!(p.qsearch(-1000,
-                                 1000,
-                                 VALUE_UNKNOWN,
-                                 0,
-                                 0,
-                                 &mut s,
-                                 &simple_eval,
-                                 &mut 0),
-                       -100);
+        let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2PPP/R2QKB1R b - - \
+                                    5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   -100);
 
-            let p = Position::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PPP/R1BKQB1R w \
-                                        - - 5 1")
-                        .ok()
-                        .unwrap();
-            assert_eq!(p.qsearch(-1000,
-                                 1000,
-                                 VALUE_UNKNOWN,
-                                 0,
-                                 0,
-                                 &mut s,
-                                 &simple_eval,
-                                 &mut 0),
-                       0);
+        let p = Position::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PPP/R1BKQB1R w - - \
+                                    5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   0);
 
-            let p = Position::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
-            assert!(p.qsearch(-10000,
-                              10000,
-                              VALUE_UNKNOWN,
-                              0,
-                              0,
-                              &mut s,
-                              &simple_eval,
-                              &mut 0) <= -10000);
-        }
+        let p = Position::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
+        assert!(p.qsearch(-10000,
+                          10000,
+                          VALUE_UNKNOWN,
+                          0,
+                          0,
+                          &mut s,
+                          &simple_eval,
+                          &mut 0) <= -10000);
 
         let p = Position::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
         assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).1, 1);
