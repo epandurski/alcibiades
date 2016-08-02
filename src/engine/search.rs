@@ -52,24 +52,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    /// Performs a principal variation search (PVS) and returns a
-    /// result.
-    ///
-    /// PVS is an enhancement to the alpha-beta search, based on zero
-    /// window searches of none PV-nodes. (The principal variation
-    /// (PV) is a sequence of moves that the program considers best
-    /// and therefore expects to be played.) The classical alpha-beta
-    /// search is a huge enhancement to the minimax search algorithm,
-    /// that eliminates the need to search large portions of the game
-    /// tree by applying a branch-and-bound technique. Remarkably, it
-    /// does this without any potential of overlooking a better
-    /// move. If one already has found a quite good move and searches
-    /// for alternatives, one refutation is enough to avoid it -- no
-    /// need to look for even stronger refutations. The algorithm
-    /// maintains two values, alpha and beta. They represent the
-    /// minimum score that the maximizing player is assured of and the
-    /// maximum score that the minimizing player is assured of
-    /// respectively.
+    /// Performs a game tree search and returns the result.
     ///
     /// `alpha` and `beta` together give the interval within which an
     /// as precise as possible evaluation is required. If during the
@@ -82,8 +65,9 @@ impl<'a> Search<'a> {
     /// if the last move is unknown.
     ///
     /// **Important note**: This method may leave un-restored move
-    /// lists in `move_stack`. Call the `reset` method if you want the
-    /// move stack to be restored to the state it had when the search
+    /// lists in `move_stack` (see the parametes passed to
+    /// `Search::new`). Call the `reset` method if you want the move
+    /// stack to be restored to the state it had when the search
     /// instance was created.
     pub fn run(&mut self,
                mut alpha: Value, // lower bound
@@ -91,6 +75,24 @@ impl<'a> Search<'a> {
                depth: u8,
                last_move: Move)
                -> Result<Value, TerminatedSearch> {
+        // This implementation performs a principal variation search
+        // (PVS). PVS is an enhancement to the alpha-beta search,
+        // based on zero window searches of none PV-nodes. (The
+        // principal variation (PV) is a sequence of moves that the
+        // program considers best and therefore expects to be played.)
+        // The classical alpha-beta search is a huge enhancement to
+        // the minimax search algorithm, that eliminates the need to
+        // search large portions of the game tree by applying a
+        // branch-and-bound technique. Remarkably, it does this
+        // without any potential of overlooking a better move. If one
+        // already has found a quite good move and searches for
+        // alternatives, one refutation is enough to avoid it -- no
+        // need to look for even stronger refutations. The algorithm
+        // maintains two values, alpha and beta. They represent the
+        // minimum score that the maximizing player is assured of and
+        // the maximum score that the minimizing player is assured of
+        // respectively.
+
         assert!(alpha < beta);
         let mut value = VALUE_UNKNOWN;
 
