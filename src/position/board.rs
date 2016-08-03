@@ -218,7 +218,7 @@ impl Board {
     /// `all` is `false`, only captures, pawn promotions to queen, and
     /// check evasions will be generated.
     #[inline]
-    pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
+    pub fn generate_moves(&self, quiet: bool, move_stack: &mut MoveStack) {
         // All generated moves with pieces other than the king will be
         // legal. It is possible that some of the king's moves are
         // illegal because the destination square is under check, or
@@ -233,7 +233,6 @@ impl Board {
         let checkers = self.checkers();
         let occupied_by_us = unsafe { *self.color.get_unchecked(self.to_move) };
         let occupied_by_them = self.occupied() ^ occupied_by_us;
-        let generate_all_moves = all || checkers != 0;
         assert!(king_square <= 63);
 
         // When in check, for every move except king's moves, the only
@@ -279,11 +278,19 @@ impl Board {
                 // Reduce the set of legal destinations when searching
                 // only for captures, pawn promotions to queen, and
                 // check evasions.
-                let legal_dests = if generate_all_moves {
-                    legal_dests
+                assert_eq!(legal_dests, !occupied_by_us);
+                let legal_dests = if checkers == 0 {
+                    if quiet {
+                        legal_dests ^ occupied_by_them
+                    } else {
+                        occupied_by_them
+                    }
                 } else {
-                    assert_eq!(legal_dests, !occupied_by_us);
-                    occupied_by_them
+                    if quiet {
+                        BB_EMPTY_SET
+                    } else {
+                        legal_dests
+                    }
                 };
 
                 for piece in QUEEN..PAWN {
@@ -310,20 +317,29 @@ impl Board {
                 // Reduce the set of legal destinations when searching
                 // only for captures, pawn promotions to queen, and
                 // check evasions.
-                let legal_dests = if generate_all_moves {
-                    legal_dests
+                assert_eq!(legal_dests, !occupied_by_us);
+                let legal_dests = if checkers == 0 {
+                    let loud_dests = occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS;
+                    if quiet {
+                        legal_dests & !loud_dests
+                    } else {
+                        legal_dests & loud_dests
+                    }
                 } else {
-                    assert_eq!(legal_dests, !occupied_by_us);
-                    legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
+                    if quiet {
+                        BB_EMPTY_SET
+                    } else {
+                        legal_dests
+                    }
                 };
 
-                // When in check, en-passant capture is a legal evasion
-                // move only when the checking piece is the passing pawn
-                // itself.
-                let pawn_legal_dests = if checkers & self.piece_type[PAWN] == 0 {
-                    legal_dests
-                } else {
+                // When in check, en-passant capture is a legal
+                // evasion move only when the checking piece is the
+                // passing pawn itself.
+                let pawn_legal_dests = if !quiet && checkers & self.piece_type[PAWN] != 0 {
                     legal_dests | en_passant_bb
+                } else {
+                    legal_dests
                 };
 
                 // Find all free pawn moves at once.
@@ -356,14 +372,18 @@ impl Board {
         // or passing through an attacked square when castling). This
         // is executed even when the king is in double check.
         {
-            let king_dests = if generate_all_moves {
-                self.push_castling_moves_to_stack(move_stack);
-                !occupied_by_us
+            let king_dests = if checkers == 0 {
+                if quiet {
+                    !occupied_by_them
+                } else {
+                    occupied_by_them
+                }
             } else {
-                // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions to queen, and
-                // check evasions.
-                occupied_by_them
+                if quiet {
+                    BB_EMPTY_SET
+                } else {
+                    BB_UNIVERSAL_SET
+                }
             };
             self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
         }
