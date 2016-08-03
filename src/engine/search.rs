@@ -2,7 +2,6 @@
 
 use std::cmp::max;
 use basetypes::*;
-use bitsets::*;
 use chess_move::*;
 use position::Position;
 use engine;
@@ -504,8 +503,8 @@ enum NodePhase {
 struct NodeState {
     phase: NodePhase,
     entry: EntryData,
-    checkers: u64,
-    pinned: u64,
+    checkers: Bitboard,
+    pinned: Bitboard,
 }
 
 

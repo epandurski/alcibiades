@@ -1,11 +1,4 @@
-//! Implements basic operations with bit-sets.
-//!
-//! `u64` bit-sets sometimes called *bitboards* (BB) are used to
-//! represent a set of squares on the chess board. For example, the
-//! set of squares which are occupied by white rooks at the beginning
-//! of the game is: `1 << A1 || 1 << H1`. This module defines useful
-//! functions for manipulating bitboards. It also defines some
-//! frequently used constants
+//! Implements useful functions for manipulating bit-sets.
 //!
 //! **Note:** The term "LS1B" used in the code means "least
 //! significant `1` bit".
@@ -14,34 +7,28 @@ use std::num::Wrapping;
 use basetypes::*;
 
 
-// An empty bitboard.
-pub const BB_EMPTY_SET: u64 = 0;
-
-// A completely full bitboard.
-pub const BB_UNIVERSAL_SET: u64 = 0xffffffffffffffff;
-
 // Ranks 1-8.
-pub const BB_RANK_1: u64 = 0b11111111;
-pub const BB_RANK_2: u64 = BB_RANK_1 << 8;
-pub const BB_RANK_3: u64 = BB_RANK_2 << 8;
-pub const BB_RANK_4: u64 = BB_RANK_3 << 8;
-pub const BB_RANK_5: u64 = BB_RANK_4 << 8;
-pub const BB_RANK_6: u64 = BB_RANK_5 << 8;
-pub const BB_RANK_7: u64 = BB_RANK_6 << 8;
-pub const BB_RANK_8: u64 = BB_RANK_7 << 8;
+pub const BB_RANK_1: Bitboard = 0b11111111;
+pub const BB_RANK_2: Bitboard = BB_RANK_1 << 8;
+pub const BB_RANK_3: Bitboard = BB_RANK_2 << 8;
+pub const BB_RANK_4: Bitboard = BB_RANK_3 << 8;
+pub const BB_RANK_5: Bitboard = BB_RANK_4 << 8;
+pub const BB_RANK_6: Bitboard = BB_RANK_5 << 8;
+pub const BB_RANK_7: Bitboard = BB_RANK_6 << 8;
+pub const BB_RANK_8: Bitboard = BB_RANK_7 << 8;
 
 // Files A-H.
-pub const BB_FILE_A: u64 = 0x0101010101010101;
-pub const BB_FILE_B: u64 = BB_FILE_A << 1;
-pub const BB_FILE_C: u64 = BB_FILE_B << 1;
-pub const BB_FILE_D: u64 = BB_FILE_C << 1;
-pub const BB_FILE_E: u64 = BB_FILE_D << 1;
-pub const BB_FILE_F: u64 = BB_FILE_E << 1;
-pub const BB_FILE_G: u64 = BB_FILE_F << 1;
-pub const BB_FILE_H: u64 = BB_FILE_G << 1;
+pub const BB_FILE_A: Bitboard = 0x0101010101010101;
+pub const BB_FILE_B: Bitboard = BB_FILE_A << 1;
+pub const BB_FILE_C: Bitboard = BB_FILE_B << 1;
+pub const BB_FILE_D: Bitboard = BB_FILE_C << 1;
+pub const BB_FILE_E: Bitboard = BB_FILE_D << 1;
+pub const BB_FILE_F: Bitboard = BB_FILE_E << 1;
+pub const BB_FILE_G: Bitboard = BB_FILE_F << 1;
+pub const BB_FILE_H: Bitboard = BB_FILE_G << 1;
 
 // Rank 1 or 8.
-pub const BB_PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
+pub const BB_PAWN_PROMOTION_RANKS: Bitboard = BB_RANK_1 | BB_RANK_8;
 
 
 /// Returns only LS1B of a value.
@@ -65,7 +52,7 @@ pub const BB_PAWN_PROMOTION_RANKS: u64 = BB_RANK_1 | BB_RANK_8;
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// ```
 #[inline(always)]
-pub fn ls1b(x: u64) -> u64 {
+pub fn ls1b(x: Bitboard) -> Bitboard {
     x & (Wrapping(0) - Wrapping(x)).0
 }
 
@@ -91,7 +78,7 @@ pub fn ls1b(x: u64) -> u64 {
 /// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
 /// ```
 #[inline(always)]
-pub fn reset_ls1b(x: &mut u64) {
+pub fn reset_ls1b(x: &mut Bitboard) {
     *x &= (Wrapping(*x) - Wrapping(1)).0;
 }
 
@@ -117,7 +104,7 @@ pub fn reset_ls1b(x: &mut u64) {
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// ```
 #[inline(always)]
-pub fn above_ls1b_mask(x: u64) -> u64 {
+pub fn above_ls1b_mask(x: Bitboard) -> Bitboard {
     x ^ (Wrapping(0) - Wrapping(x)).0
 }
 
@@ -143,7 +130,7 @@ pub fn above_ls1b_mask(x: u64) -> u64 {
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// ```
 #[inline(always)]
-pub fn below_lsb1_mask_including(x: u64) -> u64 {
+pub fn below_lsb1_mask_including(x: Bitboard) -> Bitboard {
     x ^ (Wrapping(x) - Wrapping(1)).0
 }
 
@@ -169,7 +156,7 @@ pub fn below_lsb1_mask_including(x: u64) -> u64 {
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// ```
 #[inline(always)]
-pub fn above_lsb1_mask_including(x: u64) -> u64 {
+pub fn above_lsb1_mask_including(x: Bitboard) -> Bitboard {
     x | (Wrapping(0) - Wrapping(x)).0
 }
 
@@ -194,7 +181,7 @@ pub fn above_lsb1_mask_including(x: u64) -> u64 {
 /// 1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// ```
 #[inline(always)]
-pub fn below_lsb1_mask(x: u64) -> u64 {
+pub fn below_lsb1_mask(x: Bitboard) -> Bitboard {
     !x & (Wrapping(x) - Wrapping(1)).0
 }
 
@@ -204,7 +191,7 @@ pub fn below_lsb1_mask(x: u64) -> u64 {
 /// Returns `x << s` if `s` is positive, and `x >> s` if `s` is
 /// negative.
 #[inline(always)]
-pub fn gen_shift(x: u64, s: isize) -> u64 {
+pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
     if s > 0 {
         x << s
     } else {
@@ -223,7 +210,7 @@ pub fn gen_shift(x: u64, s: isize) -> u64 {
 /// assert_eq!(bitscan_forward(0b100100), 2);
 /// ```
 #[inline(always)]
-pub fn bitscan_forward(b: u64) -> Square {
+pub fn bitscan_forward(b: Bitboard) -> Square {
     assert!(b != 0);
     bitscan_1bit(ls1b(b))
 }
@@ -242,7 +229,7 @@ pub fn bitscan_forward(b: u64) -> Square {
 /// assert_eq!(x, 0b100000);
 /// ```
 #[inline(always)]
-pub fn bitscan_forward_and_reset(b: &mut u64) -> Square {
+pub fn bitscan_forward_and_reset(b: &mut Bitboard) -> Square {
     assert!(*b != 0);
     let ls1b = ls1b(*b);
     *b ^= ls1b;
@@ -255,7 +242,7 @@ pub fn bitscan_forward_and_reset(b: &mut u64) -> Square {
 /// `x`. Otherwise, it will panic or return garbage.
 #[cfg(target_pointer_width = "64")]
 #[inline(always)]
-pub fn bitscan_1bit(b: u64) -> Square {
+pub fn bitscan_1bit(b: Bitboard) -> Square {
     assert!(b != 0);
     assert_eq!(b, ls1b(b));
     const DEBRUIJN64: Wrapping<u64> = Wrapping(0x03f79d71b4cb0a89);
@@ -273,7 +260,7 @@ pub fn bitscan_1bit(b: u64) -> Square {
 /// `x`. Otherwise, it will panic or return garbage.
 #[cfg(target_pointer_width = "32")]
 #[inline(always)]
-pub fn bitscan_1bit(b: u64) -> Square {
+pub fn bitscan_1bit(b: Bitboard) -> Square {
     assert!(b != 0);
     assert_eq!(b, ls1b(b));
     const DEBRUIJN32: Wrapping<u32> = Wrapping(0x78291acf);
@@ -295,7 +282,7 @@ pub fn bitscan_1bit(b: u64) -> Square {
 /// assert_eq!(pop_count(0b100101), 3);
 /// ```
 #[inline]
-pub fn pop_count(mut b: u64) -> usize {
+pub fn pop_count(mut b: Bitboard) -> usize {
     let mut count = 0;
     while b != 0 {
         count += 1;

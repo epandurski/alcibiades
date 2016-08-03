@@ -3,8 +3,8 @@
 use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
-use bitsets::*;
 use chess_move::*;
+use position::bitsets::*;
 use position::tables::*;
 use position::notation;
 
@@ -25,21 +25,21 @@ pub struct IllegalBoard;
 pub struct Board {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
-    piece_type: [u64; 6],
-    color: [u64; 2],
+    piece_type: [Bitboard; 6],
+    color: [Bitboard; 2],
     to_move: Color,
     castling: CastlingRights,
     en_passant_file: usize,
-    _occupied: u64, // will always be equal to self.color[0] | self.color[1]
+    _occupied: Bitboard, // will always be equal to self.color[0] | self.color[1]
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
 
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
-    pub _checkers: Cell<u64>,
+    pub _checkers: Cell<Bitboard>,
 
     /// Lazily calculated bitboard of all pinned pieces and pawns --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
-    pub _pinned: Cell<u64>,
+    pub _pinned: Cell<Bitboard>,
 }
 
 
@@ -108,20 +108,20 @@ impl Board {
     /// Returns an array of 6 occupation bitboards -- one for each
     /// piece type.
     #[inline(always)]
-    pub fn piece_type(&self) -> &[u64; 6] {
+    pub fn piece_type(&self) -> &[Bitboard; 6] {
         &self.piece_type
     }
 
     /// Returns an array of 2 occupation bitboards -- one for each
     /// side (color).
     #[inline(always)]
-    pub fn color(&self) -> &[u64; 2] {
+    pub fn color(&self) -> &[Bitboard; 2] {
         &self.color
     }
 
     /// Returns a bitboard of all occupied squares.
     #[inline(always)]
-    pub fn occupied(&self) -> u64 {
+    pub fn occupied(&self) -> Bitboard {
         self._occupied
     }
 
@@ -133,7 +133,7 @@ impl Board {
     /// needed again. If there is a saved value already, the call to
     /// `checkers` is practically free.
     #[inline]
-    pub fn checkers(&self) -> u64 {
+    pub fn checkers(&self) -> Bitboard {
         if self._checkers.get() == BB_UNIVERSAL_SET {
             self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
         }
@@ -148,7 +148,7 @@ impl Board {
     /// in case it is needed again. If there is a saved value already,
     /// the call to `pinned` is practically free.
     #[inline]
-    pub fn pinned(&self) -> u64 {
+    pub fn pinned(&self) -> Bitboard {
         if self._pinned.get() == BB_UNIVERSAL_SET {
             self._pinned.set(self.find_pinned());
         }
@@ -158,7 +158,7 @@ impl Board {
     /// Returns a bitboard of all pieces (or pawns) of color `us` that
     /// attack `square`.
     #[inline]
-    pub fn attacks_to(&self, us: Color, square: Square) -> u64 {
+    pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
         let occupied_by_us = self.color[us];
         if square > 63 {
             // We call "piece_attacks_from()" here many times, which for
@@ -227,7 +227,7 @@ impl Board {
         // is quite expensive, and therefore we hope that the
         // alpha-beta pruning will eliminate the need for this
         // verification at all.
-        
+
         assert!(self.is_legal());
         let king_square = self.king_square();
         let checkers = self.checkers();
@@ -491,7 +491,7 @@ impl Board {
                 // check evasion.
                 pseudo_legal_dests |= en_passant_bb;
             }
-            let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
+            let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
             self.calc_pawn_dest_sets(orig_square_bb, en_passant_bb, &mut dest_sets);
             pseudo_legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
                                   dest_sets[PAWN_WEST_CAPTURE] |
@@ -898,15 +898,18 @@ impl Board {
     // A helper method for `push_piece_moves_to_stack` and
     // `try_move_digest`. It calculates pawn destination bitboards.
     #[inline]
-    fn calc_pawn_dest_sets(&self, pawns: u64, en_passant_bb: u64, dest_sets: &mut [u64; 4]) {
-        const PAWN_MOVE_QUIET: [u64; 4] = [BB_UNIVERSAL_SET,
-                                           BB_UNIVERSAL_SET,
-                                           BB_EMPTY_SET,
-                                           BB_EMPTY_SET];
-        const PAWN_MOVE_CANDIDATES: [u64; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                                BB_RANK_2 | BB_RANK_7,
-                                                !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                                !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+    fn calc_pawn_dest_sets(&self,
+                           pawns: Bitboard,
+                           en_passant_bb: Bitboard,
+                           dest_sets: &mut [Bitboard; 4]) {
+        const PAWN_MOVE_QUIET: [Bitboard; 4] = [BB_UNIVERSAL_SET,
+                                                BB_UNIVERSAL_SET,
+                                                BB_EMPTY_SET,
+                                                BB_EMPTY_SET];
+        const PAWN_MOVE_CANDIDATES: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                                     BB_RANK_2 | BB_RANK_7,
+                                                     !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                                     !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
         unsafe {
             let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(self.to_move);
             let not_occupied_by_us = !*self.color.get_unchecked(self.to_move);
@@ -932,7 +935,7 @@ impl Board {
     fn push_piece_moves_to_stack(&self,
                                  piece: PieceType,
                                  orig_square: Square,
-                                 legal_dests: u64,
+                                 legal_dests: Bitboard,
                                  move_stack: &mut MoveStack) {
         assert!(piece < PAWN);
         assert!(orig_square <= 63);
@@ -967,9 +970,9 @@ impl Board {
     // that leaves discovered check on the 4/5-th rank.
     #[inline]
     fn push_pawn_moves_to_stack(&self,
-                                pawns: u64,
-                                en_passant_bb: u64,
-                                legal_dests: u64,
+                                pawns: Bitboard,
+                                en_passant_bb: Bitboard,
+                                legal_dests: Bitboard,
                                 only_queen_promotions: bool,
                                 move_stack: &mut MoveStack) {
         // We differentiate 4 types of pawn moves: push, double push,
@@ -978,7 +981,7 @@ impl Board {
         // this separation is that knowing the destination square and
         // the pawn move type (the index in the `dest_sets` array) is
         // enough to recover the origin square.
-        let mut dest_sets: [u64; 4] = unsafe { uninitialized() };
+        let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
         self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
 
         // Make sure all destination squares in all sets are legal.
@@ -1098,7 +1101,7 @@ impl Board {
     // It returns all pinned pieces belonging to the side to
     // move. This is a relatively expensive operation.
     #[inline(always)]
-    fn find_pinned(&self) -> u64 {
+    fn find_pinned(&self) -> Bitboard {
         let king_square = self.king_square();
         let occupied_by_them = unsafe { *self.color.get_unchecked(1 ^ self.to_move) };
         assert!(king_square <= 63);
@@ -1151,7 +1154,7 @@ impl Board {
     // It returns a bitboard representing the en-passant passing
     // square if there is one.
     #[inline]
-    fn en_passant_bb(&self) -> u64 {
+    fn en_passant_bb(&self) -> Bitboard {
         assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
         if self.en_passant_file >= NO_ENPASSANT_FILE {
             0
@@ -1217,7 +1220,7 @@ impl Board {
     // It returns the type of the piece at the square represented by
     // the bitboard `square_bb`.
     #[inline(always)]
-    fn get_piece_type_at(&self, square_bb: u64) -> PieceType {
+    fn get_piece_type_at(&self, square_bb: Bitboard) -> PieceType {
         assert!(square_bb != BB_EMPTY_SET);
         assert_eq!(square_bb, ls1b(square_bb));
         let bb = square_bb & self.occupied();
@@ -1308,8 +1311,8 @@ static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 // Bitboards that describe how the castling rook moves during the
 // castling move.
-const CASTLING_ROOK_MASK: [[u64; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
-                                           [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
+const CASTLING_ROOK_MASK: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
+                                                [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
 
 
 // The StateInfo struct stores information needed to restore a Position

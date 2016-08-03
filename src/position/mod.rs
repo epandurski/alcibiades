@@ -1,5 +1,6 @@
 //! Implements the rules of chess and position evaluation logic.
 
+pub mod bitsets;
 pub mod tables;
 pub mod board;
 pub mod evaluation;
@@ -10,10 +11,10 @@ use std::cmp::max;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
-use bitsets::*;
 use chess_move::*;
-use self::board::Board;
+use self::bitsets::*;
 use self::tables::*;
+use self::board::Board;
 use self::evaluation::evaluate_board;
 
 
@@ -432,7 +433,7 @@ impl Position {
                mut lower_bound: Value,
                upper_bound: Value,
                static_evaluation: Value,
-               mut recapture_squares: u64,
+               mut recapture_squares: Bitboard,
                ply: u8,
                move_stack: &mut MoveStack,
                eval_func: &Fn(&Board) -> Value,
@@ -780,11 +781,11 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 // vacant. Returns `0` if there is no such piece.
 #[inline]
 fn consider_xrays(geometry: &BoardGeometry,
-                  piece_type_array: &[u64; 6],
-                  occupied: u64,
+                  piece_type_array: &[Bitboard; 6],
+                  occupied: Bitboard,
                   target_square: Square,
                   xrayed_square: Square)
-                  -> u64 {
+                  -> Bitboard {
     unsafe {
         let candidates = occupied &
                          *geometry.squares_behind_blocker
@@ -809,7 +810,9 @@ fn consider_xrays(geometry: &BoardGeometry,
 // `set`, and returns the type of the least valuable piece, and a
 // bitboard describing its position on the board.
 #[inline]
-fn get_least_valuable_piece(piece_type_array: &[u64; 6], set: u64) -> (PieceType, u64) {
+fn get_least_valuable_piece(piece_type_array: &[Bitboard; 6],
+                            set: Bitboard)
+                            -> (PieceType, Bitboard) {
     for p in (KING..NO_PIECE).rev() {
         let piece_subset = unsafe { *piece_type_array.get_unchecked(p) } & set;
         if piece_subset != BB_EMPTY_SET {
@@ -833,7 +836,7 @@ mod tests {
     #[allow(unused_variables)]
     fn simple_eval(board: &Board) -> Value {
         use basetypes::*;
-        use bitsets::*;
+        use position::bitsets::*;
         let piece_type = board.piece_type();
         let color = board.color();
         let us = board.to_move();

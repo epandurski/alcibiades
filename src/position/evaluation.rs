@@ -2,7 +2,7 @@
 
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
-use bitsets::*;
+use position::bitsets::*;
 use position::board::Board;
 
 

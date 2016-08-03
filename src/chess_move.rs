@@ -109,9 +109,9 @@ impl CastlingRights {
     /// because the king or the rook had been moved, this method
     /// returns universal set (`0xffffffffffffffff`).
     #[inline]
-    pub fn obstacles(&self, player: Color, side: CastlingSide) -> u64 {
-        const OBSTACLES: [[u64; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
-                                          [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
+    pub fn obstacles(&self, player: Color, side: CastlingSide) -> Bitboard {
+        const OBSTACLES: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
+                                               [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
         if self.can_castle(player, side) {
             OBSTACLES[player][side]
         } else {
@@ -689,7 +689,6 @@ mod tests {
     #[test]
     fn test_castling_rights() {
         use basetypes::*;
-        use bitsets::*;
 
         let mut c = CastlingRights::new(0b1110);
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
@@ -710,7 +709,7 @@ mod tests {
         assert_eq!(c.obstacles(WHITE, QUEENSIDE), BB_UNIVERSAL_SET);
         assert_eq!(c.obstacles(BLACK, QUEENSIDE), 1 << B8 | 1 << C8 | 1 << D8);
     }
-    
+
     #[test]
     fn test_move() {
         let cr = CastlingRights::new(0b1011);

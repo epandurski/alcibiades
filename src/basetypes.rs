@@ -26,6 +26,14 @@ pub type NodeCount = u64;
 /// `QUEENSIDE` of `KINGSIDE`.
 pub type CastlingSide = usize;
 
+/// A set of squares on the chessboard.
+///
+/// `u64` bit-sets called *bitboards* (BB) can be used to represent a
+/// set of squares on the chess board. For example, the set of squares
+/// which are occupied by white rooks in the beginning of the game is:
+/// `1 << A1 || 1 << H1`.
+pub type Bitboard = u64;
+
 
 /// Evaluation value in centipawns.
 ///
@@ -147,6 +155,10 @@ pub const VALUE_UNKNOWN: Value = ::std::i16::MIN;
 // Castling side
 pub const QUEENSIDE: CastlingSide = 0;
 pub const KINGSIDE: CastlingSide = 1;
+
+// Bitboards.
+pub const BB_EMPTY_SET: Bitboard = 0;
+pub const BB_UNIVERSAL_SET: Bitboard = 0xffffffffffffffff;
 
 
 /// Returns the square on given file and rank.

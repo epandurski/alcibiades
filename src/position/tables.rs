@@ -1,7 +1,7 @@
 //! Generates look-up tables and implements look-up methods.
 
 use basetypes::*;
-use bitsets::*;
+use position::bitsets::*;
 
 
 /// Look-up tables and look-up methods for move generation.
@@ -26,7 +26,7 @@ pub struct BoardGeometry {
     /// . 1 . 1 . 1 . .             . . 1 . 1 . . .       
     /// 1 . . 1 . . 1 .             . . . . . . . .       
     /// ```
-    attacks: [[u64; 64]; 5],
+    attacks: [[Bitboard; 64]; 5],
 
     /// Contains "blockers and beyond" bitboards for each piece on
     /// each possible square.
@@ -44,7 +44,7 @@ pub struct BoardGeometry {
     /// . . . . . . . .                    . 1 . 1 . 1 . .
     /// . . . . . . . .                    . . . . . . . .
     /// ```
-    blockers_and_beyond: [[u64; 64]; 5],
+    blockers_and_beyond: [[Bitboard; 64]; 5],
 
     /// Contains bitboards with all squares lying at the line
     /// determined by two squares.
@@ -62,7 +62,7 @@ pub struct BoardGeometry {
     /// . 1 . . . . . .
     /// 1 . . . . . . .
     /// ```
-    pub squares_at_line: [[u64; 64]; 64],
+    pub squares_at_line: [[Bitboard; 64]; 64],
 
     /// Contains bitboards with all squares lying between two squares
     /// including the two squares themselves.
@@ -80,7 +80,7 @@ pub struct BoardGeometry {
     /// . 1 . . . . . .
     /// . . . . . . . .
     /// ```
-    pub squares_between_including: [[u64; 64]; 64],
+    pub squares_between_including: [[Bitboard; 64]; 64],
 
     /// Contains bitboards with all squares hidden behind a blocker
     /// from the attacker's position.
@@ -98,7 +98,7 @@ pub struct BoardGeometry {
     /// . A . . . . . .
     /// . . . . . . . .
     /// ```
-    pub squares_behind_blocker: [[u64; 64]; 64],
+    pub squares_behind_blocker: [[Bitboard; 64]; 64],
 }
 
 
@@ -183,13 +183,13 @@ impl BoardGeometry {
     /// * `from_square <= 63`.
     #[inline]
     pub unsafe fn piece_attacks_from(&self,
-                                     occupied: u64,
+                                     occupied: Bitboard,
                                      piece: PieceType,
                                      from_square: Square)
-                                     -> u64 {
+                                     -> Bitboard {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
-        let behind: &[u64; 64] = self.squares_behind_blocker.get_unchecked(from_square);
+        let behind: &[Bitboard; 64] = self.squares_behind_blocker.get_unchecked(from_square);
         let mut attacks = *self.attacks.get_unchecked(piece).get_unchecked(from_square);
         let mut blockers = occupied &
                            *self.blockers_and_beyond
@@ -319,7 +319,7 @@ pub struct ZobristArrays {
     /// The constant with which the hash value should be XOR-ed when
     /// the side to move changes.
     pub to_move: u64,
-    
+
     /// Constants with which the hash value should be XOR-ed when a
     /// piece of given color on a given square appears/disappears.
     pub pieces: [[[u64; 64]; 6]; 2],
@@ -327,7 +327,7 @@ pub struct ZobristArrays {
     /// Constants with which the hash value should be XOR-ed, for the
     /// old and the new castling rights on each move.
     pub castling: [u64; 16],
-    
+
     /// Constants with which the hash value should be XOR-ed, for the
     /// old and the new en-passant file on each move.  Only the first
     /// 8 indexes are used -- the rest exist for memory safety
