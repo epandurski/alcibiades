@@ -1,12 +1,14 @@
 //! Implements basic operations with bit-sets.
 //!
-//! `u64` bit-sets called *bitboards* (BB) are used to represent a set
-//! of squares on the chess board. This module defines useful
-//! functions for manipulating bit-sets. It also defines frequently
-//! used constants.
+//! `u64` bit-sets called *bitboards* (BB) can be used to represent a
+//! set of squares on the chess board. For example, the set of squares
+//! which are occupied by white rooks at the beginning of the game is:
+//! `1 << A1 || 1 << H1`. This module defines useful functions for
+//! manipulating bitboards. It also defines some frequently used
+//! constants
 //!
-//! The term "LS1B" is frequently used everywhere in the code. It
-//! means "least significant `1` bit".
+//! **Note:** The term "LS1B" used in the code means "least
+//! significant `1` bit".
 
 use std::num::Wrapping;
 use basetypes::*;
