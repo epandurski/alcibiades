@@ -7,7 +7,7 @@ use castling_rights::*;
 use bitsets::*;
 use chess_move::*;
 use position::tables::*;
-use notation;
+use position::notation;
 
 
 /// Represents an illegal board error.

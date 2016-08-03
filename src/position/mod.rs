@@ -3,6 +3,7 @@
 pub mod tables;
 pub mod board;
 pub mod evaluation;
+pub mod notation;
 
 use std::mem;
 use std::cmp::max;
@@ -11,7 +12,6 @@ use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
-use notation;
 use self::board::Board;
 use self::tables::*;
 use self::evaluation::evaluate_board;

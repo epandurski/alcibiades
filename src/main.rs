@@ -7,7 +7,6 @@ pub mod basetypes;
 pub mod castling_rights;
 pub mod chess_move;
 pub mod bitsets;
-pub mod notation;
 pub mod position;
 pub mod uci;
 pub mod engine;
