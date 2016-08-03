@@ -257,7 +257,7 @@ impl Position {
     /// of the interval. `static_evaluation` should be the value
     /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
     /// returned value will be between `-19999` and `19999`. For
-    /// repeated positions this method always returns `0`.
+    /// repeated positions `0` is returned.
     #[inline]
     pub fn evaluate_quiescence(&self,
                                lower_bound: Value,
