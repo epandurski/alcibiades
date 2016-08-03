@@ -1,7 +1,9 @@
 //! Implements game tree searching.
 
+pub mod uci;
 pub mod search;
 pub mod threading;
+pub use self::uci::Server;
 
 use std::thread;
 use std::cmp::min;
@@ -11,10 +13,10 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
 use std::num::Wrapping;
 use basetypes::*;
-use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
-use position::Position;
 use chess_move::*;
 use tt::*;
+use engine::uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
+use position::Position;
 use self::threading::*;
 
 
