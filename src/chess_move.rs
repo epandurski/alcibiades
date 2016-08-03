@@ -340,8 +340,7 @@ impl Move {
     /// equals `0`.
     #[inline(always)]
     pub fn invalid() -> Move {
-        Move((MAX_MOVE_SCORE as u64) << 32 |
-             ((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
+        Move(((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
     }
 
     /// Assigns a new score for the move (between 0 and `MAX_MOVE_SCORE`).
@@ -430,13 +429,14 @@ impl Move {
     /// Returns if the move is a null move.
     ///
     /// "Null move" is an illegal pseudo-move that changes nothing on
-    /// the board except the side to move (and the en-passant file, of
-    /// course). It is sometimes useful to include a speculative null
-    /// move in the search tree so as to achieve more aggressive
-    /// pruning. Null moves are represented as normal moves for which
-    /// the origin and destination squares are the same.
+    /// the board except the side to move. It is sometimes useful to
+    /// include a speculative null move in the search tree to achieve
+    /// more aggressive pruning. Null moves are represented as normal
+    /// moves for which the origin and destination squares are the
+    /// same.
     #[inline]
     pub fn is_null(&self) -> bool {
+        assert!(self.orig_square() != self.dest_square() || self.captured_piece() == NO_PIECE);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 
