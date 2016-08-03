@@ -379,6 +379,9 @@ impl<'a> Search<'a> {
         while let Some(mut m) = self.moves.remove_best_move() {
 
             // First, the good captures.
+            //
+            // TODO: Play all moves with SSE > 0 before those with SSE
+            // == 0.
             if let NodePhase::GeneratedMoves = state.phase {
                 if m.score() == MAX_MOVE_SCORE {
                     if self.position.evaluate_move(m) >= 0 {
