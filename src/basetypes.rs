@@ -66,14 +66,14 @@ pub const RANK_7: Rank = 6;
 pub const RANK_8: Rank = 7;
 
 // Files
-pub const FILE_A: Rank = 0;
-pub const FILE_B: Rank = 1;
-pub const FILE_C: Rank = 2;
-pub const FILE_D: Rank = 3;
-pub const FILE_E: Rank = 4;
-pub const FILE_F: Rank = 5;
-pub const FILE_G: Rank = 6;
-pub const FILE_H: Rank = 7;
+pub const FILE_A: File = 0;
+pub const FILE_B: File = 1;
+pub const FILE_C: File = 2;
+pub const FILE_D: File = 3;
+pub const FILE_E: File = 4;
+pub const FILE_F: File = 5;
+pub const FILE_G: File = 6;
+pub const FILE_H: File = 7;
 
 // Squares
 pub const A1: Square = 0 + 0 * 8;
