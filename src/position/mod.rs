@@ -239,15 +239,14 @@ impl Position {
 
     /// Performs a "quiescence search" and returns an evaluation.
     ///
-    /// The "quiescence search" is a restricted tree search which
-    /// considers only a limited set of moves (for example: winning
-    /// captures, pawn promotions to queen, check evasions). The goal
-    /// is to statically evaluate only "quiet" positions (positions
-    /// where there are no winning tactical moves to be
-    /// made). Although this search can cheaply and correctly resolve
-    /// many tactical issues, it is blind to other simple tactical
-    /// threads like most kinds of forks, checks, even a checkmate in
-    /// one move.
+    /// The "quiescence search" is a restricted tree which considers
+    /// only a limited set of moves (for example: winning captures,
+    /// pawn promotions to queen, check evasions). The goal is to
+    /// statically evaluate only "quiet" positions (positions where
+    /// there are no winning tactical moves to be made). Although this
+    /// search can cheaply and correctly resolve many tactical issues,
+    /// it is blind to other simple tactical threads like most kinds
+    /// of forks, checks, even a checkmate in one move.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
@@ -259,6 +258,11 @@ impl Position {
     /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
     /// returned value will be between `-19999` and `19999`. For
     /// repeated positions `0` is returned.
+    ///
+    /// **Note:** This method will return a reliable result even when
+    /// the side to move is in check. In this case it will try all
+    /// possible check evasions, and will never use the static
+    /// evaluation when in check.
     #[inline]
     pub fn evaluate_quiescence(&self,
                                lower_bound: Value,
