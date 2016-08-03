@@ -23,7 +23,7 @@ pub type Square = usize;  // from 0 to 63
 /// Number of searched positions.
 pub type NodeCount = u64;
 
-/// `QUEENSIDE` of `KINGSIDE`.
+/// `QUEENSIDE` or `KINGSIDE`.
 pub type CastlingSide = usize;
 
 /// A set of squares on the chessboard.
