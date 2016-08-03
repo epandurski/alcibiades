@@ -2,7 +2,6 @@
 
 use basetypes::*;
 use bitsets::*;
-use castling_rights::*;
 
 
 /// Look-up tables and look-up methods for move generation.

@@ -1,6 +1,7 @@
-//! Implements game tree searching.
+//! Implements the principal game engine functionality.
 
 pub mod uci;
+pub mod tt;
 pub mod search;
 pub mod threading;
 pub use self::uci::Server;
@@ -14,9 +15,9 @@ use std::time::SystemTime;
 use std::num::Wrapping;
 use basetypes::*;
 use chess_move::*;
-use tt::*;
-use engine::uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use position::Position;
+use self::tt::*;
+use self::uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use self::threading::*;
 
 

@@ -2,7 +2,7 @@
 
 use regex::Regex;
 use basetypes::*;
-use castling_rights::*;
+use chess_move::*;
 
 
 /// Represents a parse error.

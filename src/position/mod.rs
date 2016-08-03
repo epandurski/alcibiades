@@ -747,7 +747,7 @@ const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 const SSE_EXCHANGE_MAX_PLY: u8 = 2;
 
 
-// Helper function for `Posittion::from_history`. It sets all unique
+// Helper function for `Position::from_history`. It sets all unique
 // (non-repeated) values in `slice` to `value`, and returns a sorted
 // vector containing a single value for each duplicated value in
 // `slice`.

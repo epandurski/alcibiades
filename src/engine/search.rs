@@ -4,9 +4,9 @@ use std::cmp::max;
 use basetypes::*;
 use bitsets::*;
 use chess_move::*;
-use tt::*;
 use position::Position;
 use engine;
+use engine::tt::*;
 
 
 /// Represents a terminated search condition.
@@ -512,8 +512,8 @@ struct NodeState {
 #[cfg(test)]
 mod tests {
     use super::Search;
+    use engine::tt::*;
     use chess_move::*;
-    use tt::*;
     use position::Position;
 
     #[test]

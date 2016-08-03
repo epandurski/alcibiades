@@ -3,7 +3,6 @@
 use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
-use castling_rights::*;
 use bitsets::*;
 use chess_move::*;
 use position::tables::*;

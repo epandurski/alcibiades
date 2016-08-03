@@ -23,6 +23,10 @@ pub type Square = usize;  // from 0 to 63
 /// Number of searched positions.
 pub type NodeCount = u64;
 
+/// `QUEENSIDE` of `KINGSIDE`.
+pub type CastlingSide = usize;
+
+
 /// Evaluation value in centipawns.
 ///
 /// Positive values mean that the position is favorable for the side
@@ -139,6 +143,10 @@ pub const H8: Square = 7 + 7 * 8;
 
 // Value
 pub const VALUE_UNKNOWN: Value = ::std::i16::MIN;
+
+// Castling side
+pub const QUEENSIDE: CastlingSide = 0;
+pub const KINGSIDE: CastlingSide = 1;
 
 
 /// Returns the square on given file and rank.

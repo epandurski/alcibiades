@@ -4,18 +4,16 @@ extern crate regex;
 extern crate rand;
 
 pub mod basetypes;
-pub mod castling_rights;
 pub mod chess_move;
 pub mod bitsets;
 pub mod position;
 pub mod engine;
-pub mod tt;
 
 use std::process::exit;
-use engine::EngineFactory;
+use engine::{Server, EngineFactory};
 
 fn main() {
-    if let Ok(mut uci_loop) = engine::Server::wait_for_hanshake(&EngineFactory) {
+    if let Ok(mut uci_loop) = Server::wait_for_hanshake(&EngineFactory) {
         match uci_loop.serve() {
             Ok(_) => {
                 exit(0);

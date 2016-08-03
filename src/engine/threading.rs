@@ -7,9 +7,9 @@ use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
 use chess_move::*;
-use tt::*;
 use position::Position;
 use engine;
+use engine::tt::*;
 use engine::search::Search;
 
 
