@@ -49,6 +49,9 @@ pub type Bitboard = u64;
 pub type Value = i16;
 
 
+// The maximum possible search depth.
+pub const MAX_DEPTH: u8 = 126;
+
 // Color
 pub const WHITE: Color = 0;
 pub const BLACK: Color = 1;

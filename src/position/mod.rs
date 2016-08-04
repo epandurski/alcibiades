@@ -28,6 +28,24 @@ struct StateInfo {
 }
 
 
+// Contains two killer moves with their respective counters.
+#[derive(Clone, Copy)]
+struct KillersRecord {
+    slot1: (MoveDigest, u32),
+    slot2: (MoveDigest, u32),
+}
+
+
+impl Default for KillersRecord {
+    fn default() -> KillersRecord {
+        KillersRecord {
+            slot1: (0, 0),
+            slot2: (0, 0),
+        }
+    }
+}
+
+
 /// Represents an illegal possiton error.
 pub struct IllegalPosition;
 
@@ -78,6 +96,9 @@ pub struct Position {
     // A list of boards that had occurred during the game. This is
     // needed so as to be able to detect repeated positions.
     encountered_boards: Vec<u64>,
+
+    // Killer moves.
+    killer_moves: [KillersRecord; MAX_DEPTH as usize + 1],
 }
 
 
@@ -104,6 +125,7 @@ impl Position {
                                   halfmove_clock: halfmove_clock,
                                   last_move: Move::invalid(),
                               }],
+            killer_moves: [Default::default(); MAX_DEPTH as usize + 1],
         };
         p.board_hash = p.board().calc_hash();
         Ok(p)
@@ -429,6 +451,28 @@ impl Position {
         self.state_stack.pop();
     }
 
+    /// Registers that the last move was a killer move.
+    #[inline]
+    pub fn register_killer(&mut self) {
+        let last_move_digest = self.state().last_move.digest();
+        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
+        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
+        if record.slot1.0 == last_move_digest {
+            record.slot1.1 += 1;
+            return;
+        }
+        if record.slot2.0 == last_move_digest {
+            record.slot2.1 += 1;
+            return;
+        }
+        let slot = if record.slot1.1 <= record.slot2.1 {
+            &mut record.slot1
+        } else {
+            &mut record.slot2
+        };
+        *slot = (last_move_digest, 0);
+    }
+
     // A helper method for `evaluate_quiescence`. It is needed
     // because`qsearch` should be able to call itself recursively,
     // which should not complicate `evaluate_quiescence`'s
@@ -740,6 +784,7 @@ impl Clone for Position {
             repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: encountered_boards,
             state_stack: state_stack,
+            killer_moves: self.killer_moves,
         }
     }
 }
