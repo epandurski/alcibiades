@@ -453,16 +453,36 @@ impl Position {
         self.state_stack.pop();
     }
 
-    /// Registers that the last move is a killer move.
+    /// Returns the move digest for the current position's killer
+    /// move.
     ///
-    /// "Killer move" is a quiet move which caused a beta-cutoff in a
-    /// sibling node, or any other earlier branch in the tree with the
-    /// same distance to the root. The idea is to try that move early
-    /// -- after a possibly available hash move from the transposition
+    /// "Killer move" is a move which was very good in a sibling node,
+    /// or any other earlier branch in the tree with the same distance
+    /// to the root position. The idea is to try that move early --
+    /// after a possibly available hash move from the transposition
     /// table and apparently winning captures.
     #[inline]
+    pub fn killer_move(&mut self) -> MoveDigest {
+        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
+        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
+        if record.slot1.1 > record.slot2.1 {
+            record.slot1.0
+        } else {
+            record.slot2.0
+        }
+    }
+
+    /// Registers that the last move was very good (a killer move).
+    #[inline]
     pub fn register_killer(&mut self) {
-        let last_move_digest = self.state().last_move.digest();
+        let last_move = self.state().last_move;
+        if last_move.captured_piece() != NO_PIECE {
+            // We accept only quiet moves as killers, because captures
+            // are tried early anyway, and we do not want to waste
+            // our precious killer-slots on them.
+            return;
+        }
+        let last_move_digest = last_move.digest();
         assert!(self.state_stack.len() > 1);
         assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
         let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 2) };
@@ -480,19 +500,6 @@ impl Position {
             &mut record.slot2
         };
         *slot = (last_move_digest, 1);
-    }
-
-    /// Returns the move digest for the current position's killer
-    /// move.
-    #[inline]
-    pub fn killer_move(&mut self) -> MoveDigest {
-        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
-        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
-        if record.slot1.1 > record.slot2.1 {
-            record.slot1.0
-        } else {
-            record.slot2.0
-        }
     }
 
     // A helper method for `evaluate_quiescence`. It is needed
