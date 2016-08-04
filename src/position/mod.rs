@@ -1223,4 +1223,24 @@ mod tests {
         assert_eq!(p1.board_hash, p2.board_hash);
         assert!(p1.hash() != p3.hash());
     }
+
+    #[test]
+    fn test_killers() {
+        let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
+                        .ok()
+                        .unwrap();
+        let mut v = MoveStack::new();
+        p.generate_moves(&mut v);
+        let mut i = 1;
+        while let Some(m) = v.pop() {
+            if m.captured_piece() == NO_PIECE && p.do_move(m) {
+                for _ in 0..i {
+                    p.register_killer();
+                }
+                i += 1;
+                p.undo_move();
+                assert_eq!(p.killer(), m.digest());
+            }
+        }
+    }
 }
