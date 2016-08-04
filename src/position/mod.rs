@@ -456,15 +456,17 @@ impl Position {
     /// Returns the move digest for the current position's killer
     /// move.
     ///
-    /// "Killer move" is a move which was very good in a sibling node,
-    /// or any other earlier branch in the tree with the same distance
-    /// to the root position. The idea is to try that move early --
-    /// after a possibly available hash move from the transposition
-    /// table and apparently winning captures.
+    /// "Killer move" is a move which was good in a sibling node, or
+    /// any other earlier branch in the tree with the same distance to
+    /// the root position. The idea is to try that move early -- after
+    /// a possibly available hash move from the transposition table
+    /// and seemingly winning captures. This method will return only
+    /// quiet moves as killers, because captures are tried early
+    /// anyway, and we should not waste memory on them. If no killer
+    /// move is available -- `0` will be returned.
     #[inline]
     pub fn killer(&mut self) -> MoveDigest {
-        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
-        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
+        let record = self.killer_moves.get(self.state_stack.len() - 1).unwrap();
         if record.slot1.1 > record.slot2.1 {
             record.slot1.0
         } else {
@@ -472,20 +474,19 @@ impl Position {
         }
     }
 
-    /// Registers that the last move was very good (a killer move).
+    /// Registers that the last move was good (a killer move).
     #[inline]
     pub fn register_killer(&mut self) {
         let last_move = self.state().last_move;
         if last_move.captured_piece() != NO_PIECE {
-            // We accept only quiet moves as killers, because captures
-            // are tried early anyway, and we do not want to waste
-            // our precious killer-slots on them.
+            // We do not want to waste our precious killer-slots on
+            // captures.
             return;
         }
         let last_move_digest = last_move.digest();
         assert!(self.state_stack.len() > 1);
         assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
-        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 2) };
+        let record = self.killer_moves.get_mut(self.state_stack.len() - 2).unwrap();
         if record.slot1.0 == last_move_digest {
             record.slot1.1 += 1;
             if record.slot1.1 == u16::MAX {
