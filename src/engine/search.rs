@@ -354,12 +354,10 @@ impl<'a> Search<'a> {
         // Try the hash move first.
         if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
-            if state.entry.move16() != 0 {
-                if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
-                    if self.position.do_move(m) {
-                        m.set_score(MAX_MOVE_SCORE);
-                        return Some(m);
-                    }
+            if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
+                if self.position.do_move(m) {
+                    m.set_score(MAX_MOVE_SCORE);
+                    return Some(m);
                 }
             }
         }
