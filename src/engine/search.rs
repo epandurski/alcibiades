@@ -403,19 +403,20 @@ impl<'a> Search<'a> {
             if let NodePhase::TriedGoodCaptures = state.phase {
                 state.phase = NodePhase::TriedKillerMove;
                 let killer = self.position.killer();
-                if let Some(mut m) = self.position.try_move_digest(killer) {
-                    if self.position.do_move(m) {
+                if let Some(mut k) = self.moves.remove_move(killer) {
+                    if self.position.do_move(k) {
+                        self.moves.push(m);
                         if state.checkers != 0 || self.position.board().checkers() != 0 {
                             // When evading check or giving check --
                             // set a high move score to avoid search
                             // depth reductions.
-                            m.set_score(MAX_MOVE_SCORE - 1);
+                            k.set_score(MAX_MOVE_SCORE - 1);
                         }
-                        return Some(m);
+                        return Some(k);
                     }
                 }
             }
-                
+
             // Third, the bad captures.
             if let NodePhase::TriedKillerMove = state.phase {
                 if m.score() == MAX_MOVE_SCORE - 1 {

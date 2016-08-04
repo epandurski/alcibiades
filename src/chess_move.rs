@@ -610,6 +610,9 @@ impl MoveStack {
     #[inline]
     pub fn remove_move(&mut self, move_digest: MoveDigest) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
+        if move_digest == 0 {
+            return None
+        }
         let last_move = if let Some(last) = self.moves.last() {
             *last
         } else {
