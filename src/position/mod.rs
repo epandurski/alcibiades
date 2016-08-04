@@ -99,7 +99,7 @@ pub struct Position {
     encountered_boards: Vec<u64>,
 
     // The killer moves array -- we keep two moves with their hit
-    // counters for each search depth.
+    // counters for each ply.
     killer_moves: [KillersRecord; MAX_DEPTH as usize + 1],
 }
 
@@ -463,8 +463,9 @@ impl Position {
     #[inline]
     pub fn register_killer(&mut self) {
         let last_move_digest = self.state().last_move.digest();
+        assert!(self.state_stack.len() > 1);
         assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
-        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
+        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 2) };
         if record.slot1.0 == last_move_digest {
             record.slot1.1 = (Wrapping(record.slot1.1) + Wrapping(1)).0;
             return;
@@ -478,7 +479,20 @@ impl Position {
         } else {
             &mut record.slot2
         };
-        *slot = (last_move_digest, 0);
+        *slot = (last_move_digest, 1);
+    }
+
+    /// Returns the move digest for the current position's killer
+    /// move.
+    #[inline]
+    pub fn killer_move(&mut self) -> MoveDigest {
+        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
+        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
+        if record.slot1.1 > record.slot2.1 {
+            record.slot1.0
+        } else {
+            record.slot2.0
+        }
     }
 
     // A helper method for `evaluate_quiescence`. It is needed
