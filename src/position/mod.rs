@@ -28,7 +28,7 @@ struct StateInfo {
 }
 
 
-// Contains two killer moves with their respective counters.
+// Contains two killer moves with their hit counters.
 #[derive(Clone, Copy)]
 struct KillersRecord {
     slot1: (MoveDigest, u32),
@@ -97,7 +97,8 @@ pub struct Position {
     // needed so as to be able to detect repeated positions.
     encountered_boards: Vec<u64>,
 
-    // Killer moves.
+    // The killer moves array -- we keep two moves with their hit
+    // counters for each search depth.
     killer_moves: [KillersRecord; MAX_DEPTH as usize + 1],
 }
 
@@ -451,7 +452,13 @@ impl Position {
         self.state_stack.pop();
     }
 
-    /// Registers that the last move was a killer move.
+    /// Registers that the last move is a killer move.
+    ///
+    /// "Killer move" is a quiet move which caused a beta-cutoff in a
+    /// sibling node, or any other earlier branch in the tree with the
+    /// same distance to the root. The idea is to try that move early
+    /// -- after a possibly available hash move from the transposition
+    /// table and apparently winning captures.
     #[inline]
     pub fn register_killer(&mut self) {
         let last_move_digest = self.state().last_move.digest();
