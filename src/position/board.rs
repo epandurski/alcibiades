@@ -404,6 +404,9 @@ impl Board {
     /// method will return `Some(m)`. Otherwise it will return `None`.
     #[inline]
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
+        if move_digest == 0 {
+            return None
+        }
         let move_type = get_move_type(move_digest);
         let orig_square = get_orig_square(move_digest);
         let dest_square = get_dest_square(move_digest);

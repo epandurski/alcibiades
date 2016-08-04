@@ -137,18 +137,19 @@ impl<'a> Search<'a> {
                         _ => -try!(self.run(-beta, -alpha, next_depth, m)),
                     }
                 };
-                self.undo_move();
                 assert!(v > VALUE_UNKNOWN);
 
                 // See how good this move was.
                 if v >= beta {
                     // This move is so good, that the opponent will
                     // probably not allow this line of play to
-                    // happen. Therefore we should not lose any more time
-                    // on this position.
+                    // happen. Therefore we should not lose any more
+                    // time on this position.
                     best_move = m;
                     value = v;
                     bound = BOUND_LOWER;
+                    self.position.register_killer();
+                    self.undo_move();
                     break;
                 }
                 if v > value {
@@ -162,6 +163,7 @@ impl<'a> Search<'a> {
                         BOUND_UPPER
                     };
                 }
+                self.undo_move();
             }
 
             // Check if we are in a final position (no legal moves).
@@ -342,7 +344,7 @@ impl<'a> Search<'a> {
         } else {
             true
         });
-        
+
         // Restore board's `_checkers` and `_pinned` fields. This is
         // merely an optimization -- instead of recalculating them
         // again and again, we recall them from the state stack.
@@ -354,12 +356,10 @@ impl<'a> Search<'a> {
         // Try the hash move first.
         if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
-            if state.entry.move16() != 0 {
-                if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
-                    if self.position.do_move(m) {
-                        m.set_score(MAX_MOVE_SCORE);
-                        return Some(m);
-                    }
+            if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
+                if self.position.do_move(m) {
+                    m.set_score(MAX_MOVE_SCORE);
+                    return Some(m);
                 }
             }
         }
@@ -399,11 +399,25 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedGoodCaptures;
             }
 
-            // TODO: play the killer moves here. Do not forget to set
-            // the move score properly (is it check?).
-
-            // Second, the bad captures.
+            // Second, the killer move.
             if let NodePhase::TriedGoodCaptures = state.phase {
+                state.phase = NodePhase::TriedKillerMove;
+                let killer = self.position.killer();
+                if let Some(mut m) = self.position.try_move_digest(killer) {
+                    if self.position.do_move(m) {
+                        if state.checkers != 0 || self.position.board().checkers() != 0 {
+                            // When evading check or giving check --
+                            // set a high move score to avoid search
+                            // depth reductions.
+                            m.set_score(MAX_MOVE_SCORE - 1);
+                        }
+                        return Some(m);
+                    }
+                }
+            }
+                
+            // Third, the bad captures.
+            if let NodePhase::TriedKillerMove = state.phase {
                 if m.score() == MAX_MOVE_SCORE - 1 {
                     if self.position.do_move(m) {
                         return Some(m);
@@ -498,6 +512,7 @@ enum NodePhase {
     TriedHashMove,
     GeneratedMoves,
     TriedGoodCaptures,
+    TriedKillerMove,
     TriedBadCaptures,
     SortedQuietMoves,
 }

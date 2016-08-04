@@ -6,6 +6,7 @@ pub mod board;
 pub mod evaluation;
 pub mod notation;
 
+use std::u16;
 use std::mem;
 use std::cmp::max;
 use std::cell::UnsafeCell;
@@ -25,6 +26,24 @@ struct StateInfo {
 
     // The last played move.
     last_move: Move,
+}
+
+
+// Contains two killer moves with their hit counters.
+#[derive(Clone, Copy)]
+struct KillersRecord {
+    slot1: (MoveDigest, u16),
+    slot2: (MoveDigest, u16),
+}
+
+
+impl Default for KillersRecord {
+    fn default() -> KillersRecord {
+        KillersRecord {
+            slot1: (0, 0),
+            slot2: (0, 0),
+        }
+    }
 }
 
 
@@ -78,6 +97,10 @@ pub struct Position {
     // A list of boards that had occurred during the game. This is
     // needed so as to be able to detect repeated positions.
     encountered_boards: Vec<u64>,
+
+    // The killer moves array -- we keep two moves with their hit
+    // counters for each ply.
+    killer_moves: [KillersRecord; MAX_DEPTH as usize + 1],
 }
 
 
@@ -104,6 +127,7 @@ impl Position {
                                   halfmove_clock: halfmove_clock,
                                   last_move: Move::invalid(),
                               }],
+            killer_moves: [Default::default(); MAX_DEPTH as usize + 1],
         };
         p.board_hash = p.board().calc_hash();
         Ok(p)
@@ -429,6 +453,63 @@ impl Position {
         self.state_stack.pop();
     }
 
+    /// Returns the move digest for the current position's killer
+    /// move.
+    ///
+    /// "Killer move" is a move which was very good in a sibling node,
+    /// or any other earlier branch in the tree with the same distance
+    /// to the root position. The idea is to try that move early --
+    /// after a possibly available hash move from the transposition
+    /// table and apparently winning captures.
+    #[inline]
+    pub fn killer(&mut self) -> MoveDigest {
+        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
+        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
+        if record.slot1.1 > record.slot2.1 {
+            record.slot1.0
+        } else {
+            record.slot2.0
+        }
+    }
+
+    /// Registers that the last move was very good (a killer move).
+    #[inline]
+    pub fn register_killer(&mut self) {
+        let last_move = self.state().last_move;
+        if last_move.captured_piece() != NO_PIECE {
+            // We accept only quiet moves as killers, because captures
+            // are tried early anyway, and we do not want to waste
+            // our precious killer-slots on them.
+            return;
+        }
+        let last_move_digest = last_move.digest();
+        assert!(self.state_stack.len() > 1);
+        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
+        let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 2) };
+        if record.slot1.0 == last_move_digest {
+            record.slot1.1 += 1;
+            if record.slot1.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
+            return;
+        }
+        if record.slot2.0 == last_move_digest {
+            record.slot2.1 += 1;
+            if record.slot2.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
+            return;
+        }
+        let slot = if record.slot1.1 <= record.slot2.1 {
+            &mut record.slot1
+        } else {
+            &mut record.slot2
+        };
+        *slot = (last_move_digest, 1);
+    }
+
     // A helper method for `evaluate_quiescence`. It is needed
     // because`qsearch` should be able to call itself recursively,
     // which should not complicate `evaluate_quiescence`'s
@@ -740,6 +821,7 @@ impl Clone for Position {
             repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: encountered_boards,
             state_stack: state_stack,
+            killer_moves: self.killer_moves,
         }
     }
 }
@@ -1148,5 +1230,25 @@ mod tests {
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert!(p1.hash() != p3.hash());
+    }
+
+    #[test]
+    fn test_killers() {
+        let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
+                        .ok()
+                        .unwrap();
+        let mut v = MoveStack::new();
+        p.generate_moves(&mut v);
+        let mut i = 1;
+        while let Some(m) = v.pop() {
+            if m.captured_piece() == NO_PIECE && p.do_move(m) {
+                for _ in 0..i {
+                    p.register_killer();
+                }
+                i += 1;
+                p.undo_move();
+                assert_eq!(p.killer(), m.digest());
+            }
+        }
     }
 }
