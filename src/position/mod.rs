@@ -462,7 +462,7 @@ impl Position {
     /// after a possibly available hash move from the transposition
     /// table and apparently winning captures.
     #[inline]
-    pub fn killer_move(&mut self) -> MoveDigest {
+    pub fn killer(&mut self) -> MoveDigest {
         assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
         let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 1) };
         if record.slot1.1 > record.slot2.1 {
