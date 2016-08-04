@@ -6,8 +6,8 @@ pub mod board;
 pub mod evaluation;
 pub mod notation;
 
+use std::u16;
 use std::mem;
-use std::num::Wrapping;
 use std::cmp::max;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
@@ -32,8 +32,8 @@ struct StateInfo {
 // Contains two killer moves with their hit counters.
 #[derive(Clone, Copy)]
 struct KillersRecord {
-    slot1: (MoveDigest, u32),
-    slot2: (MoveDigest, u32),
+    slot1: (MoveDigest, u16),
+    slot2: (MoveDigest, u16),
 }
 
 
@@ -487,11 +487,19 @@ impl Position {
         assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
         let record = unsafe { self.killer_moves.get_unchecked_mut(self.state_stack.len() - 2) };
         if record.slot1.0 == last_move_digest {
-            record.slot1.1 = (Wrapping(record.slot1.1) + Wrapping(1)).0;
+            record.slot1.1 += 1;
+            if record.slot1.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
             return;
         }
         if record.slot2.0 == last_move_digest {
-            record.slot2.1 = (Wrapping(record.slot2.1) + Wrapping(1)).0;
+            record.slot2.1 += 1;
+            if record.slot2.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
             return;
         }
         let slot = if record.slot1.1 <= record.slot2.1 {
