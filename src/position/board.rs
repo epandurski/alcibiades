@@ -227,6 +227,10 @@ impl Board {
         // is quite expensive, and therefore we hope that the
         // alpha-beta pruning will eliminate the need for this
         // verification at all.
+        //
+        // TODO: Try generating quiet moves separately as well. This
+        // will allow first to generate all non-quiet moves, and then
+        // generate the rest if needed.
 
         assert!(self.is_legal());
         let king_square = self.king_square();
