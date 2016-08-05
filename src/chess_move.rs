@@ -278,8 +278,7 @@ impl Move {
     ///
     /// The initial move score for the new move will be:
     ///
-    /// * `MAX_MOVE_SCORE - 1` for pawn promotions to pieces other
-    ///   than queen.
+    /// * `0` for pawn promotions to pieces other than queen.
     ///
     /// * `MAX_MOVE_SCORE` for captures and pawn promotions to queen.
     /// 
@@ -318,7 +317,7 @@ impl Move {
             score_shifted = if promoted_piece_code == 0 {
                 (MAX_MOVE_SCORE as u64) << 32
             } else {
-                ((MAX_MOVE_SCORE - 1) as u64) << 32
+                0 << 32
             };
             promoted_piece_code
         } else {
