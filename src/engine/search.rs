@@ -411,7 +411,7 @@ impl<'a> Search<'a> {
             // Second -- the killer move.
             if let NodePhase::TriedGoodCaptures = state.phase {
                 state.phase = NodePhase::TriedKillerMove;
-                let killer = self.position.killer();
+                let (killer, _) = self.position.killers();
                 if let Some(mut k) = self.moves.remove_move(killer) {
                     if self.position.do_move(k) {
                         self.moves.push(m);

@@ -463,8 +463,8 @@ impl Position {
         self.state_stack.pop();
     }
 
-    /// Returns the move digest for the current position's killer
-    /// move.
+    /// Returns the move digests for the current position's killer
+    /// moves.
     ///
     /// "Killer move" is a move which was good in a sibling node, or
     /// any other earlier branch in the tree with the same distance to
@@ -472,15 +472,15 @@ impl Position {
     /// a possibly available hash move from the transposition table
     /// and seemingly winning captures. This method will return only
     /// quiet moves as killers, because captures and promotions are
-    /// tried early anyway. If no killer move is available -- `0` will
-    /// be returned.
+    /// tried early anyway. If no killer move is available for one or
+    /// both of the slots -- `0` is returned instead.
     #[inline]
-    pub fn killer(&mut self) -> MoveDigest {
+    pub fn killers(&mut self) -> (MoveDigest, MoveDigest) {
         let record = self.killer_moves.get(self.state_stack.len() - 1).unwrap();
         if record.slot1.1 > record.slot2.1 {
-            record.slot1.0
+            (record.slot1.0, record.slot2.0)
         } else {
-            record.slot2.0
+            (record.slot2.0, record.slot1.0)
         }
     }
 
@@ -494,6 +494,7 @@ impl Position {
             return;
         }
         let last_move_digest = last_move.digest();
+        assert!(last_move_digest != 0);
         assert!(self.state_stack.len() > 1);
         assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
         let record = self.killer_moves.get_mut(self.state_stack.len() - 2).unwrap();
@@ -1251,6 +1252,7 @@ mod tests {
         let mut v = MoveStack::new();
         p.generate_moves(&mut v);
         let mut i = 1;
+        let mut previous_move_digest = 0;
         while let Some(m) = v.pop() {
             if m.captured_piece() == NO_PIECE && p.do_move(m) {
                 for _ in 0..i {
@@ -1258,7 +1260,10 @@ mod tests {
                 }
                 i += 1;
                 p.undo_move();
-                assert_eq!(p.killer(), m.digest());
+                let (killer1, killer2) = p.killers();
+                assert!(killer1 == m.digest());
+                assert!(killer2 == previous_move_digest);
+                previous_move_digest = m.digest();
             }
         }
     }
