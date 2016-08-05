@@ -598,7 +598,11 @@ impl MoveStack {
     #[inline]
     pub fn pop(&mut self) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
-        self.moves.pop()
+        if self.moves.len() > self.first_move_index {
+            self.moves.pop()
+        } else {
+            None
+        }
     }
 
     /// Removes a specific move from the current move list and returns
