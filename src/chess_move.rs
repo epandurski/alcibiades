@@ -719,6 +719,7 @@ mod tests {
 
     #[test]
     fn test_move() {
+        assert!(MAX_MOVE_SCORE >= 3);
         let cr = CastlingRights::new(0b1011);
         let mut m = Move::new(WHITE,
                               MOVE_NORMAL,

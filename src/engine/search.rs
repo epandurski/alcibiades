@@ -384,7 +384,7 @@ impl<'a> Search<'a> {
                     } else if see == 0 {
                         MAX_MOVE_SCORE - 2
                     } else {
-                        MAX_MOVE_SCORE - 3
+                        0
                     };
                     m.set_score(new_move_score);
                     self.moves.push(m);
@@ -400,8 +400,9 @@ impl<'a> Search<'a> {
 
             // First -- the good captures.
             if let NodePhase::GeneratedMoves = state.phase {
-                if m.score() > MAX_MOVE_SCORE - 3 {
+                if m.score() > 0 {
                     if self.position.do_move(m) {
+                        m.set_score(MAX_MOVE_SCORE);
                         return Some(m);
                     }
                     continue;
@@ -436,35 +437,19 @@ impl<'a> Search<'a> {
 
             // Third -- the bad captures.
             if let NodePhase::TriedKillerMoves = state.phase {
-                if m.score() == MAX_MOVE_SCORE - 3 {
+                if m.captured_piece() < NO_PIECE {
                     if self.position.do_move(m) {
+                        m.set_score(MAX_MOVE_SCORE);
                         return Some(m);
                     }
                     continue;
                 }
                 state.phase = NodePhase::TriedBadCaptures;
             }
-            
-            // Before trying the quiet moves, we should assign proper
-            // move scores to them.
-            if let NodePhase::TriedBadCaptures = state.phase {
-                // TODO: Assign the moves scores here using the
-                // history and countermove heuristics. Temporarily, we
-                // apply a very simple quiet move ordering. Moves
-                // which destination square is more advanced into
-                // enemy's territory are tried first.
-                const SCORE_LOOKUP: [[u32; 8]; 2] = [// white
-                                                     [0, 1, 2, 3, 4, 5, 6, 7],
-                                                     // black
-                                                     [7, 6, 5, 4, 3, 2, 1, 0]];
-                for m in self.moves.iter_mut() {
-                    let rank = rank(m.dest_square());
-                    m.set_score(unsafe {
-                        *SCORE_LOOKUP.get_unchecked(self.position.board().to_move())
-                                     .get_unchecked(rank)
-                    });
-                }
 
+            // TODO: Assign the moves scores here using the history
+            // and countermove heuristics.
+            if let NodePhase::TriedBadCaptures = state.phase {
                 state.phase = NodePhase::SortedQuietMoves;
             }
 
@@ -541,7 +526,7 @@ struct NodeState {
     entry: EntryData,
     checkers: Bitboard,
     pinned: Bitboard,
-    killer: Option<MoveDigest>
+    killer: Option<MoveDigest>,
 }
 
 
