@@ -395,10 +395,10 @@ impl<'a> Search<'a> {
             }
         }
 
-        // Spit out the generated moves.
+        // Try the generated moves.
         while let Some(mut m) = self.moves.remove_best_move() {
 
-            // First -- the good captures.
+            // First -- the winning captures and promotions to queen.
             if let NodePhase::GeneratedMoves = state.phase {
                 if m.score() > 0 {
                     if self.position.do_move(m) {
@@ -407,11 +407,13 @@ impl<'a> Search<'a> {
                     }
                     continue;
                 }
-                state.phase = NodePhase::TriedGoodCaptures;
+                state.phase = NodePhase::TriedWinningMoves;
             }
 
-            // Second -- the killer moves.
-            if let NodePhase::TriedGoodCaptures = state.phase {
+            // Second -- the killer moves. We try two killer moves in
+            // two sequential iterations of the loop. `state.killer`
+            // remembers where we are.
+            if let NodePhase::TriedWinningMoves = state.phase {
                 self.moves.push(m);
                 let killer = if let Some(k2) = state.killer {
                     state.phase = NodePhase::TriedKillerMoves;
@@ -447,8 +449,8 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedBadCaptures;
             }
 
-            // TODO: Assign the moves scores here using the history
-            // and countermove heuristics.
+            // TODO: Assign new moves scores here using the history
+            // heuristics.
             if let NodePhase::TriedBadCaptures = state.phase {
                 state.phase = NodePhase::SortedQuietMoves;
             }
@@ -514,7 +516,7 @@ enum NodePhase {
     ConsideredNullMove,
     TriedHashMove,
     GeneratedMoves,
-    TriedGoodCaptures,
+    TriedWinningMoves,
     TriedKillerMoves,
     TriedBadCaptures,
     SortedQuietMoves,
