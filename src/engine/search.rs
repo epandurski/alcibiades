@@ -353,7 +353,7 @@ impl<'a> Search<'a> {
         self.position.board()._checkers.set(state.checkers);
         self.position.board()._pinned.set(state.pinned);
 
-        // Try the hash move first.
+        // Try the hash move.
         if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
             if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
@@ -364,42 +364,51 @@ impl<'a> Search<'a> {
             }
         }
 
-        // After the hash move, we generate all pseudo-legal moves. We
-        // should not forget to remove the already tried hash move
-        // from the list.
+        // Generate all pseudo-legal moves.
         if let NodePhase::TriedHashMove = state.phase {
-            self.position.generate_moves(self.moves);
-            if state.entry.move16() != 0 {
-                self.moves.remove_move(state.entry.move16());
-            }
             state.phase = NodePhase::GeneratedMoves;
+            self.position.generate_moves(self.moves);
+
+            // We should not forget to remove the already tried hash
+            // move from the list.
+            self.moves.remove_move(state.entry.move16());
+
+            // We set new move scores to all captures and promotions
+            // to queen according to their static exchange evaluation.
+            while let Some(mut m) = self.moves.remove_best_move() {
+                if m.score() == MAX_MOVE_SCORE {
+                    let see = self.position.evaluate_move(m);
+                    let new_move_score = if see > 0 {
+                        MAX_MOVE_SCORE - 1
+                    } else if see == 0 {
+                        MAX_MOVE_SCORE - 2
+                    } else {
+                        MAX_MOVE_SCORE - 3
+                    };
+                    m.set_score(new_move_score);
+                    self.moves.push(m);
+                    continue;
+                }
+                self.moves.push(m);
+                break;
+            }
         }
 
         // Spit out the generated moves.
         while let Some(mut m) = self.moves.remove_best_move() {
 
-            // First, the good captures.
-            //
-            // TODO: Play all moves with SSE > 0 before those with SSE
-            // == 0.
+            // First -- the good captures.
             if let NodePhase::GeneratedMoves = state.phase {
-                if m.score() == MAX_MOVE_SCORE {
-                    if self.position.evaluate_move(m) >= 0 {
-                        if self.position.do_move(m) {
-                            return Some(m);
-                        }
-                        continue;
+                if m.score() > MAX_MOVE_SCORE - 3 {
+                    if self.position.do_move(m) {
+                        return Some(m);
                     }
-                    // This is a bad capture -- push it back to the
-                    // move stack with a lesser score.
-                    m.set_score(MAX_MOVE_SCORE - 1);
-                    self.moves.push(m);
                     continue;
                 }
                 state.phase = NodePhase::TriedGoodCaptures;
             }
 
-            // Second, the killer move.
+            // Second -- the killer move.
             if let NodePhase::TriedGoodCaptures = state.phase {
                 state.phase = NodePhase::TriedKillerMove;
                 let killer = self.position.killer();
@@ -410,16 +419,16 @@ impl<'a> Search<'a> {
                             // When evading check or giving check --
                             // set a high move score to avoid search
                             // depth reductions.
-                            k.set_score(MAX_MOVE_SCORE - 1);
+                            k.set_score(MAX_MOVE_SCORE);
                         }
                         return Some(k);
                     }
                 }
             }
 
-            // Third, the bad captures.
+            // Third -- the bad captures.
             if let NodePhase::TriedKillerMove = state.phase {
-                if m.score() == MAX_MOVE_SCORE - 1 {
+                if m.score() == MAX_MOVE_SCORE - 3 {
                     if self.position.do_move(m) {
                         return Some(m);
                     }
@@ -427,7 +436,7 @@ impl<'a> Search<'a> {
                 }
                 state.phase = NodePhase::TriedBadCaptures;
             }
-
+            
             // Before trying the quiet moves, we should assign proper
             // move scores to them.
             if let NodePhase::TriedBadCaptures = state.phase {
@@ -451,13 +460,13 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::SortedQuietMoves;
             }
 
-            // Last, quiet moves.
+            // Last -- the quiet moves.
             if self.position.do_move(m) {
                 if state.checkers != 0 || self.position.board().checkers() != 0 {
                     // When evading check or giving check -- set a
                     // high move score to avoid search depth
                     // reductions.
-                    m.set_score(MAX_MOVE_SCORE - 1);
+                    m.set_score(MAX_MOVE_SCORE);
                 }
                 return Some(m);
             }
