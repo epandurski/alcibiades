@@ -461,9 +461,9 @@ impl Position {
     /// the root position. The idea is to try that move early -- after
     /// a possibly available hash move from the transposition table
     /// and seemingly winning captures. This method will return only
-    /// quiet moves as killers, because captures are tried early
-    /// anyway, and we should not waste memory on them. If no killer
-    /// move is available -- `0` will be returned.
+    /// quiet moves as killers, because captures and promotions are
+    /// tried early anyway. If no killer move is available -- `0` will
+    /// be returned.
     #[inline]
     pub fn killer(&mut self) -> MoveDigest {
         let record = self.killer_moves.get(self.state_stack.len() - 1).unwrap();
@@ -478,9 +478,9 @@ impl Position {
     #[inline]
     pub fn register_killer(&mut self) {
         let last_move = self.state().last_move;
-        if last_move.captured_piece() != NO_PIECE {
+        if last_move.captured_piece() != NO_PIECE || last_move.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
-            // captures.
+            // captures and promotions.
             return;
         }
         let last_move_digest = last_move.digest();
