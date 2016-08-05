@@ -589,7 +589,7 @@ impl MoveStack {
     /// Appends a move to the end of the current move list.
     #[inline]
     pub fn push(&mut self, m: Move) {
-        assert!(m != Move::invalid());
+        assert!(m.digest() != 0);
         assert!(self.moves.len() >= self.first_move_index);
         self.moves.push(m);
     }
