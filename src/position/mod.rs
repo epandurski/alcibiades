@@ -472,8 +472,10 @@ impl Position {
     /// a possibly available hash move from the transposition table
     /// and seemingly winning captures. This method will return only
     /// quiet moves as killers, because captures and promotions are
-    /// tried early anyway. If no killer move is available for one or
-    /// both of the slots -- `0` is returned instead.
+    /// tried early anyway. The move returned in the first slot should
+    /// be treated as the better one of the two. If no killer move is
+    /// available for one or both of the slots -- `0` is returned
+    /// instead.
     #[inline]
     pub fn killers(&mut self) -> (MoveDigest, MoveDigest) {
         let record = self.killer_moves.get(self.state_stack.len() - 1).unwrap();
