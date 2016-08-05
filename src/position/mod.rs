@@ -329,11 +329,21 @@ impl Position {
     /// for the current position on the board.
     #[inline]
     pub fn evaluate_move(&self, m: Move) -> Value {
-        self.calc_see(self.board().to_move(),
-                      m.piece(),
-                      m.orig_square(),
-                      m.dest_square(),
-                      m.captured_piece())
+        let see = self.calc_see(self.board().to_move(),
+                                m.piece(),
+                                m.orig_square(),
+                                m.dest_square(),
+                                m.captured_piece());
+        if see == 0 && m.move_type() == MOVE_PROMOTION {
+            // The move is a pawn promotion and the promoted pawn
+            // seems to be sufficiently protected. Since `calc_see`
+            // does not account for the added value of the promoted
+            // piece, we conservatively correct that by adding a value
+            // of a pawn to the SSE.
+            PIECE_VALUES[PAWN]
+        } else {
+            see
+        }
     }
 
     /// Generates pseudo-legal moves.
