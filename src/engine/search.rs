@@ -232,6 +232,7 @@ impl<'a> Search<'a> {
             entry: entry,
             checkers: BB_UNIVERSAL_SET,
             pinned: BB_UNIVERSAL_SET,
+            killer: None,
         });
 
         // Check if the TT entry gives the result.
@@ -408,26 +409,33 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedGoodCaptures;
             }
 
-            // Second -- the killer move.
+            // Second -- the killer moves.
             if let NodePhase::TriedGoodCaptures = state.phase {
-                state.phase = NodePhase::TriedKillerMove;
-                let (killer, _) = self.position.killers();
-                if let Some(mut k) = self.moves.remove_move(killer) {
-                    if self.position.do_move(k) {
-                        self.moves.push(m);
+                self.moves.push(m);
+                let killer = if let Some(k2) = state.killer {
+                    state.phase = NodePhase::TriedKillerMoves;
+                    k2
+                } else {
+                    let (k1, k2) = self.position.killers();
+                    state.killer = Some(k2);
+                    k1
+                };
+                if let Some(mut m) = self.moves.remove_move(killer) {
+                    if self.position.do_move(m) {
                         if state.checkers != 0 || self.position.board().checkers() != 0 {
                             // When evading check or giving check --
                             // set a high move score to avoid search
                             // depth reductions.
-                            k.set_score(MAX_MOVE_SCORE);
+                            m.set_score(MAX_MOVE_SCORE);
                         }
-                        return Some(k);
+                        return Some(m);
                     }
                 }
+                continue;
             }
 
             // Third -- the bad captures.
-            if let NodePhase::TriedKillerMove = state.phase {
+            if let NodePhase::TriedKillerMoves = state.phase {
                 if m.score() == MAX_MOVE_SCORE - 3 {
                     if self.position.do_move(m) {
                         return Some(m);
@@ -522,7 +530,7 @@ enum NodePhase {
     TriedHashMove,
     GeneratedMoves,
     TriedGoodCaptures,
-    TriedKillerMove,
+    TriedKillerMoves,
     TriedBadCaptures,
     SortedQuietMoves,
 }
@@ -533,6 +541,7 @@ struct NodeState {
     entry: EntryData,
     checkers: Bitboard,
     pinned: Bitboard,
+    killer: Option<MoveDigest>
 }
 
 
