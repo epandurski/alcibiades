@@ -191,7 +191,7 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 
 /// Represents a move on the chessboard.
 ///
-/// `Move` is a `u64` number. It contains 3 types of information:
+/// `Move` is a `usize` number. It contains 3 types of information:
 ///
 /// 1. Information about the played move itself.
 ///
@@ -221,15 +221,16 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 /// type of the promoted piece if the move type is pawn promotion,
 /// otherwise it is zero.
 ///
-/// Bits 16-31 contain the information needed to undo the move:
+/// Bits 16-31 contain the information needed to undo the move, as
+/// well as move ordering info:
 ///
 ///  ```text
 ///   31                                                          16
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-///  |   |   |  Captured |  Played   |   Castling    |   En-passant  |
-///  | 0 | 0 |  piece    |  piece    |    rights     |      file     |
-///  |   |   |  3 bits   |  3 bits   |    4 bits     |     4 bits    |
+///  | Move  |  Captured |  Played   |   Castling    |   En-passant  |
+///  | score |  piece    |  piece    |    rights     |      file     |
+///  | 2 bits|  3 bits   |  3 bits   |    4 bits     |     4 bits    |
 ///  |   |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
@@ -241,23 +242,9 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 /// before the move was played. When "Captured piece" is stored, its
 /// bits are inverted, so that MVV-LVA (Most valuable victim -- least
 /// valuable aggressor) ordering of the moves is preserved, even when
-/// the other fields stay the same.
-///
-/// Bits 32-63 contain the move ordering info (the "move score"):
-///
-///  ```text
-///  63                                                            32
-///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-///  | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | |
-///  |                          Move score                           |
-///  |                           32 bits                             |
-///  | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | |
-///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-///  ```
-///
-/// The "Move score" field (32-bits) is used to influence move
-/// ordering. Ideally the best move should have the highest move
-/// score.
+/// the other fields stay the same. The "Move score" field (2 bits on
+/// 32-bit platforms, 34 bits on 64-bit platforms) is used to
+/// influence move ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
