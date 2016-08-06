@@ -470,14 +470,17 @@ impl Position {
     /// any other earlier branch in the tree with the same distance to
     /// the root position. The idea is to try that move early -- after
     /// a possibly available hash move from the transposition table
-    /// and seemingly winning captures. This method will return only
-    /// quiet moves as killers, because captures and promotions are
-    /// tried early anyway. The move returned in the first slot should
-    /// be treated as the better one of the two. If no killer move is
+    /// and seemingly winning captures. This method will not return
+    /// captures and promotions as killers, because those are tried
+    /// early anyway. The move returned in the first slot should be
+    /// treated as the better one of the two. If no killer move is
     /// available for one or both of the slots -- `0` is returned
     /// instead.
     #[inline]
     pub fn killers(&mut self) -> (MoveDigest, MoveDigest) {
+        // TODO: `engine::search::Search` is probably a better place
+        // for implementing killers. Move this and the following
+        // methods there.
         let record = self.killer_moves.get(self.state_stack.len() - 1).unwrap();
         if record.slot1.1 > record.slot2.1 {
             (record.slot1.0, record.slot2.0)
