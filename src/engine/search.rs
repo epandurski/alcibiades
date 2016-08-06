@@ -396,20 +396,21 @@ impl<'a> Search<'a> {
         }
 
         // Try the generated moves.
-        while let Some(mut m) = if let NodePhase::TriedSelectedQuietMoves = state.phase {
-            // After we have tried the few selected quiet moves, we
-            // try the rest in the order in which they were generated
-            // because at this stage the probability of cut-off is
-            // low, so the move ordering is not important.
+        while let Some(mut m) = if let NodePhase::TriedLosingCaptures = state.phase {
+            // After we have tried the losing captures, we try the
+            // rest of the moves in the order in which they reside in
+            // the move stack, because at this stage the probability
+            // of cut-off is low, so the move ordering is not
+            // important.
             self.moves.pop()
         } else {
             self.moves.remove_best_move()
         } {
-            // First -- the winning captures and promotions to queen.
+            // First -- the winning and even captures and promotions
+            // to queen.
             if let NodePhase::GeneratedMoves = state.phase {
                 if m.score() > 0 {
                     if self.position.do_move(m) {
-                        assert!(MAX_MOVE_SCORE - 2 > REDUCTION_THRESHOLD);
                         return Some(m);
                     }
                     continue;
@@ -444,7 +445,7 @@ impl<'a> Search<'a> {
                 continue;
             }
 
-            // Third -- the bad captures.
+            // Third -- the losing captures.
             if let NodePhase::TriedKillerMoves = state.phase {
                 if m.captured_piece() < NO_PIECE {
                     if self.position.do_move(m) {
@@ -453,27 +454,17 @@ impl<'a> Search<'a> {
                     }
                     continue;
                 }
-                state.phase = NodePhase::TriedBadCaptures;
+                state.phase = NodePhase::TriedLosingCaptures;
+                self.moves.push(m);
 
-                // TODO: Assign higher scores to selected quiet moves
-                // here, using the history heuristics.
+                // TODO: Pull selected quiet moves to the top of the
+                // move stack here, using the history
+                // heuristics. Eventually -- set their scores above
+                // the reduction threshold.
+                continue;
             }
 
-            // Fourth -- the selected quiet moves.
-            if let NodePhase::TriedBadCaptures = state.phase {
-                if m.score() > 0 {
-                    if self.position.do_move(m) {
-                        if state.checkers != 0 || self.position.board().checkers() != 0 {
-                            m.set_score(MAX_MOVE_SCORE);
-                        }
-                        return Some(m);
-                    }
-                    continue;
-                }
-                state.phase = NodePhase::TriedSelectedQuietMoves;
-            }
-
-            // Fifth -- the remaining quiet moves.
+            // Fourth -- the remaining quiet moves.
             if self.position.do_move(m) {
                 if state.checkers != 0 || self.position.board().checkers() != 0 {
                     m.set_score(MAX_MOVE_SCORE);
@@ -533,8 +524,7 @@ enum NodePhase {
     GeneratedMoves,
     TriedWinningMoves,
     TriedKillerMoves,
-    TriedBadCaptures,
-    TriedSelectedQuietMoves,
+    TriedLosingCaptures,
 }
 
 
@@ -556,6 +546,7 @@ mod tests {
 
     #[test]
     fn test_search() {
+        assert!(MAX_MOVE_SCORE - 2 > super::REDUCTION_THRESHOLD);
         let p = Position::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1").ok().unwrap();
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
