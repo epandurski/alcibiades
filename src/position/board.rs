@@ -405,7 +405,7 @@ impl Board {
     #[inline]
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
         if move_digest == 0 {
-            return None
+            return None;
         }
         let move_type = get_move_type(move_digest);
         let orig_square = get_orig_square(move_digest);
@@ -577,8 +577,9 @@ impl Board {
         assert!(dest_square <= 63);
         assert!(unsafe {
             m.is_null() ||
-            ::std::mem::transmute::<Move, u64>(m) as u32 ==
-            ::std::mem::transmute::<Move, u64>(self.try_move_digest(m.digest()).unwrap()) as u32
+            ::std::mem::transmute::<Move, usize>(m) & !(!0 << 30) ==
+            ::std::mem::transmute::<Move, usize>(self.try_move_digest(m.digest()).unwrap()) &
+            !(!0 << 30)
         });
 
         if piece >= NO_PIECE {
