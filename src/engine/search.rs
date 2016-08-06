@@ -523,7 +523,7 @@ impl<'a> Search<'a> {
 // Moves with move scores higher than this number will be searched at
 // full depth. Moves with move scores lesser or equal to this number
 // will be searched at reduced depth.
-const REDUCTION_THRESHOLD: u32 = MAX_MOVE_SCORE >> 1;
+const REDUCTION_THRESHOLD: usize = MAX_MOVE_SCORE >> 1;
 
 
 enum NodePhase {
