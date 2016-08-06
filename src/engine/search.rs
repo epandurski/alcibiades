@@ -376,9 +376,9 @@ impl<'a> Search<'a> {
 
             // We set new move scores to all captures and promotions
             // to queen according to their static exchange evaluation.
-            while let Some(mut m) = self.moves.remove_best_move() {
+            for m in self.moves.iter_mut() {
                 if m.score() == MAX_MOVE_SCORE {
-                    let see = self.position.evaluate_move(m);
+                    let see = self.position.evaluate_move(*m);
                     let new_move_score = if see > 0 {
                         MAX_MOVE_SCORE - 1
                     } else if see == 0 {
@@ -387,11 +387,7 @@ impl<'a> Search<'a> {
                         0
                     };
                     m.set_score(new_move_score);
-                    self.moves.push(m);
-                    continue;
                 }
-                self.moves.push(m);
-                break;
             }
         }
 
