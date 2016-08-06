@@ -434,9 +434,6 @@ impl<'a> Search<'a> {
                 if let Some(mut m) = self.moves.remove_move(killer) {
                     if self.position.do_move(m) {
                         if state.checkers != 0 || self.position.board().checkers() != 0 {
-                            // When evading check or giving check --
-                            // set a high move score to avoid search
-                            // depth reductions.
                             m.set_score(MAX_MOVE_SCORE);
                         }
                         return Some(m);
@@ -466,7 +463,11 @@ impl<'a> Search<'a> {
 
             // Fourth -- the remaining quiet moves.
             if self.position.do_move(m) {
-                if state.checkers != 0 || self.position.board().checkers() != 0 {
+                if state.checkers != 0 || self.position.board().checkers() != 0 ||
+                   m.move_type() == MOVE_PROMOTION {
+                    // When evading check, giving check, or promoting
+                    // a pawn -- set a high move score to avoid search
+                    // depth reductions.
                     m.set_score(MAX_MOVE_SCORE);
                 }
                 return Some(m);
