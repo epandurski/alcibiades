@@ -409,7 +409,7 @@ impl<'a> Search<'a> {
             if let NodePhase::GeneratedMoves = state.phase {
                 if m.score() > 0 {
                     if self.position.do_move(m) {
-                        m.set_score(MAX_MOVE_SCORE);
+                        assert!(MAX_MOVE_SCORE - 2 > REDUCTION_THRESHOLD);
                         return Some(m);
                     }
                     continue;
@@ -523,7 +523,7 @@ impl<'a> Search<'a> {
 // Moves with move scores higher than this number will be searched at
 // full depth. Moves with move scores lesser or equal to this number
 // will be searched at reduced depth.
-const REDUCTION_THRESHOLD: usize = MAX_MOVE_SCORE >> 1;
+const REDUCTION_THRESHOLD: usize = 0;
 
 
 enum NodePhase {
