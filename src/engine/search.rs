@@ -396,8 +396,15 @@ impl<'a> Search<'a> {
         }
 
         // Try the generated moves.
-        while let Some(mut m) = self.moves.remove_best_move() {
-
+        while let Some(mut m) = if let NodePhase::TriedSelectedQuietMoves = state.phase {
+            // After we have tried the few selected quiet moves, we
+            // try the rest in the order in which they were generated
+            // because at this stage the probability of cut-off is
+            // low, so the move ordering is not important.
+            self.moves.pop()
+        } else {
+            self.moves.remove_best_move()
+        } {
             // First -- the winning captures and promotions to queen.
             if let NodePhase::GeneratedMoves = state.phase {
                 if m.score() > 0 {
@@ -447,20 +454,28 @@ impl<'a> Search<'a> {
                     continue;
                 }
                 state.phase = NodePhase::TriedBadCaptures;
+
+                // TODO: Assign higher scores to selected quiet moves
+                // here, using the history heuristics.
             }
 
-            // TODO: Assign new moves scores here using the history
-            // heuristics.
+            // Fourth -- the selected quiet moves.
             if let NodePhase::TriedBadCaptures = state.phase {
-                state.phase = NodePhase::SortedQuietMoves;
+                if m.score() > 0 {
+                    if self.position.do_move(m) {
+                        if state.checkers != 0 || self.position.board().checkers() != 0 {
+                            m.set_score(MAX_MOVE_SCORE);
+                        }
+                        return Some(m);
+                    }
+                    continue;
+                }
+                state.phase = NodePhase::TriedSelectedQuietMoves;
             }
 
-            // Last -- the quiet moves.
+            // Fifth -- the remaining quiet moves.
             if self.position.do_move(m) {
                 if state.checkers != 0 || self.position.board().checkers() != 0 {
-                    // When evading check or giving check -- set a
-                    // high move score to avoid search depth
-                    // reductions.
                     m.set_score(MAX_MOVE_SCORE);
                 }
                 return Some(m);
@@ -519,7 +534,7 @@ enum NodePhase {
     TriedWinningMoves,
     TriedKillerMoves,
     TriedBadCaptures,
-    SortedQuietMoves,
+    TriedSelectedQuietMoves,
 }
 
 
