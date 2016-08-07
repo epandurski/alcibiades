@@ -51,8 +51,10 @@ pub type Bitboard = u64;
 pub type Value = i16;
 
 
-/// The maximum search depth in half-moves.
-pub const MAX_DEPTH: u8 = 63;  // Should be less than 127.
+// The maximum search depth in half-moves.
+//
+// TODO: This probably belongs to engine/mod.rs.
+pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 // Color
 pub const WHITE: Color = 0;
