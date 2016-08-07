@@ -31,9 +31,9 @@ pub type CastlingSide = usize;
 /// `u64` bit-sets called *bitboards* (BB) can be used to represent a
 /// set of squares on the chessboard. For example, the set of squares
 /// that are occupied by white rooks in the beginning of the game is:
-/// `1 << A1 | 1 << H1`. `BB_EMPTY_SET` represents an empty set,
-/// `BB_UNIVERSAL_SET` represents the set of all 64 squares on the
-/// board.
+/// `1 << A1 | 1 << H1`. `BB_EMPTY_SET` equals `0` and represents the
+/// empty set, `BB_UNIVERSAL_SET` represents the set of all 64 squares
+/// on the board.
 pub type Bitboard = u64;
 
 
