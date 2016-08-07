@@ -671,8 +671,6 @@ fn parse_go_params(s: &str) -> GoParams {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_parse_go_params() {
         use super::parse_go_params;

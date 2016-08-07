@@ -569,7 +569,7 @@ impl MoveStack {
 
     /// Returns the number of moves in the current move list.
     #[inline]
-    pub fn len(&self) -> usize {
+    pub fn count(&self) -> usize {
         assert!(self.moves.len() >= self.first_move_index);
         self.moves.len() - self.first_move_index
     }

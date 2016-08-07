@@ -1419,37 +1419,37 @@ mod tests {
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 5);
+        assert_eq!(stack.count(), 5);
         stack.clear();
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 7);
+        assert_eq!(stack.count(), 7);
         stack.clear();
 
         let b = Board::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 8);
+        assert_eq!(stack.count(), 8);
         stack.clear();
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 22);
+        assert_eq!(stack.count(), 22);
         stack.clear();
 
         let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - c6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 23);
+        assert_eq!(stack.count(), 23);
         stack.clear();
 
         let b = Board::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k b - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 25);
+        assert_eq!(stack.count(), 25);
         stack.clear();
 
         let b = Board::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 b - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 5);
+        assert_eq!(stack.count(), 5);
         stack.clear();
     }
 
@@ -1459,17 +1459,17 @@ mod tests {
 
         let b = Board::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 6);
+        assert_eq!(stack.count(), 6);
         stack.clear();
 
         let b = Board::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 7);
+        assert_eq!(stack.count(), 7);
         stack.clear();
 
         let b = Board::from_fen("8/8/8/8/5pP1/7k/8/5B1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 5);
+        assert_eq!(stack.count(), 5);
         stack.clear();
     }
 
@@ -1479,7 +1479,7 @@ mod tests {
 
         let b = Board::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 6);
+        assert_eq!(stack.count(), 6);
         stack.clear();
     }
 
@@ -1489,7 +1489,7 @@ mod tests {
 
         let b = Board::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 7);
+        assert_eq!(stack.count(), 7);
         stack.clear();
     }
 
@@ -1499,32 +1499,32 @@ mod tests {
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 5);
+        assert_eq!(stack.count(), 19 + 5);
         stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 6);
+        assert_eq!(stack.count(), 19 + 6);
         stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 7);
+        assert_eq!(stack.count(), 19 + 7);
         stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 5);
+        assert_eq!(stack.count(), 19 + 5);
         stack.clear();
 
         let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 6);
+        assert_eq!(stack.count(), 19 + 6);
         stack.clear();
 
         let b = Board::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 5);
+        assert_eq!(stack.count(), 5);
         stack.clear();
 
         let mut b = Board::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ - 0 1").ok().unwrap();
@@ -1540,17 +1540,17 @@ mod tests {
 
         let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 7);
+        assert_eq!(stack.count(), 19 + 7);
         stack.clear();
 
         let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 5);
+        assert_eq!(stack.count(), 19 + 5);
         stack.clear();
 
         let b = Board::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.len(), 19 + 7);
+        assert_eq!(stack.count(), 19 + 7);
         stack.clear();
     }
 
@@ -1560,26 +1560,26 @@ mod tests {
 
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        let count = stack.len();
+        let count = stack.count();
         while let Some(m) = stack.pop() {
             if let Some(h) = b.do_move(m) {
                 assert!(h != 0);
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
-                assert_eq!(count, other_stack.len());
+                assert_eq!(count, other_stack.count());
             }
         }
-        assert_eq!(stack.len(), 0);
+        assert_eq!(stack.count(), 0);
         let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        let count = stack.len();
+        let count = stack.count();
         while let Some(m) = stack.pop() {
             if b.do_move(m).is_some() {
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
                 b.generate_moves(true, &mut other_stack);
-                assert_eq!(count, other_stack.len());
+                assert_eq!(count, other_stack.count());
             }
         }
     }
@@ -1597,17 +1597,17 @@ mod tests {
 
         let b = Board::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
-        assert_eq!(stack.len(), 4);
+        assert_eq!(stack.count(), 4);
         stack.clear();
 
         let b = Board::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
-        assert_eq!(stack.len(), 8);
+        assert_eq!(stack.count(), 8);
         stack.clear();
 
         let b = Board::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
-        assert_eq!(stack.len(), 7);
+        assert_eq!(stack.count(), 7);
         stack.clear();
     }
 
@@ -1617,13 +1617,13 @@ mod tests {
 
         let mut b = Board::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        let count = stack.len();
+        let count = stack.count();
         stack.clear();
         let m = b.null_move();
         assert!(b.do_move(m).is_some());
         b.undo_move(m);
         b.generate_moves(true, &mut stack);
-        assert_eq!(count, stack.len());
+        assert_eq!(count, stack.count());
         stack.clear();
 
         let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
