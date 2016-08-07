@@ -478,6 +478,9 @@ impl Position {
     /// instead.
     #[inline]
     pub fn killers(&mut self) -> (MoveDigest, MoveDigest) {
+        // TODO: `engine::search::Search` is probably a better place
+        // for implementing killers. Move this and the following
+        // methods there.
         let record = self.killer_moves.get(self.state_stack.len() - 1).unwrap();
         if record.slot1.1 > record.slot2.1 {
             (record.slot1.0, record.slot2.0)
