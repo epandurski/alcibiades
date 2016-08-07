@@ -327,7 +327,8 @@ impl Move {
         Move((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE)
     }
 
-    /// Assigns a new score for the move (between 0 and `MAX_MOVE_SCORE`).
+    /// Assigns a new score for the move (between `0` and
+    /// `MAX_MOVE_SCORE`).
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= MAX_MOVE_SCORE);
