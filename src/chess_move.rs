@@ -539,9 +539,9 @@ impl MoveStack {
     /// Saves the current move list and replaces it with an empty one.
     ///
     /// This method can be called many times. At each call the current
-    /// move list will saved to the stack of states that can later be
-    /// restored. After calling `save` the new current move list is
-    /// empty.
+    /// move list will be saved to the stack of lists that can later
+    /// be restored. After calling `save` the new current move list
+    /// will be empty.
     #[inline]
     pub fn save(&mut self) {
         self.savepoints.push(self.first_move_index);
@@ -567,7 +567,7 @@ impl MoveStack {
         self.savepoints.len()
     }
 
-    /// Returns the length of the current move list.
+    /// Returns the number of moves in the current move list.
     #[inline]
     pub fn len(&self) -> usize {
         assert!(self.moves.len() >= self.first_move_index);
@@ -582,8 +582,8 @@ impl MoveStack {
         self.moves.push(m);
     }
 
-    /// Removes the last element from the current move list and
-    /// returns it, or `None` if empty.
+    /// Removes the last move from the current move list and returns
+    /// it, or `None` if empty.
     #[inline]
     pub fn pop(&mut self) -> Option<Move> {
         assert!(self.moves.len() >= self.first_move_index);
