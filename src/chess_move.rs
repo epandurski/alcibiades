@@ -528,14 +528,6 @@ impl MoveStack {
         }
     }
 
-    /// Deletes all saved move lists.
-    #[inline]
-    pub fn clear(&mut self) {
-        self.moves.clear();
-        self.savepoints.clear();
-        self.first_move_index = 0;
-    }
-
     /// Saves the current move list and replaces it with an empty one.
     ///
     /// This method can be called many times. At each call the current
@@ -550,7 +542,11 @@ impl MoveStack {
 
     /// Restores the last saved move list.
     ///
-    /// The current move list is permanently lost.
+    /// The current move list is lost.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there are no saved move lists left.
     #[inline]
     pub fn restore(&mut self) {
         self.moves.truncate(self.first_move_index);
@@ -565,6 +561,14 @@ impl MoveStack {
     #[inline]
     pub fn ply(&self) -> usize {
         self.savepoints.len()
+    }
+
+    /// Deletes all saved move lists.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.moves.clear();
+        self.savepoints.clear();
+        self.first_move_index = 0;
     }
 
     /// Returns the number of moves in the current move list.
