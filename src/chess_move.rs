@@ -321,7 +321,8 @@ impl Move {
     /// Creates an invalid move instance.
     ///
     /// The returned instance mimics a legal move, but its move digest
-    /// equals `0`.
+    /// equals `0`. It is sometimes useful in places where any move is
+    /// required but no is available.
     #[inline(always)]
     pub fn invalid() -> Move {
         Move((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE)
