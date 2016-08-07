@@ -53,7 +53,8 @@ pub type Value = i16;
 
 // The maximum search depth in half-moves.
 //
-// TODO: This probably belongs to engine/mod.rs.
+// TODO: This probably belongs to engine/mod.rs. Also, it probably
+// deserves its own `Depth` type.
 pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 // Color
