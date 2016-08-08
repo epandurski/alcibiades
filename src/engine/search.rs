@@ -222,7 +222,7 @@ impl<'a> Search<'a> {
             // } else {
             //     self.position.evaluate_static()
             // };
-            EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
+            EntryData::new(0, BOUND_NONE, 0, 0, 0, self.position.evaluate_static())
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
@@ -255,7 +255,8 @@ impl<'a> Search<'a> {
             } else {
                 BOUND_EXACT
             };
-            self.tt.store(hash, EntryData::new(value, bound, 0, 0, entry.eval_value()));
+            self.tt.store(hash,
+                          EntryData::new(value, bound, 0, 0, 0, entry.eval_value()));
             return Ok(Some(value));
         }
 
@@ -302,7 +303,12 @@ impl<'a> Search<'a> {
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
                     self.tt.store(hash,
-                                  EntryData::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
+                                  EntryData::new(beta,
+                                                 BOUND_LOWER,
+                                                 0,
+                                                 depth,
+                                                 0,
+                                                 entry.eval_value()));
                     return Ok(Some(beta));
                 }
             }
@@ -480,7 +486,12 @@ impl<'a> Search<'a> {
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
         self.tt.store(self.position.hash(),
-                      EntryData::new(value, bound, depth, best_move.digest(), entry.eval_value()));
+                      EntryData::new(value,
+                                     bound,
+                                     0,
+                                     depth,
+                                     best_move.digest(),
+                                     entry.eval_value()));
     }
 
     // A helper method for `Search::run`. It reports search progress.

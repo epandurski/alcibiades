@@ -57,8 +57,8 @@ pub struct EntryData {
     move16: MoveDigest,
     value: Value,
     eval_value: Value,
-    gen_bound: u8,
-    depth: u8,
+    gen_bound: u8, // Stores the entry's generation and the bound type.
+    roam_depth: u8, // Stores the roam factor and the depth.
 }
 
 
@@ -78,18 +78,20 @@ impl EntryData {
     ///   position.
     pub fn new(value: Value,
                bound: BoundType,
+               roam_factor: u8,
                depth: u8,
                move16: MoveDigest,
                eval_value: Value)
                -> EntryData {
         assert!(bound <= 0b11);
-        assert!(depth < 127);
+        assert!(roam_factor <= 0b11);
+        assert!(depth < 64);
         EntryData {
             move16: move16,
             value: value,
             eval_value: eval_value,
-            gen_bound: bound, // Stores the entry's generation and the bound.
-            depth: depth,
+            gen_bound: bound,
+            roam_depth: roam_factor << 6 | depth,
         }
     }
 
@@ -104,8 +106,13 @@ impl EntryData {
     }
 
     #[inline(always)]
+    pub fn roam_factor(&self) -> u8 {
+        self.roam_depth >> 6
+    }
+
+    #[inline(always)]
     pub fn depth(&self) -> u8 {
-        self.depth
+        self.roam_depth & 0b111111
     }
 
     #[inline(always)]
@@ -383,21 +390,22 @@ mod tests {
     fn test_store_and_probe() {
         let tt = TranspositionTable::new();
         assert!(tt.probe(1).is_none());
-        let data = EntryData::new(0, 0, 100, 666, 0);
-        assert_eq!(data.depth(), 100);
+        let data = EntryData::new(0, 0, 0, 50, 666, 0);
+        assert_eq!(data.depth(), 50);
         assert_eq!(data.move16(), 666);
         tt.store(1, data);
-        assert_eq!(tt.probe(1).unwrap().depth(), 100);
-        tt.store(1, EntryData::new(0, 0, 100, 666, 0));
-        assert_eq!(tt.probe(1).unwrap().depth(), 100);
+        assert_eq!(tt.probe(1).unwrap().depth(), 50);
+        tt.store(1, EntryData::new(0, 0, 0, 50, 666, 0));
+        assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move16(), 666);
-        for i in 2..100 {
-            tt.store(i, EntryData::new(i as i16, 0, i as u8, i as u16, i as i16));
+        for i in 2..50 {
+            tt.store(i,
+                     EntryData::new(i as i16, 0, 0, i as u8, i as u16, i as i16));
         }
-        assert_eq!(tt.probe(1).unwrap().depth(), 100);
-        assert_eq!(tt.probe(99).unwrap().depth(), 99);
-        assert_eq!(tt.probe(98).unwrap().depth(), 98);
-        assert_eq!(tt.probe(97).unwrap().depth(), 97);
+        assert_eq!(tt.probe(1).unwrap().depth(), 50);
+        assert_eq!(tt.probe(49).unwrap().depth(), 49);
+        assert_eq!(tt.probe(48).unwrap().depth(), 48);
+        assert_eq!(tt.probe(47).unwrap().depth(), 47);
         tt.clear();
         assert!(tt.probe(1).is_none());
         tt.store(1, data);

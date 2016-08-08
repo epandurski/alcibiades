@@ -55,7 +55,7 @@ pub type Value = i16;
 //
 // TODO: This probably belongs to engine/mod.rs. Also, it probably
 // deserves its own `Depth` type.
-pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
+pub const MAX_DEPTH: u8 = 63;
 
 // Color
 pub const WHITE: Color = 0;
