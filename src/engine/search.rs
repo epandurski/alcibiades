@@ -95,82 +95,93 @@ impl<'a> Search<'a> {
         assert!(alpha < beta);
         let mut value = VALUE_UNKNOWN;
 
-        if let Some(v) = try!(self.node_begin(alpha, beta, depth, last_move)) {
-            // We already have the final result.
-            value = v;
+        match try!(self.node_begin(alpha, beta, depth, last_move)) {
+            NodeAdvise::Value(v) => {
+                // We already have the final value.
+                value = v;
+            }
 
-        } else {
-            // Initial guests.
-            assert!(depth > 0);
-            let mut bound = BOUND_EXACT;
-            let mut best_move = Move::invalid();
+            NodeAdvise::Reduction(r) => {
+                assert!(depth > 0);
 
-            // Try moves.
-            while let Some(m) = self.do_move() {
-                try!(self.report_progress(1));
-                let reduced_depth = if depth < 2 {
+                // Reduce the search depth according to the advice.
+                let full_depth = if depth > r {
+                    depth - r - 1
+                } else {
                     0
+                };
+                let reduced_depth = if full_depth > 0 {
+                    full_depth - 1
                 } else {
-                    depth - 2
+                    0
                 };
 
-                // Make a recursive call.
-                let v = if m.score() > REDUCTION_THRESHOLD {
-                    // The supposedly good moves we analyze with a
-                    // full depth and fully open window (alpha,
-                    // beta). If some of those really happens to be a
-                    // good move, it will probably raise `alpha`.
-                    -try!(self.run(-beta, -alpha, depth - 1, m))
-                } else {
-                    // For the supposedly not so good moves we first
-                    // try to prove that they are not better than our
-                    // current best move. For this purpose we search
-                    // them with a reduced depth and a null window
-                    // (alpha, alpha + 1). Only if it seems that the
-                    // move is better than our current best move, we
-                    // do a full-depth, full-window search.
-                    match -try!(self.run(-alpha - 1, -alpha, reduced_depth, m)) {
-                        v if v <= alpha => v,
-                        _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
-                    }
-                };
-                assert!(v > VALUE_UNKNOWN);
+                // Initial guests.
+                let mut bound = BOUND_EXACT;
+                let mut best_move = Move::invalid();
 
-                // See how good this move was.
-                if v >= beta {
-                    // This move is so good, that the opponent will
-                    // probably not allow this line of play to
-                    // happen. Therefore we should not lose any more
-                    // time on this position.
-                    best_move = m;
-                    value = v;
-                    bound = BOUND_LOWER;
-                    self.position.register_killer();
-                    self.undo_move();
-                    break;
-                }
-                if v > value {
-                    // We found a new best move.
-                    best_move = m;
-                    value = v;
-                    bound = if v > alpha {
-                        alpha = v;
-                        BOUND_EXACT
+                // Try moves.
+                while let Some(m) = self.do_move() {
+                    try!(self.report_progress(1));
+
+                    // Make a recursive call.
+                    let v = if m.score() > REDUCTION_THRESHOLD {
+                        // The supposedly good moves we analyze with a
+                        // full depth and fully open window (alpha,
+                        // beta). If some of those really happens to be a
+                        // good move, it will probably raise `alpha`.
+                        -try!(self.run(-beta, -alpha, full_depth, m))
                     } else {
-                        BOUND_UPPER
+                        // For the supposedly not so good moves we first
+                        // try to prove that they are not better than our
+                        // current best move. For this purpose we search
+                        // them with a reduced depth and a null window
+                        // (alpha, alpha + 1). Only if it seems that the
+                        // move is better than our current best move, we
+                        // do a full-depth, full-window search.
+                        match -try!(self.run(-alpha - 1, -alpha, reduced_depth, m)) {
+                            v if v <= alpha => v,
+                            _ => -try!(self.run(-beta, -alpha, full_depth, m)),
+                        }
                     };
+                    assert!(v > VALUE_UNKNOWN);
+
+                    // See how good this move was.
+                    if v >= beta {
+                        // This move is so good, that the opponent will
+                        // probably not allow this line of play to
+                        // happen. Therefore we should not lose any more
+                        // time on this position.
+                        best_move = m;
+                        value = v;
+                        bound = BOUND_LOWER;
+                        self.position.register_killer();
+                        self.undo_move();
+                        break;
+                    }
+                    if v > value {
+                        // We found a new best move.
+                        best_move = m;
+                        value = v;
+                        bound = if v > alpha {
+                            alpha = v;
+                            BOUND_EXACT
+                        } else {
+                            BOUND_UPPER
+                        };
+                    }
+                    self.undo_move();
                 }
-                self.undo_move();
-            }
 
-            // Check if we are in a final position (no legal moves).
-            if value == VALUE_UNKNOWN {
-                value = self.position.evaluate_final();
-                assert_eq!(bound, BOUND_EXACT);
-            }
+                // Check if we are in a final position (no legal moves).
+                if value == VALUE_UNKNOWN {
+                    value = self.position.evaluate_final();
+                    assert_eq!(bound, BOUND_EXACT);
+                }
 
-            // Store the result to the TT.
-            self.store(value, bound, depth, best_move);
+                // Store the result to the TT.
+                self.store(value, bound, depth, best_move);
+            }
         }
 
         self.node_end();
@@ -208,7 +219,7 @@ impl<'a> Search<'a> {
                   beta: Value,
                   depth: u8,
                   last_move: Move)
-                  -> Result<Option<Value>, TerminatedSearch> {
+                  -> Result<NodeAdvise, TerminatedSearch> {
         // Probe the transposition table.
         let hash = self.position.hash();
         let entry = if let Some(e) = self.tt.probe(hash) {
@@ -239,7 +250,7 @@ impl<'a> Search<'a> {
             if (value >= beta && bound & BOUND_LOWER != 0) ||
                (value <= alpha && bound & BOUND_UPPER != 0) ||
                (bound == BOUND_EXACT) {
-                return Ok(Some(value));
+                return Ok(NodeAdvise::Value(value));
             };
         };
 
@@ -257,7 +268,7 @@ impl<'a> Search<'a> {
             };
             self.tt.store(hash,
                           EntryData::new(value, bound, 0, 0, 0, entry.eval_value()));
-            return Ok(Some(value));
+            return Ok(NodeAdvise::Value(value));
         }
 
         // Consider null move pruning. In positions that are not prone
@@ -289,7 +300,7 @@ impl<'a> Search<'a> {
             // reach `beta`, a null move will not do it either.
             if entry.depth() >= max(0, reduced_depth) as u8 && entry.value() < beta &&
                entry.bound() & BOUND_UPPER != 0 {
-                return Ok(None);
+                return Ok(NodeAdvise::Reduction(entry.roam_factor()));
             }
 
             // Play a null move and search.
@@ -309,13 +320,13 @@ impl<'a> Search<'a> {
                                                  depth,
                                                  0,
                                                  entry.eval_value()));
-                    return Ok(Some(beta));
+                    return Ok(NodeAdvise::Value(beta));
                 }
             }
         }
 
         // Well, we do not know the value yet.
-        Ok(None)
+        Ok(NodeAdvise::Reduction(entry.roam_factor()))
     }
 
     // A helper method for `Search::run`. Each call to `Search::run`
@@ -537,6 +548,12 @@ struct NodeState {
     checkers: Bitboard,
     pinned: Bitboard,
     killer: Option<MoveDigest>,
+}
+
+
+enum NodeAdvise {
+    Value(Value),
+    Reduction(u8),
 }
 
 
