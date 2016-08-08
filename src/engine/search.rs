@@ -108,33 +108,30 @@ impl<'a> Search<'a> {
             // Try moves.
             while let Some(m) = self.do_move() {
                 try!(self.report_progress(1));
-
-                // Decide whether to apply depth reduction or not.
-                let next_depth = if depth < 2 || m.score() > REDUCTION_THRESHOLD {
-                    // no reduction
-                    depth - 1
+                let reduced_depth = if depth < 2 {
+                    0
                 } else {
-                    // -1 reduction
                     depth - 2
                 };
 
                 // Make a recursive call.
-                let v = if value == VALUE_UNKNOWN {
-                    // The first move we analyze with a fully open window
-                    // (alpha, beta). If this happens to be a good move,
-                    // it will probably raise `alpha`.
-                    -try!(self.run(-beta, -alpha, next_depth, m))
+                let v = if m.score() > REDUCTION_THRESHOLD {
+                    // The supposedly good moves we analyze with a
+                    // full depth and fully open window (alpha,
+                    // beta). If some of those really happens to be a
+                    // good move, it will probably raise `alpha`.
+                    -try!(self.run(-beta, -alpha, depth - 1, m))
                 } else {
-                    // For the next moves we first try to prove that they
-                    // are not better than our current best move. For this
-                    // purpose we analyze them with a null window (alpha,
-                    // alpha + 1). This is faster than a full window
-                    // search. Only if we are certain that the move is
-                    // better than our current best move, we do a
-                    // full-window search.
-                    match -try!(self.run(-alpha - 1, -alpha, next_depth, m)) {
+                    // For the supposedly not so good moves we first
+                    // try to prove that they are not better than our
+                    // current best move. For this purpose we search
+                    // them with a reduced depth and a null window
+                    // (alpha, alpha + 1). Only if it seems that the
+                    // move is better than our current best move, we
+                    // do a full-depth, full-window search.
+                    match -try!(self.run(-alpha - 1, -alpha, reduced_depth, m)) {
                         v if v <= alpha => v,
-                        _ => -try!(self.run(-beta, -alpha, next_depth, m)),
+                        _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
                     }
                 };
                 assert!(v > VALUE_UNKNOWN);
@@ -405,7 +402,7 @@ impl<'a> Search<'a> {
             // First -- the winning and even captures and promotions
             // to queen.
             if let NodePhase::GeneratedMoves = state.phase {
-                if m.score() > 0 {
+                if m.score() > REDUCTION_THRESHOLD {
                     if self.position.do_move(m) {
                         return Some(m);
                     }
@@ -429,9 +426,7 @@ impl<'a> Search<'a> {
                 };
                 if let Some(mut m) = self.moves.remove_move(killer) {
                     if self.position.do_move(m) {
-                        if state.checkers != 0 || self.position.board().checkers() != 0 {
-                            m.set_score(MAX_MOVE_SCORE);
-                        }
+                        m.set_score(MAX_MOVE_SCORE);
                         return Some(m);
                     }
                 }
