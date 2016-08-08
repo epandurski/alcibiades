@@ -95,12 +95,10 @@ impl<'a> Search<'a> {
         // respectively.
 
         assert!(alpha < beta);
-        let mut value = VALUE_UNKNOWN;
-
-        match try!(self.node_begin(alpha, beta, depth, last_move)) {
+        let value = match try!(self.node_begin(alpha, beta, depth, last_move)) {
             NodeAdvise::Value(v) => {
                 // We already have the final value.
-                value = v;
+                v
             }
 
             NodeAdvise::Reduction(r) => {
@@ -119,6 +117,7 @@ impl<'a> Search<'a> {
                 };
 
                 // Initial guests.
+                let mut values = ValuesCollector::new(engine::DELTA / 2);
                 let mut bound = BOUND_EXACT;
                 let mut best_move = Move::invalid();
 
@@ -150,21 +149,20 @@ impl<'a> Search<'a> {
 
                     // See how good this move was.
                     if v >= beta {
-                        // This move is so good, that the opponent will
-                        // probably not allow this line of play to
-                        // happen. Therefore we should not lose any more
-                        // time on this position.
+                        // This move is so good, that the opponent
+                        // will probably not allow this line of play
+                        // to happen. Therefore we should not lose any
+                        // more time on this position.
                         best_move = m;
-                        value = v;
                         bound = BOUND_LOWER;
                         self.position.register_killer();
+                        values.add(v);
                         self.undo_move();
                         break;
                     }
-                    if v > value {
+                    if v > values.best() {
                         // We found a new best move.
                         best_move = m;
-                        value = v;
                         bound = if v > alpha {
                             alpha = v;
                             BOUND_EXACT
@@ -172,19 +170,21 @@ impl<'a> Search<'a> {
                             BOUND_UPPER
                         };
                     }
+                    values.add(v);
                     self.undo_move();
                 }
 
                 // Check if we are in a final position (no legal moves).
-                if value == VALUE_UNKNOWN {
-                    value = self.position.evaluate_final();
+                if values.best() == VALUE_UNKNOWN {
+                    values.add(self.position.evaluate_final());
                     assert_eq!(bound, BOUND_EXACT);
                 }
 
                 // Store the result to the TT.
-                self.store(value, bound, depth, best_move);
+                self.store(values.best(), bound, depth, best_move);
+                values.best()
             }
-        }
+        };
 
         self.node_end();
         Ok(value)
