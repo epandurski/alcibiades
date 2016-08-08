@@ -1,6 +1,8 @@
 //! Implements single-threaded game tree search.
 
+use std::u64;
 use std::cmp::max;
+use std::num::Wrapping;
 use basetypes::*;
 use chess_move::*;
 use position::Position;
@@ -557,9 +559,78 @@ enum NodeAdvise {
 }
 
 
+struct ValuesCollector {
+    delta: Value,
+    best: Value,
+    moves: u64,
+}
+
+
+impl ValuesCollector {
+    #[inline]
+    pub fn new(delta: Value) -> ValuesCollector {
+        assert!(delta < 16);
+        ValuesCollector {
+            delta: delta,
+            best: VALUE_UNKNOWN,
+            moves: 0,
+        }
+    }
+
+    #[inline]
+    pub fn add(&mut self, value: Value) {
+        match value {
+            v if v + self.delta < self.best => (),
+            v if v > self.best => {
+                let shift = (v as isize - self.best as isize) << 2;
+                if shift < 64 {
+                    self.moves <<= shift;
+                    self.moves &= u64::MAX >> ((15 - self.delta) << 2);
+                    self.moves += 1;
+                } else {
+                    self.moves = 1;
+                };
+                self.best = v;
+            }
+            v => {
+                let shift = (self.best - v) << 2;
+                let mut x = (self.moves >> shift) + 1;
+                let mut ls1b = x & (Wrapping(0) - Wrapping(x)).0;
+                let mut mask = 0b1111;
+                loop {
+                    ls1b >>= 4;
+                    if ls1b == 0 {
+                        break;
+                    }
+                    x |= mask;
+                    mask <<= 4;
+                }
+                self.moves = (x << shift) | (self.moves & !(u64::MAX << shift));
+            }
+        }
+    }
+
+    #[inline]
+    pub fn count(&self) -> usize {
+        let mut moves = self.moves;
+        let mut count = 0;
+        while moves != 0 {
+            count += moves & 0b1111;
+            moves >>= 4;
+        }
+        count as usize
+    }
+
+    #[inline(always)]
+    pub fn best(&self) -> Value {
+        self.best
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
-    use super::Search;
+    use super::{Search, ValuesCollector};
     use engine::tt::*;
     use chess_move::*;
     use position::Position;
@@ -581,5 +652,53 @@ mod tests {
                           .ok()
                           .unwrap();
         assert!(value >= 20000);
+    }
+
+    #[test]
+    fn test_values_collector() {
+        use basetypes::*;
+        let mut vc = ValuesCollector::new(12);
+        assert_eq!(vc.best(), VALUE_UNKNOWN);
+        assert_eq!(vc.count(), 0);
+        vc.add(1);
+        assert_eq!(vc.best(), 1);
+        assert_eq!(vc.count(), 1);
+        vc.add(5);
+        assert_eq!(vc.best(), 5);
+        assert_eq!(vc.count(), 2);
+        vc.add(5);
+        assert_eq!(vc.best(), 5);
+        assert_eq!(vc.count(), 3);
+        vc.add(-30);
+        assert_eq!(vc.best(), 5);
+        assert_eq!(vc.count(), 3);
+        vc.add(-5);
+        vc.add(-5);
+        assert_eq!(vc.best(), 5);
+        assert_eq!(vc.count(), 5);
+        vc.add(10);
+        assert_eq!(vc.best(), 10);
+        assert_eq!(vc.count(), 4);
+        for _ in 0..100 {
+            vc.add(9);
+        }
+        assert_eq!(vc.best(), 10);
+        assert_eq!(vc.count(), 104);
+        
+        let mut vc = ValuesCollector::new(0);
+        assert_eq!(vc.best(), VALUE_UNKNOWN);
+        assert_eq!(vc.count(), 0);
+        vc.add(1);
+        assert_eq!(vc.best(), 1);
+        assert_eq!(vc.count(), 1);
+        vc.add(0);
+        assert_eq!(vc.best(), 1);
+        assert_eq!(vc.count(), 1);
+        vc.add(1);
+        assert_eq!(vc.best(), 1);
+        assert_eq!(vc.count(), 2);
+        vc.add(2);
+        assert_eq!(vc.best(), 2);
+        assert_eq!(vc.count(), 1);
     }
 }
