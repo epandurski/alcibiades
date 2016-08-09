@@ -196,11 +196,14 @@ impl BoardGeometry {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
         match piece {
-            KING => king_attacks(from_square),
-            QUEEN => queen_attacks(from_square, occupied),
-            ROOK => rook_attacks(from_square, occupied),
-            BISHOP => bishop_attacks(from_square, occupied),
-            _ => knight_attacks(from_square),
+            KING => *KING_MAP.get_unchecked(from_square),
+            QUEEN => {
+                BISHOP_MAP.get_unchecked(from_square).att(occupied) |
+                ROOK_MAP.get_unchecked(from_square).att(occupied)
+            }
+            ROOK => ROOK_MAP.get_unchecked(from_square).att(occupied),
+            BISHOP => BISHOP_MAP.get_unchecked(from_square).att(occupied),
+            _ => *KNIGHT_MAP.get_unchecked(from_square),
         }
     }
 
@@ -442,34 +445,6 @@ impl ZobristArrays {
             arrays.as_ref().unwrap()
         }
     }
-}
-
-
-// Helper functions for `piece_attacks_from`.
-#[inline(always)]
-unsafe fn knight_attacks(from_square: Square) -> Bitboard {
-    *KNIGHT_MAP.get_unchecked(from_square)
-}
-
-#[inline(always)]
-unsafe fn king_attacks(from_square: Square) -> Bitboard {
-    *KING_MAP.get_unchecked(from_square)
-}
-
-#[inline(always)]
-unsafe fn bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
-    BISHOP_MAP.get_unchecked(from_square).att(occupied)
-}
-
-#[inline(always)]
-unsafe fn rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
-    ROOK_MAP.get_unchecked(from_square).att(occupied)
-}
-
-#[inline(always)]
-unsafe fn queen_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
-    BISHOP_MAP.get_unchecked(from_square).att(occupied) |
-    ROOK_MAP.get_unchecked(from_square).att(occupied)
 }
 
 
