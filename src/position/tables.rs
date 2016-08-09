@@ -449,16 +449,16 @@ impl ZobristArrays {
 pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
 pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
 
-pub fn bb_row(from: u32) -> u64 {
-    BB_RANK_1 << (8 * (from / 8))
+pub fn bb_row(square: Square) -> Bitboard {
+    BB_RANK_1 << (8 * (square / 8))
 }
 
-pub fn bb_file(from: u32) -> u64 {
-    BB_FILE_A << (from % 8)
+pub fn bb_file(square: Square) -> Bitboard {
+    BB_FILE_A << (square % 8)
 }
 
-pub fn bb_diag(from: u32) -> u64 {
-    let diag_index = ((from / 8).wrapping_sub(from % 8)) & 15;
+pub fn bb_diag(square: Square) -> Bitboard {
+    let diag_index = ((square / 8).wrapping_sub(square % 8)) & 15;
     if diag_index <= 7 {
         BB_MAIN_DIAG << (8 * diag_index)
     } else {
@@ -466,8 +466,8 @@ pub fn bb_diag(from: u32) -> u64 {
     }
 }
 
-pub fn bb_anti_diag(from: u32) -> u64 {
-    let diag_index = ((from / 8) + (from % 8)) ^ 7;
+pub fn bb_anti_diag(square: Square) -> Bitboard {
+    let diag_index = ((square / 8) + (square % 8)) ^ 7;
     if diag_index <= 7 {
         BB_MAIN_ANTI_DIAG >> (8 * diag_index)
     } else {
@@ -494,11 +494,11 @@ fn get_attacks(piece: u64, occ: u64, mask: u64) -> u64 {
     (forward ^ rev) & mask
 }
 
-fn rook_attacks(piece: u64, from: u32, occ: u64) -> u64 {
+fn rook_attacks(piece: u64, from: Square, occ: u64) -> u64 {
     get_attacks(piece, occ, bb_file(from)) | get_attacks(piece, occ, bb_row(from))
 }
 
-fn bishop_attacks(piece: u64, from: u32, occ: u64) -> u64 {
+fn bishop_attacks(piece: u64, from: Square, occ: u64) -> u64 {
     get_attacks(piece, occ, bb_diag(from)) | get_attacks(piece, occ, bb_anti_diag(from))
 }
 
@@ -605,16 +605,16 @@ unsafe fn get_piece_map(piece: PieceType,
     for (pos, entry) in piece_map.iter_mut().enumerate() {
         let s = pos as u32;
 
-        let edges = ((BB_RANK_1 | BB_RANK_8) & !bb_row(s)) |
-                    ((BB_FILE_A | BB_FILE_H) & !bb_file(s));
+        let edges = ((BB_RANK_1 | BB_RANK_8) & !bb_row(s as Square)) |
+                    ((BB_FILE_A | BB_FILE_H) & !bb_file(s as Square));
 
         // The mask for square `s` is the set of moves on an empty board.
-        let attacks: fn(u64, u32, u64) -> u64 = if piece == BISHOP {
+        let attacks: fn(u64, Square, u64) -> u64 = if piece == BISHOP {
             bishop_attacks
         } else {
             rook_attacks
         };
-        let mask = attacks(1 << s, s, 1 << s) & !edges;
+        let mask = attacks(1 << s, s as Square, 1 << s) & !edges;
         let num_ones = mask.count_ones();
         let shift = 64 - num_ones;
 
@@ -625,7 +625,7 @@ unsafe fn get_piece_map(piece: PieceType,
         let mut occ = 0;
         loop {
             occupancy[size] = occ;
-            reference[size] = attacks(1 << s, s, occ | (1 << s));
+            reference[size] = attacks(1 << s, s as Square, occ | (1 << s));
 
             size += 1;
             occ = occ.wrapping_sub(mask) & mask;
