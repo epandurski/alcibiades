@@ -196,11 +196,11 @@ impl BoardGeometry {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
         match piece {
-            KING => king_moves(from_square),
-            QUEEN => queen_moves(from_square, occupied),
-            ROOK => rook_moves(from_square, occupied),
-            BISHOP => bishop_moves(from_square, occupied),
-            _ => knight_moves(from_square),
+            KING => king_attacks(from_square),
+            QUEEN => queen_attacks(from_square, occupied),
+            ROOK => rook_attacks(from_square, occupied),
+            BISHOP => bishop_attacks(from_square, occupied),
+            _ => knight_attacks(from_square),
         }
     }
 
@@ -464,44 +464,45 @@ fn get_attacks(piece: u64, occ: u64, mask: u64) -> u64 {
     (forward ^ rev) & mask
 }
 
-fn rook_attacks(piece: u64, from: Square, occ: u64) -> u64 {
+fn get_rook_attacks(piece: u64, from: Square, occ: u64) -> u64 {
     get_attacks(piece, occ, bb_file(from)) | get_attacks(piece, occ, bb_rank(from))
 }
 
-fn bishop_attacks(piece: u64, from: Square, occ: u64) -> u64 {
+fn get_bishop_attacks(piece: u64, from: Square, occ: u64) -> u64 {
     get_attacks(piece, occ, bb_diag(from)) | get_attacks(piece, occ, bb_anti_diag(from))
 }
 
 // Helper functions for `piece_attacks_from`.
 #[inline(always)]
-unsafe fn knight_moves(from_square: Square) -> u64 {
+unsafe fn knight_attacks(from_square: Square) -> Bitboard {
     *KNIGHT_MAP.get_unchecked(from_square)
 }
 
 #[inline(always)]
-unsafe fn king_moves(from_square: Square) -> u64 {
+unsafe fn king_attacks(from_square: Square) -> Bitboard {
     *KING_MAP.get_unchecked(from_square)
 }
 
 #[inline(always)]
-unsafe fn bishop_moves(from_square: Square, occ: u64) -> u64 {
-    BISHOP_MAP.get_unchecked(from_square).att(occ)
+unsafe fn bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+    BISHOP_MAP.get_unchecked(from_square).att(occupied)
 }
 
 #[inline(always)]
-unsafe fn rook_moves(from_square: Square, occ: u64) -> u64 {
-    ROOK_MAP.get_unchecked(from_square).att(occ)
+unsafe fn rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+    ROOK_MAP.get_unchecked(from_square).att(occupied)
 }
 
 #[inline(always)]
-unsafe fn queen_moves(from_square: Square, occ: u64) -> u64 {
-    BISHOP_MAP.get_unchecked(from_square).att(occ) | ROOK_MAP.get_unchecked(from_square).att(occ)
+unsafe fn queen_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+    BISHOP_MAP.get_unchecked(from_square).att(occupied) |
+    ROOK_MAP.get_unchecked(from_square).att(occupied)
 }
 
 
 // Global attack tables (uninitialized).
-static mut KING_MAP: [u64; 64] = [0; 64];
-static mut KNIGHT_MAP: [u64; 64] = [0; 64];
+static mut KING_MAP: [Bitboard; 64] = [0; 64];
+static mut KNIGHT_MAP: [Bitboard; 64] = [0; 64];
 static mut BISHOP_MAP: [SMagic; 64] = [SMagic {
     offset: 0,
     mask: 0,
@@ -515,7 +516,7 @@ static mut ROOK_MAP: [SMagic; 64] = [SMagic {
     shift: 0,
 }; 64];
 const MAP_SIZE: usize = 107648;
-static mut MAP: [u64; MAP_SIZE] = [0; MAP_SIZE];
+static mut MAP: [Bitboard; MAP_SIZE] = [0; MAP_SIZE];
 
 
 // Initializes the global attack tables.
@@ -580,9 +581,9 @@ unsafe fn get_piece_map(piece: PieceType,
 
         // The mask for square `s` is the set of moves on an empty board.
         let attacks: fn(u64, Square, u64) -> u64 = if piece == BISHOP {
-            bishop_attacks
+            get_bishop_attacks
         } else {
-            rook_attacks
+            get_rook_attacks
         };
         let mask = attacks(1 << s, s as Square, 1 << s) & !edges;
         let num_ones = mask.count_ones();
@@ -673,9 +674,9 @@ struct SMagic {
 
 impl SMagic {
     #[inline(always)]
-    pub unsafe fn att(&self, occ: u64) -> u64 {
-        let index = (self.magic.wrapping_mul(occ & self.mask)) >> self.shift;
-        *MAP.get_unchecked(self.offset + index as usize)
+    pub unsafe fn att(&self, occupied: Bitboard) -> Bitboard {
+        let index = (self.magic.wrapping_mul(occupied & self.mask)) >> self.shift;
+        *MAP.get_unchecked(self.offset.wrapping_add(index as usize))
     }
 }
 
