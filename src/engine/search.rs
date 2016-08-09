@@ -181,7 +181,7 @@ impl<'a> Search<'a> {
                 }
 
                 // Store the result to the TT.
-                self.store(values.best(), bound, depth, best_move);
+                self.store(values.best(), bound, values.count(), depth, best_move);
                 values.best()
             }
         };
@@ -496,12 +496,16 @@ impl<'a> Search<'a> {
     // A helper method for `Search::run`. It stores the updated node
     // information in the transposition table.
     #[inline]
-    fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
+    fn store(&mut self, value: Value, bound: BoundType, count: usize, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
         self.tt.store(self.position.hash(),
                       EntryData::new(value,
                                      bound,
-                                     0,
+                                     if count < 10 || depth < 3 {
+                                         0
+                                     } else {
+                                         0
+                                     },
                                      depth,
                                      best_move.digest(),
                                      entry.eval_value()));
@@ -684,7 +688,7 @@ mod tests {
         }
         assert_eq!(vc.best(), 10);
         assert_eq!(vc.count(), 104);
-        
+
         let mut vc = ValuesCollector::new(0);
         assert_eq!(vc.best(), VALUE_UNKNOWN);
         assert_eq!(vc.count(), 0);

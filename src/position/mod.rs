@@ -545,13 +545,13 @@ impl Position {
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
-        // is used to establish a lower bound on the score
-        // (`stand_pat`). We assume that even if none of the capturing
-        // moves can improve over the stand pat, there will be at
-        // least one "quiet" move that will at least preserve the
-        // stand pat value. (Note that this is not true if the the
-        // side to move is in check!)
-        let stand_pat = if not_in_check {
+        // is used to establish a lower bound on the score ("stand
+        // pat"). We assume that even if none of the capturing moves
+        // can improve over the stand pat, there will be at least one
+        // "quiet" move that will at least preserve the stand pat
+        // value. (Note that this is not true if the the side to move
+        // is in check!)
+        let mut value = if not_in_check {
             if static_evaluation != VALUE_UNKNOWN {
                 assert!(static_evaluation > -20000 && static_evaluation < 20000);
                 static_evaluation
@@ -561,15 +561,17 @@ impl Position {
                 v
             }
         } else {
-            lower_bound
+            // Subtracting a safety margin so as not to mess the roam
+            // factor.
+            lower_bound - 16
         };
-        if stand_pat >= upper_bound {
-            return stand_pat;
+        if value >= upper_bound {
+            return value;
         }
-        if stand_pat > lower_bound {
-            lower_bound = stand_pat;
+        if value > lower_bound {
+            lower_bound = value;
         }
-        let obligatory_material_gain = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
+        let obligatory_material_gain = lower_bound - value - 2 * PIECE_VALUES[PAWN];
 
         // Generate all non-quiet moves.
         move_stack.save();
@@ -623,21 +625,24 @@ impl Position {
             unsafe {
                 if self.board_mut().do_move(m).is_some() {
                     *searched_nodes += 1;
-                    let value = -self.qsearch(-upper_bound,
-                                              -lower_bound,
-                                              VALUE_UNKNOWN,
-                                              recapture_squares ^ dest_square_bb,
-                                              ply + 1,
-                                              move_stack,
-                                              eval_func,
-                                              searched_nodes);
+                    let v = -self.qsearch(-upper_bound,
+                                          -lower_bound,
+                                          VALUE_UNKNOWN,
+                                          recapture_squares ^ dest_square_bb,
+                                          ply + 1,
+                                          move_stack,
+                                          eval_func,
+                                          searched_nodes);
                     self.board_mut().undo_move(m);
-                    if value >= upper_bound {
-                        lower_bound = value;
+                    if v >= upper_bound {
+                        value = v;
                         break;
                     }
-                    if value > lower_bound {
-                        lower_bound = value;
+                    if v > value {
+                        value = v;
+                        if v > lower_bound {
+                            lower_bound = v;
+                        }
                     }
 
                     // Mark that a recapture at this field had been tried.
@@ -651,7 +656,7 @@ impl Position {
         // -19999 and 19999, otherwise the engine might decline to
         // checkmate the opponent seeking the huge material gain that
         // `qsearch` had promised.
-        match lower_bound {
+        match value {
             x if x < -19999 => -19999,
             x if x > 19999 => 19999,
             x => x,

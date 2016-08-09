@@ -21,7 +21,7 @@ use self::uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDesc
 use self::threading::*;
 
 
-const VERSION: &'static str = "0.1";
+const VERSION: &'static str = "0.2";
 
 // The initial half-with of the aspiration window (in centipawns).
 const DELTA: Value = 17; //16;
