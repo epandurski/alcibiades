@@ -2,6 +2,7 @@
 
 use basetypes::*;
 use position::bitsets::*;
+use position::magics;
 
 
 /// Look-up tables and look-up methods for move generation.
@@ -105,6 +106,10 @@ pub struct BoardGeometry {
 impl BoardGeometry {
     /// Creates and initializes a new instance.
     pub fn new() -> BoardGeometry {
+        unsafe {
+            magics::init();
+        }
+
         // We use 10x12 grid (8x8 with guarding markers, 2 at top and
         // bottom, 1 at the sides), so that we can detect out-of-board
         // movements. Each cell in the grid contains the corresponding
@@ -181,6 +186,42 @@ impl BoardGeometry {
     ///
     /// * `piece < PAWN`.
     /// * `from_square <= 63`.
+    #[cfg(target_pointer_width = "64")]
+    #[inline]
+    pub unsafe fn piece_attacks_from(&self,
+                                     occupied: Bitboard,
+                                     piece: PieceType,
+                                     from_square: Square)
+                                     -> Bitboard {
+        assert!(piece < PAWN);
+        assert!(from_square <= 63);
+        match piece {
+            KING => magics::king_moves(from_square),
+            QUEEN => magics::queen_moves(from_square, occupied),
+            ROOK => magics::rook_moves(from_square, occupied),
+            BISHOP => magics::bishop_moves(from_square, occupied),
+            KNIGHT => magics::knight_moves(from_square),
+            _ => panic!("Wrong piece type"),
+        }
+    }
+    
+    /// Returns the set of squares that are attacked by a piece (not a
+    /// pawn).
+    ///
+    /// This function returns the set of squares that are attacked by
+    /// a piece of type `piece` from the square `from_square`, on a
+    /// board which is occupied with other pieces according to the
+    /// `occupied` bitboard.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it is extremely
+    /// performace-critical, and so it does unchecked array
+    /// accesses. Users of this method should make sure that:
+    ///
+    /// * `piece < PAWN`.
+    /// * `from_square <= 63`.
+    #[cfg(target_pointer_width = "32")]
     #[inline]
     pub unsafe fn piece_attacks_from(&self,
                                      occupied: Bitboard,
