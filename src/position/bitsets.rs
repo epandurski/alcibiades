@@ -319,11 +319,19 @@ fn reverse(mut v: u64) -> u64 {
 }
 
 
-// Calculate sliding piece moves for a given occupancy and mask
-fn calc_line_attacks(piece: Bitboard, occupied: Bitboard, line: Bitboard) -> Bitboard {
+// A helper function for `calc_rook_attacks` and
+// `calc_bishop_attacks`. It calculates the set of squares, lying on a
+// single straight line (a file, rank, diagonal, or anti-diagonal),
+// that a piece can attack from a given square and specified board
+// occupancy. To accomplish this, it uses some really beautiful bit
+// manipulations that are almost indistinguishable from magic.
+fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
+    assert!(from_square <= 63);
+    let from_square_bb = 1u64 << from_square;
     let potential_blockers = occupied & line;
-    let forward = potential_blockers.wrapping_sub(piece.wrapping_mul(2));
-    let rev = reverse(reverse(potential_blockers).wrapping_sub(reverse(piece).wrapping_mul(2)));
+    let forward = potential_blockers.wrapping_sub(from_square_bb.wrapping_mul(2));
+    let rev = reverse(reverse(potential_blockers)
+                          .wrapping_sub(reverse(from_square_bb).wrapping_mul(2)));
     (forward ^ rev) & line
 }
 
@@ -335,10 +343,8 @@ fn calc_line_attacks(piece: Bitboard, occupied: Bitboard, line: Bitboard) -> Bit
 /// attacked by a rook from the square `from_square`, on a board which
 /// is occupied with pieces according to the `occupied` bitboard.
 pub fn calc_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
-    assert!(from_square <= 63);
-    let from_square_bb = 1 << from_square;
-    calc_line_attacks(from_square_bb, occupied, bb_file(from_square)) |
-    calc_line_attacks(from_square_bb, occupied, bb_rank(from_square))
+    calc_line_attacks(bb_file(from_square), from_square, occupied) |
+    calc_line_attacks(bb_rank(from_square), from_square, occupied)
 }
 
 
@@ -350,10 +356,8 @@ pub fn calc_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
 /// which is occupied with pieces according to the `occupied`
 /// bitboard.
 pub fn calc_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
-    assert!(from_square <= 63);
-    let from_square_bb = 1 << from_square;
-    calc_line_attacks(from_square_bb, occupied, bb_diag(from_square)) |
-    calc_line_attacks(from_square_bb, occupied, bb_anti_diag(from_square))
+    calc_line_attacks(bb_diag(from_square), from_square, occupied) |
+    calc_line_attacks(bb_anti_diag(from_square), from_square, occupied)
 }
 
 
