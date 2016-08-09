@@ -246,7 +246,7 @@ impl<'a> Search<'a> {
         });
 
         // Check if the TT entry gives the result.
-        if entry.depth() >= depth {
+        if entry.depth() + entry.roam_factor() >= depth {
             let value = entry.value();
             let bound = entry.bound();
             if (value >= beta && bound & BOUND_LOWER != 0) ||
@@ -501,10 +501,10 @@ impl<'a> Search<'a> {
         self.tt.store(self.position.hash(),
                       EntryData::new(value,
                                      bound,
-                                     if count < 10 || depth < 3 {
+                                     if count < 13 {
                                          0
                                      } else {
-                                         0
+                                         1
                                      },
                                      depth,
                                      best_move.digest(),
