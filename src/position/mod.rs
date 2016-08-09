@@ -1,7 +1,6 @@
 //! Implements the rules of chess and position evaluation logic.
 
 pub mod bitsets;
-pub mod magics;
 pub mod tables;
 pub mod board;
 pub mod evaluation;
