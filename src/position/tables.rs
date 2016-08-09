@@ -107,7 +107,7 @@ impl BoardGeometry {
     /// Creates and initializes a new instance.
     pub fn new() -> BoardGeometry {
         unsafe {
-            init();
+            init_magics();
         }
 
         // We use 10x12 grid (8x8 with guarding markers, 2 at top and
@@ -204,7 +204,7 @@ impl BoardGeometry {
             _ => panic!("Wrong piece type"),
         }
     }
-    
+
     /// Returns the set of squares that are attacked by a piece (not a
     /// pawn).
     ///
@@ -446,7 +446,7 @@ impl ZobristArrays {
 }
 
 
-        
+
 pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
 pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
 
@@ -488,18 +488,18 @@ pub fn reverse(mut v: u64) -> u64 {
 }
 
 /// Calculate sliding piece moves for a given occupancy and mask
-pub fn get_attacks(piece: u64, occ: u64, mask: u64) -> u64 {
+fn get_attacks(piece: u64, occ: u64, mask: u64) -> u64 {
     let pot_blockers = occ & mask;
     let forward = pot_blockers.wrapping_sub(piece.wrapping_mul(2));
     let rev = reverse(reverse(pot_blockers).wrapping_sub(reverse(piece).wrapping_mul(2)));
     (forward ^ rev) & mask
 }
 
-pub fn rook_attacks(piece: u64, from: u32, occ: u64) -> u64 {
+fn rook_attacks(piece: u64, from: u32, occ: u64) -> u64 {
     get_attacks(piece, occ, bb_file(from)) | get_attacks(piece, occ, bb_row(from))
 }
 
-pub fn bishop_attacks(piece: u64, from: u32, occ: u64) -> u64 {
+fn bishop_attacks(piece: u64, from: u32, occ: u64) -> u64 {
     get_attacks(piece, occ, bb_diag(from)) | get_attacks(piece, occ, bb_anti_diag(from))
 }
 
@@ -522,31 +522,33 @@ const MAP_SIZE: usize = 107648;
 static mut MAP: [u64; MAP_SIZE] = [0; MAP_SIZE];
 
 #[inline(always)]
-pub fn knight_moves(from_square: Square) -> u64 {
+fn knight_moves(from_square: Square) -> u64 {
     unsafe { KNIGHT_MAP[from_square] }
 }
 
 #[inline(always)]
-pub fn king_moves(from_square: Square) -> u64 {
+fn king_moves(from_square: Square) -> u64 {
     unsafe { KING_MAP[from_square] }
 }
 
 #[inline(always)]
-pub fn bishop_moves(from_square: Square, occ: u64) -> u64 {
+fn bishop_moves(from_square: Square, occ: u64) -> u64 {
     unsafe { BISHOP_MAP[from_square].att(occ) }
 }
 
 #[inline(always)]
-pub fn rook_moves(from_square: Square, occ: u64) -> u64 {
+fn rook_moves(from_square: Square, occ: u64) -> u64 {
     unsafe { ROOK_MAP[from_square].att(occ) }
 }
 
 #[inline(always)]
-pub fn queen_moves(from_square: Square, occ: u64) -> u64 {
+fn queen_moves(from_square: Square, occ: u64) -> u64 {
     unsafe { BISHOP_MAP[from_square].att(occ) | ROOK_MAP[from_square].att(occ) }
 }
 
-pub unsafe fn init() {
+
+// Initialize the magic bitboard tables.
+unsafe fn init_magics() {
     king_map_init();
     knight_map_init();
 
@@ -555,7 +557,9 @@ pub unsafe fn init() {
     assert!(total == MAP_SIZE);
 }
 
-pub unsafe fn knight_map_init() {
+
+// A helper function for `init_magics`.
+unsafe fn knight_map_init() {
     let offsets = vec![(-1, -2), (-2, -1), (-2, 1), (-1, 2), (1, -2), (2, -1), (2, 1), (1, 2)];
 
     for (i, attacks) in KNIGHT_MAP.iter_mut().enumerate() {
@@ -569,7 +573,9 @@ pub unsafe fn knight_map_init() {
     }
 }
 
-pub unsafe fn king_map_init() {
+
+// A helper function for `init_magics`.
+unsafe fn king_map_init() {
     let offsets = vec![(1, -1), (1, 0), (1, 1), (0, -1), (0, 1), (-1, -1), (-1, 0), (-1, 1)];
 
     for (i, attacks) in KING_MAP.iter_mut().enumerate() {
@@ -583,26 +589,14 @@ pub unsafe fn king_map_init() {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct SMagic {
-    pub offset: usize,
-    pub mask: u64,
-    pub magic: u64,
-    pub shift: u32,
-}
 
-impl SMagic {
-    pub unsafe fn att(&self, occ: u64) -> u64 {
-        let ind = (self.magic.wrapping_mul(occ & self.mask)) >> self.shift;
-        MAP[self.offset + ind as usize]
-    }
-}
-
-pub unsafe fn get_piece_map(piece: PieceType,
-                            piece_map: &mut [SMagic; 64],
-                            mut offset: usize,
-                            from_scratch: bool)
-                            -> usize {
+// A helper function for `init_magics`. It initializes the magic
+// bitboard table.
+unsafe fn get_piece_map(piece: PieceType,
+                        piece_map: &mut [SMagic; 64],
+                        mut offset: usize,
+                        from_scratch: bool)
+                        -> usize {
 
     let mut rng = thread_rng();
 
@@ -692,6 +686,26 @@ pub unsafe fn get_piece_map(piece: PieceType,
     }
     offset
 }
+
+
+// This structure is a window into the global magic look-up table that
+// contains the attacks data for a particular piece type (bishop,
+// rook, queen).
+#[derive(Copy, Clone)]
+struct SMagic {
+    pub offset: usize,
+    pub mask: u64,
+    pub magic: u64,
+    pub shift: u32,
+}
+
+impl SMagic {
+    pub unsafe fn att(&self, occ: u64) -> u64 {
+        let index = (self.magic.wrapping_mul(occ & self.mask)) >> self.shift;
+        *MAP.get_unchecked(self.offset + index as usize)
+    }
+}
+
 
 static BISHOP_MAGICS: [u64; 64] = [306397059236266368,
                                    6638343277122827280,
@@ -823,7 +837,7 @@ static ROOK_MAGICS: [u64; 64] = [36028867955671040,
                                  334255838724676,
                                  27323018585852550];
 
-        
+
 #[cfg(test)]
 mod tests {
     use super::*;
