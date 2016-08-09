@@ -445,9 +445,10 @@ impl ZobristArrays {
 }
 
 
-/// Reverse the bits in a 64 bit number using a recursive algorithm
-/// which swaps the order of sub-elements, starting with even and odd bits
-pub fn reverse(mut v: u64) -> u64 {
+// Reverse the bits in a 64 bit number using a recursive algorithm
+// which swaps the order of sub-elements, starting with even and odd
+// bits
+fn reverse(mut v: u64) -> u64 {
     v = ((v >> 1) & 0x5555555555555555) | ((v & 0x5555555555555555) << 1);
     v = ((v >> 2) & 0x3333333333333333) | ((v & 0x3333333333333333) << 2);
     v = ((v >> 4) & 0x0F0F0F0F0F0F0F0F) | ((v & 0x0F0F0F0F0F0F0F0F) << 4);
@@ -456,7 +457,8 @@ pub fn reverse(mut v: u64) -> u64 {
     ((v >> 32) & 0x00000000FFFFFFFF) | ((v & 0x00000000FFFFFFFF) << 32)
 }
 
-/// Calculate sliding piece moves for a given occupancy and mask
+
+// Calculate sliding piece moves for a given occupancy and mask
 fn get_line_attacks(piece: Bitboard, occupied: Bitboard, line: Bitboard) -> Bitboard {
     let potential_blockers = occupied & line;
     let forward = potential_blockers.wrapping_sub(piece.wrapping_mul(2));
@@ -473,6 +475,7 @@ fn get_bishop_attacks(piece: Bitboard, from_square: Square, occupied: Bitboard) 
     get_line_attacks(piece, occupied, bb_diag(from_square)) |
     get_line_attacks(piece, occupied, bb_anti_diag(from_square))
 }
+
 
 // Helper functions for `piece_attacks_from`.
 #[inline(always)]
