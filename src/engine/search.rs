@@ -168,7 +168,7 @@ impl<'a> Search<'a> {
                 assert_eq!(bound, BOUND_EXACT);
             }
 
-            // Store the result to the TT.
+            // Store the result to the transposition table.
             self.store(value, bound, depth, best_move);
         }
 
