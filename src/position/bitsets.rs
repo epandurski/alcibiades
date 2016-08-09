@@ -30,6 +30,10 @@ pub const BB_FILE_H: Bitboard = BB_FILE_G << 1;
 // Rank 1 or 8.
 pub const BB_PAWN_PROMOTION_RANKS: Bitboard = BB_RANK_1 | BB_RANK_8;
 
+// The main diagonal (A1-H8), and the main anti-diagonal (A8-H1).
+pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
+pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
+
 
 /// Returns only LS1B of a value.
 ///
@@ -258,6 +262,47 @@ pub fn bitscan_1bit(b: Bitboard) -> Square {
 pub fn pop_count(b: Bitboard) -> usize {
     b.count_ones() as usize
 }
+
+
+/// Returns the set of squares on the same rank as `square`.
+pub fn bb_rank(square: Square) -> Bitboard {
+    BB_RANK_1 << (8 * (square / 8))
+}
+
+
+/// Returns the set of squares on the same file as `square`.
+pub fn bb_file(square: Square) -> Bitboard {
+    BB_FILE_A << (square % 8)
+}
+
+
+/// Returns the set of squares on the same diagonal as `square`.
+///
+/// Diagonals go from white's queen-side to black's king-side (A1-H8
+/// for example).
+pub fn bb_diag(square: Square) -> Bitboard {
+    let diag_index = ((square / 8).wrapping_sub(square % 8)) & 15;
+    if diag_index <= 7 {
+        BB_MAIN_DIAG << (8 * diag_index)
+    } else {
+        BB_MAIN_DIAG >> (8 * (16 - diag_index))
+    }
+}
+
+
+/// Returns the set of squares on the same anti-diagonal as `square`.
+///
+/// Anti-diagonals go from white's king-side to black's queen-side
+/// (H1-A8 for example).
+pub fn bb_anti_diag(square: Square) -> Bitboard {
+    let diag_index = ((square / 8) + (square % 8)) ^ 7;
+    if diag_index <= 7 {
+        BB_MAIN_ANTI_DIAG >> (8 * diag_index)
+    } else {
+        BB_MAIN_ANTI_DIAG << (8 * (16 - diag_index))
+    }
+}
+
 
 
 #[cfg(test)]

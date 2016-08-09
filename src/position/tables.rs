@@ -445,36 +445,6 @@ impl ZobristArrays {
 }
 
 
-
-pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
-pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
-
-pub fn bb_row(square: Square) -> Bitboard {
-    BB_RANK_1 << (8 * (square / 8))
-}
-
-pub fn bb_file(square: Square) -> Bitboard {
-    BB_FILE_A << (square % 8)
-}
-
-pub fn bb_diag(square: Square) -> Bitboard {
-    let diag_index = ((square / 8).wrapping_sub(square % 8)) & 15;
-    if diag_index <= 7 {
-        BB_MAIN_DIAG << (8 * diag_index)
-    } else {
-        BB_MAIN_DIAG >> (8 * (16 - diag_index))
-    }
-}
-
-pub fn bb_anti_diag(square: Square) -> Bitboard {
-    let diag_index = ((square / 8) + (square % 8)) ^ 7;
-    if diag_index <= 7 {
-        BB_MAIN_ANTI_DIAG >> (8 * diag_index)
-    } else {
-        BB_MAIN_ANTI_DIAG << (8 * (16 - diag_index))
-    }
-}
-
 /// Reverse the bits in a 64 bit number using a recursive algorithm
 /// which swaps the order of sub-elements, starting with even and odd bits
 pub fn reverse(mut v: u64) -> u64 {
@@ -495,7 +465,7 @@ fn get_attacks(piece: u64, occ: u64, mask: u64) -> u64 {
 }
 
 fn rook_attacks(piece: u64, from: Square, occ: u64) -> u64 {
-    get_attacks(piece, occ, bb_file(from)) | get_attacks(piece, occ, bb_row(from))
+    get_attacks(piece, occ, bb_file(from)) | get_attacks(piece, occ, bb_rank(from))
 }
 
 fn bishop_attacks(piece: u64, from: Square, occ: u64) -> u64 {
@@ -605,7 +575,7 @@ unsafe fn get_piece_map(piece: PieceType,
     for (pos, entry) in piece_map.iter_mut().enumerate() {
         let s = pos as u32;
 
-        let edges = ((BB_RANK_1 | BB_RANK_8) & !bb_row(s as Square)) |
+        let edges = ((BB_RANK_1 | BB_RANK_8) & !bb_rank(s as Square)) |
                     ((BB_FILE_A | BB_FILE_H) & !bb_file(s as Square));
 
         // The mask for square `s` is the set of moves on an empty board.
