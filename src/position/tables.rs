@@ -209,7 +209,7 @@ impl BoardGeometry {
     ///
     /// This function returns the set of squares that are attacked by
     /// a piece of type `piece` from the square `from_square`, on a
-    /// board which is occupied with other pieces according to the
+    /// board which is occupied with pieces according to the
     /// `occupied` bitboard.
     ///
     /// # Safety
@@ -445,38 +445,6 @@ impl ZobristArrays {
 }
 
 
-// Reverse the bits in a 64 bit number using a recursive algorithm
-// which swaps the order of sub-elements, starting with even and odd
-// bits
-fn reverse(mut v: u64) -> u64 {
-    v = ((v >> 1) & 0x5555555555555555) | ((v & 0x5555555555555555) << 1);
-    v = ((v >> 2) & 0x3333333333333333) | ((v & 0x3333333333333333) << 2);
-    v = ((v >> 4) & 0x0F0F0F0F0F0F0F0F) | ((v & 0x0F0F0F0F0F0F0F0F) << 4);
-    v = ((v >> 8) & 0x00FF00FF00FF00FF) | ((v & 0x00FF00FF00FF00FF) << 8);
-    v = ((v >> 16) & 0x0000FFFF0000FFFF) | ((v & 0x0000FFFF0000FFFF) << 16);
-    ((v >> 32) & 0x00000000FFFFFFFF) | ((v & 0x00000000FFFFFFFF) << 32)
-}
-
-
-// Calculate sliding piece moves for a given occupancy and mask
-fn get_line_attacks(piece: Bitboard, occupied: Bitboard, line: Bitboard) -> Bitboard {
-    let potential_blockers = occupied & line;
-    let forward = potential_blockers.wrapping_sub(piece.wrapping_mul(2));
-    let rev = reverse(reverse(potential_blockers).wrapping_sub(reverse(piece).wrapping_mul(2)));
-    (forward ^ rev) & line
-}
-
-fn get_rook_attacks(piece: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
-    get_line_attacks(piece, occupied, bb_file(from_square)) |
-    get_line_attacks(piece, occupied, bb_rank(from_square))
-}
-
-fn get_bishop_attacks(piece: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
-    get_line_attacks(piece, occupied, bb_diag(from_square)) |
-    get_line_attacks(piece, occupied, bb_anti_diag(from_square))
-}
-
-
 // Helper functions for `piece_attacks_from`.
 #[inline(always)]
 unsafe fn knight_attacks(from_square: Square) -> Bitboard {
@@ -585,12 +553,12 @@ unsafe fn get_piece_map(piece: PieceType,
                     ((BB_FILE_A | BB_FILE_H) & !bb_file(s as Square));
 
         // The mask for square `s` is the set of moves on an empty board.
-        let attacks: fn(u64, Square, u64) -> u64 = if piece == BISHOP {
-            get_bishop_attacks
+        let attacks: fn(Square, u64) -> u64 = if piece == BISHOP {
+            calc_bishop_attacks
         } else {
-            get_rook_attacks
+            calc_rook_attacks
         };
-        let mask = attacks(1 << s, s as Square, 1 << s) & !edges;
+        let mask = attacks(s as Square, 1 << s) & !edges;
         let num_ones = mask.count_ones();
         let shift = 64 - num_ones;
 
@@ -601,7 +569,7 @@ unsafe fn get_piece_map(piece: PieceType,
         let mut occ = 0;
         loop {
             occupancy[size] = occ;
-            reference[size] = attacks(1 << s, s as Square, occ | (1 << s));
+            reference[size] = attacks(s as Square, occ | (1 << s));
 
             size += 1;
             occ = occ.wrapping_sub(mask) & mask;

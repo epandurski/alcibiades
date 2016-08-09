@@ -240,6 +240,7 @@ pub fn bitscan_forward_and_reset(b: &mut Bitboard) -> Square {
     ls1b_position
 }
 
+
 /// Returns the binary position of the only binary `1` in a value.
 ///
 /// If `b` is a number in the form `2 ** x`, this function will return
@@ -250,6 +251,7 @@ pub fn bitscan_1bit(b: Bitboard) -> Square {
     assert_eq!(b, ls1b(b));
     b.trailing_zeros() as Square
 }
+
 
 /// Returns the number of `1`s in the binary representation of a
 /// value.
@@ -303,6 +305,56 @@ pub fn bb_anti_diag(square: Square) -> Bitboard {
     }
 }
 
+
+// A helper function for `calc_line_attacks`. It reverses the bits in
+// a 64 bit number using a recursive algorithm which swaps the order
+// of sub-elements, starting with even and odd bits
+fn reverse(mut v: u64) -> u64 {
+    v = ((v >> 1) & 0x5555555555555555) | ((v & 0x5555555555555555) << 1);
+    v = ((v >> 2) & 0x3333333333333333) | ((v & 0x3333333333333333) << 2);
+    v = ((v >> 4) & 0x0F0F0F0F0F0F0F0F) | ((v & 0x0F0F0F0F0F0F0F0F) << 4);
+    v = ((v >> 8) & 0x00FF00FF00FF00FF) | ((v & 0x00FF00FF00FF00FF) << 8);
+    v = ((v >> 16) & 0x0000FFFF0000FFFF) | ((v & 0x0000FFFF0000FFFF) << 16);
+    ((v >> 32) & 0x00000000FFFFFFFF) | ((v & 0x00000000FFFFFFFF) << 32)
+}
+
+
+// Calculate sliding piece moves for a given occupancy and mask
+fn calc_line_attacks(piece: Bitboard, occupied: Bitboard, line: Bitboard) -> Bitboard {
+    let potential_blockers = occupied & line;
+    let forward = potential_blockers.wrapping_sub(piece.wrapping_mul(2));
+    let rev = reverse(reverse(potential_blockers).wrapping_sub(reverse(piece).wrapping_mul(2)));
+    (forward ^ rev) & line
+}
+
+
+/// Calculates the set of squares that are attacked by a rook from a
+/// given square.
+///
+/// This function calculates and returns the set of squares that are
+/// attacked by a rook from the square `from_square`, on a board which
+/// is occupied with pieces according to the `occupied` bitboard.
+pub fn calc_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+    assert!(from_square <= 63);
+    let from_square_bb = 1 << from_square;
+    calc_line_attacks(from_square_bb, occupied, bb_file(from_square)) |
+    calc_line_attacks(from_square_bb, occupied, bb_rank(from_square))
+}
+
+
+/// Calculates the set of squares that are attacked by a bishop from a
+/// given square.
+///
+/// This function calculates and returns the set of squares that are
+/// attacked by a bishop from the square `from_square`, on a board
+/// which is occupied with pieces according to the `occupied`
+/// bitboard.
+pub fn calc_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+    assert!(from_square <= 63);
+    let from_square_bb = 1 << from_square;
+    calc_line_attacks(from_square_bb, occupied, bb_diag(from_square)) |
+    calc_line_attacks(from_square_bb, occupied, bb_anti_diag(from_square))
+}
 
 
 #[cfg(test)]
