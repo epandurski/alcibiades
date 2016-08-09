@@ -457,19 +457,21 @@ pub fn reverse(mut v: u64) -> u64 {
 }
 
 /// Calculate sliding piece moves for a given occupancy and mask
-fn get_attacks(piece: u64, occ: u64, mask: u64) -> u64 {
-    let pot_blockers = occ & mask;
-    let forward = pot_blockers.wrapping_sub(piece.wrapping_mul(2));
-    let rev = reverse(reverse(pot_blockers).wrapping_sub(reverse(piece).wrapping_mul(2)));
-    (forward ^ rev) & mask
+fn get_line_attacks(piece: Bitboard, occupied: Bitboard, line: Bitboard) -> Bitboard {
+    let potential_blockers = occupied & line;
+    let forward = potential_blockers.wrapping_sub(piece.wrapping_mul(2));
+    let rev = reverse(reverse(potential_blockers).wrapping_sub(reverse(piece).wrapping_mul(2)));
+    (forward ^ rev) & line
 }
 
-fn get_rook_attacks(piece: u64, from: Square, occ: u64) -> u64 {
-    get_attacks(piece, occ, bb_file(from)) | get_attacks(piece, occ, bb_rank(from))
+fn get_rook_attacks(piece: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
+    get_line_attacks(piece, occupied, bb_file(from_square)) |
+    get_line_attacks(piece, occupied, bb_rank(from_square))
 }
 
-fn get_bishop_attacks(piece: u64, from: Square, occ: u64) -> u64 {
-    get_attacks(piece, occ, bb_diag(from)) | get_attacks(piece, occ, bb_anti_diag(from))
+fn get_bishop_attacks(piece: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
+    get_line_attacks(piece, occupied, bb_diag(from_square)) |
+    get_line_attacks(piece, occupied, bb_anti_diag(from_square))
 }
 
 // Helper functions for `piece_attacks_from`.
@@ -667,7 +669,7 @@ unsafe fn get_piece_map(piece: PieceType,
 #[derive(Copy, Clone)]
 struct SMagic {
     pub offset: usize,
-    pub mask: u64,
+    pub mask: Bitboard,
     pub magic: u64,
     pub shift: u32,
 }
