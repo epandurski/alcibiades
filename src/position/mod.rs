@@ -450,6 +450,7 @@ impl Position {
     }
 
     /// Takes back the last played move.
+    #[inline]
     pub fn undo_move(&mut self) {
         assert!(self.state_stack.len() > 1);
         unsafe {
