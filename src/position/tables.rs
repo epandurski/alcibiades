@@ -10,7 +10,7 @@ pub struct BoardGeometry {
     /// Contains bitboards with all squares lying at the line
     /// determined by two squares.
     ///
-    /// # Examples
+    /// # Examples:
     ///
     /// ```text
     /// g.squares_at_line[B2][F6]
@@ -28,7 +28,7 @@ pub struct BoardGeometry {
     /// Contains bitboards with all squares lying between two squares
     /// including the two squares themselves.
     ///
-    /// # Examples
+    /// # Examples:
     ///
     /// ```text
     /// g.squares_between_including[B2][F6]

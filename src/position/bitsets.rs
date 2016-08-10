@@ -67,7 +67,7 @@ pub fn ls1b(x: Bitboard) -> Bitboard {
 ///
 /// If `x` is `0` this function does nothing.
 ///
-/// # Examples
+/// # Examples:
 ///
 /// ```text
 /// 

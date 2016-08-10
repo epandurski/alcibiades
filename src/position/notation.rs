@@ -11,10 +11,14 @@ pub struct ParseError;
 
 /// Pieces placement desctiption.
 pub struct PiecesPlacement {
-    /// An array of occupation bitboards indexed by piece type.
+    /// An array of occupation bitboards indexed by piece type.  For
+    /// example, `piece_placement.piece_type[PAWN]` gives the set of
+    /// all pawns on the board (white and black).
     pub piece_type: [Bitboard; 6],
 
-    /// An array of occupation bitboards indexed by color.
+    /// An array of occupation bitboards indexed by color.  For
+    /// example, `piece_placement.color[WHITE]` gives the set of all
+    /// white pieces and pawns on the board.
     pub color: [Bitboard; 2],
 }
 
