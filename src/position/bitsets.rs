@@ -341,7 +341,8 @@ fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) ->
 ///
 /// This function calculates and returns the set of squares that are
 /// attacked by a rook from the square `from_square`, on a board which
-/// is occupied with pieces according to the `occupied` bitboard.
+/// is occupied with pieces according to the `occupied` bitboard. It
+/// does not matter if `from_square` is occupied or not.
 pub fn bb_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
     calc_line_attacks(bb_file(from_square), from_square, occupied) |
     calc_line_attacks(bb_rank(from_square), from_square, occupied)
@@ -354,7 +355,7 @@ pub fn bb_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
 /// This function calculates and returns the set of squares that are
 /// attacked by a bishop from the square `from_square`, on a board
 /// which is occupied with pieces according to the `occupied`
-/// bitboard.
+/// bitboard. It does not matter if `from_square` is occupied or not.
 pub fn bb_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
     calc_line_attacks(bb_diag(from_square), from_square, occupied) |
     calc_line_attacks(bb_anti_diag(from_square), from_square, occupied)

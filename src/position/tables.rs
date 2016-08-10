@@ -150,6 +150,39 @@ impl BoardGeometry {
         bg.fill_attack_and_blockers_and_beyond_arrays();
         bg.fill_squares_between_including_and_squares_behind_blocker_arrays();
         bg.fill_squares_at_line_array();
+
+        // Fill `bg.squares_at_line`.
+        for a in 0..64 {
+            let lines = [bb_file(a), bb_rank(a), bb_diag(a), bb_anti_diag(a)];
+            for b in a + 1..64 {
+                for line in lines.iter() {
+                    if *line & (1 << b) != 0 {
+                        bg.squares_at_line[a][b] = *line;
+                        bg.squares_at_line[b][a] = *line;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fill `bg.squares_behind_blocker`.
+        for a in 0..64 {
+            for b in 0..64 {
+                let attacks_from_a = bb_rook_attacks(a, 1 << b) | bb_bishop_attacks(a, 1 << b);
+                bg.squares_behind_blocker[a][b] = bg.squares_at_line[a][b] & !attacks_from_a &
+                                                  !(1 << a);
+            }
+        }
+
+        // Fill `bg.squares_between_including`.
+        for a in 0..64 {
+            for b in 0..64 {
+                bg.squares_between_including[a][b] = bg.squares_at_line[a][b] &
+                                                     !bg.squares_behind_blocker[a][b] &
+                                                     !bg.squares_behind_blocker[b][a];
+            }
+        }
+
         bg
     }
 
