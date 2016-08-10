@@ -7,46 +7,6 @@ use position::bitsets::*;
 
 /// Look-up tables and look-up methods for move generation.
 pub struct BoardGeometry {
-    grid: [u8; 120],
-    piece_grid_deltas: [[i8; 8]; 5],
-    piece_longrange: [bool; 5],
-
-    /// Contains attack bitboards for each piece on each possible
-    /// square.
-    /// 
-    /// # Examples
-    ///
-    /// ```text
-    /// g.attacks[QUEEN][D4]        g.attacks[KNIGHT][D4] 
-    /// . . . 1 . . . 1             . . . . . . . .       
-    /// 1 . . 1 . . 1 .             . . . . . . . .       
-    /// . 1 . 1 . 1 . .             . . 1 . 1 . . .       
-    /// . . 1 1 1 . . .             . 1 . . . 1 . .       
-    /// 1 1 1 Q 1 1 1 1             . . . N . . . .       
-    /// . . 1 1 1 . . .             . 1 . . . 1 . .       
-    /// . 1 . 1 . 1 . .             . . 1 . 1 . . .       
-    /// 1 . . 1 . . 1 .             . . . . . . . .       
-    /// ```
-    attacks: [[Bitboard; 64]; 5],
-
-    /// Contains "blockers and beyond" bitboards for each piece on
-    /// each possible square.
-    ///
-    /// # Examples:
-    ///
-    /// ```text
-    /// g.blockers_and_beyond[KNIGHT][D4]  g.blockers_and_beyond[QUEEN][D4]
-    /// . . . . . . . .                    . . . . . . . .
-    /// . . . . . . . .                    . . . 1 . . 1 .
-    /// . . . . . . . .                    . 1 . 1 . 1 . .
-    /// . . . . . . . .                    . . 1 1 1 . . .
-    /// . . . N . . . .                    . 1 1 Q 1 1 1 .
-    /// . . . . . . . .                    . . 1 1 1 . . .
-    /// . . . . . . . .                    . 1 . 1 . 1 . .
-    /// . . . . . . . .                    . . . . . . . .
-    /// ```
-    blockers_and_beyond: [[Bitboard; 64]; 5],
-
     /// Contains bitboards with all squares lying at the line
     /// determined by two squares.
     ///
@@ -106,50 +66,11 @@ pub struct BoardGeometry {
 impl BoardGeometry {
     /// Creates and initializes a new instance.
     pub fn new() -> BoardGeometry {
-        unsafe {
-            init_magics();
-        }
-
-        // We use 10x12 grid (8x8 with guarding markers, 2 at top and
-        // bottom, 1 at the sides), so that we can detect out-of-board
-        // movements. Each cell in the grid contains the corresponding
-        // square number (from 0 to 63) or 0xff (the guarding marker).
-        let mut grid = [0xffu8; 120];
-        for i in 0..64 {
-            grid[BoardGeometry::grid_index(i)] = i as u8;
-        }
-
-        // "piece_deltas" represent the change in the grid-index when
-        // sliding a particular piece by one square in a particular
-        // direction. We are not concerned with pawns here.
-        let mut piece_grid_deltas = [[0i8; 8]; 5];
-        piece_grid_deltas[QUEEN] = [-11, -10, -9, -1, 1, 9, 10, 11];
-        piece_grid_deltas[ROOK] = [0, -10, 0, -1, 1, 0, 10, 0];
-        piece_grid_deltas[BISHOP] = [-11, 0, -9, 0, 0, 9, 0, 11];
-        piece_grid_deltas[KNIGHT] = [-21, -19, -12, -8, 8, 12, 19, 21];
-        piece_grid_deltas[KING] = [-11, -10, -9, -1, 1, 9, 10, 11];
-
-        // All pieces except knights and kings are long-range (They
-        // can slide by more than one square). We are not concerned
-        // with pawns here.
-        let mut piece_longrange = [true; 5];
-        piece_longrange[KNIGHT] = false;
-        piece_longrange[KING] = false;
-
         let mut bg = BoardGeometry {
-            grid: grid,
-            piece_grid_deltas: piece_grid_deltas,
-            piece_longrange: piece_longrange,
-            attacks: [[0; 64]; 5],
-            blockers_and_beyond: [[0; 64]; 5],
             squares_at_line: [[0; 64]; 64],
             squares_between_including: [[0; 64]; 64],
             squares_behind_blocker: [[0; 64]; 64],
         };
-
-        bg.fill_attack_and_blockers_and_beyond_arrays();
-        bg.fill_squares_between_including_and_squares_behind_blocker_arrays();
-        bg.fill_squares_at_line_array();
 
         // Fill `bg.squares_at_line`.
         for a in 0..64 {
@@ -183,6 +104,11 @@ impl BoardGeometry {
             }
         }
 
+        // Initialize the magic bitboards.
+        unsafe {
+            init_magics();
+        }
+        
         bg
     }
 
@@ -219,7 +145,6 @@ impl BoardGeometry {
     ///
     /// * `piece < PAWN`.
     /// * `from_square <= 63`.
-    #[cfg(target_pointer_width = "64")]
     #[inline]
     pub unsafe fn piece_attacks_from(&self,
                                      occupied: Bitboard,
@@ -237,144 +162,6 @@ impl BoardGeometry {
             ROOK => ROOK_MAP.get_unchecked(from_square).att(occupied),
             BISHOP => BISHOP_MAP.get_unchecked(from_square).att(occupied),
             _ => *KNIGHT_MAP.get_unchecked(from_square),
-        }
-    }
-
-    /// Returns the set of squares that are attacked by a piece (not a
-    /// pawn).
-    ///
-    /// This function returns the set of squares that are attacked by
-    /// a piece of type `piece` from the square `from_square`, on a
-    /// board which is occupied with pieces according to the
-    /// `occupied` bitboard.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it is extremely
-    /// performace-critical, and so it does unchecked array
-    /// accesses. Users of this method should make sure that:
-    ///
-    /// * `piece < PAWN`.
-    /// * `from_square <= 63`.
-    #[cfg(target_pointer_width = "32")]
-    #[inline]
-    pub unsafe fn piece_attacks_from(&self,
-                                     occupied: Bitboard,
-                                     piece: PieceType,
-                                     from_square: Square)
-                                     -> Bitboard {
-        assert!(piece < PAWN);
-        assert!(from_square <= 63);
-        let behind: &[Bitboard; 64] = self.squares_behind_blocker.get_unchecked(from_square);
-        let mut attacks = *self.attacks.get_unchecked(piece).get_unchecked(from_square);
-        let mut blockers = occupied &
-                           *self.blockers_and_beyond
-                                .get_unchecked(piece)
-                                .get_unchecked(from_square);
-        while blockers != BB_EMPTY_SET {
-            attacks &= !*behind.get_unchecked(bitscan_forward_and_reset(&mut blockers));
-        }
-        attacks
-    }
-
-    fn grid_index(i: Square) -> usize {
-        ((i / 8) * 10 + (i % 8) + 21)
-    }
-
-    fn fill_attack_and_blockers_and_beyond_arrays(&mut self) {
-        for piece in 0..5 {
-            for square in 0..64 {
-                let mut attack = 0u64;
-                let mut blockers = 0u64;
-                for move_direction in 0..8 {
-                    let delta = self.piece_grid_deltas[piece][move_direction];
-                    if delta != 0 {
-                        let mut last_mask = 0u64;
-                        let mut curr_grid_index = BoardGeometry::grid_index(square);
-                        loop {
-                            curr_grid_index = (curr_grid_index as i8 + delta) as usize;
-                            let curr_square = self.grid[curr_grid_index] as Square;
-                            if curr_square != 0xff {
-                                last_mask = 1 << curr_square;
-                                attack |= last_mask;
-                                blockers |= last_mask;
-                                if self.piece_longrange[piece] {
-                                    continue;
-                                }
-                            }
-                            blockers &= !last_mask;
-                            break;
-                        }
-                    }
-                }
-                self.attacks[piece][square] = attack;
-                self.blockers_and_beyond[piece][square] = blockers;
-            }
-        }
-    }
-
-    fn fill_squares_between_including_and_squares_behind_blocker_arrays(&mut self) {
-        for attacker in 0..64 {
-            for blocker in 0..64 {
-                // Try to find a grid-index increment (delta) that
-                // will generate all squares at the line. If the
-                // attacker and the blocker happens not to lie at a
-                // straight line, then and we simply proceed to the
-                // next attacker/blocker pair.
-                let rank_diff = rank(blocker) as i8 - rank(attacker) as i8;
-                let file_diff = file(blocker) as i8 - file(attacker) as i8;
-                let delta = match (rank_diff, file_diff) {
-                    (0, 0) => continue,
-                    (0, f) => f.signum(),
-                    (r, 0) => 10 * r.signum(),
-                    (r, f) if r == f => 10 * r.signum() + r.signum(),
-                    (r, f) if r == -f => 10 * r.signum() - r.signum(),
-                    _ => continue,
-                };
-
-                // Starting from the attacker's square update
-                // "squares_between_including" until the blocker's
-                // square is encountered, then switch to updating
-                // "squares_behind_blocker" until the end of the board
-                // is reached.
-                let mut squares_between_including = 0u64;
-                let mut squares_behind_blocker = 0u64;
-                let mut curr_grid_index = BoardGeometry::grid_index(attacker);
-                let mut blocker_encountered = false;
-                loop {
-                    let curr_square = self.grid[curr_grid_index] as Square;
-                    match curr_square {
-                        0xff => {
-                            break;
-                        }
-                        x if x == blocker => {
-                            squares_between_including |= 1 << curr_square;
-                            blocker_encountered = true;
-                        }
-                        _ => {
-                            if blocker_encountered {
-                                squares_behind_blocker |= 1 << curr_square;
-                            } else {
-                                squares_between_including |= 1 << curr_square;
-                            }
-                        }
-                    }
-                    curr_grid_index = (curr_grid_index as i8 + delta) as usize;
-                }
-                assert!(blocker_encountered);
-                self.squares_between_including[attacker][blocker] = squares_between_including;
-                self.squares_behind_blocker[attacker][blocker] = squares_behind_blocker;
-            }
-        }
-    }
-
-    fn fill_squares_at_line_array(&mut self) {
-        for a in 0..64 {
-            for b in 0..64 {
-                self.squares_at_line[a][b] = self.squares_between_including[a][b] |
-                                             self.squares_behind_blocker[a][b] |
-                                             self.squares_behind_blocker[b][a];
-            }
         }
     }
 }
@@ -500,7 +287,7 @@ const MAP_SIZE: usize = 107648;
 static mut MAP: [Bitboard; MAP_SIZE] = [0; MAP_SIZE];
 
 
-// Initializes the global attack tables.
+// A helper function. It initializes the global attack tables.
 unsafe fn init_magics() {
     king_map_init();
     knight_map_init();
@@ -797,29 +584,6 @@ const ROOK_MAGICS: [u64; 64] = [36028867955671040,
 mod tests {
     use super::*;
     use basetypes::*;
-
-    #[test]
-    fn test_attack_sets() {
-        let g = BoardGeometry::new();
-        assert_eq!(g.attacks[KING][A1], 0b11 << 8 | 0b10);
-        assert_eq!(g.blockers_and_beyond[KING][A1], 0);
-        assert_eq!(g.attacks[ROOK][A1],
-                   0b11111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 1 << 56);
-        assert_eq!(g.blockers_and_beyond[ROOK][A1],
-                   0b01111110 | 1 << 8 | 1 << 16 | 1 << 24 | 1 << 32 | 1 << 40 | 1 << 48 | 0 << 56);
-        assert_eq!(g.attacks[KING][D4], g.attacks[KING][E4] >> 1);
-        assert_eq!(g.attacks[KING][D4], g.attacks[KING][D5] >> 8);
-        assert_eq!(g.attacks[KNIGHT][D4], g.attacks[KNIGHT][D5] >> 8);
-        assert_eq!(g.attacks[KNIGHT][D4] & g.attacks[KING][D5],
-                   1 << C6 | 1 << E6);
-        assert_eq!(g.attacks[ROOK][D4] | g.attacks[BISHOP][D4],
-                   g.attacks[QUEEN][D4]);
-        assert_eq!(g.attacks[ROOK][D4] & g.attacks[BISHOP][D4], 0);
-        assert_eq!(g.attacks[KING][D4] & g.attacks[QUEEN][D4],
-                   g.attacks[KING][D4]);
-        assert_eq!(g.attacks[BISHOP][E1] & g.attacks[KNIGHT][H1],
-                   1 << F2 | 1 << G3);
-    }
 
     #[test]
     fn test_line_sets() {
