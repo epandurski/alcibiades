@@ -201,7 +201,6 @@ impl<'a> Search<'a> {
     // 1. Checks if the transposition table has the result.
     // 2. On leaf nodes, performs quiescence search.
     // 3. Performs null move pruning if possible.
-    #[inline]
     fn node_begin(&mut self,
                   alpha: Value,
                   beta: Value,
