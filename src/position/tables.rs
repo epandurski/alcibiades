@@ -194,8 +194,9 @@ impl BoardGeometry {
     ///
     /// This function returns the set of squares that are attacked by
     /// a piece of type `piece` from the square `from_square`, on a
-    /// board which is occupied with other pieces according to the
-    /// `occupied` bitboard.
+    /// board which is occupied with pieces according to the
+    /// `occupied` bitboard. It does not matter if `from_square` is
+    /// occupied or not.
     ///
     /// # Safety
     ///
@@ -652,5 +653,20 @@ mod tests {
         assert_eq!(g.squares_behind_blocker[D7][F8], 0);
         assert_eq!(g.squares_between_including[A1][A4] | g.squares_behind_blocker[A1][A4],
                    g.squares_at_line[A1][A4]);
+    }
+
+    #[test]
+    fn test_piece_attacks_from() {
+        let g = BoardGeometry::new();
+        unsafe {
+            for piece in KING..PAWN {
+                for square in 0..64 {
+                    assert_eq!(g.piece_attacks_from(0, piece, square),
+                               g.piece_attacks_from(1 << square, piece, square));
+                    assert_eq!(g.piece_attacks_from(1 << D4, piece, square),
+                               g.piece_attacks_from(1 << D4 | 1 << square, piece, square));
+                }
+            }
+        }
     }
 }
