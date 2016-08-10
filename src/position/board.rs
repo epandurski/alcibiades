@@ -221,8 +221,8 @@ impl Board {
         // legal. It is possible that some of the king's moves are
         // illegal because the destination square is under check, or
         // when castling, king's passing square is attacked. This is
-        // because verifying that these squares are not under attack
-        // is quite expensive, and therefore we hope that the
+        // so because verifying that these squares are not under
+        // attack is quite expensive, and therefore we hope that the
         // alpha-beta pruning will eliminate the need for this
         // verification at all.
 
