@@ -398,7 +398,6 @@ unsafe fn get_piece_map(piece: PieceType,
                         mut offset: usize,
                         from_scratch: bool)
                         -> usize {
-
     let mut rng = thread_rng();
 
     for (sq, entry) in piece_map.iter_mut().enumerate() {
