@@ -107,9 +107,13 @@ impl BoardGeometry {
 
         // Initialize the global attack tables.
         //
-        // We use "magic bitboards" to access the attacking sets of
-        // sliding pieces (bishop, rook, queen). The "magic bitboards"
-        // technique consists of four steps:
+        // For every chess engine it is very important to be able to
+        // very quickly find the attacking sets for all pieces, from
+        // all possible origin squares, and all possible board
+        // occupations. We use "magic bitboards" technique to access
+        // pre-calculated attacking sets of sliding pieces (bishop,
+        // rook, queen). The "magic bitboards" technique consists of
+        // four steps:
         //
         // 1. Mask the relevant occupancy bits to form a key. For
         //    example if you had a rook on a1, the relevant occupancy
@@ -206,7 +210,7 @@ impl BoardGeometry {
     ///
     /// * `piece < PAWN`.
     /// * `from_square <= 63`.
-    #[inline]
+    #[inline(always)]
     pub unsafe fn piece_attacks_from(&self,
                                      piece: PieceType,
                                      from_square: Square,
