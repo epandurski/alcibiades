@@ -287,10 +287,8 @@ impl Board {
                 for piece in QUEEN..PAWN {
                     let mut bb = unsafe { *self.piece_type.get_unchecked(piece) } & occupied_by_us;
                     while bb != BB_EMPTY_SET {
-                        let piece_bb = ls1b(bb);
-                        bb ^= piece_bb;
-                        let orig_square = bitscan_1bit(piece_bb);
-                        let piece_legal_dests = if piece_bb & pinned == 0 {
+                        let orig_square = bitscan_forward_and_reset(&mut bb);
+                        let piece_legal_dests = if 1 << orig_square & pinned == 0 {
                             legal_dests
                         } else {
                             unsafe { legal_dests & *pin_lines.get_unchecked(orig_square) }
@@ -338,10 +336,9 @@ impl Board {
 
                 // Find pinned pawn moves pawn by pawn.
                 while pinned_pawns != BB_EMPTY_SET {
-                    let pawn_bb = ls1b(pinned_pawns);
-                    pinned_pawns ^= pawn_bb;
-                    let pin_line = unsafe { *pin_lines.get_unchecked(bitscan_1bit(pawn_bb)) };
-                    self.push_pawn_moves_to_stack(pawn_bb,
+                    let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
+                    let pin_line = unsafe { *pin_lines.get_unchecked(pawn_square) };
+                    self.push_pawn_moves_to_stack(1 << pawn_square,
                                                   en_passant_bb,
                                                   pin_line & pawn_legal_dests,
                                                   !generate_all_moves,
