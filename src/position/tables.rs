@@ -89,8 +89,8 @@ impl BoardGeometry {
         // Fill `bg.squares_behind_blocker`.
         for a in 0..64 {
             for b in 0..64 {
-                let queen_attacks_from_a = bb_rook_attacks(a, 1 << b) |
-                                           bb_bishop_attacks(a, 1 << b);
+                let queen_attacks_from_a = bb_rook_attacks(a, 1 << a | 1 << b) |
+                                           bb_bishop_attacks(a, 1 << a | 1 << b);
                 bg.squares_behind_blocker[a][b] = bg.squares_at_line[a][b] & !(1 << a) &
                                                   !queen_attacks_from_a;
             }
@@ -401,27 +401,25 @@ unsafe fn get_piece_map(piece: PieceType,
 
     let mut rng = thread_rng();
 
-    for (pos, entry) in piece_map.iter_mut().enumerate() {
-        let s = pos as u32;
-        let edges = ((BB_RANK_1 | BB_RANK_8) & !bb_rank(s as Square)) |
-                    ((BB_FILE_A | BB_FILE_H) & !bb_file(s as Square));
+    for (sq, entry) in piece_map.iter_mut().enumerate() {
         let attacks: fn(Square, Bitboard) -> Bitboard = if piece == BISHOP {
             bb_bishop_attacks
         } else {
             bb_rook_attacks
         };
-        let mask = attacks(s as Square, 1 << s) & !edges;
+        let edges = ((BB_RANK_1 | BB_RANK_8) & !bb_rank(sq)) |
+                    ((BB_FILE_A | BB_FILE_H) & !bb_file(sq));
+        let mask = attacks(sq, 1 << sq) & !edges;
         let num_ones = mask.count_ones();
         let shift = 64 - num_ones;
 
         let mut occupancy = vec![0; 1 << num_ones];
         let mut reference = vec![0; 1 << num_ones];
-
         let mut size = 0;
         let mut occ = 0;
         loop {
             occupancy[size] = occ;
-            reference[size] = attacks(s as Square, occ | (1 << s));
+            reference[size] = attacks(sq, occ | (1 << sq));
 
             size += 1;
             occ = occ.wrapping_sub(mask) & mask;
@@ -431,9 +429,9 @@ unsafe fn get_piece_map(piece: PieceType,
         }
 
         let mut magic = if piece == BISHOP {
-            BISHOP_MAGICS[pos]
+            BISHOP_MAGICS[sq]
         } else {
-            ROOK_MAGICS[pos]
+            ROOK_MAGICS[sq]
         };
 
         'outer: loop {
@@ -456,7 +454,7 @@ unsafe fn get_piece_map(piece: PieceType,
                 if *attack != 0 && *attack != reference[i] {
                     assert!(from_scratch,
                             "Error: Precalculated magic is incorrect. Square {}, for {} magic",
-                            pos,
+                            sq,
                             if piece == BISHOP {
                                 "bishop"
                             } else {
