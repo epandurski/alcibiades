@@ -420,10 +420,10 @@ unsafe fn get_piece_map(piece: PieceType,
         loop {
             occupancy[size] = occ;
             reference[size] = attacks(sq, occ | (1 << sq));
-
             size += 1;
             occ = occ.wrapping_sub(mask) & mask;
             if occ == 0 {
+                // We have tried all relevant values for `occ`.
                 break;
             }
         }
@@ -436,7 +436,7 @@ unsafe fn get_piece_map(piece: PieceType,
 
         'outer: loop {
             if from_scratch {
-                // Generate a new random magic from scratch
+                // Generate a new random magic from scratch.
                 loop {
                     magic = rng.gen::<u64>() & rng.gen::<u64>() & rng.gen::<u64>();
                     if ((magic * mask) >> 56).count_ones() >= 6 {
@@ -446,11 +446,9 @@ unsafe fn get_piece_map(piece: PieceType,
             }
 
             let mut attacks = vec![0; size];
-
             for i in 0..size {
                 let index = magic.wrapping_mul(occupancy[i]) >> shift;
                 let attack = &mut attacks[index as usize];
-
                 if *attack != 0 && *attack != reference[i] {
                     assert!(from_scratch,
                             "Error: Precalculated magic is incorrect. Square {}, for {} magic",
@@ -462,7 +460,6 @@ unsafe fn get_piece_map(piece: PieceType,
                             });
                     continue 'outer;
                 }
-
                 *attack = reference[i];
             }
 
