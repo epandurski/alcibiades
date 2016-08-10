@@ -394,10 +394,10 @@ unsafe fn king_map_init() {
 }
 
 
-// A helper function for `init_magics`. It initializes the global
-// attacks look-up table (`MAP`) for a particular slider (bishop or
-// rook). It also calculates the `SMagic` structure for each square on
-// the board for this slider.
+// A helper function for `init_magics`. It initializes the `MAP`
+// look-up table for a particular slider (bishop or rook). It also
+// calculates the `SMagic` structure for every square on the board for
+// this slider.
 unsafe fn get_piece_map(piece: PieceType,
                         piece_map: &mut [SMagic; 64],
                         mut offset: usize,
@@ -484,9 +484,8 @@ unsafe fn get_piece_map(piece: PieceType,
 }
 
 
-// This structure "knows" how to query the global attacks look-up
-// table (`MAP`) for a particular slider (bishop, rook), at a
-// particular square.
+// This structure "knows" how to query the `MAP` look-up table for a
+// particular slider (bishop or rook), at a particular square.
 #[derive(Copy, Clone)]
 struct SMagic {
     pub offset: usize,
@@ -504,7 +503,7 @@ impl SMagic {
 }
 
 
-// Magic constants.
+// Pre-calculated magic constants.
 const BISHOP_MAGICS: [u64; 64] = [306397059236266368,
                                   6638343277122827280,
                                   10377420549504106496,
