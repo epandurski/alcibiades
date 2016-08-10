@@ -322,8 +322,8 @@ fn reverse(mut v: u64) -> u64 {
 // A helper function for `calc_rook_attacks` and
 // `calc_bishop_attacks`. It calculates the set of squares, lying on a
 // single straight line (a file, rank, diagonal, or anti-diagonal),
-// that a piece can attack from a given square and specified board
-// occupancy. To accomplish this, it uses some really beautiful bit
+// that a piece can attack from a given square and given board
+// occupancy. To accomplish this it uses some really beautiful bit
 // manipulations that are almost indistinguishable from magic.
 fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
     let from_square_bb = 1u64 << from_square;
