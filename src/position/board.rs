@@ -394,6 +394,12 @@ impl Board {
     /// board, and for that move `m.digest() == move_digest`, this
     /// method will return `Some(m)`. Otherwise it will return `None`.
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
+        // We could easily call `generate_moves` here and verify if
+        // some of the generated moves has the right digest, but this
+        // would be much slower. The whole purpose of this method is
+        // to be able to check if a move is pseudo-legal *without*
+        // generating all moves.
+        
         if move_digest == 0 {
             return None;
         }
