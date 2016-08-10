@@ -116,14 +116,14 @@ pub fn above_ls1b_mask(x: Bitboard) -> Bitboard {
 /// Returns a mask with all bits below and including the LS1B set to
 /// `1`.
 ///
-/// The way to calculate this is: `below_lsb1_mask_including(x) = x ^ (x - 1);`.
+/// The way to calculate this is: `below_ls1b_mask_including(x) = x ^ (x - 1);`.
 ///
 /// If `x` is `0` this function returns `0xffffffffffffffff`.
 /// 
 /// # Examples:
 ///
 /// ```text
-///       x          ^      (x - 1)      =  below_lsb1_mask_including(x)
+///       x          ^      (x - 1)      =  below_ls1b_mask_including(x)
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// . . 1 . 1 . . .     . . 1 . 1 . . .     . . . . . . . .
 /// . 1 . . . 1 . .     . 1 . . . 1 . .     . . . . . . . .
@@ -134,7 +134,7 @@ pub fn above_ls1b_mask(x: Bitboard) -> Bitboard {
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// ```
 #[inline(always)]
-pub fn below_lsb1_mask_including(x: Bitboard) -> Bitboard {
+pub fn below_ls1b_mask_including(x: Bitboard) -> Bitboard {
     x ^ (Wrapping(x) - Wrapping(1)).0
 }
 
@@ -142,14 +142,14 @@ pub fn below_lsb1_mask_including(x: Bitboard) -> Bitboard {
 /// Returns a mask with all bits above and including the LS1B set to
 /// `1`.
 ///
-/// The way to calculate this is: `above_lsb1_mask_including(x) = x |
+/// The way to calculate this is: `above_ls1b_mask_including(x) = x |
 /// -x;`.
 ///
 /// If `x` is `0` this function returns `0`.
 /// 
 /// # Examples:
 /// ```text
-///       x          |        -x         =  above_lsb1_mask_including(x)
+///       x          |        -x         =  above_ls1b_mask_including(x)
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// . . 1 . 1 . . .     1 1 . 1 . 1 1 1     1 1 1 1 1 1 1 1
 /// . 1 . . . 1 . .     1 . 1 1 1 . 1 1     1 1 1 1 1 1 1 1
@@ -160,21 +160,21 @@ pub fn below_lsb1_mask_including(x: Bitboard) -> Bitboard {
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// ```
 #[inline(always)]
-pub fn above_lsb1_mask_including(x: Bitboard) -> Bitboard {
+pub fn above_ls1b_mask_including(x: Bitboard) -> Bitboard {
     x | (Wrapping(0) - Wrapping(x)).0
 }
 
 
 /// Returns a mask with all bits below the LS1B set to `1`.
 ///
-/// The way to calculate this is: `below_lsb1_mask(x) = !x & (x - 1);`.
+/// The way to calculate this is: `below_ls1b_mask(x) = !x & (x - 1);`.
 ///
 /// If `x` is `0` this function returns `0xffffffffffffffff`.
 /// 
 /// # Examples:
 ///
 /// ```text
-///      !x          &      (x - 1)      =  below_lsb1_mask(x)
+///      !x          &      (x - 1)      =  below_ls1b_mask(x)
 /// 1 1 1 1 1 1 1 1     . . . . . . . .     . . . . . . . .
 /// 1 1 . 1 . 1 1 1     . . 1 . 1 . . .     . . . . . . . .
 /// 1 . 1 1 1 . 1 1     . 1 . . . 1 . .     . . . . . . . .
@@ -185,7 +185,7 @@ pub fn above_lsb1_mask_including(x: Bitboard) -> Bitboard {
 /// 1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// ```
 #[inline(always)]
-pub fn below_lsb1_mask(x: Bitboard) -> Bitboard {
+pub fn below_ls1b_mask(x: Bitboard) -> Bitboard {
     !x & (Wrapping(x) - Wrapping(1)).0
 }
 
@@ -336,26 +336,26 @@ fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) ->
 }
 
 
-/// Calculates the set of squares that are attacked by a rook from a
+/// Returns the set of squares that are attacked by a rook from a
 /// given square.
 ///
 /// This function calculates and returns the set of squares that are
 /// attacked by a rook from the square `from_square`, on a board which
 /// is occupied with pieces according to the `occupied` bitboard.
-pub fn calc_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+pub fn bb_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
     calc_line_attacks(bb_file(from_square), from_square, occupied) |
     calc_line_attacks(bb_rank(from_square), from_square, occupied)
 }
 
 
-/// Calculates the set of squares that are attacked by a bishop from a
+/// Returns the set of squares that are attacked by a bishop from a
 /// given square.
 ///
 /// This function calculates and returns the set of squares that are
 /// attacked by a bishop from the square `from_square`, on a board
 /// which is occupied with pieces according to the `occupied`
 /// bitboard.
-pub fn calc_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+pub fn bb_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
     calc_line_attacks(bb_diag(from_square), from_square, occupied) |
     calc_line_attacks(bb_anti_diag(from_square), from_square, occupied)
 }
@@ -381,13 +381,13 @@ mod tests {
         assert_eq!(above_ls1b_mask(0), 0);
         assert_eq!(above_ls1b_mask(0b11101000), 0xfffffffffffffff0);
         assert_eq!(above_ls1b_mask(0x8000000000000000), 0);
-        assert_eq!(below_lsb1_mask_including(0), 0xffffffffffffffff);
-        assert_eq!(below_lsb1_mask_including(0b11101000), 0b1111);
-        assert_eq!(below_lsb1_mask(0), 0xffffffffffffffff);
-        assert_eq!(below_lsb1_mask(0b11101000), 0b111);
-        assert_eq!(above_lsb1_mask_including(0), 0);
-        assert_eq!(above_lsb1_mask_including(0b1010000), 0xfffffffffffffff0);
-        assert_eq!(above_lsb1_mask_including(0x8000000000000000),
+        assert_eq!(below_ls1b_mask_including(0), 0xffffffffffffffff);
+        assert_eq!(below_ls1b_mask_including(0b11101000), 0b1111);
+        assert_eq!(below_ls1b_mask(0), 0xffffffffffffffff);
+        assert_eq!(below_ls1b_mask(0b11101000), 0b111);
+        assert_eq!(above_ls1b_mask_including(0), 0);
+        assert_eq!(above_ls1b_mask_including(0b1010000), 0xfffffffffffffff0);
+        assert_eq!(above_ls1b_mask_including(0x8000000000000000),
                    0x8000000000000000);
         assert_eq!(pop_count(0), 0);
         assert_eq!(pop_count(0b1001101), 4);

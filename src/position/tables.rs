@@ -529,9 +529,9 @@ unsafe fn get_piece_map(piece: PieceType,
 
         // The mask for square `s` is the set of moves on an empty board.
         let attacks: fn(Square, u64) -> u64 = if piece == BISHOP {
-            calc_bishop_attacks
+            bb_bishop_attacks
         } else {
-            calc_rook_attacks
+            bb_rook_attacks
         };
         let mask = attacks(s as Square, 1 << s) & !edges;
         let num_ones = mask.count_ones();
