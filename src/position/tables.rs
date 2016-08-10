@@ -65,7 +65,7 @@ pub struct BoardGeometry {
 
 impl BoardGeometry {
     /// Creates and initializes a new instance.
-    pub fn new() -> BoardGeometry {
+    fn new() -> BoardGeometry {
         let mut bg = BoardGeometry {
             squares_at_line: [[0; 64]; 64],
             squares_between_including: [[0; 64]; 64],
@@ -267,7 +267,7 @@ pub struct ZobristArrays {
 
 impl ZobristArrays {
     /// Creates and initializes a new instance.
-    pub fn new() -> ZobristArrays {
+    fn new() -> ZobristArrays {
         use rand::{Rng, SeedableRng};
         use rand::isaac::Isaac64Rng;
 
