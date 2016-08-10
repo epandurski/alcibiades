@@ -473,7 +473,6 @@ unsafe fn get_piece_map(piece: PieceType,
                 MAP[offset + i] = att;
             }
             offset += size;
-
             break;
         }
     }
