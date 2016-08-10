@@ -284,7 +284,6 @@ impl TranspositionTable {
     /// After being stored, the data might be retrieved by
     /// `probe(key)`. This is not guaranteed though, because in the
     /// meantime it might have been overwritten.
-    #[inline]
     pub fn store(&self, key: u64, mut data: EntryData) {
         // `store` and `probe` jointly implement a clever lock-less
         // hashing method. Rather than to store two disjoint items,
@@ -325,7 +324,7 @@ impl TranspositionTable {
     // Implements our replacement strategy. Should return higher
     // values for the entries that are move likely to save CPU work in
     // the future.
-    #[inline]
+    #[inline(always)]
     fn calc_score(&self, entry: &Entry) -> u8 {
         // Positions from the current generation are always scored
         // higher than positions from older generations.
