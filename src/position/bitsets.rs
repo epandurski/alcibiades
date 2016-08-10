@@ -326,8 +326,8 @@ fn reverse(mut v: u64) -> u64 {
 // occupancy. To accomplish this, it uses some really beautiful bit
 // manipulations that are almost indistinguishable from magic.
 fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
-    assert!(from_square <= 63);
     let from_square_bb = 1u64 << from_square;
+    assert!(from_square_bb & line != 0);
     let potential_blockers = occupied & line;
     let forward = potential_blockers.wrapping_sub(from_square_bb.wrapping_mul(2));
     let rev = reverse(reverse(potential_blockers)
