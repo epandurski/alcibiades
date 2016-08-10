@@ -896,13 +896,13 @@ fn consider_xrays(geometry: &BoardGeometry,
                                   .get_unchecked(xrayed_square);
 
         // Try the straight sliders first, if not, the diagonal sliders.
-        let straight_slider_bb = geometry.piece_attacks_from(candidates, ROOK, target_square) &
+        let straight_slider_bb = geometry.piece_attacks_from(ROOK, target_square, candidates) &
                                  candidates &
                                  (piece_type_array[QUEEN] | piece_type_array[ROOK]);
         if straight_slider_bb != 0 {
             straight_slider_bb
         } else {
-            geometry.piece_attacks_from(candidates, BISHOP, target_square) & candidates &
+            geometry.piece_attacks_from(BISHOP, target_square, candidates) & candidates &
             (piece_type_array[QUEEN] | piece_type_array[BISHOP])
         }
     }

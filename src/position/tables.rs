@@ -208,9 +208,9 @@ impl BoardGeometry {
     /// * `from_square <= 63`.
     #[inline]
     pub unsafe fn piece_attacks_from(&self,
-                                     occupied: Bitboard,
                                      piece: PieceType,
-                                     from_square: Square)
+                                     from_square: Square,
+                                     occupied: Bitboard)
                                      -> Bitboard {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
@@ -661,10 +661,10 @@ mod tests {
         unsafe {
             for piece in KING..PAWN {
                 for square in 0..64 {
-                    assert_eq!(g.piece_attacks_from(0, piece, square),
-                               g.piece_attacks_from(1 << square, piece, square));
-                    assert_eq!(g.piece_attacks_from(1 << D4, piece, square),
-                               g.piece_attacks_from(1 << D4 | 1 << square, piece, square));
+                    assert_eq!(g.piece_attacks_from(piece, square, 0),
+                               g.piece_attacks_from(piece, square, 1 << square));
+                    assert_eq!(g.piece_attacks_from(piece, square, 1 << D4),
+                               g.piece_attacks_from(piece, square, 1 << D4 | 1 << square));
                 }
             }
         }

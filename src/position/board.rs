@@ -171,13 +171,13 @@ impl Board {
         unsafe {
             let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
 
-            (self.geometry.piece_attacks_from(self.occupied(), ROOK, square) & occupied_by_us &
+            (self.geometry.piece_attacks_from(ROOK, square, self.occupied()) & occupied_by_us &
              (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
-            (self.geometry.piece_attacks_from(self.occupied(), BISHOP, square) & occupied_by_us &
+            (self.geometry.piece_attacks_from(BISHOP, square, self.occupied()) & occupied_by_us &
              (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
-            (self.geometry.piece_attacks_from(self.occupied(), KNIGHT, square) & occupied_by_us &
+            (self.geometry.piece_attacks_from(KNIGHT, square, self.occupied()) & occupied_by_us &
              self.piece_type[KNIGHT]) |
-            (self.geometry.piece_attacks_from(self.occupied(), KING, square) & occupied_by_us &
+            (self.geometry.piece_attacks_from(KING, square, self.occupied()) & occupied_by_us &
              self.piece_type[KING]) |
             (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
              self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
@@ -524,7 +524,7 @@ impl Board {
             }
         } else {
             pseudo_legal_dests &= unsafe {
-                self.geometry.piece_attacks_from(self.occupied(), piece, orig_square)
+                self.geometry.piece_attacks_from(piece, orig_square, self.occupied())
             };
             if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 {
                 return None;
@@ -944,7 +944,7 @@ impl Board {
         assert!(piece < PAWN);
         assert!(orig_square <= 63);
         let mut dest_set = unsafe {
-            self.geometry.piece_attacks_from(self.occupied(), piece, orig_square)
+            self.geometry.piece_attacks_from(piece, orig_square, self.occupied())
         } & legal_dests;
         while dest_set != BB_EMPTY_SET {
             let dest_bb = ls1b(dest_set);
@@ -1119,8 +1119,8 @@ impl Board {
         let diag_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[BISHOP]);
         let straight_sliders = occupied_by_them & (self.piece_type[QUEEN] | self.piece_type[ROOK]);
         let mut pinners = unsafe {
-            diag_sliders & self.geometry.piece_attacks_from(diag_sliders, BISHOP, king_square) |
-            straight_sliders & self.geometry.piece_attacks_from(straight_sliders, ROOK, king_square)
+            diag_sliders & self.geometry.piece_attacks_from(BISHOP, king_square, diag_sliders) |
+            straight_sliders & self.geometry.piece_attacks_from(ROOK, king_square, straight_sliders)
         };
 
         if pinners == BB_EMPTY_SET {
@@ -1197,13 +1197,13 @@ impl Board {
         unsafe {
             let occupied_by_them = *self.color.get_unchecked(them);
 
-            (self.geometry.piece_attacks_from(occupied, ROOK, square) & occupied_by_them &
+            (self.geometry.piece_attacks_from(ROOK, square, occupied) & occupied_by_them &
              (self.piece_type[ROOK] | self.piece_type[QUEEN])) != BB_EMPTY_SET ||
-            (self.geometry.piece_attacks_from(occupied, BISHOP, square) & occupied_by_them &
+            (self.geometry.piece_attacks_from(BISHOP, square, occupied) & occupied_by_them &
              (self.piece_type[BISHOP] | self.piece_type[QUEEN])) != BB_EMPTY_SET ||
-            (self.geometry.piece_attacks_from(occupied, KNIGHT, square) & occupied_by_them &
+            (self.geometry.piece_attacks_from(KNIGHT, square, occupied) & occupied_by_them &
              self.piece_type[KNIGHT]) != BB_EMPTY_SET ||
-            (self.geometry.piece_attacks_from(occupied, KING, square) & occupied_by_them &
+            (self.geometry.piece_attacks_from(KING, square, occupied) & occupied_by_them &
              self.piece_type[KING]) != BB_EMPTY_SET ||
             {
                 let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(them);
@@ -1262,7 +1262,7 @@ impl Board {
             let occupied = self.occupied() & !the_two_pawns;
             let occupied_by_them = self.color[1 ^ self.to_move] & !the_two_pawns;
             let checkers = unsafe {
-                self.geometry.piece_attacks_from(occupied, ROOK, king_square)
+                self.geometry.piece_attacks_from(ROOK, king_square, occupied)
             } & occupied_by_them &
                            (self.piece_type[ROOK] | self.piece_type[QUEEN]);
             checkers == BB_EMPTY_SET
@@ -1350,11 +1350,11 @@ mod tests {
         let b = Board::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
         let g = BoardGeometry::get();
         unsafe {
-            assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], BISHOP, A1),
+            assert_eq!(g.piece_attacks_from(BISHOP, A1, b.color[WHITE] | b.color[BLACK]),
                        1 << B2 | 1 << C3 | 1 << D4);
-            assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], BISHOP, A1),
+            assert_eq!(g.piece_attacks_from(BISHOP, A1, b.color[WHITE] | b.color[BLACK]),
                        1 << B2 | 1 << C3 | 1 << D4);
-            assert_eq!(g.piece_attacks_from(b.color[WHITE] | b.color[BLACK], KNIGHT, A1),
+            assert_eq!(g.piece_attacks_from(KNIGHT, A1, b.color[WHITE] | b.color[BLACK]),
                        1 << B3 | 1 << C2);
         }
     }
