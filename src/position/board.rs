@@ -939,10 +939,8 @@ impl Board {
             self.geometry.piece_attacks_from(piece, orig_square, self.occupied())
         } & legal_dests;
         while dest_set != BB_EMPTY_SET {
-            let dest_bb = ls1b(dest_set);
-            dest_set ^= dest_bb;
-            let dest_square = bitscan_1bit(dest_bb);
-            let captured_piece = self.get_piece_type_at(dest_bb);
+            let dest_square = bitscan_forward_and_reset(&mut dest_set);
+            let captured_piece = self.get_piece_type_at(1 << dest_square);
             move_stack.push(Move::new(self.to_move,
                                       MOVE_NORMAL,
                                       piece,
@@ -994,15 +992,14 @@ impl Board {
         for i in 0..4 {
             let s = unsafe { dest_sets.get_unchecked_mut(i) };
             while *s != BB_EMPTY_SET {
-                let pawn_bb = ls1b(*s);
-                *s ^= pawn_bb;
-                let dest_square = bitscan_1bit(pawn_bb);
+                let dest_square = bitscan_forward_and_reset(s);
+                let dest_square_bb = 1 << dest_square;
                 let orig_square = (dest_square as isize -
                                    unsafe {
                     *shifts.get_unchecked(i)
                 }) as Square;
-                let captured_piece = self.get_piece_type_at(pawn_bb);
-                match pawn_bb {
+                let captured_piece = self.get_piece_type_at(dest_square_bb);
+                match dest_square_bb {
 
                     // en-passant capture
                     x if x == en_passant_bb => {
