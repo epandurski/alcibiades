@@ -10,7 +10,7 @@ use chess_move::*;
 use position::Position;
 use engine;
 use engine::tt::*;
-use engine::search::Search;
+use engine::search::{Search, Killers};
 
 
 /// Represents a command to a search thread.
@@ -146,7 +146,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                             false
                         }
                     };
-                    let mut killer_moves_array = [Default::default(); MAX_DEPTH as usize + 1];
+                    let mut killer_moves_array = Killers::new();
                     let mut search = Search::new(position,
                                                  &tt,
                                                  &mut killer_moves_array,
