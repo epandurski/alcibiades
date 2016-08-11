@@ -16,7 +16,7 @@ pub struct TerminatedSearch;
 /// Represents a game tree search.        
 pub struct Search<'a> {
     tt: &'a TranspositionTable,
-    killers: &'a mut Killers,
+    killers: &'a mut KillersArray,
     position: Position,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
@@ -37,7 +37,7 @@ impl<'a> Search<'a> {
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
                tt: &'a TranspositionTable,
-               killers: &'a mut Killers,
+               killers: &'a mut KillersArray,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
@@ -562,13 +562,13 @@ impl Default for KillersRecord {
 // instead.
 
 // Containstwo moves with their hit counters for each ply.
-pub struct Killers {
+pub struct KillersArray {
     moves: [KillersRecord; MAX_DEPTH as usize],
 }
 
-impl Killers {
-    pub fn new() -> Killers {
-        Killers { moves: [Default::default(); MAX_DEPTH as usize] }
+impl KillersArray {
+    pub fn new() -> KillersArray {
+        KillersArray { moves: [Default::default(); MAX_DEPTH as usize] }
     }
 
     pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
@@ -617,7 +617,7 @@ impl Killers {
 
 #[cfg(test)]
 mod tests {
-    use super::{Search, Killers};
+    use super::{Search, KillersArray};
     use engine::tt::*;
     use chess_move::*;
     use position::Position;
@@ -629,7 +629,7 @@ mod tests {
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut killers = Killers::new();
+        let mut killers = KillersArray::new();
         let mut search = Search::new(p, &tt, &mut killers, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2, Move::invalid())
                           .ok()
