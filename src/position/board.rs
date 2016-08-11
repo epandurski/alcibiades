@@ -798,6 +798,8 @@ impl Board {
     }
 
     /// Calculates and returns the Zobrist hash for the board.
+    ///
+    /// This is a relatively expensive operation.
     pub fn calc_hash(&self) -> u64 {
         let mut hash = 0;
         for color in 0..2 {
