@@ -642,27 +642,30 @@ mod tests {
         assert!(value >= 20000);
     }
 
-    // #[test]
-    // fn test_killers() {
-    //     let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
-    //                     .ok()
-    //                     .unwrap();
-    //     let mut v = MoveStack::new();
-    //     p.generate_moves(&mut v);
-    //     let mut i = 1;
-    //     let mut previous_move_digest = 0;
-    //     while let Some(m) = v.pop() {
-    //         if m.captured_piece() == NO_PIECE && p.do_move(m) {
-    //             for _ in 0..i {
-    //                 p.register_killer();
-    //             }
-    //             i += 1;
-    //             p.undo_move();
-    //             let (killer1, killer2) = p.killers();
-    //             assert!(killer1 == m.digest());
-    //             assert!(killer2 == previous_move_digest);
-    //             previous_move_digest = m.digest();
-    //         }
-    //     }
-    // }
+    #[test]
+    fn test_killers() {
+        use basetypes::*;
+        let mut killers = KillersArray::new();
+        let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
+                        .ok()
+                        .unwrap();
+        let mut v = MoveStack::new();
+        p.generate_moves(&mut v);
+        let mut i = 1;
+        let mut previous_move_digest = 0;
+        while let Some(m) = v.pop() {
+            if m.captured_piece() == NO_PIECE && p.do_move(m) {
+                for _ in 0..i {
+                    killers.set(0, m);
+                }
+                i += 1;
+                p.undo_move();
+                let (killer1, killer2) = killers.get(0);
+                assert!(killer1 == m.digest());
+                assert!(killer2 == previous_move_digest);
+                previous_move_digest = m.digest();
+            }
+        }
+        assert!(killers.get(1) == (0, 0));
+    }
 }
