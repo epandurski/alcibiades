@@ -212,14 +212,6 @@ impl<'a> Search<'a> {
         let entry = if let Some(e) = self.tt.probe(hash) {
             e
         } else {
-            // TODO: Try to fetch a fake eval_value in case `depth == 0`:
-            //
-            // let eval_value_approx = (-prev_eval_value) + VALUE[last_move.captured_piece()];
-            // let eval_value = if depth == 0 && eval_value_approx - 200 > beta {
-            //     beta
-            // } else {
-            //     self.position.evaluate_static()
-            // };
             EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
         };
         self.state_stack.push(NodeState {
