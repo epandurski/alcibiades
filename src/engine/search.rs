@@ -531,7 +531,22 @@ enum NodePhase {
 }
 
 
-// Contains two killer moves with their hit counters.
+// Returns the move digests for the current position's killer
+// moves.
+//
+// "Killer move" is a move which was good in a sibling node, or
+// any other earlier branch in the tree with the same distance to
+// the root position. The idea is to try that move early -- after
+// a possibly available hash move from the transposition table and
+// seemingly winning captures. This method will not return
+// captures and promotions as killers, because those are tried
+// early anyway. The move returned in the first slot should be
+// treated as the better one of the two. If no killer move is
+// available for one or both of the slots -- `0` is returned
+// instead.
+                                    
+                                    
+// Two killer moves with their hit counters.
 #[derive(Clone, Copy)]
 struct KillersPair {
     slot1: (MoveDigest, u16),
@@ -547,30 +562,20 @@ impl Default for KillersPair {
     }
 }
 
-// Returns the move digests for the current position's killer
-// moves.
-//
-// "Killer move" is a move which was good in a sibling node, or
-// any other earlier branch in the tree with the same distance to
-// the root position. The idea is to try that move early -- after
-// a possibly available hash move from the transposition table and
-// seemingly winning captures. This method will not return
-// captures and promotions as killers, because those are tried
-// early anyway. The move returned in the first slot should be
-// treated as the better one of the two. If no killer move is
-// available for one or both of the slots -- `0` is returned
-// instead.
-
-// Containstwo moves with their hit counters for each ply.
+        
+/// An array that holds two killer moves with hit counters for each
+/// half-move.
 pub struct KillersArray {
     array: [KillersPair; MAX_DEPTH as usize],
 }
 
 impl KillersArray {
+    /// Creates a new empty instance.
     pub fn new() -> KillersArray {
         KillersArray { array: [Default::default(); MAX_DEPTH as usize] }
     }
 
+    /// XXX
     pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
         let pair = self.array.get(index).unwrap();
         
@@ -592,7 +597,7 @@ impl KillersArray {
         let digest = m.digest();
         assert!(digest != 0);
 
-        // Check if the move already occupies one of the slots.
+        // Check if the move is already in one of the slots.
         if pair.slot1.0 == digest {
             // Increment slot1's counter. Watch for overflows.
             pair.slot1.1 += 1;
