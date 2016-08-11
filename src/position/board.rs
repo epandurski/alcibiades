@@ -315,9 +315,9 @@ impl Board {
                     legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
                 };
 
-                // When in check, en-passant capture is a legal evasion
-                // move only when the checking piece is the passing pawn
-                // itself.
+                // When in check, the en-passant capture can be a
+                // legal evasion move, but only when the checking
+                // piece is the passing pawn itself.
                 let pawn_legal_dests = if checkers & self.piece_type[PAWN] == 0 {
                     legal_dests
                 } else {
@@ -982,7 +982,7 @@ impl Board {
     // possible moves by the set of pawns given by `pawns`, making
     // sure all pawn move destinations are within the `legal_dests`
     // set. Then it pushes the resulting moves to
-    // `move_stack`. `en_passant_bb` represents the en-passant passing
+    // `move_stack`. `en_passant_bb` represents the en-passant target
     // square, if there is one. This function also recognizes and
     // discards the very rare case of pseudo-legal en-passant capture
     // that leaves discovered check on the 4/5-th rank.
@@ -1158,7 +1158,7 @@ impl Board {
     }
 
     // A helper method for `generate_moves`. It returns a bitboard
-    // representing the en-passant passing square if there is one.
+    // representing the en-passant target square if there is one.
     #[inline]
     fn en_passant_bb(&self) -> Bitboard {
         assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
