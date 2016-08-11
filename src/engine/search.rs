@@ -496,11 +496,11 @@ impl<'a> Search<'a> {
         Ok(())
     }
 
-    // A helper method for `Search::run`. It registers that `m` caused
-    // a beta cut-off (a killer move).
+    // A helper method for `Search::run`. It registers that the move
+    // `m` caused a beta cut-off (a killer move).
     #[inline]
     fn register_killer_move(&mut self, m: Move) {
-        self.killers.set(self.state_stack.len() - 1, m);
+        self.killers.register(self.state_stack.len() - 1, m);
     }
 }
 
@@ -509,6 +509,15 @@ impl<'a> Search<'a> {
 // full depth. Moves with move scores lesser or equal to this number
 // will be searched at reduced depth.
 const REDUCTION_THRESHOLD: usize = 0;
+
+
+struct NodeState {
+    phase: NodePhase,
+    entry: EntryData,
+    checkers: Bitboard,
+    pinned: Bitboard,
+    killer: Option<MoveDigest>,
+}
 
 
 enum NodePhase {
@@ -522,25 +531,16 @@ enum NodePhase {
 }
 
 
-struct NodeState {
-    phase: NodePhase,
-    entry: EntryData,
-    checkers: Bitboard,
-    pinned: Bitboard,
-    killer: Option<MoveDigest>,
-}
-
-
 // Contains two killer moves with their hit counters.
 #[derive(Clone, Copy)]
-struct KillersRecord {
+struct KillersPair {
     slot1: (MoveDigest, u16),
     slot2: (MoveDigest, u16),
 }
 
-impl Default for KillersRecord {
-    fn default() -> KillersRecord {
-        KillersRecord {
+impl Default for KillersPair {
+    fn default() -> KillersPair {
+        KillersPair {
             slot1: (0, 0),
             slot2: (0, 0),
         }
@@ -563,54 +563,62 @@ impl Default for KillersRecord {
 
 // Containstwo moves with their hit counters for each ply.
 pub struct KillersArray {
-    moves: [KillersRecord; MAX_DEPTH as usize],
+    array: [KillersPair; MAX_DEPTH as usize],
 }
 
 impl KillersArray {
     pub fn new() -> KillersArray {
-        KillersArray { moves: [Default::default(); MAX_DEPTH as usize] }
+        KillersArray { array: [Default::default(); MAX_DEPTH as usize] }
     }
 
     pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
-        let record = self.moves.get(index).unwrap();
-        if record.slot1.1 > record.slot2.1 {
-            (record.slot1.0, record.slot2.0)
+        let pair = self.array.get(index).unwrap();
+        
+        // Return the two killers in proper order.
+        if pair.slot1.1 > pair.slot2.1 {
+            (pair.slot1.0, pair.slot2.0)
         } else {
-            (record.slot2.0, record.slot1.0)
+            (pair.slot2.0, pair.slot1.0)
         }
     }
 
-    pub fn set(&mut self, index: usize, m: Move) {
+    pub fn register(&mut self, index: usize, m: Move) {
         if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
             // captures and promotions.
             return;
         }
-        let m_digest = m.digest();
-        assert!(m_digest != 0);
-        let record = self.moves.get_mut(index).unwrap();
-        if record.slot1.0 == m_digest {
-            record.slot1.1 += 1;
-            if record.slot1.1 == u16::MAX {
-                record.slot1.1 >>= 1;
-                record.slot2.1 >>= 1;
+        let pair = self.array.get_mut(index).unwrap();
+        let digest = m.digest();
+        assert!(digest != 0);
+
+        // Check if the move already occupies one of the slots.
+        if pair.slot1.0 == digest {
+            // Increment slot1's counter. Watch for overflows.
+            pair.slot1.1 += 1;
+            if pair.slot1.1 == u16::MAX {
+                pair.slot1.1 >>= 1;
+                pair.slot2.1 >>= 1;
             }
             return;
         }
-        if record.slot2.0 == m_digest {
-            record.slot2.1 += 1;
-            if record.slot2.1 == u16::MAX {
-                record.slot1.1 >>= 1;
-                record.slot2.1 >>= 1;
+        if pair.slot2.0 == digest {
+            // Increment slot2's counter. Watch for overflows.
+            pair.slot2.1 += 1;
+            if pair.slot2.1 == u16::MAX {
+                pair.slot1.1 >>= 1;
+                pair.slot2.1 >>= 1;
             }
             return;
         }
-        let slot = if record.slot1.1 <= record.slot2.1 {
-            &mut record.slot1
+
+        // Otherwise, override the slot with lower hit count.
+        let slot = if pair.slot1.1 <= pair.slot2.1 {
+            &mut pair.slot1
         } else {
-            &mut record.slot2
+            &mut pair.slot2
         };
-        *slot = (m_digest, 1);
+        *slot = (digest, 1);
     }
 }
 
@@ -656,7 +664,7 @@ mod tests {
         while let Some(m) = v.pop() {
             if m.captured_piece() == NO_PIECE && p.do_move(m) {
                 for _ in 0..i {
-                    killers.set(0, m);
+                    killers.register(0, m);
                 }
                 i += 1;
                 p.undo_move();
