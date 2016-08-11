@@ -27,90 +27,6 @@ pub struct Search<'a> {
 }
 
 
-// TODO: The killer moves array -- we keep two moves with their hit
-// counters for each ply.
-// Contains two killer moves with their hit counters.
-#[derive(Clone, Copy)]
-pub struct KillersRecord {
-    slot1: (MoveDigest, u16),
-    slot2: (MoveDigest, u16),
-}
-
-impl Default for KillersRecord {
-    fn default() -> KillersRecord {
-        KillersRecord {
-            slot1: (0, 0),
-            slot2: (0, 0),
-        }
-    }
-}
-
-// Returns the move digests for the current position's killer
-// moves.
-//
-// "Killer move" is a move which was good in a sibling node, or
-// any other earlier branch in the tree with the same distance to
-// the root position. The idea is to try that move early -- after
-// a possibly available hash move from the transposition table and
-// seemingly winning captures. This method will not return
-// captures and promotions as killers, because those are tried
-// early anyway. The move returned in the first slot should be
-// treated as the better one of the two. If no killer move is
-// available for one or both of the slots -- `0` is returned
-// instead.
-pub struct Killers {
-    moves: [KillersRecord; MAX_DEPTH as usize + 1],
-}
-
-impl Killers {
-    pub fn new() -> Killers {
-        Killers { moves: [Default::default(); MAX_DEPTH as usize + 1] }
-    }
-
-    pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
-        let record = self.moves.get(index).unwrap();
-        if record.slot1.1 > record.slot2.1 {
-            (record.slot1.0, record.slot2.0)
-        } else {
-            (record.slot2.0, record.slot1.0)
-        }
-    }
-
-    pub fn set(&mut self, index: usize, m: Move) {
-        if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
-            // We do not want to waste our precious killer-slots on
-            // captures and promotions.
-            return;
-        }
-        let m_digest = m.digest();
-        assert!(m_digest != 0);
-        let record = self.moves.get_mut(index).unwrap();
-        if record.slot1.0 == m_digest {
-            record.slot1.1 += 1;
-            if record.slot1.1 == u16::MAX {
-                record.slot1.1 >>= 1;
-                record.slot2.1 >>= 1;
-            }
-            return;
-        }
-        if record.slot2.0 == m_digest {
-            record.slot2.1 += 1;
-            if record.slot2.1 == u16::MAX {
-                record.slot1.1 >>= 1;
-                record.slot2.1 >>= 1;
-            }
-            return;
-        }
-        let slot = if record.slot1.1 <= record.slot2.1 {
-            &mut record.slot1
-        } else {
-            &mut record.slot2
-        };
-        *slot = (m_digest, 1);
-    }
-}
-
-
 impl<'a> Search<'a> {
     /// Creates a new instance.
     ///
@@ -612,6 +528,90 @@ struct NodeState {
     checkers: Bitboard,
     pinned: Bitboard,
     killer: Option<MoveDigest>,
+}
+
+
+// Contains two killer moves with their hit counters.
+#[derive(Clone, Copy)]
+struct KillersRecord {
+    slot1: (MoveDigest, u16),
+    slot2: (MoveDigest, u16),
+}
+
+impl Default for KillersRecord {
+    fn default() -> KillersRecord {
+        KillersRecord {
+            slot1: (0, 0),
+            slot2: (0, 0),
+        }
+    }
+}
+
+// Returns the move digests for the current position's killer
+// moves.
+//
+// "Killer move" is a move which was good in a sibling node, or
+// any other earlier branch in the tree with the same distance to
+// the root position. The idea is to try that move early -- after
+// a possibly available hash move from the transposition table and
+// seemingly winning captures. This method will not return
+// captures and promotions as killers, because those are tried
+// early anyway. The move returned in the first slot should be
+// treated as the better one of the two. If no killer move is
+// available for one or both of the slots -- `0` is returned
+// instead.
+
+// Containstwo moves with their hit counters for each ply.
+pub struct Killers {
+    moves: [KillersRecord; MAX_DEPTH as usize],
+}
+
+impl Killers {
+    pub fn new() -> Killers {
+        Killers { moves: [Default::default(); MAX_DEPTH as usize] }
+    }
+
+    pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
+        let record = self.moves.get(index).unwrap();
+        if record.slot1.1 > record.slot2.1 {
+            (record.slot1.0, record.slot2.0)
+        } else {
+            (record.slot2.0, record.slot1.0)
+        }
+    }
+
+    pub fn set(&mut self, index: usize, m: Move) {
+        if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
+            // We do not want to waste our precious killer-slots on
+            // captures and promotions.
+            return;
+        }
+        let m_digest = m.digest();
+        assert!(m_digest != 0);
+        let record = self.moves.get_mut(index).unwrap();
+        if record.slot1.0 == m_digest {
+            record.slot1.1 += 1;
+            if record.slot1.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
+            return;
+        }
+        if record.slot2.0 == m_digest {
+            record.slot2.1 += 1;
+            if record.slot2.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
+            return;
+        }
+        let slot = if record.slot1.1 <= record.slot2.1 {
+            &mut record.slot1
+        } else {
+            &mut record.slot2
+        };
+        *slot = (m_digest, 1);
+    }
 }
 
 
