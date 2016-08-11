@@ -17,10 +17,12 @@ pub struct IllegalBoard;
 ///
 /// `Board` can generate all possible moves in the current position,
 /// play a selected move, and take it back. It can tell you which
-/// pieces attack a specific square, and which are the checkers to the
-/// king. It can also fabricate a speculative "null move" that can be
-/// used to aggressively prune the search tree. `Board` does not know
-/// anything about chess strategy or tactics.
+/// pieces attack a specific square, which pieces are pinned, and
+/// which are the checkers to the king. It can calculate the Zobrist
+/// hash value for the current board. It can also fabricate a "null
+/// move" that can be used to aggressively prune the search
+/// tree. Other than that, `Board` does not know anything about chess
+/// strategy or tactics.
 #[derive(Clone)]
 pub struct Board {
     geometry: &'static BoardGeometry,
