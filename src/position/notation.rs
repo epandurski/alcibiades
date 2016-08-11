@@ -58,6 +58,9 @@ pub struct PiecesPlacement {
 ///
 /// 6) Fullmove number. The number of the full move. It starts at 1,
 ///    and is incremented after Black's move.
+///
+/// # Example:
+/// The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
 pub fn parse_fen
     (s: &str)
      -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), ParseError> {
