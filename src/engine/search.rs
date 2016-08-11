@@ -1,5 +1,6 @@
 //! Implements single-threaded game tree search.
 
+use std::u16;
 use std::cmp::max;
 use basetypes::*;
 use chess_move::*;
@@ -15,6 +16,7 @@ pub struct TerminatedSearch;
 /// Represents a game tree search.        
 pub struct Search<'a> {
     tt: &'a TranspositionTable,
+    killer_moves: &'a mut [KillersRecord; MAX_DEPTH as usize + 1],
     position: Position,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
@@ -22,6 +24,49 @@ pub struct Search<'a> {
     reported_nodes: NodeCount,
     unreported_nodes: NodeCount,
     report_function: &'a mut FnMut(NodeCount) -> bool,
+}
+
+
+// TODO: The killer moves array -- we keep two moves with their hit
+// counters for each ply.
+// Contains two killer moves with their hit counters.
+#[derive(Clone, Copy)]
+pub struct KillersRecord {
+    slot1: (MoveDigest, u16),
+    slot2: (MoveDigest, u16),
+}
+
+impl Default for KillersRecord {
+    fn default() -> KillersRecord {
+        KillersRecord {
+            slot1: (0, 0),
+            slot2: (0, 0),
+        }
+    }
+}
+
+// Returns the move digests for the current position's killer
+// moves.
+//
+// "Killer move" is a move which was good in a sibling node, or
+// any other earlier branch in the tree with the same distance to
+// the root position. The idea is to try that move early -- after
+// a possibly available hash move from the transposition table and
+// seemingly winning captures. This method will not return
+// captures and promotions as killers, because those are tried
+// early anyway. The move returned in the first slot should be
+// treated as the better one of the two. If no killer move is
+// available for one or both of the slots -- `0` is returned
+// instead.
+pub type Killers = [KillersRecord; MAX_DEPTH as usize + 1];
+
+pub fn get_killers(killers: &Killers, ply: usize) -> (MoveDigest, MoveDigest) {
+    let record = killers.get(ply).unwrap();
+    if record.slot1.1 > record.slot2.1 {
+        (record.slot1.0, record.slot2.0)
+    } else {
+        (record.slot2.0, record.slot1.0)
+    }
 }
 
 
@@ -35,12 +80,14 @@ impl<'a> Search<'a> {
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
                tt: &'a TranspositionTable,
+               killer_moves: &'a mut [KillersRecord; MAX_DEPTH as usize + 1],
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
         let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
+            killer_moves: killer_moves,
             position: root,
             moves: move_stack,
             moves_starting_ply: moves_starting_ply,
@@ -144,7 +191,7 @@ impl<'a> Search<'a> {
                     best_move = m;
                     value = v;
                     bound = BOUND_LOWER;
-                    self.position.register_killer();
+                    self.register_killer_move(m);
                     self.undo_move();
                     break;
                 }
@@ -326,6 +373,7 @@ impl<'a> Search<'a> {
     // pseudo-legal moves at the last possible moment.
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
+        let ply = self.state_stack.len() - 1;
         let state = self.state_stack.last_mut().unwrap();
         assert!(if let NodePhase::Pristine = state.phase {
             false
@@ -410,7 +458,7 @@ impl<'a> Search<'a> {
                     state.phase = NodePhase::TriedKillerMoves;
                     k2
                 } else {
-                    let (k1, k2) = self.position.killers();
+                    let (k1, k2) = get_killers(self.killer_moves, ply);
                     state.killer = Some(k2);
                     k1
                 };
@@ -490,6 +538,43 @@ impl<'a> Search<'a> {
         }
         Ok(())
     }
+
+    // A helper method for `Search::run`. It registers that `m` was a
+    // good move (a killer).
+    fn register_killer_move(&mut self, m: Move) {
+        if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
+            // We do not want to waste our precious killer-slots on
+            // captures and promotions.
+            return;
+        }
+        let m_digest = m.digest();
+        assert!(m_digest != 0);
+        assert!(self.state_stack.len() > 1);
+        assert!(self.state_stack.len() - 1 <= MAX_DEPTH as usize);
+        let record = self.killer_moves.get_mut(self.state_stack.len() - 2).unwrap();
+        if record.slot1.0 == m_digest {
+            record.slot1.1 += 1;
+            if record.slot1.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
+            return;
+        }
+        if record.slot2.0 == m_digest {
+            record.slot2.1 += 1;
+            if record.slot2.1 == u16::MAX {
+                record.slot1.1 >>= 1;
+                record.slot2.1 >>= 1;
+            }
+            return;
+        }
+        let slot = if record.slot1.1 <= record.slot2.1 {
+            &mut record.slot1
+        } else {
+            &mut record.slot2
+        };
+        *slot = (m_digest, 1);
+    }
 }
 
 
@@ -521,6 +606,7 @@ struct NodeState {
 
 #[cfg(test)]
 mod tests {
+    use basetypes::*;
     use super::Search;
     use engine::tt::*;
     use chess_move::*;
@@ -533,7 +619,12 @@ mod tests {
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut search = Search::new(p, &tt, &mut moves, &mut report);
+        let mut killer_moves_array = [Default::default(); MAX_DEPTH as usize + 1];
+        let mut search = Search::new(p,
+                                     &tt,
+                                     &mut killer_moves_array,
+                                     &mut moves,
+                                     &mut report);
         let value = search.run(-30000, 30000, 2, Move::invalid())
                           .ok()
                           .unwrap();
@@ -544,4 +635,28 @@ mod tests {
                           .unwrap();
         assert!(value >= 20000);
     }
+
+    // #[test]
+    // fn test_killers() {
+    //     let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
+    //                     .ok()
+    //                     .unwrap();
+    //     let mut v = MoveStack::new();
+    //     p.generate_moves(&mut v);
+    //     let mut i = 1;
+    //     let mut previous_move_digest = 0;
+    //     while let Some(m) = v.pop() {
+    //         if m.captured_piece() == NO_PIECE && p.do_move(m) {
+    //             for _ in 0..i {
+    //                 p.register_killer();
+    //             }
+    //             i += 1;
+    //             p.undo_move();
+    //             let (killer1, killer2) = p.killers();
+    //             assert!(killer1 == m.digest());
+    //             assert!(killer2 == previous_move_digest);
+    //             previous_move_digest = m.digest();
+    //         }
+    //     }
+    // }
 }

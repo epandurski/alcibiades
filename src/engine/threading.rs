@@ -146,7 +146,12 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                             false
                         }
                     };
-                    let mut search = Search::new(position, &tt, move_stack, &mut report);
+                    let mut killer_moves_array = [Default::default(); MAX_DEPTH as usize + 1];
+                    let mut search = Search::new(position,
+                                                 &tt,
+                                                 &mut killer_moves_array,
+                                                 move_stack,
+                                                 &mut report);
                     let value = search.run(lower_bound, upper_bound, depth, Move::invalid()).ok();
                     let searched_depth = if value.is_some() {
                         depth
