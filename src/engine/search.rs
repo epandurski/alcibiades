@@ -16,7 +16,7 @@ pub struct TerminatedSearch;
 /// Represents a game tree search.        
 pub struct Search<'a> {
     tt: &'a TranspositionTable,
-    killer_moves: &'a mut Killers,
+    killers: &'a mut Killers,
     position: Position,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
@@ -67,8 +67,8 @@ impl Killers {
         Killers { moves: [Default::default(); MAX_DEPTH as usize + 1] }
     }
 
-    pub fn get(&self, ply: usize) -> (MoveDigest, MoveDigest) {
-        let record = self.moves.get(ply).unwrap();
+    pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
+        let record = self.moves.get(index).unwrap();
         if record.slot1.1 > record.slot2.1 {
             (record.slot1.0, record.slot2.0)
         } else {
@@ -76,7 +76,7 @@ impl Killers {
         }
     }
 
-    pub fn set(&mut self, ply: usize, m: Move) {
+    pub fn set(&mut self, index: usize, m: Move) {
         if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
             // captures and promotions.
@@ -84,7 +84,7 @@ impl Killers {
         }
         let m_digest = m.digest();
         assert!(m_digest != 0);
-        let record = self.moves.get_mut(ply).unwrap();
+        let record = self.moves.get_mut(index).unwrap();
         if record.slot1.0 == m_digest {
             record.slot1.1 += 1;
             if record.slot1.1 == u16::MAX {
@@ -121,14 +121,14 @@ impl<'a> Search<'a> {
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
                tt: &'a TranspositionTable,
-               killer_moves: &'a mut Killers,
+               killers: &'a mut Killers,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
         let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
-            killer_moves: killer_moves,
+            killers: killers,
             position: root,
             moves: move_stack,
             moves_starting_ply: moves_starting_ply,
@@ -221,6 +221,7 @@ impl<'a> Search<'a> {
                         _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
                     }
                 };
+                self.undo_move();
                 assert!(v > VALUE_UNKNOWN);
 
                 // See how good this move was.
@@ -233,7 +234,6 @@ impl<'a> Search<'a> {
                     value = v;
                     bound = BOUND_LOWER;
                     self.register_killer_move(m);
-                    self.undo_move();
                     break;
                 }
                 if v > value {
@@ -247,7 +247,6 @@ impl<'a> Search<'a> {
                         BOUND_UPPER
                     };
                 }
-                self.undo_move();
             }
 
             // Check if we are in a final position (no legal moves).
@@ -414,8 +413,9 @@ impl<'a> Search<'a> {
     // pseudo-legal moves at the last possible moment.
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
+        assert!(self.state_stack.len() > 0);
         let ply = self.state_stack.len() - 1;
-        let state = self.state_stack.last_mut().unwrap();
+        let state = unsafe { self.state_stack.get_unchecked_mut(ply) };
         assert!(if let NodePhase::Pristine = state.phase {
             false
         } else {
@@ -499,7 +499,7 @@ impl<'a> Search<'a> {
                     state.phase = NodePhase::TriedKillerMoves;
                     k2
                 } else {
-                    let (k1, k2) = self.killer_moves.get(ply);
+                    let (k1, k2) = self.killers.get(ply);
                     state.killer = Some(k2);
                     k1
                 };
@@ -580,11 +580,11 @@ impl<'a> Search<'a> {
         Ok(())
     }
 
-    // A helper method for `Search::run`. It registers that `m` was a
-    // good move (a killer).
+    // A helper method for `Search::run`. It registers that `m` caused
+    // a beta cut-off (a killer move).
     #[inline]
     fn register_killer_move(&mut self, m: Move) {
-        self.killer_moves.set(self.state_stack.len() - 1, m);
+        self.killers.set(self.state_stack.len() - 1, m);
     }
 }
 
@@ -629,8 +629,8 @@ mod tests {
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut killer_moves_array = Killers::new();
-        let mut search = Search::new(p, &tt, &mut killer_moves_array, &mut moves, &mut report);
+        let mut killers = Killers::new();
+        let mut search = Search::new(p, &tt, &mut killers, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2, Move::invalid())
                           .ok()
                           .unwrap();
