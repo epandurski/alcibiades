@@ -421,22 +421,14 @@ impl<'a> Search<'a> {
                 let (minor_killer, major_killers) = self.killers.get(killer_table_index);
                 let killer = match state.tried_killers {
                     0 => major_killers[0],
-                    1 => minor_killer,
-                    n => {
-                        if let Some(k) = major_killers.get(n - 1) {
-                            *k
-                        } else {
-                            state.phase = NodePhase::TriedKillerMoves;
-                            0
-                        }
+                    _ => {
+                        state.phase = NodePhase::TriedKillerMoves;
+                        minor_killer
                     }
                 };
                 
                 // Try the killer move.
                 state.tried_killers += 1;
-                if state.tried_killers == 3 {
-                    state.phase = NodePhase::TriedKillerMoves;
-                }
                 if let Some(mut m) = self.moves.remove_move(killer) {
                     if self.position.do_move(m) {
                         m.set_score(MAX_MOVE_SCORE);
