@@ -395,15 +395,9 @@ impl<'a> Search<'a> {
         }
 
         // Try the generated moves.
-        while let Some(mut m) = if let NodePhase::TriedLosingCaptures = state.phase {
-            // After we have tried the losing captures, we try the
-            // rest of the moves in the order in which they reside in
-            // the move stack, because at this stage the probability
-            // of cut-off is low, so the move ordering is not
-            // important.
-            self.moves.pop()
-        } else {
-            self.moves.remove_best_move()
+        while let Some(mut m) = match state.phase {
+            NodePhase::TriedWinningMoves | NodePhase::TriedLosingCaptures => self.moves.pop(),
+            _ => self.moves.remove_best_move(),
         } {
             // First -- the winning and even captures and promotions
             // to queen.
@@ -582,8 +576,8 @@ impl Default for KillersPair {
 pub struct KillerTable {
     major_killers: [MoveDigest; MAX_DEPTH as usize],
     minor_killers: [MoveDigest; MAX_DEPTH as usize],
-    major_counters: [u16; MAX_DEPTH as usize],
-    minor_counters: [u16; MAX_DEPTH as usize],
+    major_counters: [u32; MAX_DEPTH as usize],
+    minor_counters: [u32; MAX_DEPTH as usize],
 }
 
 impl KillerTable {
@@ -598,13 +592,14 @@ impl KillerTable {
     }
 
     pub fn clear(&mut self) {
-        for array in [self.major_killers,
-                      self.minor_killers,
-                      self.major_counters,
-                      self.minor_counters]
-                         .iter_mut() {
-            for x in array.iter_mut() {
-                *x = 0
+        for killers in [self.major_killers, self.minor_killers].iter_mut() {
+            for k in killers.iter_mut() {
+                *k = 0
+            }
+        }
+        for counters in [self.major_counters, self.minor_counters].iter_mut() {
+            for c in counters.iter_mut() {
+                *c = 0
             }
         }
     }
