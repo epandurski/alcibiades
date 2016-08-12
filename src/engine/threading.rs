@@ -10,7 +10,7 @@ use chess_move::*;
 use position::Position;
 use engine;
 use engine::tt::*;
-use engine::search::{Search, KillersArray};
+use engine::search::{Search, KillerTable};
 
 
 /// Represents a command to a search thread.
@@ -119,7 +119,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
     );
     MOVE_STACK.with(|s| {
         let mut move_stack = unsafe { &mut *s.get() };
-        let mut killers = KillersArray::new();
+        let mut killers = KillerTable::new();
         let mut last_position_hash = 0;
         let mut pending_command = None;
         loop {
