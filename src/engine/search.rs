@@ -223,7 +223,7 @@ impl<'a> Search<'a> {
             entry: entry,
             checkers: BB_UNIVERSAL_SET,
             pinned: BB_UNIVERSAL_SET,
-            killer: None,
+            tried_killers: 0,
         });
 
         // Check if the TT entry gives the result.
@@ -311,7 +311,7 @@ impl<'a> Search<'a> {
     #[inline]
     fn node_end(&mut self) {
         const DOWNGRADE_DEPTH: usize = 10;
-        
+
         // We should make sure that major killers in the killer table
         // get downgraded from time to time. This way we always have
         // more or less adequate killers.
@@ -319,7 +319,7 @@ impl<'a> Search<'a> {
         if killer_table_index >= DOWNGRADE_DEPTH {
             self.killers.downgrade(killer_table_index - DOWNGRADE_DEPTH);
         }
-        
+
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved the move list
             // yet, so we should not restore it.
@@ -422,14 +422,16 @@ impl<'a> Search<'a> {
             // remembers where we are.
             if let NodePhase::TriedWinningMoves = state.phase {
                 self.moves.push(m);
-                let killer = if let Some(k_minor) = state.killer {
-                    state.phase = NodePhase::TriedKillerMoves;
-                    k_minor
-                } else {
-                    let (k_minor, k_majors) = self.killers.get(killer_table_index);
-                    state.killer = Some(k_minor);
-                    k_majors[0]
+                let (minor_killer, major_killers) = self.killers.get(killer_table_index);
+                let killer = match state.tried_killers {
+                    0 => major_killers[0],
+                    1 => minor_killer,
+                    n => *major_killers.get(n - 1).unwrap_or(&0),
                 };
+                state.tried_killers += 1;
+                if state.tried_killers == 3 {
+                    state.phase = NodePhase::TriedKillerMoves;
+                }
                 if let Some(mut m) = self.moves.remove_move(killer) {
                     if self.position.do_move(m) {
                         m.set_score(MAX_MOVE_SCORE);
@@ -528,7 +530,7 @@ struct NodeState {
     entry: EntryData,
     checkers: Bitboard,
     pinned: Bitboard,
-    killer: Option<MoveDigest>,
+    tried_killers: usize,
 }
 
 
