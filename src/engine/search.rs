@@ -1,5 +1,6 @@
 //! Implements single-threaded game tree search.
 
+use std::u16;
 use std::cmp::max;
 use basetypes::*;
 use chess_move::*;
@@ -15,6 +16,7 @@ pub struct TerminatedSearch;
 /// Represents a game tree search.        
 pub struct Search<'a> {
     tt: &'a TranspositionTable,
+    killers: &'a mut KillersArray,
     position: Position,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
@@ -35,12 +37,14 @@ impl<'a> Search<'a> {
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
                tt: &'a TranspositionTable,
+               killers: &'a mut KillersArray,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
         let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
+            killers: killers,
             position: root,
             moves: move_stack,
             moves_starting_ply: moves_starting_ply,
@@ -133,6 +137,7 @@ impl<'a> Search<'a> {
                         _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
                     }
                 };
+                self.undo_move();
                 assert!(v > VALUE_UNKNOWN);
 
                 // See how good this move was.
@@ -144,8 +149,7 @@ impl<'a> Search<'a> {
                     best_move = m;
                     value = v;
                     bound = BOUND_LOWER;
-                    self.position.register_killer();
-                    self.undo_move();
+                    self.register_killer_move(m);
                     break;
                 }
                 if v > value {
@@ -159,7 +163,6 @@ impl<'a> Search<'a> {
                         BOUND_UPPER
                     };
                 }
-                self.undo_move();
             }
 
             // Check if we are in a final position (no legal moves).
@@ -326,7 +329,9 @@ impl<'a> Search<'a> {
     // pseudo-legal moves at the last possible moment.
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
-        let state = self.state_stack.last_mut().unwrap();
+        assert!(self.state_stack.len() > 0);
+        let ply = self.state_stack.len() - 1;
+        let state = unsafe { self.state_stack.get_unchecked_mut(ply) };
         assert!(if let NodePhase::Pristine = state.phase {
             false
         } else {
@@ -410,7 +415,7 @@ impl<'a> Search<'a> {
                     state.phase = NodePhase::TriedKillerMoves;
                     k2
                 } else {
-                    let (k1, k2) = self.position.killers();
+                    let (k1, k2) = self.killers.get(ply);
                     state.killer = Some(k2);
                     k1
                 };
@@ -490,6 +495,13 @@ impl<'a> Search<'a> {
         }
         Ok(())
     }
+
+    // A helper method for `Search::run`. It registers that the move
+    // `m` caused a beta cut-off (a killer move).
+    #[inline]
+    fn register_killer_move(&mut self, m: Move) {
+        self.killers.register(self.state_stack.len() - 1, m);
+    }
 }
 
 
@@ -497,6 +509,15 @@ impl<'a> Search<'a> {
 // full depth. Moves with move scores lesser or equal to this number
 // will be searched at reduced depth.
 const REDUCTION_THRESHOLD: usize = 0;
+
+
+struct NodeState {
+    phase: NodePhase,
+    entry: EntryData,
+    checkers: Bitboard,
+    pinned: Bitboard,
+    killer: Option<MoveDigest>,
+}
 
 
 enum NodePhase {
@@ -510,18 +531,106 @@ enum NodePhase {
 }
 
 
-struct NodeState {
-    phase: NodePhase,
-    entry: EntryData,
-    checkers: Bitboard,
-    pinned: Bitboard,
-    killer: Option<MoveDigest>,
+// Returns the move digests for the current position's killer
+// moves.
+//
+// "Killer move" is a move which was good in a sibling node, or
+// any other earlier branch in the tree with the same distance to
+// the root position. The idea is to try that move early -- after
+// a possibly available hash move from the transposition table and
+// seemingly winning captures. This method will not return
+// captures and promotions as killers, because those are tried
+// early anyway. The move returned in the first slot should be
+// treated as the better one of the two. If no killer move is
+// available for one or both of the slots -- `0` is returned
+// instead.
+                                    
+                                    
+// Two killer moves with their hit counters.
+#[derive(Clone, Copy)]
+struct KillersPair {
+    slot1: (MoveDigest, u16),
+    slot2: (MoveDigest, u16),
+}
+
+impl Default for KillersPair {
+    fn default() -> KillersPair {
+        KillersPair {
+            slot1: (0, 0),
+            slot2: (0, 0),
+        }
+    }
+}
+
+        
+/// An array that holds two killer moves with hit counters for each
+/// half-move.
+pub struct KillersArray {
+    array: [KillersPair; MAX_DEPTH as usize],
+}
+
+impl KillersArray {
+    /// Creates a new empty instance.
+    pub fn new() -> KillersArray {
+        KillersArray { array: [Default::default(); MAX_DEPTH as usize] }
+    }
+
+    /// XXX
+    pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
+        let pair = self.array.get(index).unwrap();
+        
+        // Return the two killers in proper order.
+        if pair.slot1.1 > pair.slot2.1 {
+            (pair.slot1.0, pair.slot2.0)
+        } else {
+            (pair.slot2.0, pair.slot1.0)
+        }
+    }
+
+    pub fn register(&mut self, index: usize, m: Move) {
+        if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
+            // We do not want to waste our precious killer-slots on
+            // captures and promotions.
+            return;
+        }
+        let pair = self.array.get_mut(index).unwrap();
+        let digest = m.digest();
+        assert!(digest != 0);
+
+        // Check if the move is already in one of the slots.
+        if pair.slot1.0 == digest {
+            // Increment slot1's counter. Watch for overflows.
+            pair.slot1.1 += 1;
+            if pair.slot1.1 == u16::MAX {
+                pair.slot1.1 >>= 1;
+                pair.slot2.1 >>= 1;
+            }
+            return;
+        }
+        if pair.slot2.0 == digest {
+            // Increment slot2's counter. Watch for overflows.
+            pair.slot2.1 += 1;
+            if pair.slot2.1 == u16::MAX {
+                pair.slot1.1 >>= 1;
+                pair.slot2.1 >>= 1;
+            }
+            return;
+        }
+
+        // Otherwise, override the slot with lower hit count.
+        let slot = if pair.slot1.1 <= pair.slot2.1 {
+            &mut pair.slot1
+        } else {
+            &mut pair.slot2
+        };
+        *slot = (digest, 1);
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::Search;
+    use super::{Search, KillersArray};
     use engine::tt::*;
     use chess_move::*;
     use position::Position;
@@ -533,7 +642,8 @@ mod tests {
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut search = Search::new(p, &tt, &mut moves, &mut report);
+        let mut killers = KillersArray::new();
+        let mut search = Search::new(p, &tt, &mut killers, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2, Move::invalid())
                           .ok()
                           .unwrap();
@@ -543,5 +653,32 @@ mod tests {
                           .ok()
                           .unwrap();
         assert!(value >= 20000);
+    }
+
+    #[test]
+    fn test_killers() {
+        use basetypes::*;
+        let mut killers = KillersArray::new();
+        let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
+                        .ok()
+                        .unwrap();
+        let mut v = MoveStack::new();
+        p.generate_moves(&mut v);
+        let mut i = 1;
+        let mut previous_move_digest = 0;
+        while let Some(m) = v.pop() {
+            if m.captured_piece() == NO_PIECE && p.do_move(m) {
+                for _ in 0..i {
+                    killers.register(0, m);
+                }
+                i += 1;
+                p.undo_move();
+                let (killer1, killer2) = killers.get(0);
+                assert!(killer1 == m.digest());
+                assert!(killer2 == previous_move_digest);
+                previous_move_digest = m.digest();
+            }
+        }
+        assert!(killers.get(1) == (0, 0));
     }
 }

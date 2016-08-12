@@ -10,7 +10,7 @@ use chess_move::*;
 use position::Position;
 use engine;
 use engine::tt::*;
-use engine::search::Search;
+use engine::search::{Search, KillersArray};
 
 
 /// Represents a command to a search thread.
@@ -146,7 +146,12 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                             false
                         }
                     };
-                    let mut search = Search::new(position, &tt, move_stack, &mut report);
+                    let mut killers = KillersArray::new();
+                    let mut search = Search::new(position,
+                                                 &tt,
+                                                 &mut killers,
+                                                 move_stack,
+                                                 &mut report);
                     let value = search.run(lower_bound, upper_bound, depth, Move::invalid()).ok();
                     let searched_depth = if value.is_some() {
                         depth
