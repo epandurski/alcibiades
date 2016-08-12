@@ -310,6 +310,16 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
+        const DOWNGRADE_DEPTH: usize = 10;
+        
+        // We should make sure that major killers in the killer table
+        // get downgraded from time to time. This way we always have
+        // more or less adequate killers.
+        let killer_table_index = MAX_DEPTH as usize - self.state_stack.len();
+        if killer_table_index >= DOWNGRADE_DEPTH {
+            self.killers.downgrade(killer_table_index - DOWNGRADE_DEPTH);
+        }
+        
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved the move list
             // yet, so we should not restore it.
@@ -331,8 +341,8 @@ impl<'a> Search<'a> {
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
         assert!(self.state_stack.len() > 0);
-        let ply = self.state_stack.len() - 1;
-        let state = unsafe { self.state_stack.get_unchecked_mut(ply) };
+        let killer_table_index = MAX_DEPTH as usize - self.state_stack.len();
+        let state = self.state_stack.last_mut().unwrap();
         assert!(if let NodePhase::Pristine = state.phase {
             false
         } else {
@@ -416,7 +426,7 @@ impl<'a> Search<'a> {
                     state.phase = NodePhase::TriedKillerMoves;
                     k_minor
                 } else {
-                    let (k_minor, k_majors) = self.killers.get(ply);
+                    let (k_minor, k_majors) = self.killers.get(killer_table_index);
                     state.killer = Some(k_minor);
                     k_majors[0]
                 };
@@ -501,7 +511,8 @@ impl<'a> Search<'a> {
     // `m` caused a beta cut-off (a killer move).
     #[inline]
     fn register_killer_move(&mut self, m: Move) {
-        self.killers.register(self.state_stack.len() - 1, m);
+        let killer_table_index = MAX_DEPTH as usize - self.state_stack.len();
+        self.killers.register(killer_table_index, m);
     }
 }
 
@@ -652,7 +663,14 @@ impl KillerTable {
     /// XXX
     #[inline]
     pub fn downgrade(&mut self, index: usize) {
-        self.major_counters[index] >>= 1;
+        let minor_counter = self.minor_counters.get_mut(index).unwrap();
+        let major_counter = self.major_counters.get_mut(index).unwrap();
+        *major_counter >>= 1;
+        if *minor_counter > *major_counter {
+            mem::swap(self.minor_killers.get_mut(index).unwrap(),
+                      self.major_killers.get_mut(index).unwrap());
+            mem::swap(minor_counter, major_counter);
+        }
     }
 }
 
