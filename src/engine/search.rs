@@ -1,6 +1,7 @@
 //! Implements single-threaded game tree search.
 
 use std::u16;
+use std::mem;
 use std::cmp::max;
 use basetypes::*;
 use chess_move::*;
@@ -411,13 +412,13 @@ impl<'a> Search<'a> {
             // remembers where we are.
             if let NodePhase::TriedWinningMoves = state.phase {
                 self.moves.push(m);
-                let killer = if let Some(k2) = state.killer {
+                let killer = if let Some(k_minor) = state.killer {
                     state.phase = NodePhase::TriedKillerMoves;
-                    k2
+                    k_minor
                 } else {
-                    let (k1, k2) = self.killers.get(ply);
-                    state.killer = Some(k2);
-                    k1
+                    let (k_minor, k_majors) = self.killers.get(ply);
+                    state.killer = Some(k_minor);
+                    k_majors[0]
                 };
                 if let Some(mut m) = self.moves.remove_move(killer) {
                     if self.position.do_move(m) {
@@ -544,8 +545,8 @@ enum NodePhase {
 // treated as the better one of the two. If no killer move is
 // available for one or both of the slots -- `0` is returned
 // instead.
-                                    
-                                    
+
+
 // Two killer moves with their hit counters.
 #[derive(Clone, Copy)]
 struct KillersPair {
@@ -562,82 +563,96 @@ impl Default for KillersPair {
     }
 }
 
-        
+
 /// An array that holds two killer moves with hit counters for each
 /// half-move.
 pub struct KillerTable {
-    array: [KillersPair; MAX_DEPTH as usize],
+    major_killers: [MoveDigest; MAX_DEPTH as usize],
+    minor_killers: [MoveDigest; MAX_DEPTH as usize],
+    major_counters: [u16; MAX_DEPTH as usize],
+    minor_counters: [u16; MAX_DEPTH as usize],
 }
 
 impl KillerTable {
     /// Creates a new empty instance.
     pub fn new() -> KillerTable {
-        KillerTable { array: [Default::default(); MAX_DEPTH as usize] }
+        KillerTable {
+            major_killers: [0; MAX_DEPTH as usize],
+            minor_killers: [0; MAX_DEPTH as usize],
+            major_counters: [0; MAX_DEPTH as usize],
+            minor_counters: [0; MAX_DEPTH as usize],
+        }
     }
-    
+
     pub fn clear(&mut self) {
-        for pair in self.array.iter_mut() {
-            pair.slot1 = Default::default();
-            pair.slot2 = Default::default();
+        for array in [self.major_killers,
+                      self.minor_killers,
+                      self.major_counters,
+                      self.minor_counters]
+                         .iter_mut() {
+            for x in array.iter_mut() {
+                *x = 0
+            }
         }
     }
 
     /// XXX
-    pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
-        let pair = self.array.get(index).unwrap();
-        
-        // Return the two killers in proper order.
-        if pair.slot1.1 > pair.slot2.1 {
-            (pair.slot1.0, pair.slot2.0)
-        } else {
-            (pair.slot2.0, pair.slot1.0)
-        }
+    #[inline]
+    pub fn get(&self, index: usize) -> (MoveDigest, &[MoveDigest]) {
+        (self.minor_killers[index], &self.major_killers[index..])
     }
 
+    #[inline]
     pub fn register(&mut self, index: usize, m: Move) {
         if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
-            // captures and promotions.
+            // captures and promotions, because those are tried early
+            // anyway.
             return;
         }
-        let pair = self.array.get_mut(index).unwrap();
+
+        // Check if the move is already a major or a minor killer. If
+        // so -- increment killer's counter. Otherwise -- overwrite
+        // one of the killers, and set its counter to `1`.
+        let minor_killer = self.minor_killers.get_mut(index).unwrap();
+        let major_killer = self.major_killers.get_mut(index).unwrap();
+        let minor_counter = self.minor_counters.get_mut(index).unwrap();
+        let major_counter = self.major_counters.get_mut(index).unwrap();
         let digest = m.digest();
         assert!(digest != 0);
-
-        // Check if the move is already in one of the slots.
-        if pair.slot1.0 == digest {
-            // Increment slot1's counter. Watch for overflows.
-            pair.slot1.1 += 1;
-            if pair.slot1.1 == u16::MAX {
-                pair.slot1.1 >>= 1;
-                pair.slot2.1 >>= 1;
+        assert!(*minor_killer == 0 || *minor_killer != *major_killer);
+        assert!(*minor_counter <= *major_counter);
+        let counter = match digest {
+            x if x == *major_killer => major_counter,
+            x if x == *minor_killer => {
+                if *minor_counter == *major_counter {
+                    // The minor killer has become a better killer
+                    // than the major killer, so we swap them.
+                    mem::swap(minor_killer, major_killer);
+                    major_counter
+                } else {
+                    minor_counter
+                }
             }
-            return;
-        }
-        if pair.slot2.0 == digest {
-            // Increment slot2's counter. Watch for overflows.
-            pair.slot2.1 += 1;
-            if pair.slot2.1 == u16::MAX {
-                pair.slot1.1 >>= 1;
-                pair.slot2.1 >>= 1;
+            x if *major_counter == 0 => {
+                // Overwrite the major killer.
+                *major_killer = x;
+                major_counter
             }
-            return;
-        }
-
-        // Otherwise, override the slot with lower hit count.
-        let slot = if pair.slot1.1 <= pair.slot2.1 {
-            &mut pair.slot1
-        } else {
-            &mut pair.slot2
+            x => {
+                // Overwrite the minor killer.
+                *minor_killer = x;
+                *minor_counter = 0;
+                minor_counter
+            }
         };
-        *slot = (digest, 1);
+        *counter += 1;
     }
-    
+
     /// XXX
+    #[inline]
     pub fn downgrade(&mut self, index: usize) {
-        let pair = self.array.get_mut(index).unwrap();
-        pair.slot1.1 <<= 1;
-        pair.slot2.1 <<= 1;
+        self.major_counters[index] >>= 1;
     }
 }
 
@@ -687,12 +702,12 @@ mod tests {
                 }
                 i += 1;
                 p.undo_move();
-                let (killer1, killer2) = killers.get(0);
-                assert!(killer1 == m.digest());
-                assert!(killer2 == previous_move_digest);
+                let (minor_killer, killer_list) = killers.get(0);
+                assert_eq!(killer_list[0], m.digest());
+                assert_eq!(minor_killer, previous_move_digest);
                 previous_move_digest = m.digest();
             }
         }
-        assert!(killers.get(1) == (0, 0));
+        assert!(killers.get(1).0 == 0);
     }
 }
