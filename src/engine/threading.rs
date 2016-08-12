@@ -119,6 +119,8 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
     );
     MOVE_STACK.with(|s| {
         let mut move_stack = unsafe { &mut *s.get() };
+        let mut killers = KillersArray::new();
+        let mut last_position_hash = 0;
         let mut pending_command = None;
         loop {
             // If there is a pending command, we take it, otherwise we
@@ -146,7 +148,10 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                             false
                         }
                     };
-                    let mut killers = KillersArray::new();
+                    if last_position_hash != position.hash() {
+                        last_position_hash = position.hash();
+                    }
+                    killers.clear();
                     let mut search = Search::new(position,
                                                  &tt,
                                                  &mut killers,

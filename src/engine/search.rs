@@ -574,6 +574,13 @@ impl KillersArray {
     pub fn new() -> KillersArray {
         KillersArray { array: [Default::default(); MAX_DEPTH as usize] }
     }
+    
+    pub fn clear(&mut self) {
+        for pair in self.array.iter_mut() {
+            pair.slot1 = Default::default();
+            pair.slot2 = Default::default();
+        }
+    }
 
     /// XXX
     pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
