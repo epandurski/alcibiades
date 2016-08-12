@@ -412,8 +412,8 @@ impl<'a> Search<'a> {
             }
 
             // Second -- the killer moves. We try two killer moves in
-            // two sequential iterations of the loop. `state.killer`
-            // remembers where we are.
+            // two sequential iterations of the
+            // loop. `state.tried_killers` remembers where we are.
             if let NodePhase::TriedWinningMoves = state.phase {
                 self.moves.push(m);
                 
