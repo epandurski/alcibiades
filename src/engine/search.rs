@@ -416,12 +416,23 @@ impl<'a> Search<'a> {
             // remembers where we are.
             if let NodePhase::TriedWinningMoves = state.phase {
                 self.moves.push(m);
+                
+                // Pick a killer move.
                 let (minor_killer, major_killers) = self.killers.get(killer_table_index);
                 let killer = match state.tried_killers {
                     0 => major_killers[0],
                     1 => minor_killer,
-                    n => *major_killers.get(n - 1).unwrap_or(&0),
+                    n => {
+                        if let Some(k) = major_killers.get(n - 1) {
+                            *k
+                        } else {
+                            state.phase = NodePhase::TriedKillerMoves;
+                            0
+                        }
+                    }
                 };
+                
+                // Try the killer move.
                 state.tried_killers += 1;
                 if state.tried_killers == 3 {
                     state.phase = NodePhase::TriedKillerMoves;
