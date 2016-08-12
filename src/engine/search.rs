@@ -1,6 +1,5 @@
 //! Implements single-threaded game tree search.
 
-use std::u16;
 use std::mem;
 use std::cmp::max;
 use basetypes::*;
@@ -310,14 +309,12 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
-        const DOWNGRADE_DEPTH: usize = 10;
-
         // We should make sure that major killers in the killer table
         // get downgraded from time to time. This way we always have
         // more or less adequate killers.
         let killer_table_index = MAX_DEPTH as usize - self.state_stack.len();
-        if killer_table_index >= DOWNGRADE_DEPTH {
-            self.killers.downgrade(killer_table_index - DOWNGRADE_DEPTH);
+        if killer_table_index >= KILLERS_DOWNGRADE_DEPTH {
+            self.killers.downgrade(killer_table_index - KILLERS_DOWNGRADE_DEPTH);
         }
 
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
@@ -416,7 +413,7 @@ impl<'a> Search<'a> {
             // loop. `state.tried_killers` remembers where we are.
             if let NodePhase::TriedWinningMoves = state.phase {
                 self.moves.push(m);
-                
+
                 // Pick a killer move.
                 let (minor_killer, major_killers) = self.killers.get(killer_table_index);
                 let killer = match state.tried_killers {
@@ -426,7 +423,7 @@ impl<'a> Search<'a> {
                         minor_killer
                     }
                 };
-                
+
                 // Try the killer move.
                 state.tried_killers += 1;
                 if let Some(mut m) = self.moves.remove_move(killer) {
@@ -450,10 +447,22 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedLosingCaptures;
                 self.moves.push(m);
 
-                // TODO: Pull selected quiet moves to the top of the
-                // move stack here, using the history
-                // heuristics. Eventually -- set their scores above
-                // the reduction threshold.
+                // Here we pull selected moves to the top of the move
+                // stack, using the killers table as kind of history
+                // heuristics.
+                let (_, major_killers) = self.killers.get(killer_table_index);
+                let mut i = 1;
+                while i < KILLERS_DOWNGRADE_DEPTH {
+                    if let Some(k) = major_killers.get(i) {
+                        if let Some(m) = self.moves.remove_move(*k) {
+                            self.moves.push(m);
+                        }
+                    } else {
+                        break;
+                    }
+                    i += 1;
+                }
+
                 continue;
             }
 
@@ -516,6 +525,11 @@ impl<'a> Search<'a> {
 }
 
 
+// This is the depth in half-moves at which killer moves become so
+// irrelevant that they can not be used even as history statistics.
+const KILLERS_DOWNGRADE_DEPTH: usize = 10;
+
+
 // Moves with move scores higher than this number will be searched at
 // full depth. Moves with move scores lesser or equal to this number
 // will be searched at reduced depth.
@@ -555,23 +569,6 @@ enum NodePhase {
 // treated as the better one of the two. If no killer move is
 // available for one or both of the slots -- `0` is returned
 // instead.
-
-
-// Two killer moves with their hit counters.
-#[derive(Clone, Copy)]
-struct KillersPair {
-    slot1: (MoveDigest, u16),
-    slot2: (MoveDigest, u16),
-}
-
-impl Default for KillersPair {
-    fn default() -> KillersPair {
-        KillersPair {
-            slot1: (0, 0),
-            slot2: (0, 0),
-        }
-    }
-}
 
 
 /// An array that holds two killer moves with hit counters for each
