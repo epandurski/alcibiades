@@ -632,6 +632,13 @@ impl KillersArray {
         };
         *slot = (digest, 1);
     }
+    
+    /// XXX
+    pub fn downgrade(&mut self, index: usize) {
+        let pair = self.array.get_mut(index).unwrap();
+        pair.slot1.1 <<= 1;
+        pair.slot2.1 <<= 1;
+    }
 }
 
 
