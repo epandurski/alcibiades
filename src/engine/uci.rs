@@ -246,6 +246,12 @@ impl<'a, F, E> Server<'a, F, E>
                     }
                     UciCommand::Stop => {
                         engine.stop();
+                        
+                        // The "stop" command requires the engine to
+                        // send the best move. Here we break the
+                        // read-command cycle so that the engine can
+                        // reply before the next command.
+                        break;
                     }
                     UciCommand::UciNewGame => {
                         engine.new_game();
