@@ -288,13 +288,12 @@ impl<'a, F, E> Server<'a, F, E>
                 }
             }
 
-            // Try to read a reply from the engine, fetch it to
-            // `stdout`.
+            // If the engine is instantiated -- try to read replies.
             if let Some(ref mut engine) = self.engine {
                 let mut count = 0;
                 while let Some(reply) = engine.get_reply() {
 
-                    // Fetch the reply to the GUI.
+                    // Fetch the reply to `stdout`.
                     match reply {
                         EngineReply::BestMove { best_move, ponder_move } => {
                             try!(write!(writer,
@@ -317,13 +316,12 @@ impl<'a, F, E> Server<'a, F, E>
                     }
 
                     // Make sure a crazy engine can not block the
-                    // mainloop.
+                    // mainloop with too many replies.
                     if count >= 50 {
                         break;
                     } else {
                         count += 1;
                     }
-
                 }
                 try!(writer.flush());
             }
