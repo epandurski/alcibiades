@@ -365,6 +365,7 @@ impl UciEngine for Engine {
             self.thinking_since = SystemTime::now();
             self.silent_since = SystemTime::now();
             self.current_depth = 0;
+            self.current_value = None;
             self.searched_nodes = 0;
             self.searched_time = 0;
             self.perfect_pv = false;
