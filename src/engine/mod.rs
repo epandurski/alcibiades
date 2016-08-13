@@ -324,7 +324,7 @@ impl UciEngine for Engine {
             // bogus search and wait for a "Done" message. This way,
             // we ensure than no search will be writing to the TT
             // while we are clearing it.
-            self.start_search(0);
+            self.start_search(1);
             while let Ok(Report::Done { search_id, .. }) = self.reports.recv() {
                 if search_id == self.search_id {
                     break;
