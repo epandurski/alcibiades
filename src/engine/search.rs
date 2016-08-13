@@ -313,8 +313,8 @@ impl<'a> Search<'a> {
         // get downgraded from time to time. This way we always have
         // more or less adequate killers.
         let killer_table_index = MAX_DEPTH as usize - self.state_stack.len();
-        if killer_table_index >= KILLERS_DOWNGRADE_DEPTH {
-            self.killers.downgrade(killer_table_index - KILLERS_DOWNGRADE_DEPTH);
+        if killer_table_index >= 15 {
+            self.killers.downgrade(killer_table_index - 15);
         }
 
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
@@ -416,12 +416,11 @@ impl<'a> Search<'a> {
 
                 // Pick a killer move.
                 let (minor_killer, major_killers) = self.killers.get(killer_table_index);
-                let killer = match state.tried_killers {
-                    0 => major_killers[0],
-                    _ => {
-                        state.phase = NodePhase::TriedKillerMoves;
-                        minor_killer
-                    }
+                let killer = if state.tried_killers == 0 {
+                    major_killers[0]
+                } else {
+                    state.phase = NodePhase::TriedKillerMoves;
+                    minor_killer
                 };
 
                 // Try the killer move.
@@ -447,20 +446,26 @@ impl<'a> Search<'a> {
                 state.phase = NodePhase::TriedLosingCaptures;
                 self.moves.push(m);
 
-                // Here we pull selected moves to the top of the move
-                // stack, using the killers table as kind of history
-                // heuristics.
+                // Here we pull few selected moves to the top of the
+                // move stack, using the killers table as kind of
+                // history heuristics.
                 let (_, major_killers) = self.killers.get(killer_table_index);
-                let mut i = 1;
+                let mut selected_moves = [Move::invalid(); MAX_DEPTH as usize];
+                let mut i = 2;
                 while i < KILLERS_DOWNGRADE_DEPTH {
                     if let Some(k) = major_killers.get(i) {
                         if let Some(m) = self.moves.remove_move(*k) {
-                            self.moves.push(m);
+                            selected_moves[MAX_DEPTH as usize - i] = m;
                         }
                     } else {
                         break;
                     }
-                    i += 1;
+                    i += 2;
+                }
+                for m in selected_moves.iter().rev() {
+                    if *m != Move::invalid() {
+                        self.moves.push(*m);
+                    }
                 }
 
                 continue;
@@ -527,7 +532,7 @@ impl<'a> Search<'a> {
 
 // This is the depth in half-moves at which killer moves become so
 // irrelevant that they can not be used even as history statistics.
-const KILLERS_DOWNGRADE_DEPTH: usize = 10;
+const KILLERS_DOWNGRADE_DEPTH: usize = 12;
 
 
 // Moves with move scores higher than this number will be searched at
