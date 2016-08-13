@@ -139,10 +139,10 @@ impl<'a, F, E> Server<'a, F, E>
                         name,
                         match description {
                             OptionDescription::Check { default } => {
-                                format!("check defalut {}", default)
+                                format!("check default {}", default)
                             }
                             OptionDescription::Spin { default, min, max } => {
-                                format!("spin defalut {} min {} max {}", default, min, max)
+                                format!("spin default {} min {} max {}", default, min, max)
                             }
                             OptionDescription::Combo { default, list } => {
                                 format!("combo default {}{}",
@@ -154,7 +154,7 @@ impl<'a, F, E> Server<'a, F, E>
                                         }))
                             }
                             OptionDescription::String { default } => {
-                                format!("string defalut {}", default)
+                                format!("string default {}", default)
                             }
                             OptionDescription::Button => "button".to_string(),
                         }));
