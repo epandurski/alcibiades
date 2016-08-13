@@ -247,6 +247,7 @@ impl TranspositionTable {
                 *entry = Default::default();
             }
         }
+        self.generation.set(0);
     }
 
     /// Signals that a new search is about to begin.
