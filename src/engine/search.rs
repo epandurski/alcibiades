@@ -625,6 +625,9 @@ impl KillersArray {
         }
 
         // Otherwise, override the slot with lower hit count.
+        // 
+        // TODO: using < instead of <= seems to have a big (negative)
+        //       effect on the search. See why.
         let slot = if pair.slot1.1 <= pair.slot2.1 {
             &mut pair.slot1
         } else {
