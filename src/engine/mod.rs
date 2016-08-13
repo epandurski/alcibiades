@@ -112,6 +112,20 @@ impl Engine {
         }
     }
 
+    // A helper method. It starts a new search.
+    fn start_search(&mut self, depth: u8) {
+        self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
+        self.commands
+            .send(Command::Search {
+                search_id: self.search_id,
+                position: self.position.clone(),
+                depth: depth,
+                lower_bound: -20000,
+                upper_bound: 20000,
+            })
+            .unwrap();
+    }
+
     // A helper method. It updates the search status info and makes
     // sure that a new PV is sent to the GUI for every newly reached
     // depth.
@@ -306,6 +320,16 @@ impl UciEngine for Engine {
 
     fn new_game(&mut self) {
         if !self.is_thinking() {
+            // Before we clear the transposition table, we start a
+            // bogus search and wait for a "Done" message. This way,
+            // we ensure than no search will be writing to the TT
+            // while we are clearing it.
+            self.start_search(0);
+            while let Ok(Report::Done { search_id, .. }) = self.reports.recv() {
+                if search_id == self.search_id {
+                    break;
+                }
+            }
             self.tt.clear();
         }
     }
@@ -338,7 +362,6 @@ impl UciEngine for Engine {
 
             self.is_thinking = true;
             self.is_pondering = ponder;
-            self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
             self.thinking_since = SystemTime::now();
             self.silent_since = SystemTime::now();
             self.current_depth = 0;
@@ -370,15 +393,7 @@ impl UciEngine for Engine {
             };
 
             // Start deepening search to the maximum possible depth.
-            self.commands
-                .send(Command::Search {
-                    search_id: self.search_id,
-                    position: self.position.clone(),
-                    depth: MAX_DEPTH,
-                    lower_bound: -20000,
-                    upper_bound: 20000,
-                })
-                .unwrap();
+            self.start_search(MAX_DEPTH);
         }
     }
 
