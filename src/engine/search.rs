@@ -626,9 +626,15 @@ impl KillersArray {
 
         // Otherwise, override the slot with lower hit count.
         // 
-        // TODO: using < instead of <= seems to have a big (negative)
-        //       effect on the search. See why.
-        let slot = if pair.slot1.1 <= pair.slot2.1 {
+        // TODO: using "<=" instead of "<" here seems to have a
+        // negative effect on small depths and positive effect on big
+        // depths. The "<", used here is more logical because in a
+        // sequence of non-repeating killers the last one should be
+        // tried first. The effect is probably due to the random
+        // evaluation function used for the experiments, which is a
+        // degenerate case. Try this with a proper evaluation
+        // function.
+        let slot = if pair.slot1.1 < pair.slot2.1 {
             &mut pair.slot1
         } else {
             &mut pair.slot2
