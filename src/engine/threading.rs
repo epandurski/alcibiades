@@ -10,7 +10,7 @@ use chess_move::*;
 use position::Position;
 use engine::DELTA;
 use engine::tt::*;
-use engine::search::{Search, KillerTable};
+use engine::search::Search;
 
 
 /// Represents a command to a search thread.
@@ -119,8 +119,6 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
     );
     MOVE_STACK.with(|s| {
         let mut move_stack = unsafe { &mut *s.get() };
-        let mut killers = KillerTable::new();
-        let mut last_position_hash = 0;
         let mut pending_command = None;
         loop {
             // If there is a pending command, we take it, otherwise we
@@ -148,15 +146,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                             false
                         }
                     };
-                    if last_position_hash != position.hash() {
-                        last_position_hash = position.hash();
-                    }
-                    killers.forget_all();
-                    let mut search = Search::new(position,
-                                                 &tt,
-                                                 &mut killers,
-                                                 move_stack,
-                                                 &mut report);
+                    let mut search = Search::new(position, &tt, move_stack, &mut report);
                     let value = search.run(lower_bound, upper_bound, depth, Move::invalid()).ok();
                     let searched_depth = if value.is_some() {
                         depth

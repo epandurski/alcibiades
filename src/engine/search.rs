@@ -26,7 +26,7 @@ pub struct TerminatedSearch;
 /// Represents a game tree search.        
 pub struct Search<'a> {
     tt: &'a TranspositionTable,
-    killers: &'a mut KillerTable,
+    killers: KillerTable,
     position: Position,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
@@ -47,14 +47,13 @@ impl<'a> Search<'a> {
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
                tt: &'a TranspositionTable,
-               killers: &'a mut KillerTable,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
         let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
-            killers: killers,
+            killers: KillerTable::new(),
             position: root,
             moves: move_stack,
             moves_starting_ply: moves_starting_ply,
@@ -204,6 +203,7 @@ impl<'a> Search<'a> {
         self.state_stack.clear();
         self.reported_nodes = 0;
         self.unreported_nodes = 0;
+        self.killers.forget_all();
     }
 
     // A helper method for `Search::run`. Each call to `Search::run`
@@ -587,7 +587,7 @@ impl Default for KillerPair {
 /// node, or any other earlier branch in the search tree with the same
 /// distance to the root position. The idea is to try that move early
 /// -- directly after the hash move and the winning captures.
-pub struct KillerTable {
+struct KillerTable {
     array: [KillerPair; MAX_DEPTH as usize],
 }
 
@@ -681,8 +681,7 @@ mod tests {
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut killers = KillerTable::new();
-        let mut search = Search::new(p, &tt, &mut killers, &mut moves, &mut report);
+        let mut search = Search::new(p, &tt, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2, Move::invalid())
                           .ok()
                           .unwrap();
