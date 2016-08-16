@@ -1,6 +1,6 @@
 //! Implements single-threaded game tree search.
 
-use std::u16;
+use std::mem;
 use std::cmp::max;
 use basetypes::*;
 use chess_move::*;
@@ -309,6 +309,9 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
+        if self.state_stack.len() < MAX_DEPTH as usize {
+            self.killers.downgrade(self.state_stack.len());
+        }
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved the move list
             // yet, so we should not restore it.
@@ -549,15 +552,15 @@ enum NodePhase {
 // Two killer moves with their hit counters.
 #[derive(Clone, Copy)]
 struct KillersPair {
-    slot1: (MoveDigest, u16),
-    slot2: (MoveDigest, u16),
+    minor: (MoveDigest, u16),
+    major: (MoveDigest, u16),
 }
 
 impl Default for KillersPair {
     fn default() -> KillersPair {
         KillersPair {
-            slot1: (0, 0),
-            slot2: (0, 0),
+            minor: (0, 0),
+            major: (0, 0),
         }
     }
 }
@@ -577,21 +580,15 @@ impl KillersArray {
     
     pub fn clear(&mut self) {
         for pair in self.array.iter_mut() {
-            pair.slot1 = Default::default();
-            pair.slot2 = Default::default();
+            pair.minor = Default::default();
+            pair.major = Default::default();
         }
     }
 
     /// XXX
     pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
         let pair = self.array.get(index).unwrap();
-        
-        // Return the two killers in proper order.
-        if pair.slot1.1 > pair.slot2.1 {
-            (pair.slot1.0, pair.slot2.0)
-        } else {
-            (pair.slot2.0, pair.slot1.0)
-        }
+        (pair.major.0, pair.minor.0)
     }
 
     pub fn register(&mut self, index: usize, m: Move) {
@@ -601,52 +598,30 @@ impl KillersArray {
             return;
         }
         let pair = self.array.get_mut(index).unwrap();
+        let minor = &mut pair.minor;
+        let major = &mut pair.major;
         let digest = m.digest();
         assert!(digest != 0);
 
-        // Check if the move is already in one of the slots.
-        if pair.slot1.0 == digest {
-            // Increment slot1's counter. Watch for overflows.
-            pair.slot1.1 += 1;
-            if pair.slot1.1 == u16::MAX {
-                pair.slot1.1 >>= 1;
-                pair.slot2.1 >>= 1;
-            }
+        // Put the move in one of the slots.
+        if major.0 == digest {
+            major.1 += 1;
             return;
-        }
-        if pair.slot2.0 == digest {
-            // Increment slot2's counter. Watch for overflows.
-            pair.slot2.1 += 1;
-            if pair.slot2.1 == u16::MAX {
-                pair.slot1.1 >>= 1;
-                pair.slot2.1 >>= 1;
-            }
-            return;
-        }
-
-        // Otherwise, override the slot with lower hit count.
-        // 
-        // TODO: using "<=" instead of "<" here seems to have a
-        // negative effect on small depths and positive effect on big
-        // depths. The "<", used here is more logical because in a
-        // sequence of non-repeating killers the last one should be
-        // tried first. The effect is probably due to the random
-        // evaluation function used for the experiments, which is a
-        // degenerate case. Try this with a proper evaluation
-        // function.
-        let slot = if pair.slot1.1 < pair.slot2.1 {
-            &mut pair.slot1
+        } else if minor.0 == digest {
+            minor.1 += 1;
         } else {
-            &mut pair.slot2
-        };
-        *slot = (digest, 1);
+            *minor = (digest, 1);
+        }
+        if minor.1 >= major.1 {
+            mem::swap(minor, major);
+        }
     }
     
     /// XXX
     pub fn downgrade(&mut self, index: usize) {
         let pair = self.array.get_mut(index).unwrap();
-        pair.slot1.1 <<= 1;
-        pair.slot2.1 <<= 1;
+        pair.minor.1 <<= 1;
+        pair.major.1 <<= 1;
     }
 }
 
