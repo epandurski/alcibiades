@@ -119,19 +119,19 @@ impl<'a> Search<'a> {
 
                 // Make a recursive call.
                 let v = if m.score() > REDUCTION_THRESHOLD {
-                    // The supposedly good moves we analyze with a
-                    // full depth and fully open window (alpha,
-                    // beta). If some of those really happens to be a
-                    // good move, it will probably raise `alpha`.
+                    // The moves that have good chances to cause a
+                    // beta cut-off we analyze with a full depth and
+                    // fully open window (alpha, beta). Most probably
+                    // at least one of these moves will raise `alpha`.
                     -try!(self.run(-beta, -alpha, depth - 1, m))
                 } else {
-                    // For the supposedly not so good moves we first
-                    // try to prove that they are not better than our
-                    // current best move. For this purpose we search
-                    // them with a reduced depth and a null window
-                    // (alpha, alpha + 1). Only if it seems that the
-                    // move is better than our current best move, we
-                    // do a full-depth, full-window search.
+                    // For the rest of the moves we first try to prove
+                    // that they are not better than our current best
+                    // move. For this purpose we search them with a
+                    // reduced depth and a null window (alpha, alpha +
+                    // 1). Only if it seems that the move is better
+                    // than our current best move, we do a full-depth,
+                    // full-window search.
                     match -try!(self.run(-alpha - 1, -alpha, reduced_depth, m)) {
                         v if v <= alpha => v,
                         _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
@@ -143,9 +143,9 @@ impl<'a> Search<'a> {
                 // See how good this move was.
                 if v >= beta {
                     // This move is so good, that the opponent will
-                    // probably not allow this line of play to
-                    // happen. Therefore we should not lose any more
-                    // time on this position.
+                    // probably not allow this line of play to happen.
+                    // Therefore we should not lose any more time on
+                    // this position (beta cut-off).
                     best_move = m;
                     value = v;
                     bound = BOUND_LOWER;
@@ -261,7 +261,7 @@ impl<'a> Search<'a> {
             state.pinned = self.position.board().pinned();
             state.phase = NodePhase::ConsideredNullMove;
         }
-        
+
         // Consider null move pruning. In positions that are not prone
         // to zugzwang, we attempt to reduce the search space by
         // trying a "null" or "passing" move, then seeing if the score
@@ -318,7 +318,7 @@ impl<'a> Search<'a> {
             self.moves.restore();
         }
         self.state_stack.pop();
-        
+
         // Killer moves for distant plys are becoming outdated, so we
         // should downgrade them.
         let downgraded_ply = self.state_stack.len() + 3;
