@@ -283,8 +283,9 @@ impl TranspositionTable {
     /// Peeks for data by a specific key.
     ///
     /// This method does the same as `probe`, except it does not
-    /// update the generation of the entry. This is useful when
-    /// extracting the primary variation from the the transposition
+    /// update the generation of the entry. This is useful when we
+    /// want to extract the primary variation from the the
+    /// transposition table, without affecting the entries in the
     /// table.
     #[inline]
     pub fn peek(&self, key: u64) -> Option<EntryData> {
