@@ -313,7 +313,7 @@ impl<'a> Search<'a> {
         // stack.
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved a new move list,
-            // so we should not restore it.
+            // so we should not restore the old one.
         } else {
             self.moves.restore();
         }
