@@ -21,19 +21,23 @@ use self::uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDesc
 use self::threading::*;
 
 
-const VERSION: &'static str = "0.1";
+// The version of the program.
+pub const VERSION: &'static str = "0.1";
+
+// The maximum search depth in half-moves.
+pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 // The initial half-with of the aspiration window (in centipawns).
-const DELTA: Value = 17; //16;
+pub const DELTA: Value = 17; // 16;
 
 // The number of half-moves with which the search depth will be
 // reduced when trying null moves.
-const R: u8 = 3;
+pub const NULL_MOVE_REDUCTION: u8 = 3;
 
 // The number of nodes that can be searched without reporting search
 // progress. If this value is too small the engine may become slow, if
 // this value is too big the engine may become unresponsive.
-const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
+pub const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 /// Implements `UciEngine` trait.
