@@ -151,7 +151,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                     if last_position_hash != position.hash() {
                         last_position_hash = position.hash();
                     }
-                    killers.clear();
+                    killers.forget_all();
                     let mut search = Search::new(position,
                                                  &tt,
                                                  &mut killers,

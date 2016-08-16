@@ -547,81 +547,115 @@ enum NodePhase {
 // treated as the better one of the two. If no killer move is
 // available for one or both of the slots -- `0` is returned
 // instead.
-                                    
-                                    
-// Two killer moves with their hit counters.
+
+
+/// A killer move with its hit counter.
 #[derive(Clone, Copy)]
-struct KillersPair {
-    minor: (MoveDigest, u16),
-    major: (MoveDigest, u16),
+struct Killer {
+    pub digest: MoveDigest,
+    pub hits: u32,
 }
 
-impl Default for KillersPair {
-    fn default() -> KillersPair {
-        KillersPair {
-            minor: (0, 0),
-            major: (0, 0),
+
+/// A pair of two killer moves.
+///
+/// The `major` killer is always the more important one. The killers
+/// are swapped if at some moment the minor killer has got at least as
+/// much hits as the major killer.
+#[derive(Clone, Copy)]
+struct KillerPair {
+    pub minor: Killer,
+    pub major: Killer,
+}
+
+impl Default for KillerPair {
+    fn default() -> KillerPair {
+        KillerPair {
+            minor: Killer {
+                digest: 0,
+                hits: 0,
+            },
+            major: Killer {
+                digest: 0,
+                hits: 0,
+            },
         }
     }
 }
 
-        
+
 /// An array that holds two killer moves with hit counters for each
 /// half-move.
 pub struct KillersArray {
-    array: [KillersPair; MAX_DEPTH as usize],
+    array: [KillerPair; MAX_DEPTH as usize],
 }
 
 impl KillersArray {
-    /// Creates a new empty instance.
+    /// Creates a new instance.
+    #[inline]
     pub fn new() -> KillersArray {
         KillersArray { array: [Default::default(); MAX_DEPTH as usize] }
     }
-    
-    pub fn clear(&mut self) {
-        for pair in self.array.iter_mut() {
-            pair.minor = Default::default();
-            pair.major = Default::default();
-        }
-    }
 
-    /// XXX
-    pub fn get(&self, index: usize) -> (MoveDigest, MoveDigest) {
-        let pair = self.array.get(index).unwrap();
-        (pair.major.0, pair.minor.0)
-    }
-
-    pub fn register(&mut self, index: usize, m: Move) {
+    /// Registers a new killer move for the specified `half_move`.
+    #[inline]
+    pub fn register(&mut self, half_move: usize, m: Move) {
+        assert!(half_move < self.array.len());
         if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
             // captures and promotions.
             return;
         }
-        let pair = self.array.get_mut(index).unwrap();
+        let pair = unsafe { self.array.get_unchecked_mut(half_move) };
         let minor = &mut pair.minor;
         let major = &mut pair.major;
         let digest = m.digest();
         assert!(digest != 0);
 
-        // Put the move in one of the slots.
-        if major.0 == digest {
-            major.1 += 1;
+        // Register the move in one of the slots.
+        if major.digest == digest {
+            major.hits = major.hits.wrapping_add(1);
             return;
-        } else if minor.0 == digest {
-            minor.1 += 1;
+        } else if minor.digest == digest {
+            minor.hits = minor.hits.wrapping_add(1);
         } else {
-            *minor = (digest, 1);
+            *minor = Killer {
+                digest: digest,
+                hits: 1,
+            };
         }
-        if minor.1 >= major.1 {
+
+        // Swap the slots if the minor killer has got at least as much
+        // hits as the major killer.
+        if minor.hits >= major.hits {
             mem::swap(minor, major);
         }
     }
+
+    /// Returns the two killer moves for the specified `half_move`.
+    #[inline]
+    pub fn get(&self, half_move: usize) -> (MoveDigest, MoveDigest) {
+        assert!(half_move < self.array.len());
+        let pair = unsafe { self.array.get_unchecked(half_move) };
+        (pair.major.digest, pair.minor.digest)
+    }
+
+    /// Reduces the hit counters by a factor of two for the specified
+    /// `half_move`.
+    #[inline]
+    pub fn downgrade(&mut self, half_move: usize) {
+        assert!(half_move < self.array.len());
+        let pair = unsafe { self.array.get_unchecked_mut(half_move) };
+        pair.minor.hits <<= 1;
+        pair.major.hits <<= 1;
+    }
     
-    /// XXX
-    pub fn downgrade(&mut self, index: usize) {
-        let pair = self.array.get_mut(index).unwrap();
-        pair.minor.1 <<= 1;
-        pair.major.1 <<= 1;
+    /// Forgets all registered killer moves.
+    #[inline]
+    pub fn forget_all(&mut self) {
+        for pair in self.array.iter_mut() {
+            *pair = Default::default();
+        }
     }
 }
 
