@@ -9,16 +9,6 @@ use engine::*;
 use engine::tt::*;
 
 
-/// The number of half-moves with which the search depth will be
-/// reduced when trying null moves.
-const NULL_MOVE_REDUCTION: u8 = 3;
-
-/// Moves with move scores higher than this number will be searched at
-/// full depth. Moves with move scores lesser or equal to this number
-/// will be searched at reduced depth.
-const REDUCTION_THRESHOLD: usize = 0;
-
-
 /// Represents a terminated search condition.
 pub struct TerminatedSearch;
 
@@ -524,15 +514,17 @@ impl<'a> Search<'a> {
 }
 
 
-struct NodeState {
-    phase: NodePhase,
-    entry: EntryData,
-    checkers: Bitboard,
-    pinned: Bitboard,
-    killer: Option<MoveDigest>,
-}
+// The number of half-moves with which the search depth will be
+// reduced when trying null moves.
+const NULL_MOVE_REDUCTION: u8 = 3;
+
+// Moves with move scores higher than this number will be searched at
+// full depth. Moves with move scores lesser or equal to this number
+// will be searched at reduced depth.
+const REDUCTION_THRESHOLD: usize = 0;
 
 
+// Tells where we are in the move generation sequence.
 enum NodePhase {
     Pristine,
     ConsideredNullMove,
@@ -544,40 +536,15 @@ enum NodePhase {
 }
 
 
-
-/// A killer move with its hit counter.
-#[derive(Clone, Copy)]
-struct Killer {
-    pub digest: MoveDigest,
-    pub hits: u16,
+// Holds information about the state of a node in the search tree.
+struct NodeState {
+    phase: NodePhase,
+    entry: EntryData,
+    checkers: Bitboard,
+    pinned: Bitboard,
+    killer: Option<MoveDigest>,
 }
 
-
-/// A pair of two killer moves.
-///
-/// The `major` killer is always the more important one. The killers
-/// are swapped if at some moment the minor killer has got at least as
-/// much hits as the major killer.
-#[derive(Clone, Copy)]
-struct KillerPair {
-    pub minor: Killer,
-    pub major: Killer,
-}
-
-impl Default for KillerPair {
-    fn default() -> KillerPair {
-        KillerPair {
-            minor: Killer {
-                digest: 0,
-                hits: 0,
-            },
-            major: Killer {
-                digest: 0,
-                hits: 0,
-            },
-        }
-    }
-}
 
 
 /// Holds two killer moves with their hit counters for every
@@ -665,6 +632,42 @@ impl KillerTable {
         }
     }
 }
+
+
+// A killer move with its hit counter.
+#[derive(Clone, Copy)]
+struct Killer {
+    pub digest: MoveDigest,
+    pub hits: u16,
+}
+
+
+// A pair of two killer moves.
+//
+// The `major` killer is always the more important one. The killers
+// are swapped if at some moment the minor killer has got at least as
+// much hits as the major killer.
+#[derive(Clone, Copy)]
+struct KillerPair {
+    pub minor: Killer,
+    pub major: Killer,
+}
+
+impl Default for KillerPair {
+    fn default() -> KillerPair {
+        KillerPair {
+            minor: Killer {
+                digest: 0,
+                hits: 0,
+            },
+            major: Killer {
+                digest: 0,
+                hits: 0,
+            },
+        }
+    }
+}
+
 
 
 #[cfg(test)]
