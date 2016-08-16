@@ -9,6 +9,16 @@ use engine::*;
 use engine::tt::*;
 
 
+/// The number of half-moves with which the search depth will be
+/// reduced when trying null moves.
+const NULL_MOVE_REDUCTION: u8 = 3;
+
+/// Moves with move scores higher than this number will be searched at
+/// full depth. Moves with move scores lesser or equal to this number
+/// will be searched at reduced depth.
+const REDUCTION_THRESHOLD: usize = 0;
+
+
 /// Represents a terminated search condition.
 pub struct TerminatedSearch;
 
@@ -514,12 +524,6 @@ impl<'a> Search<'a> {
 }
 
 
-// Moves with move scores higher than this number will be searched at
-// full depth. Moves with move scores lesser or equal to this number
-// will be searched at reduced depth.
-const REDUCTION_THRESHOLD: usize = 0;
-
-
 struct NodeState {
     phase: NodePhase,
     entry: EntryData,
@@ -540,22 +544,12 @@ enum NodePhase {
 }
 
 
-// Returns the move digests for the current position's killer
-// moves.
-//
-// "Killer move" is a move which was good in a sibling node, or
-// any other earlier branch in the tree with the same distance to
-// the root position. The idea is to try that move early -- after
-// a possibly available hash move from the transposition table and
-// seemingly winning captures. This method will not return
-// captures and promotions as killers, because those are tried
-// early anyway. The move returned in the first slot should be
-// treated as the better one of the two. If no killer move is
-// available for one or both of the slots -- `0` is returned
-// instead.
-
 
 /// A killer move with its hit counter.
+///
+/// "Killer move" is a move which caused beta cut-off in a sibling
+/// node, or any other earlier branch in the tree with the same
+/// distance to the root position. The idea is to try that move early.
 #[derive(Clone, Copy)]
 struct Killer {
     pub digest: MoveDigest,
@@ -639,6 +633,12 @@ impl KillerTable {
     }
 
     /// Returns the two killer moves for the specified `half_move`.
+    ///
+    /// This method will not return captures and promotions as
+    /// killers, because those are tried early anyway. The move
+    /// returned in the first slot should be treated as the better one
+    /// of the two. If no killer move is available for one or both of
+    /// the slots -- `0` is returned instead.
     #[inline]
     pub fn get(&self, half_move: usize) -> (MoveDigest, MoveDigest) {
         assert!(half_move < self.array.len());
