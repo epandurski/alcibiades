@@ -16,7 +16,7 @@ pub struct TerminatedSearch;
 /// Represents a game tree search.        
 pub struct Search<'a> {
     tt: &'a TranspositionTable,
-    killers: &'a mut KillersArray,
+    killers: &'a mut KillerTable,
     position: Position,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
@@ -37,7 +37,7 @@ impl<'a> Search<'a> {
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
                tt: &'a TranspositionTable,
-               killers: &'a mut KillersArray,
+               killers: &'a mut KillerTable,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
@@ -592,15 +592,15 @@ impl Default for KillerPair {
 
 /// An array that holds two killer moves with hit counters for each
 /// half-move.
-pub struct KillersArray {
+pub struct KillerTable {
     array: [KillerPair; MAX_DEPTH as usize],
 }
 
-impl KillersArray {
+impl KillerTable {
     /// Creates a new instance.
     #[inline]
-    pub fn new() -> KillersArray {
-        KillersArray { array: [Default::default(); MAX_DEPTH as usize] }
+    pub fn new() -> KillerTable {
+        KillerTable { array: [Default::default(); MAX_DEPTH as usize] }
     }
 
     /// Registers a new killer move for the specified `half_move`.
@@ -668,7 +668,7 @@ impl KillersArray {
 
 #[cfg(test)]
 mod tests {
-    use super::{Search, KillersArray};
+    use super::{Search, KillerTable};
     use engine::tt::*;
     use chess_move::*;
     use position::Position;
@@ -680,7 +680,7 @@ mod tests {
         let tt = TranspositionTable::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut killers = KillersArray::new();
+        let mut killers = KillerTable::new();
         let mut search = Search::new(p, &tt, &mut killers, &mut moves, &mut report);
         let value = search.run(-30000, 30000, 2, Move::invalid())
                           .ok()
@@ -696,7 +696,7 @@ mod tests {
     #[test]
     fn test_killers() {
         use basetypes::*;
-        let mut killers = KillersArray::new();
+        let mut killers = KillerTable::new();
         let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
                         .ok()
                         .unwrap();
