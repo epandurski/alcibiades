@@ -8,7 +8,7 @@ use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
 use chess_move::*;
 use position::Position;
-use engine::DELTA;
+use engine::INITIAL_ASPIRATION_WINDOW;
 use engine::tt::*;
 use engine::search::Search;
 
@@ -256,7 +256,7 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
                     // Here `delta` is the initial half-width of the window, that will be
                     // exponentially increased each time the search failed. We use `isize`
                     // type to avoid overflows.
-                    let mut delta = DELTA as isize;
+                    let mut delta = INITIAL_ASPIRATION_WINDOW as isize;
                     let (mut alpha, mut beta) = if current_depth < 5 {
                         (lower_bound, upper_bound)
                     } else {

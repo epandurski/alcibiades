@@ -27,10 +27,10 @@ pub const VERSION: &'static str = "0.1";
 /// The maximum search depth in half-moves.
 pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
-/// The initial half-with of the aspiration window in centipawns.
-pub const DELTA: Value = 17; // 16;
+/// The half-with of the initial aspiration window in centipawns.
+pub const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 
-/// The number of nodes that can be searched without reporting search
+/// The number of nodes that will be searched without reporting search
 /// progress.
 ///
 /// If this value is too small the engine may become slow, if this
@@ -160,7 +160,7 @@ impl Engine {
         // Extract the PV, the leaf value, the root value, and the
         // bound type from the TT. We turn a blind eye if the value at
         // the root of the PV differs from the value at the leaf by
-        // no more than `DELTA/2`.
+        // no more than `EPSILON`.
         let mut p = self.position.clone();
         let mut our_turn = true;
         let mut prev_move = None;
@@ -212,7 +212,7 @@ impl Engine {
                     root_value = leaf_value;
                 }
 
-                if pv.len() < depth as usize && (leaf_value - root_value).abs() <= DELTA / 2 {
+                if pv.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) && !p.is_repeated() {
                             if bound == BOUND_EXACT {
@@ -235,8 +235,8 @@ impl Engine {
         // too much from the root value. If this is this case the PV
         // is mangled.
         bound = match leaf_value - root_value {
-            x if x > DELTA / 2 && bound != BOUND_UPPER => BOUND_LOWER,
-            x if x < -DELTA / 2 && bound != BOUND_LOWER => BOUND_UPPER,
+            x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
+            x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
             _ => bound,
         };
 
@@ -489,6 +489,10 @@ impl UciEngine for Engine {
         self.search_thread.take().unwrap().join().unwrap();
     }
 }
+
+
+// A sufficiently small value (in centipawns).
+const EPSILON: Value = INITIAL_ASPIRATION_WINDOW / 2;
 
 
 enum TimeManagement {
