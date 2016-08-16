@@ -252,22 +252,22 @@ impl<'a> Search<'a> {
             return Ok(Some(value));
         }
 
-        // Consider null move pruning. In positions that are not prone
-        // to zugzwang, we attempt to reduce the search space by
-        // trying a "null" or "passing" move, then seeing if the score
-        // of the sub-tree search is still high enough to cause a beta
-        // cutoff. Nodes are saved by reducing the depth of the
-        // sub-tree under the null move.
+        // Save the current move list. Also, save checkers and pinned
+        // bitboards, because we will need them at later phases.
         {
-            // Save the current move list. Also, save checkers and
-            // pinned bitboards, because we will need them at later
-            // phases.
             self.moves.save();
             let state = self.state_stack.last_mut().unwrap();
             state.checkers = self.position.board().checkers();
             state.pinned = self.position.board().pinned();
             state.phase = NodePhase::ConsideredNullMove;
         }
+        
+        // Consider null move pruning. In positions that are not prone
+        // to zugzwang, we attempt to reduce the search space by
+        // trying a "null" or "passing" move, then seeing if the score
+        // of the sub-tree search is still high enough to cause a beta
+        // cutoff. Nodes are saved by reducing the depth of the
+        // sub-tree under the null move.
         if !last_move.is_null() && entry.eval_value() >= beta && self.position.is_zugzwang_safe() {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {
