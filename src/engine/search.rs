@@ -584,7 +584,7 @@ impl Default for KillerPair {
 /// half-move.
 ///
 /// "Killer move" is a move which caused beta cut-off in a sibling
-/// node, or any other earlier branch in the tree with the same
+/// node, or any other earlier branch in the search tree with the same
 /// distance to the root position. The idea is to try that move early
 /// -- directly after the hash move and the winning captures.
 pub struct KillerTable {
