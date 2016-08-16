@@ -309,13 +309,6 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
-        // Killer moves for distant plys are becoming outdated, so we
-        // should downgrade them.
-        let downgraded_ply = self.state_stack.len() + 2;
-        if downgraded_ply < MAX_DEPTH as usize {
-            self.killers.downgrade(downgraded_ply);
-        }
-
         // Restore the move list from the previous ply and pop the
         // stack.
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
@@ -325,6 +318,13 @@ impl<'a> Search<'a> {
             self.moves.restore();
         }
         self.state_stack.pop();
+        
+        // Killer moves for distant plys are becoming outdated, so we
+        // should downgrade them.
+        let downgraded_ply = self.state_stack.len() + 3;
+        if downgraded_ply < MAX_DEPTH as usize {
+            self.killers.downgrade(downgraded_ply);
+        }
     }
 
     // A helper method for `Search::run`. It plays the next legal move
