@@ -646,8 +646,8 @@ impl KillerTable {
         (pair.major.digest, pair.minor.digest)
     }
 
-    /// Reduces the hit counters by a factor of two for the specified
-    /// `half_move`.
+    /// Reduces the hit counters for the specified `half_move` by a
+    /// factor of two.
     #[inline]
     pub fn downgrade(&mut self, half_move: usize) {
         assert!(half_move < self.array.len());
