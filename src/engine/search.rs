@@ -309,16 +309,18 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
-        // Killers for distant plys are becoming outdated, so we
-        // downgrade them.
-        let downgrade_ply = self.state_stack.len() + 2;
-        if downgrade_ply < MAX_DEPTH as usize {
-            self.killers.downgrade(downgrade_ply);
+        // Killer moves for distant plys are becoming outdated, so we
+        // should downgrade them.
+        let downgraded_ply = self.state_stack.len() + 2;
+        if downgraded_ply < MAX_DEPTH as usize {
+            self.killers.downgrade(downgraded_ply);
         }
-        
+
+        // Restore the move list from the previous ply and pop the
+        // stack.
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
-            // For pristine nodes we have not saved the move list
-            // yet, so we should not restore it.
+            // For pristine nodes we have not saved a new move list,
+            // so we should not restore it.
         } else {
             self.moves.restore();
         }
@@ -653,7 +655,7 @@ impl KillersArray {
         pair.minor.hits >>= 1;
         pair.major.hits >>= 1;
     }
-    
+
     /// Forgets all registered killer moves.
     #[inline]
     pub fn forget_all(&mut self) {
