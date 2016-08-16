@@ -309,8 +309,8 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
-        if self.state_stack.len() < MAX_DEPTH as usize {
-            self.killers.downgrade(self.state_stack.len());
+        if self.state_stack.len() - 6 < MAX_DEPTH as usize {
+            self.killers.downgrade(self.state_stack.len() - 6);
         }
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved the move list
@@ -553,7 +553,7 @@ enum NodePhase {
 #[derive(Clone, Copy)]
 struct Killer {
     pub digest: MoveDigest,
-    pub hits: u32,
+    pub hits: u16,
 }
 
 
@@ -646,8 +646,8 @@ impl KillersArray {
     pub fn downgrade(&mut self, half_move: usize) {
         assert!(half_move < self.array.len());
         let pair = unsafe { self.array.get_unchecked_mut(half_move) };
-        pair.minor.hits <<= 1;
-        pair.major.hits <<= 1;
+        pair.minor.hits >>= 1;
+        pair.major.hits >>= 1;
     }
     
     /// Forgets all registered killer moves.
