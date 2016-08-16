@@ -280,6 +280,23 @@ impl TranspositionTable {
         None
     }
 
+    /// Peeks for data by a specific key.
+    ///
+    /// This method does the same as `probe`, except it does not
+    /// update the generation of the entry. This is useful when
+    /// extracting the primary variation from the the transposition
+    /// table.
+    #[inline]
+    pub fn peek(&self, key: u64) -> Option<EntryData> {
+        let cluster = unsafe { self.cluster_mut(key) };
+        for entry in cluster.iter_mut() {
+            if entry.key ^ entry.data_u64() == key {
+                return Some(entry.data);
+            }
+        }
+        None
+    }
+
     /// Stores data by a specific key.
     ///
     /// After being stored, the data might be retrieved by

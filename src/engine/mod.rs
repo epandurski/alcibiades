@@ -166,7 +166,7 @@ impl Engine {
         let mut leaf_value = -19999;
         let mut root_value = leaf_value;
         let mut bound = BOUND_LOWER;
-        while let Some(entry) = self.tt.probe(p.hash()) {
+        while let Some(entry) = self.tt.peek(p.hash()) {
             if entry.bound() != BOUND_NONE {
                 // Get the value and the bound type. In half of the
                 // cases the value stored in `entry` is from other
@@ -275,14 +275,14 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method for `Engine::stop`. It probes the TT for the
+    // A helper method for `Engine::stop`. It peeks the TT for the
     // best move in the position `p`, plays it, and returns it. If the
     // TT gives no move, this function will play and return the first
     // legal move. `None` is returned only when there are no legal
     // moves.
     fn do_best_move(&self, p: &mut Position) -> Option<Move> {
         // Try to get best move from the TT.
-        let move16 = self.tt.probe(p.hash()).map_or(0, |entry| entry.move16());
+        let move16 = self.tt.peek(p.hash()).map_or(0, |entry| entry.move16());
         if let Some(m) = p.try_move_digest(move16) {
             if p.do_move(m) {
                 return Some(m);
