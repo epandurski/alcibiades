@@ -120,17 +120,17 @@ impl EntryData {
 }
 
 
-// Represents transposition table entry.
-//
-// It is 16 bytes, defined as below:
-//
-// * key        64 bit
-// * move16     16 bit
-// * value      16 bit
-// * eval value 16 bit
-// * generation  6 bit
-// * bound type  2 bit
-// * depth       8 bit
+/// Represents a transposition table entry.
+///
+/// It consists of 16 bytes, and is laid out the following way:
+///
+/// * key        64 bit
+/// * move16     16 bit
+/// * value      16 bit
+/// * eval value 16 bit
+/// * generation  6 bit
+/// * bound type  2 bit
+/// * depth       8 bit
 #[derive(Copy, Clone)]
 struct Entry {
     key: u64,
@@ -149,28 +149,26 @@ impl Default for Entry {
 
 
 impl Entry {
-    // Returns the whole contained data as one `u64` value.
-    //
-    // This is needed for implementing the lock-less probing and
-    // storing.
+    /// Returns the contained data as one `u64` value.
     #[inline(always)]
     fn data_u64(&self) -> u64 {
         unsafe { transmute(self.data) }
     }
 
-    // Returns entry's generation.
+    /// Returns entry's generation.
     #[inline(always)]
     fn generation(&self) -> u8 {
         self.data.gen_bound & 0b11111100
     }
 
-    // Updates entry's generation.
-    //
-    // Since the `key` is saved xored with the data, when we change
-    // the data, we have to change the stored `key` as well.
+    /// Updates entry's generation.
     #[inline(always)]
     fn update_generation(&mut self, generation: u8) {
         assert_eq!(generation & 0b11, 0);
+        
+        // Since the `key` is saved xored with the data, when we
+        // change the data, we have to change the stored `key` as
+        // well.
         let old_data_u64 = self.data_u64();
         self.data.gen_bound = generation | self.data.bound();
         self.key ^= old_data_u64 ^ self.data_u64();
@@ -208,9 +206,6 @@ impl TranspositionTable {
     /// not in the form "2**n", the new size of the transposition
     /// table will be as close as possible, but less than `size_mb`.
     pub fn resize(&mut self, size_mb: usize) {
-        // The cluster count should be in the form "2**n", so the best
-        // we can do is to ensure that the new cluster count will be
-        // as close as possible but no greater than the requested one.
         let requested_cluster_count = (size_mb * 1024 * 1024) / std::mem::size_of::<[Entry; 4]>();
 
         // First, make sure `requested_cluster_count` is exceeded.
@@ -256,8 +251,8 @@ impl TranspositionTable {
     /// counter that is used to implement an efficient replacement
     /// strategy. This method increases this counter.
     pub fn new_search(&self) {
-        // The lowest 2 bits of the `generation` field are used by
-        // bound type.
+        // Note: The lowest 2 bits of the `generation` field are used
+        // for the bound type.
         self.generation.set((Wrapping(self.generation.get()) + Wrapping(0b100)).0);
         assert_eq!(self.generation.get() & 0b11, 0);
     }
@@ -305,11 +300,14 @@ impl TranspositionTable {
     /// meantime it might have been overwritten.
     pub fn store(&self, key: u64, mut data: EntryData) {
         // `store` and `probe` jointly implement a clever lock-less
-        // hashing method. Rather than to store two disjoint items,
-        // the key is stored xored with data, while data is stored
+        // hashing method. Rather than storing two disjoint items, the
+        // key is stored XOR-ed with data, while data is stored
         // additionally as usual.
 
-        data.gen_bound |= self.generation.get();  // Sets the generation.
+        // Set the entry's generation.
+        data.gen_bound |= self.generation.get();
+
+        // Choose a slot to which to write the data.
         let mut cluster = unsafe { self.cluster_mut(key) };
         let mut replace_index = 0;
         let mut replace_score = 0xff;
@@ -324,25 +322,27 @@ impl TranspositionTable {
                 replace_index = i;
                 break;
             }
-            // If we can not find empty/old slot, the replaced entry
-            // will be the entry with the lowest score.
+
+            // Calculate the score for this entry. If we can not find
+            // an empty/old slot, the replaced entry will be the entry
+            // with the lowest score.
             let entry_score = self.calc_score(entry);
             if entry_score < replace_score {
                 replace_index = i;
                 replace_score = entry_score;
             }
         }
+
+        // Write the data to the chosen slot.
         unsafe {
             cluster.get_unchecked_mut(replace_index).key = key ^ transmute::<EntryData, u64>(data);
             cluster.get_unchecked_mut(replace_index).data = data;
         }
     }
 
-    // A helper method for `store`.
-    //
-    // Implements our replacement strategy. Should return higher
-    // values for the entries that are move likely to save CPU work in
-    // the future.
+    // A helper method for `store`. It implements our replacement
+    // strategy. It returns higher values for the entries that are
+    // move likely to save CPU work in the future.
     #[inline(always)]
     fn calc_score(&self, entry: &Entry) -> u8 {
         // Positions from the current generation are always scored
@@ -364,7 +364,8 @@ impl TranspositionTable {
         })
     }
 
-    // A helper method for `probe` and `store`.
+    // A helper method for `probe` and `store`. It gives the cluster
+    // (each cluster stores 4 entries) for a given key.
     #[inline]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Entry; 4] {
         let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
