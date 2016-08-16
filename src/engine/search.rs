@@ -546,10 +546,6 @@ enum NodePhase {
 
 
 /// A killer move with its hit counter.
-///
-/// "Killer move" is a move which caused beta cut-off in a sibling
-/// node, or any other earlier branch in the tree with the same
-/// distance to the root position. The idea is to try that move early.
 #[derive(Clone, Copy)]
 struct Killer {
     pub digest: MoveDigest,
@@ -584,8 +580,13 @@ impl Default for KillerPair {
 }
 
 
-/// An array that holds two killer moves with hit counters for each
+/// Holds two killer moves with their hit counters for every
 /// half-move.
+///
+/// "Killer move" is a move which caused beta cut-off in a sibling
+/// node, or any other earlier branch in the tree with the same
+/// distance to the root position. The idea is to try that move early
+/// -- directly after the hash move and the winning captures.
 pub struct KillerTable {
     array: [KillerPair; MAX_DEPTH as usize],
 }
@@ -634,7 +635,7 @@ impl KillerTable {
 
     /// Returns the two killer moves for the specified `half_move`.
     ///
-    /// This method will not return captures and promotions as
+    /// This method will not return capture and promotion moves as
     /// killers, because those are tried early anyway. The move
     /// returned in the first slot should be treated as the better one
     /// of the two. If no killer move is available for one or both of
