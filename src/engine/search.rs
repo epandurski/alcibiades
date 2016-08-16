@@ -309,8 +309,8 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
-        // Restore the move list from the previous ply and pop the
-        // stack.
+        // Restore the move list from the previous ply (half-move) and
+        // pop the stack.
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved a new move list,
             // so we should not call `restore`.
@@ -319,9 +319,9 @@ impl<'a> Search<'a> {
         }
         self.state_stack.pop();
 
-        // Killer moves for distant plys are becoming outdated, so we
-        // should downgrade them.
-        let downgraded_ply = self.state_stack.len() + 3;
+        // Killer moves for distant plys are gradually becoming
+        // outdated, so we should downgrade them.
+        let downgraded_ply = self.state_stack.len() + KILLERS_DOWNGRADE_DISTANCE;
         if downgraded_ply < MAX_DEPTH as usize {
             self.killers.downgrade(downgraded_ply);
         }
@@ -346,6 +346,7 @@ impl<'a> Search<'a> {
         } else {
             true
         });
+        assert!(ply < MAX_DEPTH as usize);
 
         // Restore board's `_checkers` and `_pinned` fields. This is
         // merely an optimization -- instead of recalculating them
@@ -451,8 +452,7 @@ impl<'a> Search<'a> {
 
                 // TODO: Pull selected quiet moves to the top of the
                 // move stack here, using the history
-                // heuristics. Eventually -- set their scores above
-                // the reduction threshold.
+                // heuristics.
                 continue;
             }
 
@@ -518,10 +518,17 @@ impl<'a> Search<'a> {
 // reduced when trying null moves.
 const NULL_MOVE_REDUCTION: u8 = 3;
 
+
 // Moves with move scores higher than this number will be searched at
 // full depth. Moves with move scores lesser or equal to this number
 // will be searched at reduced depth.
 const REDUCTION_THRESHOLD: usize = 0;
+
+
+// When this distance in half-moves is reached, the old killer moves
+// will be downgraded. This affects for how long the successful old
+// killer moves are kept.
+const KILLERS_DOWNGRADE_DISTANCE: usize = 3;
 
 
 // Tells where we are in the move generation sequence.
