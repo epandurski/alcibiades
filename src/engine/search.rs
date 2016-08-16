@@ -309,9 +309,13 @@ impl<'a> Search<'a> {
     // ends with a call to `Search::node_end`.
     #[inline]
     fn node_end(&mut self) {
-        if self.state_stack.len() - 6 < MAX_DEPTH as usize {
-            self.killers.downgrade(self.state_stack.len() - 6);
+        // Killers for distant plys are becoming outdated, so we
+        // downgrade them.
+        let downgrade_ply = self.state_stack.len() + 2;
+        if downgrade_ply < MAX_DEPTH as usize {
+            self.killers.downgrade(downgrade_ply);
         }
+        
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved the move list
             // yet, so we should not restore it.
