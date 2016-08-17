@@ -310,7 +310,7 @@ impl<'a> Search<'a> {
     #[inline]
     fn node_end(&mut self) {
         // Restore the move list from the previous ply (half-move) and
-        // pop the stack.
+        // pop the state stack.
         if let NodePhase::Pristine = self.state_stack.last().unwrap().phase {
             // For pristine nodes we have not saved a new move list,
             // so we should not call `restore`.
