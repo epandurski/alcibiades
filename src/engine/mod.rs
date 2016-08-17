@@ -122,8 +122,8 @@ impl Engine {
                 search_id: self.search_id,
                 position: self.position.clone(),
                 depth: depth,
-                lower_bound: -20000,
-                upper_bound: 20000,
+                lower_bound: -29999,
+                upper_bound: 29999,
             })
             .unwrap();
     }
@@ -185,12 +185,11 @@ impl Engine {
                     };
                 }
 
-                // The values under -19999 and over 19999 may carry
-                // additional information (for example, in how many
-                // moves is the inevitable checkmate). However, we
-                // choose to not show this to the user, because it
-                // would complicate unnecessarily the PV extraction
-                // procedure.
+                // The values under -19999 and over 19999 carry
+                // information about in how many moves is the
+                // inevitable checkmate. However, we choose to not
+                // show this to the user, because it would complicate
+                // unnecessarily the PV extraction procedure.
                 if leaf_value >= 20000 {
                     leaf_value = 19999;
                     if bound == BOUND_LOWER {

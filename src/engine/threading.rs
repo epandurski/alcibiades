@@ -104,8 +104,8 @@ pub enum Report {
 ///     search_id: 0,
 ///     position: Position::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
 ///     depth: 5,
-///     lower_bound: -20000,
-///     upper_bound: 20000,
+///     lower_bound: -29999,
+///     upper_bound: 29999,
 /// }).unwrap();
 /// ```
 ///
@@ -207,8 +207,8 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
 ///     search_id: 0,
 ///     position: Position::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
 ///     depth: 5,
-///     lower_bound: -20000,
-///     upper_bound: 20000,
+///     lower_bound: -29999,
+///     upper_bound: 29999,
 /// }).unwrap();
 /// ```
 ///

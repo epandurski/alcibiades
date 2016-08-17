@@ -117,7 +117,7 @@ impl<'a> Search<'a> {
                 };
 
                 // Make a recursive call.
-                let v = if m.score() > REDUCTION_THRESHOLD {
+                let mut v = if m.score() > REDUCTION_THRESHOLD {
                     // The moves that have good chances to cause a
                     // beta cut-off we analyze with a full depth and
                     // fully open window (alpha, beta). Most probably
@@ -138,6 +138,15 @@ impl<'a> Search<'a> {
                 };
                 self.undo_move();
                 assert!(v > VALUE_UNKNOWN);
+
+                // Increase/decrease the value for a checkmate by one
+                // on every half-move. This way the engine will seek
+                // for the fastest checkmate possible.
+                if v < -20000 {
+                    v += 1;
+                } else if v > 20000 {
+                    v -= 1;
+                }
 
                 // See how good this move was.
                 if v >= beta {
