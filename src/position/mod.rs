@@ -318,16 +318,16 @@ impl Position {
     /// for the current position on the board.
     #[inline]
     pub fn evaluate_move(&self, m: Move) -> Value {
-        let see = self.calc_see(m);
-        if see == 0 && m.move_type() == MOVE_PROMOTION {
-            // The move is a pawn promotion and the promoted pawn
-            // seems to be sufficiently protected. Since `calc_see`
-            // does not account for the added value of the promoted
-            // piece, we conservatively correct that by adding a value
-            // of a pawn to the SSE.
+        if m.move_type() == MOVE_PROMOTION {
+            // `calc_see` does not handle pawn promotions very well,
+            // so for them we simply return some positive value. We
+            // could differentiate wining and losing promotions, but
+            // this makes no significant difference and may cause
+            // funny move ordering, resulting in sometimes promoting
+            // rooks and knights for no good reason.
             PIECE_VALUES[PAWN]
         } else {
-            see
+            self.calc_see(m)
         }
     }
 
