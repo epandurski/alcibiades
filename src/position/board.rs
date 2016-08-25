@@ -107,6 +107,13 @@ impl Board {
         self.geometry
     }
 
+    /// Returns a reference to a properly initialized `ZobristArrays`
+    /// object.
+    #[inline(always)]
+    pub fn zobrist(&self) -> &ZobristArrays {
+        self.zobrist
+    }
+
     /// Returns an array of 6 occupation bitboards -- one for each
     /// piece type.
     #[inline(always)]

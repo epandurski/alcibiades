@@ -261,6 +261,11 @@ pub struct ZobristArrays {
     /// 8 indexes are used -- the rest exist for memory safety
     /// reasons, and are set to `0`.
     pub en_passant: [u64; 16],
+    
+    /// Constants with which the hash value should be XOR-ed to
+    /// reflect the number of half-moves played without capturing a
+    /// piece or advancing a pawn.
+    pub halfmove_clock: [u64; 100],
 
     /// Derived from the `pieces` field. Contains the constants with
     /// which the Zobrist hash value should be XOR-ed to reflect the
@@ -282,6 +287,7 @@ impl ZobristArrays {
         let mut pieces = [[[0; 64]; 6]; 2];
         let mut castling = [0; 16];
         let mut en_passant = [0; 16];
+        let mut halfmove_clock = [0; 100];
         let mut castling_rook_move = [[0; 2]; 2];
 
         for color in 0..2 {
@@ -300,6 +306,10 @@ impl ZobristArrays {
             en_passant[file] = rng.gen();
         }
 
+        for n in 0..100 {
+            halfmove_clock[n] = rng.gen();
+        }
+        
         castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
         castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
         castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
@@ -310,6 +320,7 @@ impl ZobristArrays {
             pieces: pieces,
             castling: castling,
             en_passant: en_passant,
+            halfmove_clock: halfmove_clock,
             castling_rook_move: castling_rook_move,
         }
     }

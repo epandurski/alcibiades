@@ -213,7 +213,7 @@ impl Engine {
 
                 if pv.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
-                        if p.do_move(m) && !p.is_repeated() {
+                        if p.do_move(m) && !p.is_repeated_or_rule50() {
                             if bound == BOUND_EXACT {
                                 // Extend the PV with one more move.
                                 prev_move = Some(m);

@@ -39,11 +39,12 @@ pub struct IllegalPosition;
 /// following functionality:
 ///
 /// 1. Threefold/twofold repetition detection.
-/// 2. Fast calculation of board's Zobrist hash value.
-/// 3. Evaluation of final positions.
-/// 4. Static position evaluation.
-/// 5. Static exchange evaluation.
-/// 6. Quiescence search.
+/// 2. Draw by the 50 moves rule detection.
+/// 3. Fast calculation of board's Zobrist hash value.
+/// 4. Evaluation of final positions.
+/// 5. Static position evaluation.
+/// 6. Static exchange evaluation.
+/// 7. Quiescence search.
 ///
 /// `Position` presents a convenient interface to the tree-searching
 /// algorithm. It encapsulates most of the chess-specific knowledge
@@ -54,11 +55,6 @@ pub struct IllegalPosition;
 /// evaluate the chances of the sides, so that the tree-searching
 /// algorithm can use this evaluation to assign realistic game
 /// outcomes to its leaf nodes.
-///
-/// **Note:** The implementation is not "aware" of the fifty-moves
-/// rule, partly because it is not that important in practice, but
-/// mainly because it impossible to implement it 100% correctly with
-/// relation to the transposition table.
 pub struct Position {
     // The current board.  We use `UnsafeCell` for it, because the
     // `evaluate_quiescence` method logically is non-mutating, but
@@ -72,8 +68,10 @@ pub struct Position {
     // The count of half-moves since the beginning of the game.
     halfmove_count: u16,
 
-    // `true` if the position is a draw by repetition.
-    is_repeated: bool,
+    // `true` if the position is a draw by repetition or because 50
+    // moves have been played without capturing a piece or advancing a
+    // pawn.
+    is_repeated_or_rule50: bool,
 
     // A hash value for the set of boards that are still reachable
     // from the root position, and had occurred at least twice before
@@ -105,11 +103,17 @@ impl Position {
                                             .map_err(|_| IllegalPosition))),
             board_hash: 0,
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
-            is_repeated: false,
+            is_repeated_or_rule50: false,
             repeated_boards_hash: 0,
             encountered_boards: vec![0; halfmove_clock as usize],
             state_stack: vec![StateInfo {
-                                  halfmove_clock: halfmove_clock,
+                                  halfmove_clock: if halfmove_clock < 99 {
+                                      halfmove_clock
+                                  } else {
+                                      // We do not allow `halfmove_clock` to be
+                                      // greater than 99.
+                                      99
+                                  },
                                   last_move: Move::invalid(),
                               }],
         };
@@ -153,7 +157,9 @@ impl Position {
         unsafe { &*self.board.get() }
     }
 
-    /// Returns if the position is a draw due to repetition.
+    /// Returns if the position is a draw due to repetition or because
+    /// 50 moves have been played without capturing a piece or
+    /// advancing a pawn.
     ///
     /// **Important note:** Repeating positions are considered a draw
     /// after the first repetition, not after the second one as the
@@ -164,8 +170,8 @@ impl Position {
     /// `Position::from_history`, `is_repeated` will always return
     /// `false`.
     #[inline(always)]
-    pub fn is_repeated(&self) -> bool {
-        self.is_repeated
+    pub fn is_repeated_or_rule50(&self) -> bool {
+        self.is_repeated_or_rule50
     }
 
     /// Returns if the position is unlikely to be a zugzwang.
@@ -198,16 +204,31 @@ impl Position {
     /// boards will have different hashes.
     #[inline]
     pub fn hash(&self) -> u64 {
-        if self.is_repeated() {
-            // All repeated positions are evaluated as a draw, so for
-            // our purposes they can be considered equal, and
+        if self.is_repeated_or_rule50() {
+            // Repeated and rule-50 positions are evaluated as a draw,
+            // so for our purposes they can be considered equal, and
             // therefore we generate the same hash for them.
             1
         } else {
-            if self.root_is_unreachable() {
+            let hash = if self.root_is_unreachable() {
                 self.board_hash
             } else {
+                // If the repeated positions that occured before the
+                // root postition are still reachable, we blend their
+                // collective hash into current position's hash.
                 self.board_hash ^ self.repeated_boards_hash
+            };
+            let halfmove_clock = self.state().halfmove_clock;
+            
+            if halfmove_clock <= HALFMOVE_CLOCK_THRESHOLD {
+                // We return the same hash for positions that differ
+                // only in their `halfmove_clock`, given that they
+                // both are far from the rule-50 limit.
+                hash
+            } else {
+                // If `halfmove_clock` is close to rule-50, we blend
+                // it into the returned hash.
+                hash ^ self.board().zobrist().halfmove_clock[halfmove_clock as usize]
             }
         }
     }
@@ -221,12 +242,12 @@ impl Position {
     /// moves, but if none of them is legal, then the position is
     /// final.)
     ///
-    /// **Important note:** Repeating positions are considered final
-    /// (a draw).
+    /// **Important note:** Repeated and rule-50 positions are
+    /// considered final (a draw).
     #[inline]
     pub fn evaluate_final(&self) -> Value {
-        if self.is_repeated() || self.board().checkers() == 0 {
-            // Repetition or stalemate.
+        if self.is_repeated_or_rule50() || self.board().checkers() == 0 {
+            // Repetition, rule-50, or stalemate.
             0
         } else {
             // Checkmated.
@@ -279,10 +300,7 @@ impl Position {
                                static_evaluation: Value)
                                -> (Value, NodeCount) {
         assert!(lower_bound < upper_bound);
-        thread_local!(
-            static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
-        );
-        if self.is_repeated() {
+        if self.is_repeated_or_rule50() {
             (0, 0)
         } else {
             let mut searched_nodes = 0;
@@ -342,11 +360,12 @@ impl Position {
     /// position is final, and `evaluate_final()` will return its
     /// correct value.
     ///
-    /// **Important note:** Repeating positions are considered final
-    /// (and therefore, this method generates no moves).
+    /// **Important note:** Repeated and rule-50 positions are
+    /// considered final (and therefore, this method generates no
+    /// moves).
     #[inline]
     pub fn generate_moves(&self, move_stack: &mut MoveStack) {
-        if !self.is_repeated() {
+        if !self.is_repeated_or_rule50() {
             self.board().generate_moves(true, move_stack);
         }
     }
@@ -358,7 +377,7 @@ impl Position {
     /// null move in the search tree so as to achieve more aggressive
     /// pruning. For the move generated by this method, `do_move(m)`
     /// will return `false` only if the king is in check or the
-    /// position is a draw due to repetition.
+    /// position is a draw due to repetition or rule-50.
     #[inline]
     pub fn null_move(&self) -> Move {
         self.board().null_move()
@@ -374,7 +393,7 @@ impl Position {
     /// without calling `generate_moves`.
     #[inline]
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
-        if self.is_repeated() {
+        if self.is_repeated_or_rule50() {
             None
         } else {
             self.board().try_move_digest(move_digest)
@@ -392,20 +411,30 @@ impl Position {
     ///
     /// Moves generated by the `null_move` method are exceptions. For
     /// them `do_move(m)` will return `false` only if the king is in
-    /// check or the position is a draw due to repetition.
+    /// check or the position is a draw due to repetition or rule-50.
     pub fn do_move(&mut self, m: Move) -> bool {
-        if self.is_repeated() && m.is_null() {
+        if self.is_repeated_or_rule50() && m.is_null() {
             return false;
         }
         if let Some(h) = unsafe { self.board_mut().do_move(m) } {
             let halfmove_clock = if m.is_pawn_advance_or_capure() {
                 0
             } else {
-                self.state().halfmove_clock + 1
+                // We do not allow `halfmove_clock` to be greater than 99.
+                match self.state().halfmove_clock {
+                    x if x < 99 => x + 1,
+                    _ => {
+                        if !self.is_checkmate() {
+                            self.is_repeated_or_rule50 = true;
+                        }
+                        99
+                    }
+                }
             };
             self.halfmove_count += 1;
             self.encountered_boards.push(self.board_hash);
             self.board_hash ^= h;
+            assert!(halfmove_clock <= 99);
             assert!(self.encountered_boards.len() >= halfmove_clock as usize);
 
             // Figure out if the new position is repeated.
@@ -416,7 +445,7 @@ impl Position {
                 while i >= last_irrev {
                     if self.board_hash ==
                        unsafe { *self.encountered_boards.get_unchecked(i as usize) } {
-                        self.is_repeated = true;
+                        self.is_repeated_or_rule50 = true;
                         break;
                     }
                     i -= 2;
@@ -442,7 +471,7 @@ impl Position {
         }
         self.halfmove_count -= 1;
         self.board_hash = self.encountered_boards.pop().unwrap();
-        self.is_repeated = false;
+        self.is_repeated_or_rule50 = false;
         self.state_stack.pop();
     }
 
@@ -714,7 +743,7 @@ impl Position {
             }
             hasher.finish()
         };
-        self.is_repeated = false;
+        self.is_repeated_or_rule50 = false;
 
         // Remove all states but the last one from `state_stack`.
         self.state_stack = vec![state];
@@ -727,6 +756,30 @@ impl Position {
     #[inline(always)]
     fn root_is_unreachable(&self) -> bool {
         self.encountered_boards.len() > self.state().halfmove_clock as usize
+    }
+
+    // A helper method for `Position::do_move`. It returns if the side
+    // to move is checkmated.
+    #[inline(always)]
+    fn is_checkmate(&self) -> bool {
+        self.board().checkers() != 0 &&
+        MOVE_STACK.with(|s| unsafe {
+            // Check if there are no legal moves.
+            let board = self.board_mut();
+            let move_stack = &mut *s.get();
+            let mut no_legal_moves = true;
+            move_stack.save();
+            board.generate_moves(true, move_stack);
+            while let Some(m) = move_stack.pop() {
+                if board.do_move(m).is_some() {
+                    board.undo_move(m);
+                    no_legal_moves = false;
+                    break;
+                }
+            }
+            move_stack.restore();
+            no_legal_moves
+        })
     }
 
     #[inline(always)]
@@ -751,7 +804,7 @@ impl Clone for Position {
             board: UnsafeCell::new(self.board().clone()),
             board_hash: self.board_hash,
             halfmove_count: self.halfmove_count,
-            is_repeated: self.is_repeated,
+            is_repeated_or_rule50: self.is_repeated_or_rule50,
             repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: encountered_boards,
             state_stack: state_stack,
@@ -760,11 +813,23 @@ impl Clone for Position {
 }
 
 
+// Thread-local storage for the generated moves.
+thread_local!(
+    static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
+);
+
+
 // The material value of pieces.
 const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
+
 // Do not try exchanges with SSE==0 once this ply has been reached.
 const SSE_EXCHANGE_MAX_PLY: u8 = 2;
+
+
+// Do not include `halfmove_clock` into position's hash until it gets
+// bigger than this number.
+const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
 
 
 // Helper function for `Position::from_history`. It sets all unique
@@ -952,7 +1017,7 @@ mod tests {
                 assert!(p.evaluate_move(m) >= 0);
             }
             if m.notation() == "h7h8r" {
-                assert_eq!(p.evaluate_move(m), -100);
+                assert_eq!(p.evaluate_move(m), 100);
             }
             if m.notation() == "h1h2" {
                 assert_eq!(p.evaluate_move(m), 0);
@@ -1117,6 +1182,24 @@ mod tests {
             }
         }
         assert_eq!(count, 4);
+    }
+
+    #[test]
+    fn is_checkmate() {
+        let p = Position::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1")
+                    .ok()
+                    .unwrap();
+        assert!(p.is_checkmate());
+
+        let p = Position::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1")
+                    .ok()
+                    .unwrap();
+        assert!(!p.is_checkmate());
+
+        let p = Position::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1")
+                    .ok()
+                    .unwrap();
+        assert!(!p.is_checkmate());
     }
 
     #[test]
