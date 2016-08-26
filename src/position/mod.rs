@@ -143,11 +143,11 @@ impl Position {
         let mut p = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
         'played_move: for played_move in moves {
+            move_stack.clear();
             p.board().generate_moves(true, &mut move_stack);
-            while let Some(m) = move_stack.pop() {
+            for m in move_stack.iter() {
                 if played_move == m.notation() {
-                    if p.do_move(m) {
-                        move_stack.clear();
+                    if p.do_move(*m) {
                         continue 'played_move;
                     } else {
                         return Err(IllegalPosition);
@@ -762,9 +762,9 @@ impl Position {
             let mut no_legal_moves = true;
             move_stack.save();
             board.generate_moves(true, move_stack);
-            while let Some(m) = move_stack.pop() {
-                if board.do_move(m).is_some() {
-                    board.undo_move(m);
+            for m in move_stack.iter() {
+                if board.do_move(*m).is_some() {
+                    board.undo_move(*m);
                     no_legal_moves = false;
                     break;
                 }

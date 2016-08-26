@@ -293,9 +293,9 @@ impl Engine {
         // Otherwise, pick the first legal move.
         let mut s = MoveStack::new();
         p.generate_moves(&mut s);
-        while let Some(m) = s.pop() {
-            if p.do_move(m) {
-                return Some(m);
+        for m in s.iter() {
+            if p.do_move(*m) {
+                return Some(*m);
             }
         }
 
