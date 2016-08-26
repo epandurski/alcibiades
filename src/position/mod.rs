@@ -215,7 +215,7 @@ impl Position {
             };
             let halfmove_clock = self.state().halfmove_clock;
 
-            if halfmove_clock <= HALFMOVE_CLOCK_THRESHOLD {
+            if halfmove_clock < HALFMOVE_CLOCK_THRESHOLD {
                 hash
             } else {
                 // If `halfmove_clock` is close to rule-50, we blend
@@ -820,7 +820,7 @@ const SSE_EXCHANGE_MAX_PLY: u8 = 2;
 
 
 // Do not include `halfmove_clock` into position's hash until it gets
-// bigger than this number.
+// greater or equal to this number.
 const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
 
 
