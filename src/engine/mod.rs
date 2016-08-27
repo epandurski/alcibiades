@@ -117,6 +117,13 @@ impl Engine {
 
     // A helper method. It starts a new search.
     fn start_search(&mut self, depth: u8) {
+        self.thinking_since = SystemTime::now();
+        self.silent_since = SystemTime::now();
+        self.current_depth = 0;
+        self.current_value = None;
+        self.searched_nodes = 0;
+        self.searched_time = 0;
+        self.perfect_pv = false;
         self.commands
             .send(Command::Search {
                 search_id: self.search_id,
@@ -412,16 +419,9 @@ impl UciEngine for Engine {
         if !self.is_thinking {
             // Note: We ignore "searchmoves" and "mate" parameters.
 
+            self.start_search(MAX_DEPTH);
             self.is_thinking = true;
             self.is_pondering = ponder;
-            self.thinking_since = SystemTime::now();
-            self.silent_since = SystemTime::now();
-            self.current_depth = 0;
-            self.current_value = None;
-            self.searched_nodes = 0;
-            self.searched_time = 0;
-            self.perfect_pv = false;
-            self.start_search(MAX_DEPTH);
 
             // Figure out when we should stop thinking.
             //
