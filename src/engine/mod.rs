@@ -135,12 +135,25 @@ impl Engine {
             .unwrap();
     }
 
-    // A helper method. It stops the current search.
-    fn stop_search(&mut self) {
-        self.commands.send(Command::Stop).unwrap();
+    // A helper method. It stops the current search. If `wait` is
+    // `true` it will block until a "Done" message for the current
+    // search is received. (This may take forever if the "Done"
+    // message has already been received.)
+    fn stop_search(&mut self, wait: bool) {
+        if wait {
+            loop {
+                if let Ok(Report::Done { search_id, .. }) = self.reports.recv() {
+                    if search_id == self.search_id {
+                        break;
+                    }
+                }
+            }
+        } else {
+            self.commands.send(Command::Stop).unwrap();
+        }
         self.search_id = self.search_id.wrapping_add(1);
     }
-    
+
     // A helper method. It peeks the TT for the best move in the
     // position `p`, plays it, and returns it. If the TT gives no
     // move, this function will play and return the first legal
@@ -356,7 +369,7 @@ impl Engine {
                         TimeManagement::MoveTime(0)
                     };
                 }
-                
+
                 // We may still receive stale reports from already
                 // stopped searches.
                 _ => (),
@@ -387,14 +400,7 @@ impl UciEngine for Engine {
             // we ensure than no search will be writing to the TT
             // while we are clearing it.
             self.start_search(1);
-            loop {
-                if let Ok(Report::Done { search_id, .. }) = self.reports.recv() {
-                    if search_id == self.search_id {
-                        break;
-                    }
-                }
-            }
-            self.stop_search();
+            self.stop_search(true);
             self.tt.clear();
         }
     }
@@ -462,7 +468,7 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking {
-            self.stop_search();
+            self.stop_search(false);
             self.report_best_move();
             self.is_thinking = false;
         }
