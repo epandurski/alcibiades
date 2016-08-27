@@ -341,9 +341,10 @@ impl Engine {
         }
     }
 
-    // A helper method. It processes the reports from the search
-    // thread.
-    fn process_reports(&mut self) {
+    // A helper method. It reads the pending report messages from the
+    // search thread, processes them, and passes the produced replies
+    // (if any) to the GUI.
+    fn process_search_reports(&mut self) {
         while let Ok(report) = self.reports.try_recv() {
             match report {
                 Report::Progress { search_id, searched_nodes, searched_depth, value }
@@ -479,6 +480,7 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
+        self.process_search_reports();
         if self.is_thinking && !self.is_pondering &&
            match self.stop_when {
             TimeManagement::MoveTime(t) => self.searched_time >= t,
@@ -488,7 +490,6 @@ impl UciEngine for Engine {
         } {
             self.stop();
         }
-        self.process_reports();
         self.reply_queue.pop_front()
     }
 
