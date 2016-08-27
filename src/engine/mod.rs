@@ -12,7 +12,6 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
-use std::num::Wrapping;
 use basetypes::*;
 use chess_move::*;
 use position::Position;
@@ -118,7 +117,6 @@ impl Engine {
 
     // A helper method. It starts a new search.
     fn start_search(&mut self, depth: u8) {
-        self.search_id = (Wrapping(self.search_id) + Wrapping(1)).0;
         self.commands
             .send(Command::Search {
                 search_id: self.search_id,
@@ -321,35 +319,34 @@ impl Engine {
     // thread.
     fn process_reports(&mut self) {
         while let Ok(report) = self.reports.try_recv() {
-            if self.is_thinking {
-                match report {
-                    Report::Progress { search_id, searched_nodes, searched_depth, value }
-                        if search_id == self.search_id => {
-                        self.register_progress(searched_depth, searched_nodes, value);
-                        if self.silent_since.elapsed().unwrap().as_secs() > 10 {
-                            if self.perfect_pv {
-                                // Send a regular progress report.
-                                self.report_progress();
-                            } else {
-                                // Send a new PV, hoping that this
-                                // time it will be perfect.
-                                self.report_pv(searched_depth);
-                            }
+            match report {
+                Report::Progress { search_id, searched_nodes, searched_depth, value }
+                    if search_id == self.search_id => {
+                    self.register_progress(searched_depth, searched_nodes, value);
+                    if self.silent_since.elapsed().unwrap().as_secs() > 10 {
+                        if self.perfect_pv {
+                            // Send a regular progress report.
+                            self.report_progress();
+                        } else {
+                            // Send a new PV, hoping that this time it
+                            // will be perfect.
+                            self.report_pv(searched_depth);
                         }
                     }
-                    Report::Done { search_id, .. } if search_id == self.search_id => {
-                        // Unless this happens to be an infinite
-                        // search, terminate it as soon as possible.
-                        self.stop_when = if let TimeManagement::Infinite = self.stop_when {
-                            TimeManagement::Infinite
-                        } else {
-                            TimeManagement::MoveTime(0)
-                        };
-                    }
-                    // We may still receive stale reports from already
-                    // stopped searches.
-                    _ => (),
                 }
+                Report::Done { search_id, .. } if search_id == self.search_id => {
+                    // Unless this happens to be an infinite search,
+                    // terminate it as soon as possible.
+                    self.stop_when = if let TimeManagement::Infinite = self.stop_when {
+                        TimeManagement::Infinite
+                    } else {
+                        TimeManagement::MoveTime(0)
+                    };
+                }
+                
+                // We may still receive stale reports from already
+                // stopped searches.
+                _ => (),
             }
         }
     }
@@ -384,6 +381,7 @@ impl UciEngine for Engine {
                     }
                 }
             }
+            self.search_id = self.search_id.wrapping_add(1);
             self.tt.clear();
         }
     }
@@ -460,6 +458,7 @@ impl UciEngine for Engine {
         if self.is_thinking {
             self.commands.send(Command::Stop).unwrap();
             self.report_best_move();
+            self.search_id = self.search_id.wrapping_add(1);
             self.is_thinking = false;
         }
     }
