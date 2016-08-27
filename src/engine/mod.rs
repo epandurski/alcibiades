@@ -81,9 +81,11 @@ impl Engine {
         let mut tt = TranspositionTable::new();
         tt.resize(tt_size_mb);
         let tt1 = Arc::new(tt);
-        let tt2 = tt1.clone();
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
+
+        // Spawn the search thread.
+        let tt2 = tt1.clone();
         let search_thread = thread::spawn(move || {
             serve_deepening(tt2, commands_rx, reports_tx);
         });
@@ -273,11 +275,10 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method for `Engine::stop`. It peeks the TT for the
-    // best move in the position `p`, plays it, and returns it. If the
-    // TT gives no move, this function will play and return the first
-    // legal move. `None` is returned only when there are no legal
-    // moves.
+    // A helper method. It peeks the TT for the best move in the
+    // position `p`, plays it, and returns it. If the TT gives no
+    // move, this function will play and return the first legal
+    // move. `None` is returned only when there are no legal moves.
     fn do_best_move(&self, p: &mut Position) -> Option<Move> {
         // Try to get best move from the TT.
         let move16 = self.tt.peek(p.hash()).map_or(0, |entry| entry.move16());
@@ -298,6 +299,43 @@ impl Engine {
 
         // No legal moves.
         None
+    }
+
+    // A helper method. It processes the reports from the search
+    // thread.
+    fn process_reports(&mut self) {
+        while let Ok(report) = self.reports.try_recv() {
+            if self.is_thinking {
+                match report {
+                    Report::Progress { search_id, searched_nodes, searched_depth, value }
+                        if search_id == self.search_id => {
+                        self.register_progress(searched_depth, searched_nodes, value);
+                        if self.silent_since.elapsed().unwrap().as_secs() > 10 {
+                            if self.perfect_pv {
+                                // Send a regular progress report.
+                                self.report_progress();
+                            } else {
+                                // Send a new PV, hoping that this
+                                // time it will be perfect.
+                                self.report_pv(searched_depth);
+                            }
+                        }
+                    }
+                    Report::Done { search_id, .. } if search_id == self.search_id => {
+                        // Unless this happens to be an infinite
+                        // search, terminate it as soon as possible.
+                        self.stop_when = if let TimeManagement::Infinite = self.stop_when {
+                            TimeManagement::Infinite
+                        } else {
+                            TimeManagement::MoveTime(0)
+                        };
+                    }
+                    // We may still receive stale reports from already
+                    // stopped searches.
+                    _ => (),
+                }
+            }
+        }
     }
 }
 
@@ -421,7 +459,7 @@ impl UciEngine for Engine {
                 best_move: best_move,
                 ponder_move: ponder_move,
             });
-            
+
             self.is_thinking = false;
         }
     }
@@ -445,40 +483,7 @@ impl UciEngine for Engine {
             }
         }
 
-        // Process the reports queue.
-        while let Ok(report) = self.reports.try_recv() {
-            if self.is_thinking {
-                match report {
-                    Report::Progress { search_id, searched_nodes, searched_depth, value }
-                        if search_id == self.search_id => {
-                        self.register_progress(searched_depth, searched_nodes, value);
-                        if self.silent_since.elapsed().unwrap().as_secs() > 10 {
-                            if self.perfect_pv {
-                                // Send a regular progress report.
-                                self.report_progress();
-                            } else {
-                                // Send a new PV, hoping that this
-                                // time it will be perfect.
-                                self.report_pv(searched_depth);
-                            }
-                        }
-                    }
-                    Report::Done { search_id, .. } if search_id == self.search_id => {
-                        // Unless this happens to be an infinite
-                        // search, terminate it as soon as possible.
-                        self.stop_when = if let TimeManagement::Infinite = self.stop_when {
-                            TimeManagement::Infinite
-                        } else {
-                            TimeManagement::MoveTime(0)
-                        };
-                    }
-                    // We may still receive stale reports from already
-                    // stopped searches.
-                    _ => (),
-                }
-            }
-        }
-
+        self.process_reports();
         self.reply_queue.pop_front()
     }
 
