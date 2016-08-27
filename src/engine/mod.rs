@@ -488,7 +488,7 @@ impl UciEngine for Engine {
 
 
 // A sufficiently small value (in centipawns).
-const EPSILON: Value = INITIAL_ASPIRATION_WINDOW / 2;
+const EPSILON: Value = 8;
 
 
 enum TimeManagement {
