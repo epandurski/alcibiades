@@ -323,9 +323,11 @@ impl UciEngine for Engine {
             // we ensure than no search will be writing to the TT
             // while we are clearing it.
             self.start_search(1);
-            while let Ok(Report::Done { search_id, .. }) = self.reports.recv() {
-                if search_id == self.search_id {
-                    break;
+            loop {
+                if let Ok(Report::Done { search_id, .. }) = self.reports.recv() {
+                    if search_id == self.search_id {
+                        break;
+                    }
                 }
             }
             self.tt.clear();
