@@ -135,6 +135,12 @@ impl Engine {
             .unwrap();
     }
 
+    // A helper method. It stops the current search.
+    fn stop_search(&mut self) {
+        self.commands.send(Command::Stop).unwrap();
+        self.search_id = self.search_id.wrapping_add(1);
+    }
+    
     // A helper method. It peeks the TT for the best move in the
     // position `p`, plays it, and returns it. If the TT gives no
     // move, this function will play and return the first legal
@@ -388,7 +394,7 @@ impl UciEngine for Engine {
                     }
                 }
             }
-            self.search_id = self.search_id.wrapping_add(1);
+            self.stop_search();
             self.tt.clear();
         }
     }
@@ -456,9 +462,8 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking {
-            self.commands.send(Command::Stop).unwrap();
+            self.stop_search();
             self.report_best_move();
-            self.search_id = self.search_id.wrapping_add(1);
             self.is_thinking = false;
         }
     }
