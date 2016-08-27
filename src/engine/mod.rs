@@ -130,22 +130,30 @@ impl Engine {
             .unwrap();
     }
 
-    // A helper method. It updates the search status info and makes
-    // sure that a new PV is sent to the GUI for the newly reached
-    // depths.
-    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
-        let thinking_duration = self.thinking_since.elapsed().unwrap();
-        self.searched_time = 1000 * thinking_duration.as_secs() +
-                             (thinking_duration.subsec_nanos() / 1000000) as u64;
-        self.searched_nodes = searched_nodes;
-        self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
-        if self.current_depth < depth || self.current_value != value {
-            self.current_depth = depth;
-            self.current_value = value;
-            if searched_nodes >= NODE_COUNT_REPORT_INTERVAL {
-                self.report_pv(depth);
+    // A helper method. It peeks the TT for the best move in the
+    // position `p`, plays it, and returns it. If the TT gives no
+    // move, this function will play and return the first legal
+    // move. `None` is returned only when there are no legal moves.
+    fn do_best_move(&self, p: &mut Position) -> Option<Move> {
+        // Try to get best move from the TT.
+        let move16 = self.tt.peek(p.hash()).map_or(0, |entry| entry.move16());
+        if let Some(m) = p.try_move_digest(move16) {
+            if p.do_move(m) {
+                return Some(m);
             }
         }
+
+        // Otherwise, pick the first legal move.
+        let mut s = MoveStack::new();
+        p.generate_moves(&mut s);
+        for m in s.iter() {
+            if p.do_move(*m) {
+                return Some(*m);
+            }
+        }
+
+        // No legal moves.
+        None
     }
 
     // A helper method. It extracts the primary variation (PV) from
@@ -275,30 +283,38 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It peeks the TT for the best move in the
-    // position `p`, plays it, and returns it. If the TT gives no
-    // move, this function will play and return the first legal
-    // move. `None` is returned only when there are no legal moves.
-    fn do_best_move(&self, p: &mut Position) -> Option<Move> {
-        // Try to get best move from the TT.
-        let move16 = self.tt.peek(p.hash()).map_or(0, |entry| entry.move16());
-        if let Some(m) = p.try_move_digest(move16) {
-            if p.do_move(m) {
-                return Some(m);
+    // A helper method. It extract the current best and ponder moves
+    // from the TT and send them to the GUI.
+    fn report_best_move(&mut self) {
+        let mut p = self.position.clone();
+        let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
+            (m.notation(), self.do_best_move(&mut p).map(|m| m.notation()))
+        } else {
+            ("0000".to_string(), None)
+        };
+        self.reply_queue.push_back(EngineReply::BestMove {
+            best_move: best_move,
+            ponder_move: ponder_move,
+        });
+        self.silent_since = SystemTime::now();
+    }
+    
+    // A helper method. It updates the search status info and makes
+    // sure that a new PV is sent to the GUI for the newly reached
+    // depths.
+    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
+        let thinking_duration = self.thinking_since.elapsed().unwrap();
+        self.searched_time = 1000 * thinking_duration.as_secs() +
+                             (thinking_duration.subsec_nanos() / 1000000) as u64;
+        self.searched_nodes = searched_nodes;
+        self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
+        if self.current_depth < depth || self.current_value != value {
+            self.current_depth = depth;
+            self.current_value = value;
+            if searched_nodes >= NODE_COUNT_REPORT_INTERVAL {
+                self.report_pv(depth);
             }
         }
-
-        // Otherwise, pick the first legal move.
-        let mut s = MoveStack::new();
-        p.generate_moves(&mut s);
-        for m in s.iter() {
-            if p.do_move(*m) {
-                return Some(*m);
-            }
-        }
-
-        // No legal moves.
-        None
     }
 
     // A helper method. It processes the reports from the search
@@ -442,22 +458,8 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking {
-            // Send a stop command to the search thread.
             self.commands.send(Command::Stop).unwrap();
-
-            // Extract best and ponder moves from the TT and send them
-            // to the GUI.
-            let mut p = self.position.clone();
-            let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
-                (m.notation(), self.do_best_move(&mut p).map(|m| m.notation()))
-            } else {
-                ("0000".to_string(), None)
-            };
-            self.reply_queue.push_back(EngineReply::BestMove {
-                best_move: best_move,
-                ponder_move: ponder_move,
-            });
-
+            self.report_best_move();
             self.is_thinking = false;
         }
     }
