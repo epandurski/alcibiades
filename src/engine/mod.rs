@@ -282,7 +282,7 @@ impl Engine {
     }
 
     // A helper method. It extract the current best and ponder moves
-    // from the TT and send them to the GUI.
+    // from the TT and sends them to the GUI.
     fn report_best_move(&mut self) {
         let mut p = self.position.clone();
         let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
