@@ -407,13 +407,8 @@ impl UciEngine for Engine {
             // Send a stop command to the search thread.
             self.commands.send(Command::Stop).unwrap();
 
-            // Report one last PV if the previous one was imperfect.
-            if !self.perfect_pv {
-                let depth = self.current_depth;
-                self.report_pv(depth);
-            }
-
-            // Extract best and ponder moves from the TT.
+            // Extract best and ponder moves from the TT and send them
+            // to the GUI.
             let mut p = self.position.clone();
             let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
                 (m.notation(), self.do_best_move(&mut p).map(|m| m.notation()))
@@ -424,7 +419,7 @@ impl UciEngine for Engine {
                 best_move: best_move,
                 ponder_move: ponder_move,
             });
-
+            
             self.is_thinking = false;
         }
     }
@@ -434,7 +429,8 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        // Check if we should stop thinking.
+        // Check if the time management says that we should stop
+        // thinking.
         if self.is_thinking && !self.is_pondering {
             if match self.stop_when {
                 TimeManagement::MoveTime(t) => self.searched_time >= t,
@@ -447,27 +443,31 @@ impl UciEngine for Engine {
             }
         }
 
-        // Check the reports queue.
+        // Process the reports queue.
         while let Ok(report) = self.reports.try_recv() {
             if self.is_thinking {
                 match report {
                     Report::Progress { search_id, searched_nodes, searched_depth, value }
                         if search_id == self.search_id => {
-                        // Register search progress.
                         self.register_progress(searched_depth, searched_nodes, value);
                         if self.silent_since.elapsed().unwrap().as_secs() > 10 {
                             if self.perfect_pv {
+                                // Send a regular progress report.
                                 self.report_progress();
                             } else {
+                                // Send a new PV, hoping that this
+                                // time it will be perfect.
                                 self.report_pv(searched_depth);
                             }
                         }
                     }
                     Report::Done { search_id, .. } if search_id == self.search_id => {
-                        // Terminate the search if not infinite.
-                        self.stop_when = match self.stop_when {
-                            TimeManagement::Infinite => TimeManagement::Infinite,
-                            _ => TimeManagement::MoveTime(0),
+                        // Unless this happens to be an infinite
+                        // search, terminate it as soon as possible.
+                        self.stop_when = if let TimeManagement::Infinite = self.stop_when {
+                            TimeManagement::Infinite
+                        } else {
+                            TimeManagement::MoveTime(0)
                         };
                     }
                     // We may still receive stale reports from already
