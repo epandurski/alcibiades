@@ -298,7 +298,7 @@ impl Engine {
         });
         self.silent_since = SystemTime::now();
     }
-    
+
     // A helper method. It updates the search status info and makes
     // sure that a new PV is sent to the GUI for the newly reached
     // depths.
@@ -445,7 +445,7 @@ impl UciEngine for Engine {
                 let time = time.unwrap_or(0);
                 let movestogo = movestogo.unwrap_or(40);
                 let movetime = (time + inc * movestogo) / movestogo;
-                TimeManagement::MoveTimeHint(min(movetime, time / 2))
+                TimeManagement::MoveTime(min(movetime, time / 2))
             };
         }
     }
@@ -469,20 +469,15 @@ impl UciEngine for Engine {
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        // Check if the time management says that we should stop
-        // thinking.
-        if self.is_thinking && !self.is_pondering {
-            if match self.stop_when {
-                TimeManagement::MoveTime(t) => self.searched_time >= t,
-                TimeManagement::MoveTimeHint(t) => self.searched_time >= t,
-                TimeManagement::Nodes(n) => self.searched_nodes >= n,
-                TimeManagement::Depth(d) => self.current_depth > d,
-                TimeManagement::Infinite => false,
-            } {
-                self.stop();
-            }
+        if self.is_thinking && !self.is_pondering &&
+           match self.stop_when {
+            TimeManagement::MoveTime(t) => self.searched_time >= t,
+            TimeManagement::Nodes(n) => self.searched_nodes >= n,
+            TimeManagement::Depth(d) => self.current_depth > d,
+            TimeManagement::Infinite => false,
+        } {
+            self.stop();
         }
-
         self.process_reports();
         self.reply_queue.pop_front()
     }
@@ -500,7 +495,6 @@ const EPSILON: Value = 8;
 
 enum TimeManagement {
     MoveTime(u64),
-    MoveTimeHint(u64),
     Nodes(NodeCount),
     Depth(u8),
     Infinite,
