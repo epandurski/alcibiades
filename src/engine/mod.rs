@@ -355,7 +355,7 @@ impl UciEngine for Engine {
     }
 
     fn new_game(&mut self) {
-        if !self.is_thinking() {
+        if !self.is_thinking {
             // Before we clear the transposition table, we start a
             // bogus search and wait for a "Done" message. This way,
             // we ensure than no search will be writing to the TT
@@ -407,6 +407,7 @@ impl UciEngine for Engine {
             self.searched_nodes = 0;
             self.searched_time = 0;
             self.perfect_pv = false;
+            self.start_search(MAX_DEPTH);
 
             // Figure out when we should stop thinking.
             //
@@ -430,9 +431,6 @@ impl UciEngine for Engine {
                 let movetime = (time + inc * movestogo) / movestogo;
                 TimeManagement::MoveTimeHint(min(movetime, time / 2))
             };
-
-            // Start deepening search to the maximum possible depth.
-            self.start_search(MAX_DEPTH);
         }
     }
 
