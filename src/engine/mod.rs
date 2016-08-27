@@ -129,8 +129,8 @@ impl Engine {
     }
 
     // A helper method. It updates the search status info and makes
-    // sure that a new PV is sent to the GUI for every newly reached
-    // depth.
+    // sure that a new PV is sent to the GUI for the newly reached
+    // depths.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
         let thinking_duration = self.thinking_since.elapsed().unwrap();
         self.searched_time = 1000 * thinking_duration.as_secs() +
@@ -149,18 +149,18 @@ impl Engine {
     // A helper method. It extracts the primary variation (PV) from
     // the transposition table (TT) and sends it to the GUI.
     //
-    // **Note:** Some imperfections in the reported PV values is
-    // unavoidable because the the search runs continuously, so that
-    // the PV is a moving target.
+    // **Note:** Because the PV is a moving target (the search
+    // continues to run in parallel), imperfections in the reported
+    // PVs are unavoidable. To deal with this, we turn a blind eye if
+    // the value at the root of the PV differs from the value at the
+    // leaf by no more than `EPSILON`.
     fn report_pv(&mut self, depth: u8) {
         if depth == 0 {
             return;
         }
 
-        // Extract the PV, the leaf value, the root value, and the
-        // bound type from the TT. We turn a blind eye if the value at
-        // the root of the PV differs from the value at the leaf by
-        // no more than `EPSILON`.
+        // First: Extract the PV, the leaf value, the root value, and
+        // the bound type from the TT.
         let mut p = self.position.clone();
         let mut our_turn = true;
         let mut prev_move = None;
@@ -187,9 +187,8 @@ impl Engine {
 
                 // The values under -19999 and over 19999 carry
                 // information about in how many moves is the
-                // inevitable checkmate. However, we choose to not
-                // show this to the user, because it would complicate
-                // unnecessarily the PV extraction procedure.
+                // inevitable checkmate. However, do not show this to
+                // the user, because it is sometimes incorrect.
                 if leaf_value >= 20000 {
                     leaf_value = 19999;
                     if bound == BOUND_LOWER {
@@ -220,7 +219,7 @@ impl Engine {
                                 our_turn = !our_turn;
                                 continue;
                             } else {
-                                // Extend the PV with one last move.
+                                // This is the last move in the PV.
                                 pv.push(m);
                             }
                         }
@@ -230,19 +229,17 @@ impl Engine {
             break;
         }
 
-        // Correct the bound type if the leaf value in the PV differs
-        // too much from the root value. If this is this case the PV
-        // is mangled.
+        // Second: Change the bound type if the leaf value in the PV
+        // differs too much from the root value. If the bound is not
+        // exact -- the PV is deemed imperfect.
         bound = match leaf_value - root_value {
             x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
             x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
             _ => bound,
         };
-
-        // Check if the extracted PV is mangled.
         self.perfect_pv = bound == BOUND_EXACT;
 
-        // Send the newly extracted PV to the GUI.
+        // Third: Send the extracted PV to the GUI.
         let score_suffix = match bound {
             BOUND_EXACT => "",
             BOUND_UPPER => " upperbound",
