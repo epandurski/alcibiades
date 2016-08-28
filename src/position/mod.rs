@@ -762,7 +762,6 @@ impl Position {
 
     // A helper method for `Position::do_move`. It returns if the side
     // to move is checkmated.
-    #[inline(always)]
     fn is_checkmate(&self) -> bool {
         self.board().checkers() != 0 &&
         MOVE_STACK.with(|s| unsafe {
