@@ -106,7 +106,6 @@ pub struct Engine {
     search_status: SearchStatus,
 
     silent_since: SystemTime,
-    perfect_pv: bool, // `true` if the primary variation is flawless
 }
 
 
@@ -151,7 +150,6 @@ impl Engine {
                 nps: 0,
             },
             silent_since: SystemTime::now(),
-            perfect_pv: false,
         }
     }
 
@@ -171,7 +169,6 @@ impl Engine {
             ..self.search_status
         };
         self.silent_since = SystemTime::now();
-        self.perfect_pv = false;
     }
 
     // A helper method. It stops the current search. If `wait` is
@@ -311,14 +308,12 @@ impl Engine {
         }
 
         // Second: Change the bound type if the leaf value in the PV
-        // differs too much from the root value. If the bound is not
-        // exact -- the PV is deemed imperfect.
+        // differs too much from the root value.
         bound = match leaf_value - root_value {
             x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
             x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
             _ => bound,
         };
-        self.perfect_pv = bound == BOUND_EXACT;
 
         // Third: Send the extracted PV to the GUI.
         let score_suffix = match bound {
@@ -371,8 +366,8 @@ impl Engine {
     }
 
     // A helper method. It updates the search status info and makes
-    // sure that a new PV is sent to the GUI for the newly reached
-    // depths.
+    // sure that a new PV is sent to the GUI for each newly reached
+    // depth.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
         let thinking_duration = self.search_status.started_at.unwrap().elapsed().unwrap();
         self.search_status.searched_time = 1000 * thinking_duration.as_secs() +
@@ -400,14 +395,7 @@ impl Engine {
                     if search_id == self.search_id => {
                     self.register_progress(searched_depth, searched_nodes, value);
                     if self.silent_since.elapsed().unwrap().as_secs() > 10 {
-                        if self.perfect_pv {
-                            // Send a regular progress report.
-                            self.report_progress();
-                        } else {
-                            // Send a new PV, hoping that this time it
-                            // will be perfect.
-                            self.report_pv(searched_depth);
-                        }
+                        self.report_progress();
                     }
                 }
                 Report::Done { search_id, .. } if search_id == self.search_id => {
