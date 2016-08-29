@@ -37,6 +37,16 @@ pub const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 pub const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
+struct SearchStatus {
+    pub started_at: SystemTime,
+    pub current_depth: u8,
+    pub current_value: Option<Value>,
+    pub searched_nodes: NodeCount,
+    pub searched_time: u64, // milliseconds
+    pub nps: u64, // nodes per second
+}
+
+
 /// Implements `UciEngine` trait.
 pub struct Engine {
     tt: Arc<TranspositionTable>,
@@ -59,13 +69,9 @@ pub struct Engine {
 
     // Search status info
     search_id: usize,
-    thinking_since: SystemTime,
+    search_status: SearchStatus,
+
     silent_since: SystemTime,
-    current_depth: u8,
-    current_value: Option<Value>,
-    searched_nodes: NodeCount,
-    searched_time: u64, // milliseconds
-    nps: u64, // nodes per second
     perfect_pv: bool, // `true` if the primary variation is flawless
     stop_when: TimeManagement,
 }
@@ -103,13 +109,15 @@ impl Engine {
             commands: commands_tx,
             reports: reports_rx,
             search_id: 0,
-            thinking_since: SystemTime::now(),
+            search_status: SearchStatus {
+                started_at: SystemTime::now(),
+                current_depth: 0,
+                current_value: None,
+                searched_nodes: 0,
+                searched_time: 0,
+                nps: 0,
+            },
             silent_since: SystemTime::now(),
-            current_depth: 0,
-            current_value: None,
-            searched_nodes: 0,
-            searched_time: 0,
-            nps: 0,
             perfect_pv: false,
             stop_when: TimeManagement::Infinite,
         }
@@ -117,12 +125,15 @@ impl Engine {
 
     // A helper method. It starts a new search.
     fn start_search(&mut self, depth: u8) {
-        self.thinking_since = SystemTime::now();
+        self.search_status = SearchStatus {
+            started_at: SystemTime::now(),
+            current_depth: 0,
+            current_value: None,
+            searched_nodes: 0,
+            searched_time: 0,
+            ..self.search_status
+        };
         self.silent_since = SystemTime::now();
-        self.current_depth = 0;
-        self.current_value = None;
-        self.searched_nodes = 0;
-        self.searched_time = 0;
         self.perfect_pv = false;
         self.commands
             .send(Command::Search {
@@ -288,9 +299,9 @@ impl Engine {
         self.reply_queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("score".to_string(), format!("cp {}{}", root_value, score_suffix)),
-            ("time".to_string(), format!("{}", self.searched_time)),
-            ("nodes".to_string(), format!("{}", self.searched_nodes)),
-            ("nps".to_string(), format!("{}", self.nps)),
+            ("time".to_string(), format!("{}", self.search_status.searched_time)),
+            ("nodes".to_string(), format!("{}", self.search_status.searched_nodes)),
+            ("nps".to_string(), format!("{}", self.search_status.nps)),
             ("pv".to_string(), pv_string),
         ]));
         self.silent_since = SystemTime::now();
@@ -300,9 +311,9 @@ impl Engine {
     // node count, and the nodes per second to the GUI.
     fn report_progress(&mut self) {
         self.reply_queue.push_back(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", self.current_depth)),
-            ("nodes".to_string(), format!("{}", self.searched_nodes)),
-            ("nps".to_string(), format!("{}", self.nps)),
+            ("depth".to_string(), format!("{}", self.search_status.current_depth)),
+            ("nodes".to_string(), format!("{}", self.search_status.searched_nodes)),
+            ("nps".to_string(), format!("{}", self.search_status.nps)),
         ]));
         self.silent_since = SystemTime::now();
     }
@@ -327,14 +338,16 @@ impl Engine {
     // sure that a new PV is sent to the GUI for the newly reached
     // depths.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
-        let thinking_duration = self.thinking_since.elapsed().unwrap();
-        self.searched_time = 1000 * thinking_duration.as_secs() +
-                             (thinking_duration.subsec_nanos() / 1000000) as u64;
-        self.searched_nodes = searched_nodes;
-        self.nps = 1000 * (self.nps + self.searched_nodes) / (1000 + self.searched_time);
-        if self.current_depth < depth || self.current_value != value {
-            self.current_depth = depth;
-            self.current_value = value;
+        let thinking_duration = self.search_status.started_at.elapsed().unwrap();
+        self.search_status.searched_time = 1000 * thinking_duration.as_secs() +
+                                           (thinking_duration.subsec_nanos() / 1000000) as u64;
+        self.search_status.searched_nodes = searched_nodes;
+        self.search_status.nps = 1000 *
+                                 (self.search_status.nps + self.search_status.searched_nodes) /
+                                 (1000 + self.search_status.searched_time);
+        if self.search_status.current_depth < depth || self.search_status.current_value != value {
+            self.search_status.current_depth = depth;
+            self.search_status.current_value = value;
             if searched_nodes >= NODE_COUNT_REPORT_INTERVAL {
                 self.report_pv(depth);
             }
@@ -483,9 +496,9 @@ impl UciEngine for Engine {
         self.process_search_reports();
         if self.is_thinking && !self.is_pondering &&
            match self.stop_when {
-            TimeManagement::MoveTime(t) => self.searched_time >= t,
-            TimeManagement::Nodes(n) => self.searched_nodes >= n,
-            TimeManagement::Depth(d) => self.current_depth > d,
+            TimeManagement::MoveTime(t) => self.search_status.searched_time >= t,
+            TimeManagement::Nodes(n) => self.search_status.searched_nodes >= n,
+            TimeManagement::Depth(d) => self.search_status.current_depth > d,
             TimeManagement::Infinite => false,
         } {
             self.stop();
