@@ -37,6 +37,40 @@ pub const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 pub const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
+struct TimeManagement {
+    move_time: u64, // milliseconds
+}
+
+impl TimeManagement {
+    #[allow(unused_variables)]
+    pub fn new(us: Color,
+               pondering_is_allowed: bool,
+               wtime: Option<u64>,
+               btime: Option<u64>,
+               winc: Option<u64>,
+               binc: Option<u64>,
+               movestogo: Option<u64>)
+               -> TimeManagement {
+        // Note: We ignore "pondering_is_allowed".
+
+        let (time, inc) = if us == WHITE {
+            (wtime, winc.unwrap_or(0))
+        } else {
+            (btime, binc.unwrap_or(0))
+        };
+        let time = time.unwrap_or(0);
+        let movestogo = movestogo.unwrap_or(40);
+        let movetime = (time + inc * movestogo) / movestogo;
+        TimeManagement { move_time: min(movetime, time / 2) }
+    }
+
+    pub fn must_play(&self, search_status: &SearchStatus) -> bool {
+        // TODO: Implement smarter time management.
+        search_status.searched_time >= self.move_time
+    }
+}
+
+
 struct SearchStatus {
     pub started_at: Option<SystemTime>,
     pub current_depth: u8,
@@ -72,7 +106,7 @@ pub struct Engine {
 
     silent_since: SystemTime,
     perfect_pv: bool, // `true` if the primary variation is flawless
-    stop_when: TimeManagement,
+    stop_when: StopWhen,
 }
 
 
@@ -117,7 +151,7 @@ impl Engine {
             },
             silent_since: SystemTime::now(),
             perfect_pv: false,
-            stop_when: TimeManagement::Infinite,
+            stop_when: StopWhen::Never,
         }
     }
 
@@ -379,10 +413,10 @@ impl Engine {
                 Report::Done { search_id, .. } if search_id == self.search_id => {
                     // Unless this happens to be an infinite search,
                     // terminate it as soon as possible.
-                    self.stop_when = if let TimeManagement::Infinite = self.stop_when {
-                        TimeManagement::Infinite
+                    self.stop_when = if let StopWhen::Never = self.stop_when {
+                        StopWhen::Never
                     } else {
-                        TimeManagement::MoveTime(0)
+                        StopWhen::MoveTime(0)
                     };
                 }
 
@@ -447,31 +481,25 @@ impl UciEngine for Engine {
         if !self.is_thinking() {
             // Note: We ignore "searchmoves" and "mate" parameters.
 
-            self.start_search(MAX_DEPTH);
             self.is_pondering = ponder;
-
-            // Figure out when we should stop thinking.
-            //
-            // TODO: Implement smarter time management.
-            let (time, inc) = if self.position.board().to_move() == WHITE {
-                (wtime, winc.unwrap_or(0))
-            } else {
-                (btime, binc.unwrap_or(0))
-            };
             self.stop_when = if infinite {
-                TimeManagement::Infinite
+                StopWhen::Never
             } else if movetime.is_some() {
-                TimeManagement::MoveTime(movetime.unwrap())
+                StopWhen::MoveTime(movetime.unwrap())
             } else if nodes.is_some() {
-                TimeManagement::Nodes(nodes.unwrap())
+                StopWhen::Nodes(nodes.unwrap())
             } else if depth.is_some() {
-                TimeManagement::Depth(depth.unwrap() as u8)
+                StopWhen::Depth(depth.unwrap() as u8)
             } else {
-                let time = time.unwrap_or(0);
-                let movestogo = movestogo.unwrap_or(40);
-                let movetime = (time + inc * movestogo) / movestogo;
-                TimeManagement::MoveTime(min(movetime, time / 2))
+                StopWhen::TimeManagement(TimeManagement::new(self.position.board().to_move(),
+                                                             self.pondering_is_allowed,
+                                                             wtime,
+                                                             btime,
+                                                             winc,
+                                                             binc,
+                                                             movestogo))
             };
+            self.start_search(MAX_DEPTH);
         }
     }
 
@@ -497,10 +525,11 @@ impl UciEngine for Engine {
         self.process_search_reports();
         if self.is_thinking() && !self.is_pondering &&
            match self.stop_when {
-            TimeManagement::MoveTime(t) => self.search_status.searched_time >= t,
-            TimeManagement::Nodes(n) => self.search_status.searched_nodes >= n,
-            TimeManagement::Depth(d) => self.search_status.current_depth > d,
-            TimeManagement::Infinite => false,
+            StopWhen::TimeManagement(ref tm) => tm.must_play(&self.search_status),
+            StopWhen::MoveTime(t) => self.search_status.searched_time >= t,
+            StopWhen::Nodes(n) => self.search_status.searched_nodes >= n,
+            StopWhen::Depth(d) => self.search_status.current_depth > d,
+            StopWhen::Never => false,
         } {
             self.stop();
         }
@@ -518,11 +547,12 @@ impl UciEngine for Engine {
 const EPSILON: Value = 8;
 
 
-enum TimeManagement {
+enum StopWhen {
+    TimeManagement(TimeManagement),
     MoveTime(u64),
     Nodes(NodeCount),
     Depth(u8),
-    Infinite,
+    Never,
 }
 
 
