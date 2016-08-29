@@ -53,7 +53,6 @@ pub struct Engine {
     search_thread: Option<thread::JoinHandle<()>>,
     reply_queue: VecDeque<EngineReply>,
     position: Position,
-    is_thinking: bool,
     is_pondering: bool,
 
     // Tells the engine if it will be allowed to ponder. This option
@@ -103,7 +102,6 @@ impl Engine {
                                           1")
                           .ok()
                           .unwrap(),
-            is_thinking: false,
             is_pondering: false,
             pondering_is_allowed: false,
             commands: commands_tx,
@@ -125,12 +123,6 @@ impl Engine {
 
     // A helper method. It starts a new search.
     fn start_search(&mut self, depth: u8) {
-        self.search_status = SearchStatus {
-            started_at: Some(SystemTime::now()),
-            ..self.search_status
-        };
-        self.silent_since = SystemTime::now();
-        self.perfect_pv = false;
         self.commands
             .send(Command::Search {
                 search_id: self.search_id,
@@ -140,6 +132,12 @@ impl Engine {
                 upper_bound: 29999,
             })
             .unwrap();
+        self.search_status = SearchStatus {
+            started_at: Some(SystemTime::now()),
+            ..self.search_status
+        };
+        self.silent_since = SystemTime::now();
+        self.perfect_pv = false;
     }
 
     // A helper method. It stops the current search. If `wait` is
@@ -412,7 +410,7 @@ impl UciEngine for Engine {
     }
 
     fn new_game(&mut self) {
-        if !self.is_thinking {
+        if !self.is_thinking() {
             // Before we clear the transposition table, we start a
             // bogus search and wait for a "Done" message. This way,
             // we ensure than no search will be writing to the TT
@@ -424,7 +422,7 @@ impl UciEngine for Engine {
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if !self.is_thinking {
+        if !self.is_thinking() {
             if let Ok(p) = Position::from_history(fen, moves) {
                 self.position = p;
                 self.tt.new_search();
@@ -446,11 +444,10 @@ impl UciEngine for Engine {
           mate: Option<u64>,
           movetime: Option<u64>,
           infinite: bool) {
-        if !self.is_thinking {
+        if !self.is_thinking() {
             // Note: We ignore "searchmoves" and "mate" parameters.
 
             self.start_search(MAX_DEPTH);
-            self.is_thinking = true;
             self.is_pondering = ponder;
 
             // Figure out when we should stop thinking.
@@ -479,26 +476,26 @@ impl UciEngine for Engine {
     }
 
     fn ponder_hit(&mut self) {
-        if self.is_thinking {
+        if self.is_thinking() {
             self.is_pondering = false;
         }
     }
 
     fn stop(&mut self) {
-        if self.is_thinking {
+        if self.is_thinking() {
             self.stop_search(false);
             self.report_best_move();
-            self.is_thinking = false;
         }
     }
 
+    #[inline]
     fn is_thinking(&self) -> bool {
-        self.is_thinking
+        self.search_status.started_at.is_some()
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         self.process_search_reports();
-        if self.is_thinking && !self.is_pondering &&
+        if self.is_thinking() && !self.is_pondering &&
            match self.stop_when {
             TimeManagement::MoveTime(t) => self.search_status.searched_time >= t,
             TimeManagement::Nodes(n) => self.search_status.searched_nodes >= n,
