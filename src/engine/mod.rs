@@ -38,7 +38,7 @@ pub const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 struct SearchStatus {
-    pub started_at: SystemTime,
+    pub started_at: Option<SystemTime>,
     pub current_depth: u8,
     pub current_value: Option<Value>,
     pub searched_nodes: NodeCount,
@@ -110,7 +110,7 @@ impl Engine {
             reports: reports_rx,
             search_id: 0,
             search_status: SearchStatus {
-                started_at: SystemTime::now(),
+                started_at: None,
                 current_depth: 0,
                 current_value: None,
                 searched_nodes: 0,
@@ -126,11 +126,7 @@ impl Engine {
     // A helper method. It starts a new search.
     fn start_search(&mut self, depth: u8) {
         self.search_status = SearchStatus {
-            started_at: SystemTime::now(),
-            current_depth: 0,
-            current_value: None,
-            searched_nodes: 0,
-            searched_time: 0,
+            started_at: Some(SystemTime::now()),
             ..self.search_status
         };
         self.silent_since = SystemTime::now();
@@ -163,6 +159,14 @@ impl Engine {
             self.commands.send(Command::Stop).unwrap();
         }
         self.search_id = self.search_id.wrapping_add(1);
+        self.search_status = SearchStatus {
+            started_at: None,
+            current_depth: 0,
+            current_value: None,
+            searched_nodes: 0,
+            searched_time: 0,
+            ..self.search_status
+        };
     }
 
     // A helper method. It peeks the TT for the best move in the
@@ -338,7 +342,7 @@ impl Engine {
     // sure that a new PV is sent to the GUI for the newly reached
     // depths.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
-        let thinking_duration = self.search_status.started_at.elapsed().unwrap();
+        let thinking_duration = self.search_status.started_at.unwrap().elapsed().unwrap();
         self.search_status.searched_time = 1000 * thinking_duration.as_secs() +
                                            (thinking_duration.subsec_nanos() / 1000000) as u64;
         self.search_status.searched_nodes = searched_nodes;
