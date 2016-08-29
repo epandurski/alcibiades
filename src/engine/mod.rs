@@ -51,7 +51,7 @@ impl TimeManagement {
                binc: Option<u64>,
                movestogo: Option<u64>)
                -> TimeManagement {
-        // Note: We ignore "pondering_is_allowed".
+        // TODO: We ignore "pondering_is_allowed".
 
         let (time, inc) = if us == WHITE {
             (wtime, winc.unwrap_or(0))
@@ -88,6 +88,7 @@ pub struct Engine {
     reply_queue: VecDeque<EngineReply>,
     position: Position,
     is_pondering: bool,
+    play_when: PlayWhen,
 
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
@@ -106,7 +107,6 @@ pub struct Engine {
 
     silent_since: SystemTime,
     perfect_pv: bool, // `true` if the primary variation is flawless
-    stop_when: StopWhen,
 }
 
 
@@ -137,6 +137,7 @@ impl Engine {
                           .ok()
                           .unwrap(),
             is_pondering: false,
+            play_when: PlayWhen::Never,
             pondering_is_allowed: false,
             commands: commands_tx,
             reports: reports_rx,
@@ -151,7 +152,6 @@ impl Engine {
             },
             silent_since: SystemTime::now(),
             perfect_pv: false,
-            stop_when: StopWhen::Never,
         }
     }
 
@@ -413,10 +413,10 @@ impl Engine {
                 Report::Done { search_id, .. } if search_id == self.search_id => {
                     // Unless this happens to be an infinite search,
                     // terminate it as soon as possible.
-                    self.stop_when = if let StopWhen::Never = self.stop_when {
-                        StopWhen::Never
+                    self.play_when = if let PlayWhen::Never = self.play_when {
+                        PlayWhen::Never
                     } else {
-                        StopWhen::MoveTime(0)
+                        PlayWhen::MoveTime(0)
                     };
                 }
 
@@ -479,19 +479,19 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking() {
-            // Note: We ignore "searchmoves" and "mate" parameters.
+            // TODO: We ignore "searchmoves" and "mate" parameters.
 
             self.is_pondering = ponder;
-            self.stop_when = if infinite {
-                StopWhen::Never
+            self.play_when = if infinite {
+                PlayWhen::Never
             } else if movetime.is_some() {
-                StopWhen::MoveTime(movetime.unwrap())
+                PlayWhen::MoveTime(movetime.unwrap())
             } else if nodes.is_some() {
-                StopWhen::Nodes(nodes.unwrap())
+                PlayWhen::Nodes(nodes.unwrap())
             } else if depth.is_some() {
-                StopWhen::Depth(depth.unwrap() as u8)
+                PlayWhen::Depth(depth.unwrap() as u8)
             } else {
-                StopWhen::TimeManagement(TimeManagement::new(self.position.board().to_move(),
+                PlayWhen::TimeManagement(TimeManagement::new(self.position.board().to_move(),
                                                              self.pondering_is_allowed,
                                                              wtime,
                                                              btime,
@@ -524,12 +524,12 @@ impl UciEngine for Engine {
     fn get_reply(&mut self) -> Option<EngineReply> {
         self.process_search_reports();
         if self.is_thinking() && !self.is_pondering &&
-           match self.stop_when {
-            StopWhen::TimeManagement(ref tm) => tm.must_play(&self.search_status),
-            StopWhen::MoveTime(t) => self.search_status.searched_time >= t,
-            StopWhen::Nodes(n) => self.search_status.searched_nodes >= n,
-            StopWhen::Depth(d) => self.search_status.current_depth > d,
-            StopWhen::Never => false,
+           match self.play_when {
+            PlayWhen::TimeManagement(ref tm) => tm.must_play(&self.search_status),
+            PlayWhen::MoveTime(t) => self.search_status.searched_time >= t,
+            PlayWhen::Nodes(n) => self.search_status.searched_nodes >= n,
+            PlayWhen::Depth(d) => self.search_status.current_depth > d,
+            PlayWhen::Never => false,
         } {
             self.stop();
         }
@@ -547,7 +547,7 @@ impl UciEngine for Engine {
 const EPSILON: Value = 8;
 
 
-enum StopWhen {
+enum PlayWhen {
     TimeManagement(TimeManagement),
     MoveTime(u64),
     Nodes(NodeCount),
