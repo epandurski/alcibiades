@@ -465,7 +465,7 @@ impl Move {
 
 
 /// The maximum possible move score.
-pub const MAX_MOVE_SCORE: usize = M_MASK_SCORE >> M_SHIFT_SCORE;
+pub const MAX_MOVE_SCORE: usize = 3;
 
 
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
