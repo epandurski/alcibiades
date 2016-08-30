@@ -108,7 +108,7 @@ pub struct Server<F, E>
 }
 
 
-impl<'a, F, E> Server<F, E>
+impl<F, E> Server<F, E>
     where F: UciEngineFactory<E>,
           E: UciEngine
 {
