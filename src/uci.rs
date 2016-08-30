@@ -99,16 +99,16 @@ pub enum OptionDescription {
 
 
 /// UCI protocol server -- connects the engine to the GUI.
-pub struct Server<'a, F, E>
-    where F: UciEngineFactory<E> + 'a,
+pub struct Server<F, E>
+    where F: UciEngineFactory<E>,
           E: UciEngine
 {
-    engine_factory: &'a F,
+    engine_factory: F,
     engine: Option<E>,
 }
 
 
-impl<'a, F, E> Server<'a, F, E>
+impl<'a, F, E> Server<F, E>
     where F: UciEngineFactory<E>,
           E: UciEngine
 {
@@ -117,7 +117,7 @@ impl<'a, F, E> Server<'a, F, E>
     ///
     /// Will return `Err` if the handshake was unsuccessful, or if an
     /// IO error had occurred.
-    pub fn wait_for_hanshake(engine_factory: &'a F) -> io::Result<Self> {
+    pub fn wait_for_hanshake(engine_factory: F) -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
         }

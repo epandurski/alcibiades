@@ -21,7 +21,7 @@ pub const AUTHOR: &'static str = "Evgeni Pandurski";
 
 
 fn main() {
-    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(&search::EngineFactory) {
+    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(search::EngineFactory) {
         match uci_loop.serve() {
             Ok(_) => {
                 exit(0);
