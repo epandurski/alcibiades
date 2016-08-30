@@ -1,10 +1,8 @@
 //! Implements the principal game engine functionality.
 
-pub mod uci;
 pub mod tt;
-pub mod search;
+pub mod alpha_beta;
 pub mod threading;
-pub use self::uci::Server;
 
 use std::thread;
 use std::cmp::min;
@@ -15,13 +13,10 @@ use std::time::SystemTime;
 use basetypes::*;
 use chess_move::*;
 use position::Position;
+use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use self::tt::*;
-use self::uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use self::threading::*;
 
-
-/// The version of the program.
-pub const VERSION: &'static str = "0.1";
 
 /// The maximum search depth in half-moves.
 pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
@@ -550,11 +545,11 @@ pub struct EngineFactory;
 
 impl UciEngineFactory<Engine> for EngineFactory {
     fn name(&self) -> String {
-        format!("Alcibiades {}", VERSION)
+        format!("Alcibiades {}", ::VERSION)
     }
 
     fn author(&self) -> String {
-        "Evgeni Pandurski".to_string()
+        ::AUTHOR.to_string()
     }
 
     fn options(&self) -> Vec<(OptionName, OptionDescription)> {

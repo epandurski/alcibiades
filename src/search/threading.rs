@@ -8,9 +8,9 @@ use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
 use chess_move::*;
 use position::Position;
-use engine::INITIAL_ASPIRATION_WINDOW;
-use engine::tt::*;
-use engine::search::Search;
+use search::INITIAL_ASPIRATION_WINDOW;
+use search::tt::*;
+use search::alpha_beta::Search;
 
 
 /// Represents a command to a search thread.

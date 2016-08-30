@@ -5,8 +5,8 @@ use std::cmp::max;
 use basetypes::*;
 use chess_move::*;
 use position::Position;
-use engine::*;
-use engine::tt::*;
+use search::*;
+use search::tt::*;
 
 
 /// Represents a terminated search condition.
@@ -689,7 +689,7 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
-    use engine::tt::*;
+    use search::tt::*;
     use chess_move::*;
     use position::Position;
 
