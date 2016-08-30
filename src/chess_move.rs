@@ -563,7 +563,7 @@ impl MoveStack {
         self.savepoints.len()
     }
 
-    /// Deletes all saved move lists.
+    /// Clears the current move list and deletes all saved move lists.
     #[inline]
     pub fn clear(&mut self) {
         self.moves.clear();
