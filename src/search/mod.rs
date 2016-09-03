@@ -68,8 +68,11 @@ impl TimeManagement {
 
 struct SearchStatus {
     pub started_at: Option<SystemTime>,
-    pub current_depth: u8,
-    pub current_value: Option<Value>,
+    pub done: bool,
+    pub depth: u8,
+    pub value: Option<Value>,
+    pub bound: BoundType,
+    pub pv: Vec<Move>,
     pub searched_nodes: NodeCount,
     pub searched_time: u64, // milliseconds
     pub nps: u64, // nodes per second
@@ -77,157 +80,147 @@ struct SearchStatus {
 
 
 /// Implements `UciEngine` trait.
-pub struct Engine {
+pub struct MultipvSearch {
     tt: Arc<TranspositionTable>,
-    search_thread: Option<thread::JoinHandle<()>>,
-    reply_queue: VecDeque<EngineReply>,
     position: Position,
-    is_pondering: bool,
-    play_when: PlayWhen,
+    status: SearchStatus,
 
-    // Tells the engine if it will be allowed to ponder. This option
-    // is needed because the engine might change its time management
-    // algorithm when pondering is allowed.
-    pondering_is_allowed: bool,
+    // A handle to the search thread.
+    search_thread: Option<thread::JoinHandle<()>>,
 
     // A channel for sending commands to the search thread.
     commands: Sender<Command>,
 
     // A channel for receiving reports from the search thread.
     reports: Receiver<Report>,
-
-    // Search status info
-    search_id: usize,
-    search_status: SearchStatus,
-
-    silent_since: SystemTime,
 }
 
 
-impl Engine {
+impl MultipvSearch {
     /// Creates a new instance.
-    ///
-    /// `tt_size_mb` is the preferred size of the transposition
-    /// table in Mbytes.
-    pub fn new(tt_size_mb: usize) -> Engine {
-        let mut tt = TranspositionTable::new();
-        tt.resize(tt_size_mb);
-        let tt1 = Arc::new(tt);
-        let (commands_tx, commands_rx) = channel();
-        let (reports_tx, reports_rx) = channel();
+    pub fn new(tt: Arc<TranspositionTable>) -> MultipvSearch {
 
         // Spawn the search thread.
-        let tt2 = tt1.clone();
+        let (commands_tx, commands_rx) = channel();
+        let (reports_tx, reports_rx) = channel();
+        let tt_clone = tt.clone();
         let search_thread = thread::spawn(move || {
-            serve_deepening(tt2, commands_rx, reports_tx);
+            serve_deepening(tt_clone, commands_rx, reports_tx);
         });
 
-        Engine {
-            tt: tt1,
+        MultipvSearch {
+            tt: tt,
             search_thread: Some(search_thread),
-            reply_queue: VecDeque::new(),
-            position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
-                                          1")
-                          .ok()
-                          .unwrap(),
-            is_pondering: false,
-            play_when: PlayWhen::Never,
-            pondering_is_allowed: false,
+            position: Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").ok().unwrap(),
             commands: commands_tx,
             reports: reports_rx,
-            search_id: 0,
-            search_status: SearchStatus {
+            status: SearchStatus {
                 started_at: None,
-                current_depth: 0,
-                current_value: None,
+                done: true,
+                depth: 0,
+                value: None,
+                bound: BOUND_NONE,
+                pv: vec![],
                 searched_nodes: 0,
                 searched_time: 0,
                 nps: 0,
             },
-            silent_since: SystemTime::now(),
         }
     }
 
-    // A helper method. It starts a new search.
-    fn start_search(&mut self, depth: u8) {
+    /// Starts a new search.
+    pub fn start(&mut self, p: &Position) {
+        self.stop();
+        self.position = p.clone();
+        self.status = SearchStatus {
+            started_at: Some(SystemTime::now()),
+            done: false,
+            depth: 0,
+            value: None,
+            bound: BOUND_NONE,
+            pv: vec![],
+            searched_nodes: 0,
+            searched_time: 0,
+            ..self.status
+        };
         self.commands
             .send(Command::Search {
-                search_id: self.search_id,
-                position: self.position.clone(),
-                depth: depth,
+                search_id: 0,
+                position: p.clone(),
+                depth: MAX_DEPTH,
                 lower_bound: -29999,
                 upper_bound: 29999,
             })
             .unwrap();
-        self.search_status = SearchStatus {
-            started_at: Some(SystemTime::now()),
-            ..self.search_status
-        };
-        self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It stops the current search. If `wait` is
-    // `true` it will block until a "Done" message for the current
-    // search is received. (This may take forever if the "Done"
-    // message has already been received.)
-    fn stop_search(&mut self, wait: bool) {
-        if wait {
+    /// Stops the current search.
+    pub fn stop(&mut self) {
+        if !self.status.done {
+            self.commands.send(Command::Stop).unwrap();
             loop {
-                if let Ok(Report::Done { search_id, .. }) = self.reports.recv() {
-                    if search_id == self.search_id {
-                        break;
-                    }
+                if let Ok(Report::Done { .. }) = self.reports.recv() {
+                    break;
                 }
             }
-        } else {
-            self.commands.send(Command::Stop).unwrap();
+            self.status.done = true;
         }
-        self.search_id = self.search_id.wrapping_add(1);
-        self.search_status = SearchStatus {
-            started_at: None,
-            current_depth: 0,
-            current_value: None,
-            searched_nodes: 0,
-            searched_time: 0,
-            ..self.search_status
-        };
     }
 
-    // A helper method. It peeks the TT for the best move in the
-    // position `p`, plays it, and returns it. If the TT gives no
-    // move, this function will play and return the first legal
-    // move. `None` is returned only when there are no legal moves.
-    fn do_best_move(&self, p: &mut Position) -> Option<Move> {
-        // Try to get best move from the TT.
-        let move16 = self.tt.peek(p.hash()).map_or(0, |entry| entry.move16());
-        if let Some(m) = p.try_move_digest(move16) {
-            if p.do_move(m) {
-                return Some(m);
+    /// Stops the current search and joins the search thread.
+    ///
+    /// After calling `exit`, no other methods on this instance should
+    /// be called.
+    fn exit(&mut self) {
+        self.commands.send(Command::Exit).unwrap();
+        self.search_thread.take().unwrap().join().unwrap();
+    }
+
+    #[inline(always)]
+    fn status(&self) -> &SearchStatus {
+        &self.status
+    }
+
+    fn update_status(&mut self) -> &SearchStatus {
+        while let Ok(report) = self.reports.try_recv() {
+            match report {
+                Report::Progress { searched_depth, searched_nodes, value, .. } => {
+                    self.register_progress(searched_depth, searched_nodes, value);
+                }
+                Report::Done { .. } => {
+                    self.status.done = true;
+                }
             }
         }
+        &self.status
+    }
 
-        // Otherwise, pick the first legal move.
-        let mut s = MoveStack::new();
-        p.generate_moves(&mut s);
-        for m in s.iter() {
-            if p.do_move(*m) {
-                return Some(*m);
-            }
+    // A helper method. It updates the search status info and makes
+    // sure that a new PV is sent to the GUI for each newly reached
+    // depth.
+    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
+        let thinking_duration = self.status.started_at.unwrap().elapsed().unwrap();
+        self.status.searched_time = 1000 * thinking_duration.as_secs() +
+                                    (thinking_duration.subsec_nanos() / 1000000) as u64;
+        self.status.searched_nodes = searched_nodes;
+        self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
+                          (1000 + self.status.searched_time);
+        if self.status.depth < depth || self.status.value != value {
+            self.status.depth = depth;
+            self.status.value = value;
+            self.extract_pv(depth);
         }
-
-        // No legal moves.
-        None
     }
 
     // A helper method. It extracts the primary variation (PV) from
-    // the transposition table (TT) and sends it to the GUI.
+    // the transposition table (TT) and updates `status.current_pv`.
     //
     // **Note:** Because the PV is a moving target (the search
     // continues to run in parallel), imperfections in the reported
     // PVs are unavoidable. To deal with this, we turn a blind eye if
     // the value at the root of the PV differs from the value at the
     // leaf by no more than `EPSILON`.
-    fn report_pv(&mut self, depth: u8) {
+    fn extract_pv(&mut self, depth: u8) {
         if depth == 0 {
             return;
         }
@@ -310,7 +303,74 @@ impl Engine {
             _ => bound,
         };
 
-        // Third: Send the extracted PV to the GUI.
+        // Third: Update `status`.
+        self.status.value = Some(root_value);
+        self.status.bound = bound;
+        self.status.pv = pv;
+    }
+}
+
+
+/// Implements `UciEngine` trait.
+pub struct Engine {
+    tt: Arc<TranspositionTable>,
+    search: MultipvSearch,
+    queue: VecDeque<EngineReply>,
+    position: Position,
+    is_pondering: bool,
+    play_when: PlayWhen,
+    silent_since: SystemTime,
+
+    current_depth: u8,
+    current_value: Option<Value>,
+
+    // Tells the engine if it will be allowed to ponder. This option
+    // is needed because the engine might change its time management
+    // algorithm when pondering is allowed.
+    pondering_is_allowed: bool,
+}
+
+
+impl Engine {
+    /// Creates a new instance.
+    ///
+    /// `tt_size_mb` is the preferred size of the transposition
+    /// table in Mbytes.
+    pub fn new(tt_size_mb: usize) -> Engine {
+        let mut tt = TranspositionTable::new();
+        tt.resize(tt_size_mb);
+        let tt1 = Arc::new(tt);
+        let tt2 = tt1.clone();
+
+        Engine {
+            tt: tt1,
+            search: MultipvSearch::new(tt2),
+            queue: VecDeque::new(),
+            position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
+                                          1")
+                          .ok()
+                          .unwrap(),
+            is_pondering: false,
+            play_when: PlayWhen::Never,
+            current_depth: 0,
+            current_value: None,
+            pondering_is_allowed: false,
+            silent_since: SystemTime::now(),
+        }
+    }
+
+    fn queue_progress_report(&mut self) {
+        self.queue.push_back(EngineReply::Info(vec![
+            ("depth".to_string(), format!("{}", self.search.status().depth)),
+            ("nodes".to_string(), format!("{}", self.search.status().searched_nodes)),
+            ("nps".to_string(), format!("{}", self.search.status().nps)),
+        ]));
+        self.silent_since = SystemTime::now();
+    }
+
+    fn queue_pv(&mut self) {
+        let SearchStatus { depth, value, bound, ref pv, searched_time, searched_nodes, nps, .. } =
+            *self.search.status();
         let score_suffix = match bound {
             BOUND_EXACT => "",
             BOUND_UPPER => " upperbound",
@@ -318,96 +378,29 @@ impl Engine {
             _ => panic!("unexpected bound type"),
         };
         let mut pv_string = String::new();
-        for m in &pv {
+        for m in pv {
             pv_string.push_str(&m.notation());
             pv_string.push(' ');
         }
-        self.reply_queue.push_back(EngineReply::Info(vec![
+        self.queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
-            ("score".to_string(), format!("cp {}{}", root_value, score_suffix)),
-            ("time".to_string(), format!("{}", self.search_status.searched_time)),
-            ("nodes".to_string(), format!("{}", self.search_status.searched_nodes)),
-            ("nps".to_string(), format!("{}", self.search_status.nps)),
+            ("score".to_string(), format!("cp {}{}", value.unwrap(), score_suffix)),
+            ("time".to_string(), format!("{}", searched_time)),
+            ("nodes".to_string(), format!("{}", searched_nodes)),
+            ("nps".to_string(), format!("{}", nps)),
             ("pv".to_string(), pv_string),
         ]));
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It reports the current depth, the searched
-    // node count, and the nodes per second to the GUI.
-    fn report_progress(&mut self) {
-        self.reply_queue.push_back(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", self.search_status.current_depth)),
-            ("nodes".to_string(), format!("{}", self.search_status.searched_nodes)),
-            ("nps".to_string(), format!("{}", self.search_status.nps)),
-        ]));
-        self.silent_since = SystemTime::now();
-    }
-
-    // A helper method. It extract the current best and ponder moves
-    // from the TT and sends them to the GUI.
-    fn report_best_move(&mut self) {
-        let mut p = self.position.clone();
-        let (best_move, ponder_move) = if let Some(m) = self.do_best_move(&mut p) {
-            (m.notation(), self.do_best_move(&mut p).map(|m| m.notation()))
-        } else {
-            ("0000".to_string(), None)
-        };
-        self.reply_queue.push_back(EngineReply::BestMove {
-            best_move: best_move,
-            ponder_move: ponder_move,
+    fn queue_best_move(&mut self) {
+        // TODO: Use `self.status.best_move`.
+        let pv = &self.search.status().pv;
+        self.queue.push_back(EngineReply::BestMove {
+            best_move: pv.get(0).map_or("0000".to_string(), |m| m.notation()),
+            ponder_move: pv.get(1).map(|m| m.notation()),
         });
         self.silent_since = SystemTime::now();
-    }
-
-    // A helper method. It updates the search status info and makes
-    // sure that a new PV is sent to the GUI for each newly reached
-    // depth.
-    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
-        let thinking_duration = self.search_status.started_at.unwrap().elapsed().unwrap();
-        self.search_status.searched_time = 1000 * thinking_duration.as_secs() +
-                                           (thinking_duration.subsec_nanos() / 1000000) as u64;
-        self.search_status.searched_nodes = searched_nodes;
-        self.search_status.nps = 1000 *
-                                 (self.search_status.nps + self.search_status.searched_nodes) /
-                                 (1000 + self.search_status.searched_time);
-        if self.search_status.current_depth < depth || self.search_status.current_value != value {
-            self.search_status.current_depth = depth;
-            self.search_status.current_value = value;
-            if searched_nodes >= NODE_COUNT_REPORT_INTERVAL {
-                self.report_pv(depth);
-            }
-        }
-    }
-
-    // A helper method. It reads the pending report messages from the
-    // search thread, processes them, and passes the produced replies
-    // (if any) to the GUI.
-    fn process_search_reports(&mut self) {
-        while let Ok(report) = self.reports.try_recv() {
-            match report {
-                Report::Progress { search_id, searched_nodes, searched_depth, value }
-                    if search_id == self.search_id => {
-                    self.register_progress(searched_depth, searched_nodes, value);
-                    if self.silent_since.elapsed().unwrap().as_secs() > 10 {
-                        self.report_progress();
-                    }
-                }
-                Report::Done { search_id, .. } if search_id == self.search_id => {
-                    // Unless this happens to be an infinite search,
-                    // terminate it as soon as possible.
-                    self.play_when = if let PlayWhen::Never = self.play_when {
-                        PlayWhen::Never
-                    } else {
-                        PlayWhen::MoveTime(0)
-                    };
-                }
-
-                // We may still receive stale reports from already
-                // stopped searches.
-                _ => (),
-            }
-        }
     }
 }
 
@@ -428,12 +421,6 @@ impl UciEngine for Engine {
 
     fn new_game(&mut self) {
         if !self.is_thinking() {
-            // Before we clear the transposition table, we start a
-            // bogus search and wait for a "Done" message. This way,
-            // we ensure than no search will be writing to the TT
-            // while we are clearing it.
-            self.start_search(1);
-            self.stop_search(true);
             self.tt.clear();
         }
     }
@@ -442,7 +429,6 @@ impl UciEngine for Engine {
         if !self.is_thinking() {
             if let Ok(p) = Position::from_history(fen, moves) {
                 self.position = p;
-                self.tt.new_search();
             }
         }
     }
@@ -464,6 +450,9 @@ impl UciEngine for Engine {
         if !self.is_thinking() {
             // TODO: We ignore "searchmoves" and "mate" parameters.
 
+            self.tt.new_search();
+            self.current_depth = 0;
+            self.current_value = None;
             self.is_pondering = ponder;
             self.play_when = if infinite {
                 PlayWhen::Never
@@ -482,7 +471,7 @@ impl UciEngine for Engine {
                                                              binc,
                                                              movestogo))
             };
-            self.start_search(MAX_DEPTH);
+            self.search.start(&self.position);
         }
     }
 
@@ -494,34 +483,61 @@ impl UciEngine for Engine {
 
     fn stop(&mut self) {
         if self.is_thinking() {
-            self.stop_search(false);
-            self.report_best_move();
+            self.search.stop();
+            self.queue_best_move();
         }
     }
 
     #[inline]
     fn is_thinking(&self) -> bool {
-        self.search_status.started_at.is_some()
+        !self.search.status().done
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        self.process_search_reports();
-        if self.is_thinking() && !self.is_pondering &&
-           match self.play_when {
-            PlayWhen::TimeManagement(ref tm) => tm.must_play(&self.search_status),
-            PlayWhen::MoveTime(t) => self.search_status.searched_time >= t,
-            PlayWhen::Nodes(n) => self.search_status.searched_nodes >= n,
-            PlayWhen::Depth(d) => self.search_status.current_depth > d,
-            PlayWhen::Never => false,
-        } {
-            self.stop();
+        if self.is_thinking() {
+            if self.search.update_status().done {
+                // Unless this happens to be an infinite search,
+                // terminate it as soon as possible.
+                self.play_when = if let PlayWhen::Never = self.play_when {
+                    PlayWhen::Never
+                } else {
+                    PlayWhen::MoveTime(0)
+                };
+            } else {
+                // Check if we have to play now.
+                if !self.is_pondering &&
+                   match self.play_when {
+                    PlayWhen::TimeManagement(ref tm) => tm.must_play(self.search.status()),
+                    PlayWhen::MoveTime(t) => self.search.status().searched_time >= t,
+                    PlayWhen::Nodes(n) => self.search.status().searched_nodes >= n,
+                    PlayWhen::Depth(d) => self.search.status().depth > d,
+                    PlayWhen::Never => false,
+                } {
+                    self.stop();
+                }
+            }
+
+            // Send the new PV if changed.
+            let SearchStatus { depth, value, searched_nodes, .. } = *self.search.status();
+            if depth > self.current_depth || value != self.current_value {
+                self.current_depth = depth;
+                self.current_value = value;
+                if searched_nodes >= NODE_COUNT_REPORT_INTERVAL {
+                    self.queue_pv();
+                }
+            }
+
+            // Send periodic progress reports.
+            if self.silent_since.elapsed().unwrap().as_secs() > 10 {
+                self.queue_progress_report();
+            }
         }
-        self.reply_queue.pop_front()
+
+        self.queue.pop_front()
     }
 
     fn exit(&mut self) {
-        self.commands.send(Command::Exit).unwrap();
-        self.search_thread.take().unwrap().join().unwrap();
+        self.search.exit();
     }
 }
 
