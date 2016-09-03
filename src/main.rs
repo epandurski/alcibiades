@@ -120,9 +120,15 @@ impl Engine {
     // A helper method. It it adds a message containing the current PV
     // to `self.queue`.
     fn queue_pv(&mut self) {
-        let SearchStatus { depth, value, bound, ref pv, duration_millis, searched_nodes, nps, .. } =
-            *self.search.status();
-        let score_suffix = match bound {
+        let SearchStatus { depth,
+                           value,
+                           value_bound,
+                           ref pv,
+                           searched_nodes,
+                           duration_millis,
+                           nps,
+                           .. } = *self.search.status();
+        let score_suffix = match value_bound {
             BOUND_EXACT => "",
             BOUND_UPPER => " upperbound",
             BOUND_LOWER => " lowerbound",
