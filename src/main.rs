@@ -48,6 +48,7 @@ pub struct Engine {
     position: Position,
     current_depth: u8,
     current_value: Value,
+    current_bound: BoundType,
 
     // `Engine` will hand over the real work to `MultipvSearch`.
     search: MultipvSearch,
@@ -89,6 +90,7 @@ impl Engine {
             position: Position::from_fen(STARTING_POSITION).ok().unwrap(),
             current_depth: 0,
             current_value: VALUE_UNKNOWN,
+            current_bound: BOUND_NONE,
             search: MultipvSearch::new(tt),
             play_when: PlayWhen::Never,
             pondering_is_allowed: false,
@@ -140,8 +142,7 @@ impl Engine {
     // A helper method. It it adds a message containing the current
     // best move to `self.queue`.
     fn queue_best_move(&mut self) {
-        // TODO: Use `self.status.best_move`.
-        let pv = &self.search.status().pv;
+        let SearchStatus { ref pv, .. } = *self.search.status();
         self.queue.push_back(EngineReply::BestMove {
             best_move: pv.get(0).map_or("0000".to_string(), |m| m.notation()),
             ponder_move: pv.get(1).map(|m| m.notation()),
@@ -242,16 +243,17 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         if self.is_thinking() {
-            let SearchStatus { done, depth, value, searched_nodes, searched_time, .. } =
+            let SearchStatus { done, depth, value, bound, searched_nodes, searched_time, .. } =
                 *self.search.update_status();
 
             // Send the PV when changed.
-            if depth > self.current_depth || value != self.current_value {
+            if depth > 0 &&
+               (depth != self.current_depth || value != self.current_value ||
+                bound != self.current_bound) {
                 self.current_depth = depth;
                 self.current_value = value;
-                if searched_nodes > 0 {
-                    self.queue_pv();
-                }
+                self.current_bound = bound;
+                self.queue_pv();
             }
 
             // Send periodic progress reports.
