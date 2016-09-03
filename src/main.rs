@@ -34,11 +34,11 @@ const STARTING_POSITION: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQ
 
 // Represents a condition for terminating the search.
 enum PlayWhen {
-    TimeManagement(TimeManagement),
-    MoveTime(u64),
-    Nodes(NodeCount),
-    Depth(u8),
-    Never,
+    TimeManagement(TimeManagement), // Stop when `TimeManagement` says.
+    MoveTime(u64), // Stop after the given number of milliseconds.
+    Nodes(NodeCount), // Stop when the given number of nodes has been searched.
+    Depth(u8), // Stop after the given search depth has been reached.
+    Never, // An infinite search.
 }
 
 
