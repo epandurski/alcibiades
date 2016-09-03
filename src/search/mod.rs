@@ -70,7 +70,7 @@ struct SearchStatus {
     pub started_at: Option<SystemTime>,
     pub done: bool,
     pub depth: u8,
-    pub value: Option<Value>,
+    pub value: Value,
     pub bound: BoundType,
     pub pv: Vec<Move>,
     pub searched_nodes: NodeCount,
@@ -118,7 +118,7 @@ impl MultipvSearch {
                 started_at: None,
                 done: true,
                 depth: 0,
-                value: None,
+                value: VALUE_UNKNOWN,
                 bound: BOUND_NONE,
                 pv: vec![],
                 searched_nodes: 0,
@@ -136,7 +136,7 @@ impl MultipvSearch {
             started_at: Some(SystemTime::now()),
             done: false,
             depth: 0,
-            value: None,
+            value: VALUE_UNKNOWN,
             bound: BOUND_NONE,
             pv: vec![],
             searched_nodes: 0,
@@ -198,7 +198,7 @@ impl MultipvSearch {
     // A helper method. It updates the search status info and makes
     // sure that a new PV is sent to the GUI for each newly reached
     // depth.
-    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Option<Value>) {
+    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Value) {
         let thinking_duration = self.status.started_at.unwrap().elapsed().unwrap();
         self.status.searched_time = 1000 * thinking_duration.as_secs() +
                                     (thinking_duration.subsec_nanos() / 1000000) as u64;
@@ -304,7 +304,7 @@ impl MultipvSearch {
         };
 
         // Third: Update `status`.
-        self.status.value = Some(root_value);
+        self.status.value = root_value;
         self.status.bound = bound;
         self.status.pv = pv;
     }
@@ -322,7 +322,7 @@ pub struct Engine {
     silent_since: SystemTime,
 
     current_depth: u8,
-    current_value: Option<Value>,
+    current_value: Value,
 
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
@@ -339,12 +339,11 @@ impl Engine {
     pub fn new(tt_size_mb: usize) -> Engine {
         let mut tt = TranspositionTable::new();
         tt.resize(tt_size_mb);
-        let tt1 = Arc::new(tt);
-        let tt2 = tt1.clone();
+        let tt = Arc::new(tt);
 
         Engine {
-            tt: tt1,
-            search: MultipvSearch::new(tt2),
+            tt: tt.clone(),
+            search: MultipvSearch::new(tt),
             queue: VecDeque::new(),
             position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
                                           1")
@@ -353,17 +352,18 @@ impl Engine {
             is_pondering: false,
             play_when: PlayWhen::Never,
             current_depth: 0,
-            current_value: None,
+            current_value: VALUE_UNKNOWN,
             pondering_is_allowed: false,
             silent_since: SystemTime::now(),
         }
     }
 
     fn queue_progress_report(&mut self) {
+        let SearchStatus { depth, searched_nodes, nps, .. } = *self.search.status();
         self.queue.push_back(EngineReply::Info(vec![
-            ("depth".to_string(), format!("{}", self.search.status().depth)),
-            ("nodes".to_string(), format!("{}", self.search.status().searched_nodes)),
-            ("nps".to_string(), format!("{}", self.search.status().nps)),
+            ("depth".to_string(), format!("{}", depth)),
+            ("nodes".to_string(), format!("{}", searched_nodes)),
+            ("nps".to_string(), format!("{}", nps)),
         ]));
         self.silent_since = SystemTime::now();
     }
@@ -384,7 +384,7 @@ impl Engine {
         }
         self.queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
-            ("score".to_string(), format!("cp {}{}", value.unwrap(), score_suffix)),
+            ("score".to_string(), format!("cp {}{}", value, score_suffix)),
             ("time".to_string(), format!("{}", searched_time)),
             ("nodes".to_string(), format!("{}", searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
@@ -452,7 +452,7 @@ impl UciEngine for Engine {
 
             self.tt.new_search();
             self.current_depth = 0;
-            self.current_value = None;
+            self.current_value = VALUE_UNKNOWN;
             self.is_pondering = ponder;
             self.play_when = if infinite {
                 PlayWhen::Never
