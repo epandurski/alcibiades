@@ -70,7 +70,7 @@ pub struct SearchStatus {
     pub depth: u8,
     pub value: Value,
     pub value_bound: BoundType,
-    pub pv: Vec<Move>,
+    pub multipv: Vec<Vec<Move>>,
     pub searched_nodes: NodeCount,
     pub duration_millis: u64, // search duration in milliseconds
     pub nps: u64, // nodes per second
@@ -118,7 +118,7 @@ impl MultipvSearch {
                 depth: 0,
                 value: VALUE_UNKNOWN,
                 value_bound: BOUND_NONE,
-                pv: vec![],
+                multipv: vec![vec![]],
                 searched_nodes: 0,
                 duration_millis: 0,
                 nps: 0,
@@ -144,7 +144,7 @@ impl MultipvSearch {
             depth: 0,
             value: VALUE_UNKNOWN, // TODO: Set good initial value (-19999).
             value_bound: BOUND_NONE, // TODO: Set good initial value (BOUND_LOWER).
-            pv: vec![], // TODO: Set good initial value (vec![best_move]).
+            multipv: vec![vec![]], // TODO: Set good initial value (vec![best_move]).
             searched_nodes: 0,
             duration_millis: 0,
             ..self.status
@@ -312,7 +312,7 @@ impl MultipvSearch {
         // Third: Update `status`.
         self.status.value = root_value;
         self.status.value_bound = bound;
-        self.status.pv = pv;
+        self.status.multipv = vec![pv];
     }
 }
 

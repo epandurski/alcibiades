@@ -123,7 +123,7 @@ impl Engine {
         let SearchStatus { depth,
                            value,
                            value_bound,
-                           ref pv,
+                           ref multipv,
                            searched_nodes,
                            duration_millis,
                            nps,
@@ -135,7 +135,7 @@ impl Engine {
             _ => panic!("unexpected bound type"),
         };
         let mut pv_string = String::new();
-        for m in pv {
+        for m in &multipv[0] {
             pv_string.push_str(&m.notation());
             pv_string.push(' ');
         }
@@ -153,10 +153,10 @@ impl Engine {
     // A helper method. It it adds a message containing the current
     // best move to `self.queue`.
     fn queue_best_move(&mut self) {
-        let SearchStatus { ref pv, .. } = *self.search.status();
+        let SearchStatus { ref multipv, .. } = *self.search.status();
         self.queue.push_back(EngineReply::BestMove {
-            best_move: pv.get(0).map_or("0000".to_string(), |m| m.notation()),
-            ponder_move: pv.get(1).map(|m| m.notation()),
+            best_move: multipv[0].get(0).map_or("0000".to_string(), |m| m.notation()),
+            ponder_move: multipv[0].get(1).map(|m| m.notation()),
         });
         self.silent_since = SystemTime::now();
     }
