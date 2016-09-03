@@ -65,7 +65,7 @@ impl TimeManagement {
 
 
 pub struct SearchStatus {
-    pub started_at: Option<SystemTime>,
+    started_at: Option<SystemTime>,
     pub done: bool,
     pub depth: u8,
     pub value: Value,
