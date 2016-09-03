@@ -165,7 +165,7 @@ impl Entry {
     #[inline(always)]
     fn update_generation(&mut self, generation: u8) {
         assert_eq!(generation & 0b11, 0);
-        
+
         // Since the `key` is saved xored with the data, when we
         // change the data, we have to change the stored `key` as
         // well.

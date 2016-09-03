@@ -32,6 +32,7 @@ const AUTHOR: &'static str = "Evgeni Pandurski";
 // The starting position in Forsyth–Edwards notation (FEN).
 const STARTING_POSITION: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
 
+
 // Represents a condition for terminating the search.
 enum PlayWhen {
     TimeManagement(TimeManagement), // Stop when `TimeManagement` says.
@@ -60,7 +61,7 @@ pub struct Engine {
     // the GUI (the first move in each line is different). This is the
     // so called "MultiPV" mode.
     pv_count: usize,
-    
+
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
     // algorithm when pondering is allowed.
@@ -119,7 +120,7 @@ impl Engine {
     // A helper method. It it adds a message containing the current PV
     // to `self.queue`.
     fn queue_pv(&mut self) {
-        let SearchStatus { depth, value, bound, ref pv, searched_time, searched_nodes, nps, .. } =
+        let SearchStatus { depth, value, bound, ref pv, duration_millis, searched_nodes, nps, .. } =
             *self.search.status();
         let score_suffix = match bound {
             BOUND_EXACT => "",
@@ -135,7 +136,7 @@ impl Engine {
         self.queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("score".to_string(), format!("cp {}{}", value, score_suffix)),
-            ("time".to_string(), format!("{}", searched_time)),
+            ("time".to_string(), format!("{}", duration_millis)),
             ("nodes".to_string(), format!("{}", searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
             ("pv".to_string(), pv_string),
@@ -241,7 +242,7 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         if !self.search.status().done {
-            let SearchStatus { done, depth, value, searched_nodes, searched_time, .. } =
+            let SearchStatus { done, depth, value, searched_nodes, duration_millis, .. } =
                 *self.search.update_status();
 
             // Send the PV when changed.
@@ -260,7 +261,7 @@ impl UciEngine for Engine {
             if !self.is_pondering &&
                match self.play_when {
                 PlayWhen::TimeManagement(ref tm) => done || tm.must_play(self.search.status()),
-                PlayWhen::MoveTime(t) => done || searched_time >= t,
+                PlayWhen::MoveTime(t) => done || duration_millis >= t,
                 PlayWhen::Nodes(n) => done || searched_nodes >= n,
                 PlayWhen::Depth(d) => done || depth >= d,
                 PlayWhen::Never => false,

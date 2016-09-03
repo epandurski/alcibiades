@@ -31,7 +31,7 @@ pub const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 pub struct TimeManagement {
-    move_time: u64, // milliseconds
+    move_time_millis: u64, // move time in milliseconds
 }
 
 impl TimeManagement {
@@ -54,12 +54,12 @@ impl TimeManagement {
         let time = time.unwrap_or(0);
         let movestogo = movestogo.unwrap_or(40);
         let movetime = (time + inc * movestogo) / movestogo;
-        TimeManagement { move_time: min(movetime, time / 2) }
+        TimeManagement { move_time_millis: min(movetime, time / 2) }
     }
 
     pub fn must_play(&self, search_status: &SearchStatus) -> bool {
         // TODO: Implement smarter time management.
-        search_status.searched_time >= self.move_time
+        search_status.duration_millis >= self.move_time_millis
     }
 }
 
@@ -72,7 +72,7 @@ pub struct SearchStatus {
     pub bound: BoundType,
     pub pv: Vec<Move>,
     pub searched_nodes: NodeCount,
-    pub searched_time: u64, // milliseconds
+    pub duration_millis: u64, // search duration in milliseconds
     pub nps: u64, // nodes per second
 }
 
@@ -120,7 +120,7 @@ impl MultipvSearch {
                 bound: BOUND_NONE,
                 pv: vec![],
                 searched_nodes: 0,
-                searched_time: 0,
+                duration_millis: 0,
                 nps: 0,
             },
         }
@@ -146,7 +146,7 @@ impl MultipvSearch {
             bound: BOUND_NONE, // TODO: Set good initial value (BOUND_LOWER).
             pv: vec![], // TODO: Set good initial value (vec![best_move]).
             searched_nodes: 0,
-            searched_time: 0,
+            duration_millis: 0,
             ..self.status
         };
         self.commands
@@ -205,12 +205,12 @@ impl MultipvSearch {
     // sure that a new PV is sent to the GUI for each newly reached
     // depth.
     fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Value) {
-        let thinking_duration = self.status.started_at.unwrap().elapsed().unwrap();
-        self.status.searched_time = 1000 * thinking_duration.as_secs() +
-                                    (thinking_duration.subsec_nanos() / 1000000) as u64;
+        let duration = self.status.started_at.unwrap().elapsed().unwrap();
+        self.status.duration_millis = 1000 * duration.as_secs() +
+                                      (duration.subsec_nanos() / 1000000) as u64;
         self.status.searched_nodes = searched_nodes;
         self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
-                          (1000 + self.status.searched_time);
+                          (1000 + self.status.duration_millis);
         if self.status.depth < depth || self.status.value != value {
             self.status.depth = depth;
             self.status.value = value;
