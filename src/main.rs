@@ -48,7 +48,6 @@ pub struct Engine {
     tt: Arc<TranspositionTable>,
     position: Position,
     current_depth: u8,
-    current_value: Value,
 
     // `Engine` will hand over the real work to `MultipvSearch`.
     search: MultipvSearch,
@@ -94,7 +93,6 @@ impl Engine {
             tt: tt.clone(),
             position: Position::from_fen(STARTING_POSITION).ok().unwrap(),
             current_depth: 0,
-            current_value: VALUE_UNKNOWN,
             search: MultipvSearch::new(tt),
             play_when: PlayWhen::Never,
             pv_count: 1,
@@ -210,7 +208,6 @@ impl UciEngine for Engine {
         self.search.stop();
         self.tt.new_search();
         self.current_depth = 0;
-        self.current_value = VALUE_UNKNOWN;
         self.is_pondering = ponder;
         self.play_when = if infinite {
             PlayWhen::Never
@@ -248,13 +245,12 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         if !self.search.status().done {
-            let SearchStatus { done, depth, value, searched_nodes, duration_millis, .. } =
+            let SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
                 *self.search.update_status();
 
             // Send the PV when changed.
-            if depth > 0 && (depth > self.current_depth || value != self.current_value) {
+            if depth > self.current_depth {
                 self.current_depth = depth;
-                self.current_value = value;
                 self.queue_pv();
             }
 
