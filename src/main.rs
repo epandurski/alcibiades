@@ -16,7 +16,7 @@ use std::collections::VecDeque;
 use basetypes::*;
 use position::Position;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
-use search::{TimeManagement, SearchStatus, MultipvSearch};
+use search::{TimeManagement, Pv, SearchStatus, MultipvSearch};
 use search::tt::*;
 
 
@@ -106,7 +106,7 @@ impl Engine {
     // A helper method. It it adds a progress report message to
     // `self.queue`.
     fn queue_progress_report(&mut self) {
-        let SearchStatus { depth, searched_nodes, nps, .. } = *self.search.status();
+        let &SearchStatus { depth, searched_nodes, nps, .. } = self.search.status();
         self.queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("nodes".to_string(), format!("{}", searched_nodes)),
@@ -115,46 +115,43 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It it adds a message containing the current PV
-    // to `self.queue`.
+    // A helper method. It it adds a message containing the current
+    // multi-PV to `self.queue`.
     fn queue_pv(&mut self) {
-        let SearchStatus { depth,
-                           value,
-                           value_bound,
-                           ref multipv,
-                           searched_nodes,
-                           duration_millis,
-                           nps,
-                           .. } = *self.search.status();
-        let score_suffix = match value_bound {
-            BOUND_EXACT => "",
-            BOUND_UPPER => " upperbound",
-            BOUND_LOWER => " lowerbound",
-            _ => panic!("unexpected bound type"),
-        };
-        let mut pv_string = String::new();
-        for m in &multipv[0] {
-            pv_string.push_str(&m.notation());
-            pv_string.push(' ');
-        }
-        self.queue.push_back(EngineReply::Info(vec![
+        let &SearchStatus { depth, ref multipv, searched_nodes, duration_millis, nps, .. } =
+            self.search.status();
+        for (i, &Pv { value, bound, ref moves }) in multipv.iter().enumerate() {
+            let score_suffix = match bound {
+                BOUND_EXACT => "",
+                BOUND_UPPER => " upperbound",
+                BOUND_LOWER => " lowerbound",
+                _ => panic!("unexpected bound type"),
+            };
+            let mut moves_string = String::new();
+            for m in moves {
+                moves_string.push_str(&m.notation());
+                moves_string.push(' ');
+            }
+            self.queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
+            ("multipv".to_string(), format!("{}", i + 1)),
             ("score".to_string(), format!("cp {}{}", value, score_suffix)),
             ("time".to_string(), format!("{}", duration_millis)),
             ("nodes".to_string(), format!("{}", searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
-            ("pv".to_string(), pv_string),
+            ("pv".to_string(), moves_string),
         ]));
+        }
         self.silent_since = SystemTime::now();
     }
 
     // A helper method. It it adds a message containing the current
     // best move to `self.queue`.
     fn queue_best_move(&mut self) {
-        let SearchStatus { ref multipv, .. } = *self.search.status();
+        let &SearchStatus { ref multipv, .. } = self.search.status();
         self.queue.push_back(EngineReply::BestMove {
-            best_move: multipv[0].get(0).map_or("0000".to_string(), |m| m.notation()),
-            ponder_move: multipv[0].get(1).map(|m| m.notation()),
+            best_move: multipv[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
+            ponder_move: multipv[0].moves.get(1).map(|m| m.notation()),
         });
         self.silent_since = SystemTime::now();
     }
@@ -245,10 +242,10 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         if !self.search.status().done {
-            let SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
-                *self.search.update_status();
+            let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
+                self.search.update_status();
 
-            // Send the PV when changed.
+            // Send the new multi-PV when changed.
             if depth > self.current_depth {
                 self.current_depth = depth;
                 self.queue_pv();

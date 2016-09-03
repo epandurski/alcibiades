@@ -64,13 +64,18 @@ impl TimeManagement {
 }
 
 
+pub struct Pv {
+    pub value: Value,
+    pub bound: BoundType,
+    pub moves: Vec<Move>,
+}
+
+
 pub struct SearchStatus {
     started_at: Option<SystemTime>,
     pub done: bool,
     pub depth: u8,
-    pub value: Value,
-    pub value_bound: BoundType,
-    pub multipv: Vec<Vec<Move>>,
+    pub multipv: Vec<Pv>,
     pub searched_nodes: NodeCount,
     pub duration_millis: u64, // search duration in milliseconds
     pub nps: u64, // nodes per second
@@ -116,9 +121,11 @@ impl MultipvSearch {
                 started_at: None,
                 done: true,
                 depth: 0,
-                value: VALUE_UNKNOWN,
-                value_bound: BOUND_NONE,
-                multipv: vec![vec![]],
+                multipv: vec![Pv {
+                                  value: -19999,
+                                  bound: BOUND_LOWER,
+                                  moves: vec![],
+                              }],
                 searched_nodes: 0,
                 duration_millis: 0,
                 nps: 0,
@@ -142,9 +149,11 @@ impl MultipvSearch {
             started_at: Some(SystemTime::now()),
             done: false,
             depth: 0,
-            value: VALUE_UNKNOWN, // TODO: Set good initial value (-19999).
-            value_bound: BOUND_NONE, // TODO: Set good initial value (BOUND_LOWER).
-            multipv: vec![vec![]], // TODO: Set good initial value (vec![best_move]).
+            multipv: vec![Pv {
+                              value: -19999,
+                              bound: BOUND_LOWER,
+                              moves: vec![],
+                          }], // TODO: Set good initial value (vec![best_move]).
             searched_nodes: 0,
             duration_millis: 0,
             ..self.status
@@ -190,8 +199,8 @@ impl MultipvSearch {
     pub fn update_status(&mut self) -> &SearchStatus {
         while let Ok(report) = self.reports.try_recv() {
             match report {
-                Report::Progress { searched_depth, searched_nodes, value, .. } => {
-                    self.register_progress(searched_depth, searched_nodes, value);
+                Report::Progress { searched_depth, searched_nodes, .. } => {
+                    self.register_progress(searched_depth, searched_nodes);
                 }
                 Report::Done { .. } => {
                     self.status.done = true;
@@ -204,16 +213,15 @@ impl MultipvSearch {
     // A helper method. It updates the search status info and makes
     // sure that a new PV is sent to the GUI for each newly reached
     // depth.
-    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount, value: Value) {
+    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
         let duration = self.status.started_at.unwrap().elapsed().unwrap();
         self.status.duration_millis = 1000 * duration.as_secs() +
                                       (duration.subsec_nanos() / 1000000) as u64;
         self.status.searched_nodes = searched_nodes;
         self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
                           (1000 + self.status.duration_millis);
-        if self.status.depth < depth || self.status.value != value {
+        if self.status.depth < depth {
             self.status.depth = depth;
-            self.status.value = value;
             self.extract_pv(depth);
         }
     }
@@ -236,7 +244,7 @@ impl MultipvSearch {
         let mut p = self.position.clone();
         let mut our_turn = true;
         let mut prev_move = None;
-        let mut pv = Vec::new();
+        let mut moves = Vec::new();
         let mut leaf_value = -19999;
         let mut root_value = leaf_value;
         let mut bound = BOUND_LOWER;
@@ -276,13 +284,13 @@ impl MultipvSearch {
 
                 if let Some(m) = prev_move {
                     // Extend the PV with the previous move.
-                    pv.push(m);
+                    moves.push(m);
                 } else {
                     // We are at the root -- set the root value.
                     root_value = leaf_value;
                 }
 
-                if pv.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
+                if moves.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
                     if let Some(m) = p.try_move_digest(entry.move16()) {
                         if p.do_move(m) {
                             if bound == BOUND_EXACT {
@@ -292,7 +300,7 @@ impl MultipvSearch {
                                 continue;
                             } else {
                                 // This is the last move in the PV.
-                                pv.push(m);
+                                moves.push(m);
                             }
                         }
                     }
@@ -310,9 +318,11 @@ impl MultipvSearch {
         };
 
         // Third: Update `status`.
-        self.status.value = root_value;
-        self.status.value_bound = bound;
-        self.status.multipv = vec![pv];
+        self.status.multipv = vec![Pv {
+                                       value: root_value,
+                                       bound: bound,
+                                       moves: moves,
+                                   }];
     }
 }
 
