@@ -166,7 +166,12 @@ impl UciEngine for Engine {
             }
 
             "MultiPV" => {
-                self.pv_count = value.parse::<usize>().unwrap_or(1);
+                let n = value.parse::<usize>().unwrap_or(0);
+                self.pv_count = match n {
+                    0 => 1,
+                    n if n > 500 => 500,
+                    n => n,
+                };
             }
 
             // An invalid option. Notice that we do not support
