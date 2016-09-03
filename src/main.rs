@@ -188,33 +188,32 @@ impl UciEngine for Engine {
           mate: Option<u64>,
           movetime: Option<u64>,
           infinite: bool) {
-        if self.search.status().done {
-            // NOTE: We ignore the "mate" parameter.
+        // NOTE: We ignore the "mate" parameter.
 
-            self.tt.new_search();
-            self.current_depth = 0;
-            self.current_value = VALUE_UNKNOWN;
-            self.is_pondering = ponder;
-            self.play_when = if infinite {
-                PlayWhen::Never
-            } else if movetime.is_some() {
-                PlayWhen::MoveTime(movetime.unwrap())
-            } else if nodes.is_some() {
-                PlayWhen::Nodes(nodes.unwrap())
-            } else if depth.is_some() {
-                PlayWhen::Depth(depth.unwrap() as u8)
-            } else {
-                PlayWhen::TimeManagement(TimeManagement::new(self.position.board().to_move(),
-                                                             self.pondering_is_allowed,
-                                                             wtime,
-                                                             btime,
-                                                             winc,
-                                                             binc,
-                                                             movestogo))
-            };
-            self.silent_since = SystemTime::now();
-            self.search.start(&self.position, searchmoves);
-        }
+        self.search.stop();
+        self.tt.new_search();
+        self.current_depth = 0;
+        self.current_value = VALUE_UNKNOWN;
+        self.is_pondering = ponder;
+        self.play_when = if infinite {
+            PlayWhen::Never
+        } else if movetime.is_some() {
+            PlayWhen::MoveTime(movetime.unwrap())
+        } else if nodes.is_some() {
+            PlayWhen::Nodes(nodes.unwrap())
+        } else if depth.is_some() {
+            PlayWhen::Depth(depth.unwrap() as u8)
+        } else {
+            PlayWhen::TimeManagement(TimeManagement::new(self.position.board().to_move(),
+                                                         self.pondering_is_allowed,
+                                                         wtime,
+                                                         btime,
+                                                         winc,
+                                                         binc,
+                                                         movestogo))
+        };
+        self.silent_since = SystemTime::now();
+        self.search.start(&self.position, searchmoves);
     }
 
     fn ponder_hit(&mut self) {
