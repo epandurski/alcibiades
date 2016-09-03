@@ -12,9 +12,11 @@ pub mod uci;
 use std::process::exit;
 
 
+/// The name of the program.
+pub const NAME: &'static str = "Alcibiades";
+
 /// The version of the program.
 pub const VERSION: &'static str = "0.1";
-
 
 /// The author of the program.
 pub const AUTHOR: &'static str = "Evgeni Pandurski";

@@ -129,7 +129,10 @@ impl MultipvSearch {
     }
 
     /// Starts a new search.
-    pub fn start(&mut self, p: &Position) {
+    #[allow(unused_variables)]
+    pub fn start(&mut self, p: &Position, searchmoves: Option<Vec<String>>) {
+        // TODO: We ignore the "searchmoves" parameter.
+
         self.stop();
         self.position = p.clone();
         self.status = SearchStatus {
@@ -311,24 +314,43 @@ impl MultipvSearch {
 }
 
 
+// A sufficiently small value (in centipawns).
+const EPSILON: Value = 8;
+
+
 /// Implements `UciEngine` trait.
 pub struct Engine {
     tt: Arc<TranspositionTable>,
-    search: MultipvSearch,
-    queue: VecDeque<EngineReply>,
     position: Position,
-    is_pondering: bool,
-    play_when: PlayWhen,
-    silent_since: SystemTime,
-
     current_depth: u8,
     current_value: Value,
+
+    // `Engine` will hand over the real work to `MultipvSearch`.
+    search: MultipvSearch,
+
+    // Tells the engine when it must stop thinking and play the best
+    // move it has found.
+    play_when: PlayWhen,
 
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
     // algorithm when pondering is allowed.
     pondering_is_allowed: bool,
+
+    // `true` if the engine is thinking in pondering mode.
+    is_pondering: bool,
+
+    // Marks the last time when a message was sent by the engine to
+    // the GUI, or if no message has been sent yet -- the time when
+    // the search stared.
+    silent_since: SystemTime,
+
+    // A queue for the messages send by the engine to the GUI.
+    queue: VecDeque<EngineReply>,
 }
+
+
+const STARTING_POSITION: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
 
 
 impl Engine {
@@ -343,21 +365,20 @@ impl Engine {
 
         Engine {
             tt: tt.clone(),
-            search: MultipvSearch::new(tt),
-            queue: VecDeque::new(),
-            position: Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 \
-                                          1")
-                          .ok()
-                          .unwrap(),
-            is_pondering: false,
-            play_when: PlayWhen::Never,
+            position: Position::from_fen(STARTING_POSITION).ok().unwrap(),
             current_depth: 0,
             current_value: VALUE_UNKNOWN,
+            search: MultipvSearch::new(tt),
+            play_when: PlayWhen::Never,
             pondering_is_allowed: false,
+            is_pondering: false,
             silent_since: SystemTime::now(),
+            queue: VecDeque::new(),
         }
     }
 
+    // A helper method. It it adds a progress report message to
+    // `self.queue`.
     fn queue_progress_report(&mut self) {
         let SearchStatus { depth, searched_nodes, nps, .. } = *self.search.status();
         self.queue.push_back(EngineReply::Info(vec![
@@ -368,6 +389,8 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
+    // A helper method. It it adds a message containing the current PV
+    // to `self.queue`.
     fn queue_pv(&mut self) {
         let SearchStatus { depth, value, bound, ref pv, searched_time, searched_nodes, nps, .. } =
             *self.search.status();
@@ -393,6 +416,8 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
+    // A helper method. It it adds a message containing the current
+    // best move to `self.queue`.
     fn queue_best_move(&mut self) {
         // TODO: Use `self.status.best_move`.
         let pv = &self.search.status().pv;
@@ -448,7 +473,7 @@ impl UciEngine for Engine {
           movetime: Option<u64>,
           infinite: bool) {
         if !self.is_thinking() {
-            // TODO: We ignore "searchmoves" and "mate" parameters.
+            // NOTE: We ignore the "mate" parameter.
 
             self.tt.new_search();
             self.current_depth = 0;
@@ -471,7 +496,8 @@ impl UciEngine for Engine {
                                                              binc,
                                                              movestogo))
             };
-            self.search.start(&self.position);
+            self.silent_since = SystemTime::now();
+            self.search.start(&self.position, searchmoves);
         }
     }
 
@@ -495,34 +521,14 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         if self.is_thinking() {
-            if self.search.update_status().done {
-                // Unless this happens to be an infinite search,
-                // terminate it as soon as possible.
-                self.play_when = if let PlayWhen::Never = self.play_when {
-                    PlayWhen::Never
-                } else {
-                    PlayWhen::MoveTime(0)
-                };
-            } else {
-                // Check if we have to play now.
-                if !self.is_pondering &&
-                   match self.play_when {
-                    PlayWhen::TimeManagement(ref tm) => tm.must_play(self.search.status()),
-                    PlayWhen::MoveTime(t) => self.search.status().searched_time >= t,
-                    PlayWhen::Nodes(n) => self.search.status().searched_nodes >= n,
-                    PlayWhen::Depth(d) => self.search.status().depth > d,
-                    PlayWhen::Never => false,
-                } {
-                    self.stop();
-                }
-            }
+            let SearchStatus { done, depth, value, searched_nodes, searched_time, .. } =
+                *self.search.update_status();
 
-            // Send the new PV if changed.
-            let SearchStatus { depth, value, searched_nodes, .. } = *self.search.status();
+            // Send the PV when changed.
             if depth > self.current_depth || value != self.current_value {
                 self.current_depth = depth;
                 self.current_value = value;
-                if searched_nodes >= NODE_COUNT_REPORT_INTERVAL {
+                if searched_nodes > 0 {
                     self.queue_pv();
                 }
             }
@@ -530,6 +536,18 @@ impl UciEngine for Engine {
             // Send periodic progress reports.
             if self.silent_since.elapsed().unwrap().as_secs() > 10 {
                 self.queue_progress_report();
+            }
+
+            // Check if we must play now.
+            if !self.is_pondering &&
+               match self.play_when {
+                PlayWhen::TimeManagement(ref tm) => done || tm.must_play(self.search.status()),
+                PlayWhen::MoveTime(t) => done || searched_time >= t,
+                PlayWhen::Nodes(n) => done || searched_nodes >= n,
+                PlayWhen::Depth(d) => done || depth >= d,
+                PlayWhen::Never => false,
+            } {
+                self.stop();
             }
         }
 
@@ -540,10 +558,6 @@ impl UciEngine for Engine {
         self.search.exit();
     }
 }
-
-
-// A sufficiently small value (in centipawns).
-const EPSILON: Value = 8;
 
 
 enum PlayWhen {
@@ -561,7 +575,7 @@ pub struct EngineFactory;
 
 impl UciEngineFactory<Engine> for EngineFactory {
     fn name(&self) -> String {
-        format!("Alcibiades {}", ::VERSION)
+        format!("{} {}", ::NAME, ::VERSION)
     }
 
     fn author(&self) -> String {
