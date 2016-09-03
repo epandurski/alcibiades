@@ -56,6 +56,11 @@ pub struct Engine {
     // move it has found.
     play_when: PlayWhen,
 
+    // Tells the engine how many best lines to calculate and send to
+    // the GUI (the first move in each line is different). This is the
+    // so called "MultiPV" mode.
+    pv_count: usize,
+    
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
     // algorithm when pondering is allowed.
@@ -91,6 +96,7 @@ impl Engine {
             current_value: VALUE_UNKNOWN,
             search: MultipvSearch::new(tt),
             play_when: PlayWhen::Never,
+            pv_count: 1,
             pondering_is_allowed: false,
             is_pondering: false,
             silent_since: SystemTime::now(),
@@ -157,6 +163,10 @@ impl UciEngine for Engine {
                 self.pondering_is_allowed = value == "true";
             }
 
+            "MultiPV" => {
+                self.pv_count = value.parse::<usize>().unwrap_or(1);
+            }
+
             // An invalid option. Notice that we do not support
             // re-sizing of the transposition table once the engine
             // had started.
@@ -213,7 +223,7 @@ impl UciEngine for Engine {
                                                          movestogo))
         };
         self.silent_since = SystemTime::now();
-        self.search.start(&self.position, searchmoves);
+        self.search.start(&self.position, searchmoves, self.pv_count);
     }
 
     fn ponder_hit(&mut self) {
@@ -286,6 +296,7 @@ impl UciEngineFactory<Engine> for EngineFactory {
             // TODO: Calculate a sane limit for the hash size.
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
+            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
         ]
     }
 

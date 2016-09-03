@@ -128,8 +128,13 @@ impl MultipvSearch {
 
     /// Starts a new search.
     #[allow(unused_variables)]
-    pub fn start(&mut self, p: &Position, searchmoves: Option<Vec<String>>) {
+    pub fn start(&mut self, p: &Position, searchmoves: Option<Vec<String>>, pv_count: usize) {
+        // TODO: We ignore the "pv_count" parameter.
+        assert_eq!(pv_count, 1);
+
         // TODO: We ignore the "searchmoves" parameter.
+
+        // TODO: Add `self.legal_moves_count` filed.
 
         self.stop();
         self.position = p.clone();
@@ -137,9 +142,9 @@ impl MultipvSearch {
             started_at: Some(SystemTime::now()),
             done: false,
             depth: 0,
-            value: VALUE_UNKNOWN,
-            bound: BOUND_NONE,
-            pv: vec![],
+            value: VALUE_UNKNOWN, // TODO: Set good initial value (-19999).
+            bound: BOUND_NONE, // TODO: Set good initial value (BOUND_LOWER).
+            pv: vec![], // TODO: Set good initial value (vec![best_move]).
             searched_nodes: 0,
             searched_time: 0,
             ..self.status
@@ -314,4 +319,3 @@ impl MultipvSearch {
 
 // A sufficiently small value (in centipawns).
 const EPSILON: Value = 8;
-
