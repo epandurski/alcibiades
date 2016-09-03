@@ -37,7 +37,7 @@ enum PlayWhen {
     TimeManagement(TimeManagement), // Stop when `TimeManagement` says.
     MoveTime(u64), // Stop after the given number of milliseconds.
     Nodes(NodeCount), // Stop when the given number of nodes has been searched.
-    Depth(u8), // Stop after the given search depth has been reached.
+    Depth(u8), // Stop when the given search depth has been reached.
     Never, // An infinite search.
 }
 
