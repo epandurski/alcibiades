@@ -376,8 +376,6 @@ pub trait UciEngine {
     /// different game.
     ///
     /// In practice, this method will clear the transposition tables.
-    ///
-    /// Does nothing if the engine is thinking at the moment.
     fn new_game(&mut self);
 
     /// Loads a new chess position.
@@ -387,8 +385,6 @@ pub trait UciEngine {
     /// the given position. The move format is in long algebraic
     /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
     /// castling), `e7e8q` (for promotion).
-    ///
-    /// Does nothing if the engine is thinking at the moment.
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
 
     /// Tells the engine to start thinking.
@@ -431,8 +427,6 @@ pub trait UciEngine {
     /// 
     /// * *infinite:* Search until the `stop()` command. Do not exit
     /// the search without being told so in this mode!
-    ///
-    /// Does nothing if the engine is thinking at the moment.
     fn go(&mut self,
           searchmoves: Option<Vec<String>>,
           ponder: bool,
@@ -449,8 +443,6 @@ pub trait UciEngine {
 
     /// Forces the engine to stop thinking and spit the best move it
     /// had found.
-    ///
-    /// Does nothing if the engine is not thinking at the moment.
     fn stop(&mut self);
 
     /// Tells the engine that the move it is pondering on was played
@@ -458,15 +450,8 @@ pub trait UciEngine {
     ///
     /// Pondering is using the opponent's move time to consider likely
     /// opponent moves and thus gain a pre-processing advantage when
-    /// it is our turn to move, this is also referred as "permanent
-    /// brain".
-    ///
-    /// Does nothing if the engine is not thinking in pondering mode
-    /// at the moment.
+    /// it is our turn to move.
     fn ponder_hit(&mut self);
-
-    /// Returns if the engine is thinking at the moment.
-    fn is_thinking(&self) -> bool;
 
     /// Checks if there is an engine reply available.
     ///

@@ -48,7 +48,6 @@ pub struct Engine {
     position: Position,
     current_depth: u8,
     current_value: Value,
-    current_bound: BoundType,
 
     // `Engine` will hand over the real work to `MultipvSearch`.
     search: MultipvSearch,
@@ -90,7 +89,6 @@ impl Engine {
             position: Position::from_fen(STARTING_POSITION).ok().unwrap(),
             current_depth: 0,
             current_value: VALUE_UNKNOWN,
-            current_bound: BOUND_NONE,
             search: MultipvSearch::new(tt),
             play_when: PlayWhen::Never,
             pondering_is_allowed: false,
@@ -167,16 +165,12 @@ impl UciEngine for Engine {
     }
 
     fn new_game(&mut self) {
-        if !self.is_thinking() {
-            self.tt.clear();
-        }
+        self.tt.clear();
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if !self.is_thinking() {
-            if let Ok(p) = Position::from_history(fen, moves) {
-                self.position = p;
-            }
+        if let Ok(p) = Position::from_history(fen, moves) {
+            self.position = p;
         }
     }
 
@@ -194,7 +188,7 @@ impl UciEngine for Engine {
           mate: Option<u64>,
           movetime: Option<u64>,
           infinite: bool) {
-        if !self.is_thinking() {
+        if self.search.status().done {
             // NOTE: We ignore the "mate" parameter.
 
             self.tt.new_search();
@@ -224,35 +218,27 @@ impl UciEngine for Engine {
     }
 
     fn ponder_hit(&mut self) {
-        if self.is_thinking() {
+        if self.search.status().done {
+            self.queue_best_move();
+        } else {
             self.is_pondering = false;
         }
     }
 
     fn stop(&mut self) {
-        if self.is_thinking() {
-            self.search.stop();
-            self.queue_best_move();
-        }
-    }
-
-    #[inline]
-    fn is_thinking(&self) -> bool {
-        !self.search.status().done
+        self.search.stop();
+        self.queue_best_move();
     }
 
     fn get_reply(&mut self) -> Option<EngineReply> {
-        if self.is_thinking() {
-            let SearchStatus { done, depth, value, bound, searched_nodes, searched_time, .. } =
+        if !self.search.status().done {
+            let SearchStatus { done, depth, value, searched_nodes, searched_time, .. } =
                 *self.search.update_status();
 
             // Send the PV when changed.
-            if depth > 0 &&
-               (depth != self.current_depth || value != self.current_value ||
-                bound != self.current_bound) {
+            if depth > 0 && (depth > self.current_depth || value != self.current_value) {
                 self.current_depth = depth;
                 self.current_value = value;
-                self.current_bound = bound;
                 self.queue_pv();
             }
 
