@@ -116,12 +116,12 @@ impl Engine {
     }
 
     // A helper method. It it adds a message containing the current
-    // multi-PV to `self.queue`.
+    // (multi)PV to `self.queue`.
     fn queue_pv(&mut self) {
         let &SearchStatus { depth, ref multipv, searched_nodes, duration_millis, nps, .. } =
             self.search.status();
         for (i, &Pv { value, bound, ref moves }) in multipv.iter().enumerate() {
-            let score_suffix = match bound {
+            let bound_suffix = match bound {
                 BOUND_EXACT => "",
                 BOUND_UPPER => " upperbound",
                 BOUND_LOWER => " lowerbound",
@@ -135,7 +135,7 @@ impl Engine {
             self.queue.push_back(EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("multipv".to_string(), format!("{}", i + 1)),
-            ("score".to_string(), format!("cp {}{}", value, score_suffix)),
+            ("score".to_string(), format!("cp {}{}", value, bound_suffix)),
             ("time".to_string(), format!("{}", duration_millis)),
             ("nodes".to_string(), format!("{}", searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
@@ -245,7 +245,7 @@ impl UciEngine for Engine {
             let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
                 self.search.update_status();
 
-            // Send the new multi-PV when changed.
+            // Send the new (multi)PV when changed.
             if depth > self.current_depth {
                 self.current_depth = depth;
                 self.queue_pv();
