@@ -242,10 +242,12 @@ impl UciEngine for Engine {
 
     fn get_reply(&mut self) -> Option<EngineReply> {
         if !self.search.status().done {
-            let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
-                self.search.update_status();
+            // Update the search status.
+            self.search.update_status();
+            let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } = self.search
+                                                                                         .status();
 
-            // Send the new (multi)PV when changed.
+            // Send the (multi)PV when changed.
             if depth > self.current_depth {
                 self.current_depth = depth;
                 self.queue_pv();

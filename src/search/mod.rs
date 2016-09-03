@@ -196,7 +196,7 @@ impl MultipvSearch {
         &self.status
     }
 
-    pub fn update_status(&mut self) -> &SearchStatus {
+    pub fn update_status(&mut self) {
         while let Ok(report) = self.reports.try_recv() {
             match report {
                 Report::Progress { searched_depth, searched_nodes, .. } => {
@@ -207,7 +207,6 @@ impl MultipvSearch {
                 }
             }
         }
-        &self.status
     }
 
     // A helper method. It updates the search status info and makes
