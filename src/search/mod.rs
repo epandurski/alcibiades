@@ -72,7 +72,7 @@ pub struct Variation {
     /// The value assigned to the final position.
     pub value: Value,
 
-    /// The meaning of the assigned value (`BOUND_EXACT`, `BOUND_UPPER`, `BOUND_LOWER`).
+    /// The accuracy of the assigned value.
     pub bound: BoundType,
 }
 

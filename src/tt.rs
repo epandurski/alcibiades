@@ -28,8 +28,8 @@ use chess_move::MoveDigest;
 /// For the majority of chess positions our evaluations will be more
 /// or less inaccurate, and there is nothing we can do about it. But
 /// sometimes we know that a given evaluation is probably inaccurate,
-/// and we know the direction of this imprecision. `BoundType` defines
-/// the direction of such **known inaccuracies**.
+/// and we know the sign of the error. `BoundType` defines the
+/// direction of such **known inaccuracies**.
 ///
 /// * `BOUND_EXACT` means that the evaluation is exact (as far as we know).
 ///
@@ -73,7 +73,7 @@ impl EntryData {
     ///
     /// * `value` -- the value assigned to the position;
     /// 
-    /// * `bound` -- the meaning of the assigned `value`;
+    /// * `bound` -- the accuracy of the assigned `value`;
     /// 
     /// * `depth` -- the depth of search;
     /// 
