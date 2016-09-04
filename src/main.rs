@@ -8,20 +8,20 @@ pub mod chess_move;
 pub mod position;
 pub mod search;
 pub mod uci;
+pub mod tt;
 
 use std::process::exit;
 use std::sync::Arc;
 use std::time::SystemTime;
 use std::collections::VecDeque;
 use basetypes::*;
+use tt::*;
 use position::Position;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
-use search::{TimeManagement, Pv, SearchStatus, MultipvSearch};
-use search::tt::*;
+use search::{TimeManagement, Variation, SearchStatus, MultipvSearch};
 
-
-// The version of the program.
-const VERSION: &'static str = "0.1";
+/// The version of the program.
+pub const VERSION: &'static str = "0.1";
 
 // The name of the program.
 const NAME: &'static str = "Alcibiades";
@@ -57,9 +57,9 @@ pub struct Engine {
     play_when: PlayWhen,
 
     // Tells the engine how many best lines to calculate and send to
-    // the GUI (the first move in each line is different). This is the
-    // so called "MultiPV" mode.
-    pv_count: usize,
+    // the GUI (the first move in each best lines is different). This
+    // is the so called "MultiPV" mode.
+    variations_count: usize,
 
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
@@ -95,7 +95,7 @@ impl Engine {
             current_depth: 0,
             search: MultipvSearch::new(tt),
             play_when: PlayWhen::Never,
-            pv_count: 1,
+            variations_count: 1,
             pondering_is_allowed: false,
             is_pondering: false,
             silent_since: SystemTime::now(),
@@ -118,9 +118,9 @@ impl Engine {
     // A helper method. It it adds a message containing the current
     // (multi)PV to `self.queue`.
     fn queue_pv(&mut self) {
-        let &SearchStatus { depth, ref multipv, searched_nodes, duration_millis, nps, .. } =
+        let &SearchStatus { depth, ref variations, searched_nodes, duration_millis, nps, .. } =
             self.search.status();
-        for (i, &Pv { value, bound, ref moves }) in multipv.iter().enumerate() {
+        for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
             let bound_suffix = match bound {
                 BOUND_EXACT => "",
                 BOUND_UPPER => " upperbound",
@@ -148,10 +148,10 @@ impl Engine {
     // A helper method. It it adds a message containing the current
     // best move to `self.queue`.
     fn queue_best_move(&mut self) {
-        let &SearchStatus { ref multipv, .. } = self.search.status();
+        let &SearchStatus { ref variations, .. } = self.search.status();
         self.queue.push_back(EngineReply::BestMove {
-            best_move: multipv[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
-            ponder_move: multipv[0].moves.get(1).map(|m| m.notation()),
+            best_move: variations[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
+            ponder_move: variations[0].moves.get(1).map(|m| m.notation()),
         });
         self.silent_since = SystemTime::now();
     }
@@ -166,7 +166,7 @@ impl UciEngine for Engine {
             }
 
             "MultiPV" => {
-                self.pv_count = match value.parse::<usize>().unwrap_or(0) {
+                self.variations_count = match value.parse::<usize>().unwrap_or(0) {
                     0 => 1,
                     n if n > 500 => 500,
                     n => n,
@@ -228,7 +228,7 @@ impl UciEngine for Engine {
                                                          movestogo))
         };
         self.silent_since = SystemTime::now();
-        self.search.start(&self.position, searchmoves, self.pv_count);
+        self.search.start(&self.position, searchmoves, self.variations_count);
     }
 
     fn ponder_hit(&mut self) {

@@ -1,6 +1,5 @@
 //! Implements the principal game engine functionality.
 
-pub mod tt;
 pub mod alpha_beta;
 pub mod threading;
 
@@ -12,7 +11,7 @@ use std::time::SystemTime;
 use basetypes::*;
 use chess_move::*;
 use position::Position;
-use self::tt::*;
+use tt::*;
 use self::threading::*;
 
 
@@ -64,10 +63,17 @@ impl TimeManagement {
 }
 
 
-pub struct Pv {
-    pub value: Value,
-    pub bound: BoundType,
+/// A sequence of moves from some starting position, together with the
+/// value assigned to the final position.
+pub struct Variation {
+    /// A sequence of moves from some starting position.
     pub moves: Vec<Move>,
+
+    /// The value assigned to the final position.
+    pub value: Value,
+
+    /// The meaning of the assigned value (`BOUND_EXACT`, `BOUND_UPPER`, `BOUND_LOWER`).
+    pub bound: BoundType,
 }
 
 
@@ -75,7 +81,7 @@ pub struct SearchStatus {
     started_at: Option<SystemTime>,
     pub done: bool,
     pub depth: u8,
-    pub multipv: Vec<Pv>,
+    pub variations: Vec<Variation>,
     pub searched_nodes: NodeCount,
     pub duration_millis: u64, // search duration in milliseconds
     pub nps: u64, // nodes per second
@@ -121,11 +127,11 @@ impl MultipvSearch {
                 started_at: None,
                 done: true,
                 depth: 0,
-                multipv: vec![Pv {
-                                  value: -19999,
-                                  bound: BOUND_LOWER,
-                                  moves: vec![],
-                              }],
+                variations: vec![Variation {
+                                     value: -19999,
+                                     bound: BOUND_LOWER,
+                                     moves: vec![],
+                                 }],
                 searched_nodes: 0,
                 duration_millis: 0,
                 nps: 0,
@@ -149,11 +155,11 @@ impl MultipvSearch {
             started_at: Some(SystemTime::now()),
             done: false,
             depth: 0,
-            multipv: vec![Pv {
-                              value: -19999,
-                              bound: BOUND_LOWER,
-                              moves: vec![],
-                          }], // TODO: Set good initial value (vec![best_move]).
+            variations: vec![Variation {
+                                 value: -19999,
+                                 bound: BOUND_LOWER,
+                                 moves: vec![],
+                             }], // TODO: Set good initial value (vec![best_move]).
             searched_nodes: 0,
             duration_millis: 0,
             ..self.status
@@ -317,11 +323,11 @@ impl MultipvSearch {
         };
 
         // Third: Update `status`.
-        self.status.multipv = vec![Pv {
-                                       value: root_value,
-                                       bound: bound,
-                                       moves: moves,
-                                   }];
+        self.status.variations = vec![Variation {
+                                          value: root_value,
+                                          bound: bound,
+                                          moves: moves,
+                                      }];
     }
 }
 

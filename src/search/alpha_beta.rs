@@ -6,7 +6,7 @@ use basetypes::*;
 use chess_move::*;
 use position::Position;
 use search::*;
-use search::tt::*;
+use tt::*;
 
 
 /// Represents a terminated search condition.
@@ -689,7 +689,7 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
-    use search::tt::*;
+    use tt::*;
     use chess_move::*;
     use position::Position;
 
