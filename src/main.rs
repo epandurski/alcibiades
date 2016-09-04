@@ -57,7 +57,7 @@ pub struct Engine {
     play_when: PlayWhen,
 
     // Tells the engine how many best lines to calculate and send to
-    // the GUI (the first move in each best lines is different). This
+    // the GUI (the first move in each best line is different). This
     // is the so called "MultiPV" mode.
     variations_count: usize,
 
