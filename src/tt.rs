@@ -25,29 +25,35 @@ use chess_move::MoveDigest;
 
 /// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.
 ///
-/// * `BOUND_EXACT` means that the evaluation is exact.
+/// For the majority of chess positions our evaluations will be more
+/// or less inaccurate, and there is nothing we can do about it. But
+/// sometimes we know that a given evaluation is probably inaccurate,
+/// and we know the direction of this imprecision. `BoundType` defines
+/// the direction of such **known inaccuracies**.
+///
+/// * `BOUND_EXACT` means that the evaluation is exact (as far as we know).
 ///
 /// * `BOUND_LOWER` means that the real value is greater or equal to
-///    the evaluation.
+///    the evaluation (as far as we know).
 ///
 /// * `BOUND_UPPER` means that the real value is lesser or equal to
-///   the evaluation.
+///   the evaluation (as far as we know).
 ///
 /// * `BOUND_NONE` means that the real value might be lesser, equal,
 ///   or grater than the evaluation.
 pub type BoundType = u8;
 
 
-/// The evaluation is neither exact nor a bound.
+/// Neither exact value nor a bound.
 pub const BOUND_NONE: BoundType = 0;
 
-/// The evaluation is an upper bound.
+/// Upper bound.
 pub const BOUND_UPPER: BoundType = 0b10;
 
-/// The evaluation is a lower bound.
+/// Lower bound.
 pub const BOUND_LOWER: BoundType = 0b01;
 
-/// The evaluation is exact.
+/// Exact value.
 pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 
 
