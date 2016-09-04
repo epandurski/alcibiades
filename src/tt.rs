@@ -38,7 +38,7 @@ use chess_move::MoveDigest;
 pub type BoundType = u8;
 
 
-/// The evaluation is not bounded.
+/// The evaluation is neither exact nor a bound.
 pub const BOUND_NONE: BoundType = 0;
 
 /// The evaluation is an upper bound.
