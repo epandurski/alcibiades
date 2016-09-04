@@ -441,8 +441,8 @@ pub trait UciEngine {
           movetime: Option<u64>,
           infinite: bool);
 
-    /// Forces the engine to stop thinking and send the best move it
-    /// had found.
+    /// Forces the engine to stop thinking and reply with the best
+    /// move it had found.
     fn stop(&mut self);
 
     /// Tells the engine that the move it is pondering on was played
