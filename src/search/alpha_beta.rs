@@ -5,8 +5,8 @@ use std::cmp::max;
 use basetypes::*;
 use chess_move::*;
 use position::Position;
-use engine::*;
-use engine::tt::*;
+use search::*;
+use tt::*;
 
 
 /// Represents a terminated search condition.
@@ -15,7 +15,7 @@ pub struct TerminatedSearch;
 
 /// Represents a game tree search.        
 pub struct Search<'a> {
-    tt: &'a TranspositionTable,
+    tt: &'a Tt,
     killers: KillerTable,
     position: Position,
     moves: &'a mut MoveStack,
@@ -36,7 +36,7 @@ impl<'a> Search<'a> {
     /// function should return `true` if the search should be
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Position,
-               tt: &'a TranspositionTable,
+               tt: &'a Tt,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
                -> Search<'a> {
@@ -224,7 +224,7 @@ impl<'a> Search<'a> {
         let entry = if let Some(e) = self.tt.probe(hash) {
             e
         } else {
-            EntryData::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
+            TtEntry::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
@@ -257,7 +257,7 @@ impl<'a> Search<'a> {
             } else {
                 BOUND_EXACT
             };
-            self.tt.store(hash, EntryData::new(value, bound, 0, 0, entry.eval_value()));
+            self.tt.store(hash, TtEntry::new(value, bound, 0, 0, entry.eval_value()));
             return Ok(Some(value));
         }
 
@@ -304,7 +304,7 @@ impl<'a> Search<'a> {
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
                     self.tt.store(hash,
-                                  EntryData::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
+                                  TtEntry::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
                     return Ok(Some(beta));
                 }
             }
@@ -370,7 +370,7 @@ impl<'a> Search<'a> {
             state.phase = NodePhase::TriedHashMove;
             if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
                 if self.position.do_move(m) {
-                    m.set_score(MAX_MOVE_SCORE);
+                    m.set_score(Move::max_score());
                     return Some(m);
                 }
             }
@@ -388,12 +388,12 @@ impl<'a> Search<'a> {
             // We set new move scores to all captures and promotions
             // to queen according to their static exchange evaluation.
             for m in self.moves.iter_mut() {
-                if m.score() == MAX_MOVE_SCORE {
+                if m.score() == Move::max_score() {
                     let see = self.position.evaluate_move(*m);
                     let new_move_score = if see > 0 {
-                        MAX_MOVE_SCORE - 1
+                        Move::max_score() - 1
                     } else if see == 0 {
-                        MAX_MOVE_SCORE - 2
+                        Move::max_score() - 2
                     } else {
                         0
                     };
@@ -440,7 +440,7 @@ impl<'a> Search<'a> {
                 };
                 if let Some(mut m) = self.moves.remove_move(killer) {
                     if self.position.do_move(m) {
-                        m.set_score(MAX_MOVE_SCORE);
+                        m.set_score(Move::max_score());
                         return Some(m);
                     }
                 }
@@ -451,7 +451,7 @@ impl<'a> Search<'a> {
             if let NodePhase::TriedKillerMoves = state.phase {
                 if m.captured_piece() < NO_PIECE {
                     if self.position.do_move(m) {
-                        m.set_score(MAX_MOVE_SCORE);
+                        m.set_score(Move::max_score());
                         return Some(m);
                     }
                     continue;
@@ -472,7 +472,7 @@ impl<'a> Search<'a> {
                     // When evading check, giving check, or promoting
                     // a pawn -- set a high move score to avoid search
                     // depth reductions.
-                    m.set_score(MAX_MOVE_SCORE);
+                    m.set_score(Move::max_score());
                 }
                 return Some(m);
             }
@@ -493,7 +493,7 @@ impl<'a> Search<'a> {
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
         self.tt.store(self.position.hash(),
-                      EntryData::new(value, bound, depth, best_move.digest(), entry.eval_value()));
+                      TtEntry::new(value, bound, depth, best_move.digest(), entry.eval_value()));
     }
 
     // A helper method for `Search::run`. It reports search progress.
@@ -555,7 +555,7 @@ enum NodePhase {
 // Holds information about the state of a node in the search tree.
 struct NodeState {
     phase: NodePhase,
-    entry: EntryData,
+    entry: TtEntry,
     checkers: Bitboard,
     pinned: Bitboard,
     killer: Option<MoveDigest>,
@@ -689,15 +689,15 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
-    use engine::tt::*;
+    use tt::*;
     use chess_move::*;
     use position::Position;
 
     #[test]
     fn test_search() {
-        assert!(MAX_MOVE_SCORE - 2 > super::REDUCTION_THRESHOLD);
+        assert!(Move::max_score() - 2 > super::REDUCTION_THRESHOLD);
         let p = Position::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1").ok().unwrap();
-        let tt = TranspositionTable::new();
+        let tt = Tt::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);

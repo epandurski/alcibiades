@@ -2,7 +2,6 @@
 
 use regex::Regex;
 use basetypes::*;
-use chess_move::*;
 
 
 /// Represents a parse error.

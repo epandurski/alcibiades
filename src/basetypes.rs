@@ -7,55 +7,15 @@
 /// `WHITE` or `BLACK`.
 pub type Color = usize; // 0 or 1
 
+pub const WHITE: Color = 0;
+pub const BLACK: Color = 1;
+
+
+
 /// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, `NO_PIECE`,
 /// or `UNKNOWN_PIECE`.
 pub type PieceType = usize;  // from 0 to 5
 
-/// From 0 to 7 (0 is rank 1, 7 is rank 8).
-pub type Rank = usize;  // from 0 to 7
-
-/// From 0 to 7 (0 is file A, 7 is file H).
-pub type File = usize;  // from 0 to 7
-
-/// From 0 to 63 (0 is A1, 63 is H8).
-pub type Square = usize;  // from 0 to 63
-
-/// Number of searched positions.
-pub type NodeCount = u64;
-
-/// `QUEENSIDE` or `KINGSIDE`.
-pub type CastlingSide = usize;
-
-/// A set of squares on the chessboard.
-///
-/// `u64` bit-sets called *bitboards* (BB) can be used to represent a
-/// set of squares on the chessboard. For example, the set of squares
-/// that are occupied by white rooks in the beginning of the game is:
-/// `1 << A1 | 1 << H1`. `BB_EMPTY_SET` equals `0` and represents the
-/// empty set, `BB_UNIVERSAL_SET` represents the set of all 64 squares
-/// on the board.
-pub type Bitboard = u64;
-
-
-/// Evaluation value in centipawns.
-///
-/// Positive values mean that the position is favorable for the side
-/// to move. Negative values mean the position is favorable for the
-/// other side (not to move). A value of `0` means that the chances
-/// are equal. For example: a value of `100` might mean that the side
-/// to move is a pawn ahead.
-///
-/// Values over `19999` and under `-19999` designate a certain
-/// win/loss. The constant `VALUE_UNKNOWN` equals to `-32768`, and has
-/// the special meaning of "unknown value".
-pub type Value = i16;
-
-
-// Color
-pub const WHITE: Color = 0;
-pub const BLACK: Color = 1;
-
-// Piece types
 pub const KING: PieceType = 0;
 pub const QUEEN: PieceType = 1;
 pub const ROOK: PieceType = 2;
@@ -65,7 +25,11 @@ pub const PAWN: PieceType = 5;
 pub const NO_PIECE: PieceType = 6;
 pub const UNKNOWN_PIECE: PieceType = 7;
 
-// Ranks
+
+
+/// From 0 to 7 (0 is rank 1, 7 is rank 8).
+pub type Rank = usize;  // from 0 to 7
+
 pub const RANK_1: Rank = 0;
 pub const RANK_2: Rank = 1;
 pub const RANK_3: Rank = 2;
@@ -75,7 +39,11 @@ pub const RANK_6: Rank = 5;
 pub const RANK_7: Rank = 6;
 pub const RANK_8: Rank = 7;
 
-// Files
+
+
+/// From 0 to 7 (0 is file A, 7 is file H).
+pub type File = usize;  // from 0 to 7
+
 pub const FILE_A: File = 0;
 pub const FILE_B: File = 1;
 pub const FILE_C: File = 2;
@@ -85,7 +53,11 @@ pub const FILE_F: File = 5;
 pub const FILE_G: File = 6;
 pub const FILE_H: File = 7;
 
-// Squares
+
+
+/// From 0 to 63 (0 is A1, 63 is H8).
+pub type Square = usize;  // from 0 to 63
+
 pub const A1: Square = 0 + 0 * 8;
 pub const B1: Square = 1 + 0 * 8;
 pub const C1: Square = 2 + 0 * 8;
@@ -151,16 +123,174 @@ pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
 
-// Value
+
+
+/// Number of searched positions.
+pub type NodeCount = u64;
+
+
+
+/// A set of squares on the chessboard.
+///
+/// `u64` bit-sets called *bitboards* (BB) can be used to represent a
+/// set of squares on the chessboard. For example, the set of squares
+/// that are occupied by white rooks in the beginning of the game is:
+/// `1 << A1 | 1 << H1`. `BB_EMPTY_SET` equals `0` and represents the
+/// empty set, `BB_UNIVERSAL_SET` represents the set of all 64 squares
+/// on the board.
+pub type Bitboard = u64;
+
+pub const BB_EMPTY_SET: Bitboard = 0;
+pub const BB_UNIVERSAL_SET: Bitboard = 0xffffffffffffffff;
+
+
+
+/// Evaluation value in centipawns.
+///
+/// Positive values mean that the position is favorable for the side
+/// to move. Negative values mean the position is favorable for the
+/// other side (not to move). A value of `0` means that the chances
+/// are equal. For example: a value of `100` might mean that the side
+/// to move is a pawn ahead.
+///
+/// Values over `19999` and under `-19999` designate a certain
+/// win/loss. The constant `VALUE_UNKNOWN` equals to `-32768`, and has
+/// the special meaning of "unknown value".
+pub type Value = i16;
+
 pub const VALUE_UNKNOWN: Value = ::std::i16::MIN;
 
-// Castling side
+
+
+/// `QUEENSIDE` or `KINGSIDE`.
+pub type CastlingSide = usize;
+
 pub const QUEENSIDE: CastlingSide = 0;
 pub const KINGSIDE: CastlingSide = 1;
 
-// Bitboards.
-pub const BB_EMPTY_SET: Bitboard = 0;
-pub const BB_UNIVERSAL_SET: Bitboard = 0xffffffffffffffff;
+
+
+/// Holds information about which player can castle on which side.
+///
+/// The castling rights are held in a `usize` value. The lowest 4 bits
+/// of the value contain the whole needed information. It is laid out
+/// in the following way:
+///
+/// ```text
+///  usize                    3   2   1   0
+///  +----------------------+---+---+---+---+
+///  |                      |   |   |   |   |
+///  |    Unused (zeros)    |Castling flags |
+///  |                      |   |   |   |   |
+///  +----------------------+---+---+---+---+
+///
+///  bit 0 -- if set, white can castle on queen-side;
+///  bit 1 -- if set, white can castle on king-side;
+///  bit 2 -- if set, black can castle on queen-side;
+///  bit 3 -- if set, black can castle on king-side.
+/// ```
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+pub struct CastlingRights(usize);
+
+impl CastlingRights {
+    /// Creates a new instance.
+    ///
+    /// The least significant 4 bits of `value` are used as a raw
+    /// value for the new instance.
+    #[inline(always)]
+    pub fn new(value: usize) -> CastlingRights {
+        CastlingRights(value & 0b1111)
+    }
+
+    /// Returns the contained raw value (between 0 and 15).
+    #[inline(always)]
+    pub fn value(&self) -> usize {
+        self.0
+    }
+
+    /// Grants a given player the right to castle on a given side.
+    ///
+    /// This method returns `true` if the player had the right to
+    /// castle on the given side before this method was called, and
+    /// `false` otherwise.
+    pub fn grant(&mut self, player: Color, side: CastlingSide) -> bool {
+        if player > 1 || side > 1 {
+            panic!("invalid arguments");
+        }
+        let before = self.0;
+        let mask = 1 << (player << 1) << side;
+        self.0 |= mask;
+        !before & mask == 0
+    }
+
+    /// Updates the castling rights after played move.
+    ///
+    /// `orig_square` and `dest_square` describe the played move.
+    #[inline]
+    pub fn update(&mut self, orig_square: Square, dest_square: Square) {
+        assert!(orig_square <= 63);
+        assert!(dest_square <= 63);
+        
+        const WQ: usize = 1 << 0;
+        const WK: usize = 1 << 1;
+        const WB: usize = WQ | WK;
+        const BQ: usize = 1 << 2;
+        const BK: usize = 1 << 3;
+        const BB: usize = BQ | BK;
+        
+        // On each move, the value of `CASTLING_RELATION` for the
+        // origin and destination squares should be AND-ed with the
+        // castling rights value, to derive the updated castling
+        // rights.
+        const CASTLING_RELATION: [usize; 64] = [
+            !WQ, !0,  !0,  !0,  !WB, !0,  !0,  !WK,
+            !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
+            !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
+            !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
+            !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
+            !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
+            !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
+            !BQ, !0,  !0,  !0,  !BB, !0,  !0,  !BK,
+        ];
+        self.0 &= unsafe {
+            // AND-ing with anything can not corrupt the instance, so
+            // we are safe even if `orig_square` and `dest_square` are
+            // out of bounds.
+            *CASTLING_RELATION.get_unchecked(orig_square) &
+            *CASTLING_RELATION.get_unchecked(dest_square)
+        };
+    }
+
+    /// Returns if a given player has the rights to castle on a given
+    /// side.
+    #[inline]
+    pub fn can_castle(&self, player: Color, side: CastlingSide) -> bool {
+        assert!(player <= 1);
+        assert!(side <= 1);
+        (1 << (player << 1) << side) & self.0 != 0
+    }
+
+    /// Returns a bitboard with potential castling obstacles.
+    /// 
+    /// Returns a bitboard with the set of squares that should be
+    /// vacant in order for the specified (`player`, `side`) castling
+    /// move to be eventually possible. If `player` does not have the
+    /// rights to castle on `side`, this method will return
+    /// `BB_UNIVERSAL_SET`.
+    #[inline]
+    pub fn obstacles(&self, player: Color, side: CastlingSide) -> Bitboard {
+        const OBSTACLES: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
+                                               [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
+        if self.can_castle(player, side) {
+            OBSTACLES[player][side]
+        } else {
+            // Castling is not allowed, therefore every piece on every
+            // square on the board can be considered an obstacle.
+            BB_UNIVERSAL_SET
+        }
+    }
+}
 
 
 /// Returns the square on given file and rank.

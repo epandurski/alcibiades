@@ -4,139 +4,6 @@ use std::slice;
 use basetypes::*;
 
 
-/// Holds information about which player is allowed to castle on which
-/// side.
-///
-/// The castling rights are held in a `usize` value. The lowest 4 bits
-/// of the value contain the whole needed information. It is laid out
-/// in the following way:
-///
-/// ```text
-///  usize                    3   2   1   0
-///  +----------------------+---+---+---+---+
-///  |                      |   |   |   |   |
-///  |    Unused (zeros)    |Castling flags |
-///  |                      |   |   |   |   |
-///  +----------------------+---+---+---+---+
-///
-///  bit 0 -- if set, white can castle on queen-side;
-///  bit 1 -- if set, white can castle on king-side;
-///  bit 2 -- if set, black can castle on queen-side;
-///  bit 3 -- if set, black can castle on king-side.
-/// ```
-#[derive(Debug)]
-#[derive(Clone, Copy)]
-pub struct CastlingRights(usize);
-
-
-impl CastlingRights {
-    /// Creates a new instance.
-    ///
-    /// The least significant 4 bits of `value` are used as a raw
-    /// value for the new instance.
-    #[inline(always)]
-    pub fn new(value: usize) -> CastlingRights {
-        CastlingRights(value & 0b1111)
-    }
-
-    /// Returns the contained raw value (between 0 and 15).
-    #[inline(always)]
-    pub fn value(&self) -> usize {
-        self.0
-    }
-
-    /// Grants a given player the right to castle on a given side.
-    ///
-    /// This method returns `true` if the player had the right to
-    /// castle on the given side before this method was called, and
-    /// `false` otherwise.
-    pub fn grant(&mut self, player: Color, side: CastlingSide) -> bool {
-        if player > 1 || side > 1 {
-            panic!("invalid arguments");
-        }
-        let before = self.0;
-        let mask = 1 << (player << 1) << side;
-        self.0 |= mask;
-        !before & mask == 0
-    }
-
-    /// Updates the castling rights after played move.
-    ///
-    /// `orig_square` and `dest_square` describe the played move.
-    #[inline]
-    pub fn update(&mut self, orig_square: Square, dest_square: Square) {
-        assert!(orig_square <= 63);
-        assert!(dest_square <= 63);
-        // On each move, the value of `CASTLING_RELATION` for the
-        // origin and destination squares should be &-ed with the
-        // castling rights value, to derive the updated castling
-        // rights.
-        const CASTLING_RELATION: [usize; 64] = [
-            !CASTLE_WHITE_QUEENSIDE, !0, !0, !0,
-            !(CASTLE_WHITE_QUEENSIDE | CASTLE_WHITE_KINGSIDE), !0, !0, !CASTLE_WHITE_KINGSIDE,
-            !0, !0, !0, !0, !0, !0, !0, !0,
-            !0, !0, !0, !0, !0, !0, !0, !0,
-            !0, !0, !0, !0, !0, !0, !0, !0,
-            !0, !0, !0, !0, !0, !0, !0, !0,
-            !0, !0, !0, !0, !0, !0, !0, !0,
-            !0, !0, !0, !0, !0, !0, !0, !0,
-            !CASTLE_BLACK_QUEENSIDE, !0, !0, !0,
-            !(CASTLE_BLACK_QUEENSIDE | CASTLE_BLACK_KINGSIDE), !0, !0, !CASTLE_BLACK_KINGSIDE,
-        ];
-        self.0 &= unsafe {
-            // AND-ing with anything can not corrupt the instance, so
-            // we are safe even if `orig_square` and `dest_square` are
-            // out of bounds.
-            *CASTLING_RELATION.get_unchecked(orig_square) &
-            *CASTLING_RELATION.get_unchecked(dest_square)
-        };
-    }
-
-    /// Returns if a given player has the rights to castle on a given
-    /// side.
-    #[inline]
-    pub fn can_castle(&self, player: Color, side: CastlingSide) -> bool {
-        assert!(player <= 1);
-        assert!(side <= 1);
-        (1 << (player << 1) << side) & self.0 != 0
-    }
-
-    /// Returns a bitboard with potential castling obstacles.
-    /// 
-    /// Returns a bitboard with the set of squares that should be
-    /// vacant in order for the specified (`player`, `side`) castling
-    /// move to be eventually possible. If `player` does not have the
-    /// rights to castle on `side`, because the king or the rook had
-    /// been moved, this method will return `BB_UNIVERSAL_SET`.
-    #[inline]
-    pub fn obstacles(&self, player: Color, side: CastlingSide) -> Bitboard {
-        const OBSTACLES: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
-                                               [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        if self.can_castle(player, side) {
-            OBSTACLES[player][side]
-        } else {
-            // Castling is not allowed, therefore every piece on every
-            // square on the board can be considered an obstacle.
-            !0
-        }
-    }
-}
-
-
-// White can castle on the queen-side.
-const CASTLE_WHITE_QUEENSIDE: usize = 1 << 0;
-
-// White can castle on the king-side.
-const CASTLE_WHITE_KINGSIDE: usize = 1 << 1;
-
-// Black can castle on the queen-side.
-const CASTLE_BLACK_QUEENSIDE: usize = 1 << 2;
-
-// Black can castle on the king-side.
-const CASTLE_BLACK_KINGSIDE: usize = 1 << 3;
-
-
-
 /// Encodes the minimum needed information that unambiguously
 /// describes a move.
 ///
@@ -267,7 +134,8 @@ impl Move {
     ///
     /// * `0` for pawn promotions to pieces other than queen.
     ///
-    /// * `MAX_MOVE_SCORE` for captures and pawn promotions to queen.
+    /// * `Move::max_score()` for captures and pawn promotions to
+    ///   queen.
     /// 
     /// * `0` for all other moves.
     #[inline(always)]
@@ -328,8 +196,14 @@ impl Move {
         Move((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE)
     }
 
+    /// Returns the highest possible move score.
+    #[inline(always)]
+    pub fn max_score() -> usize {
+        MAX_MOVE_SCORE
+    }
+
     /// Assigns a new score for the move (between `0` and
-    /// `MAX_MOVE_SCORE`).
+    /// `Move::max_score()`).
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= MAX_MOVE_SCORE);
@@ -464,25 +338,18 @@ impl Move {
 }
 
 
-/// The maximum possible move score.
-pub const MAX_MOVE_SCORE: usize = M_MASK_SCORE >> M_SHIFT_SCORE;
-
-
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
 /// `MOVE_NORMAL`.
 pub type MoveType = usize;
 
-/// En-passant capture move type.
 pub const MOVE_ENPASSANT: MoveType = 0;
-
-/// Pawn promotion move type.
 pub const MOVE_PROMOTION: MoveType = 1;
-
-/// Castling move type.
 pub const MOVE_CASTLING: MoveType = 2;
-
-/// Normal move type.
 pub const MOVE_NORMAL: MoveType = 3;
+
+
+// The highest possible move score.
+const MAX_MOVE_SCORE: usize = 3;
 
 
 // Field shifts
@@ -563,7 +430,7 @@ impl MoveStack {
         self.savepoints.len()
     }
 
-    /// Deletes all saved move lists.
+    /// Clears the current move list and deletes all saved move lists.
     #[inline]
     pub fn clear(&mut self) {
         self.moves.clear();
@@ -683,6 +550,7 @@ impl MoveStack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::MAX_MOVE_SCORE;
     use basetypes::*;
     const NO_ENPASSANT_FILE: usize = 8;
 

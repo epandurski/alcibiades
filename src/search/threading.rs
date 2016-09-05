@@ -8,9 +8,9 @@ use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
 use chess_move::*;
 use position::Position;
-use engine::INITIAL_ASPIRATION_WINDOW;
-use engine::tt::*;
-use engine::search::Search;
+use tt::*;
+use search::INITIAL_ASPIRATION_WINDOW;
+use search::alpha_beta::Search;
 
 
 /// Represents a command to a search thread.
@@ -56,7 +56,7 @@ pub enum Report {
         searched_depth: u8,
 
         /// The evaluation of the root position so far.
-        value: Option<Value>,
+        value: Value,
     },
 
     /// Reports that the search is finished.
@@ -71,7 +71,7 @@ pub enum Report {
         searched_depth: u8,
 
         /// The evaluation of the root position.
-        value: Option<Value>,
+        value: Value,
     },
 }
 
@@ -111,9 +111,7 @@ pub enum Report {
 ///
 /// This function executes sequential (non-parallel) search to a fixed
 /// depth.
-pub fn serve_simple(tt: Arc<TranspositionTable>,
-                    commands: Receiver<Command>,
-                    reports: Sender<Report>) {
+pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -136,7 +134,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                                    search_id: search_id,
                                    searched_nodes: searched_nodes,
                                    searched_depth: 0,
-                                   value: None,
+                                   value: VALUE_UNKNOWN,
                                })
                                .ok();
                         if let Ok(cmd) = commands.try_recv() {
@@ -147,8 +145,9 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
                         }
                     };
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
-                    let value = search.run(lower_bound, upper_bound, depth, Move::invalid()).ok();
-                    let searched_depth = if value.is_some() {
+                    let value = search.run(lower_bound, upper_bound, depth, Move::invalid())
+                                      .unwrap_or(VALUE_UNKNOWN);
+                    let searched_depth = if value != VALUE_UNKNOWN {
                         depth
                     } else {
                         0
@@ -215,9 +214,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
 /// This function executes a deepening search with aspiration
 /// window. It starts at depth `1` and consequently increases it until
 /// the specified final depth is reached.
-pub fn serve_deepening(tt: Arc<TranspositionTable>,
-                       commands: Receiver<Command>,
-                       reports: Sender<Report>) {
+pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
     // Start a slave thread that will be commanded to run searches
     // with increasing depths (search deepening).
     let (slave_commands_tx, slave_commands_rx) = channel();
@@ -239,7 +236,7 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                 assert!(lower_bound < upper_bound);
                 let mut current_searched_nodes = 0;
-                let mut current_value = None;
+                let mut current_value = VALUE_UNKNOWN;
                 let mut current_depth = 1;
 
                 'depthloop: while current_depth <= depth {
@@ -260,7 +257,7 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
                     let (mut alpha, mut beta) = if current_depth < 5 {
                         (lower_bound, upper_bound)
                     } else {
-                        let v = current_value.unwrap() as isize;
+                        let v = current_value as isize;
                         (max(lower_bound as isize, v - delta) as Value,
                          min(v + delta, upper_bound as isize) as Value)
                     };
@@ -319,10 +316,10 @@ pub fn serve_deepening(tt: Arc<TranspositionTable>,
 
                         // Check if the `current_value` is within the aspiration window
                         // (alpha, beta). If not so, we must consider running a re-search.
-                        let v = current_value.unwrap() as isize;
-                        if current_value.unwrap() <= alpha && lower_bound < alpha {
+                        let v = current_value as isize;
+                        if current_value <= alpha && lower_bound < alpha {
                             alpha = max(lower_bound as isize, v - delta) as Value;
-                        } else if current_value.unwrap() >= beta && upper_bound > beta {
+                        } else if current_value >= beta && upper_bound > beta {
                             beta = min(v + delta, upper_bound as isize) as Value;
                         } else {
                             break 'aspiration;

@@ -1,4 +1,4 @@
-//! Implements the rules of chess and position evaluation logic.
+//! Implements the rules of chess and position evaluation.
 
 pub mod bitsets;
 pub mod tables;
