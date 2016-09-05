@@ -46,7 +46,8 @@ pub struct Variation {
 pub struct SearchStatus {
     started_at: Option<SystemTime>,
     
-    /// `true` if the search is finished, `false` otherwise.
+    /// `true` if the search is finished or has been stopped, `false`
+    /// otherwise.
     pub done: bool,
     
     /// The reached search depth.
@@ -65,7 +66,7 @@ pub struct SearchStatus {
 }
 
 
-/// Executes game tree searches in different positions.
+/// Executes searches in different positions.
 pub struct SearchExecutor {
     tt: Arc<Tt>,
     position: Position,
@@ -165,22 +166,28 @@ impl SearchExecutor {
         }
     }
 
-    /// Stops the current search and joins the search thread.
+    /// Stops the current search and retires the current instance.
     ///
     /// After calling `exit`, no other methods on this instance should
     /// be called.
     pub fn exit(&mut self) {
+        self.stop();
         self.commands.send(Command::Exit).unwrap();
         self.search_thread.take().unwrap().join().unwrap();
     }
 
-    /// Returns current search's status.
+    /// Returns the status of the current search.
+    ///
+    /// **Important note:** Consecutive calls to this method will
+    /// return the same unchanged result. Only after calling
+    /// `update_status` or `start`, the result returned by `status`
+    /// may change.
     #[inline(always)]
     pub fn status(&self) -> &SearchStatus {
         &self.status
     }
 
-    /// Update current search's status.
+    /// Updates the status of the current search.
     pub fn update_status(&mut self) {
         while let Ok(report) = self.reports.try_recv() {
             match report {
