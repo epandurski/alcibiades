@@ -1,4 +1,4 @@
-//! Implements efficient management of the thinking time.
+//! Implements efficient management of thinking time.
 
 use std::cmp::min;
 use basetypes::WHITE;
