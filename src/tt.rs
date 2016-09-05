@@ -118,62 +118,6 @@ impl TtEntry {
 }
 
 
-/// Represents a record in the transposition table.
-///
-/// It consists of 16 bytes, and is laid out the following way:
-///
-/// * key        64 bit
-/// * move16     16 bit
-/// * value      16 bit
-/// * eval value 16 bit
-/// * depth       8 bit
-/// * generation  6 bit
-/// * bound type  2 bit
-#[derive(Copy, Clone)]
-struct Record {
-    key: u64,
-    data: TtEntry,
-}
-
-
-impl Default for Record {
-    fn default() -> Record {
-        Record {
-            key: 0,
-            data: unsafe { transmute(0u64) },
-        }
-    }
-}
-
-
-impl Record {
-    /// Returns the contained data as one `u64` value.
-    #[inline(always)]
-    fn data_u64(&self) -> u64 {
-        unsafe { transmute(self.data) }
-    }
-
-    /// Returns record's generation.
-    #[inline(always)]
-    fn generation(&self) -> u8 {
-        self.data.gen_bound & 0b11111100
-    }
-
-    /// Updates record's generation.
-    #[inline(always)]
-    fn update_generation(&mut self, generation: u8) {
-        assert_eq!(generation & 0b11, 0);
-
-        // Since the `key` is saved XOR-ed with the data, when we
-        // change the data, we have to change the stored `key` as
-        // well.
-        let old_data_u64 = self.data_u64();
-        self.data.gen_bound = generation | self.data.bound();
-        self.key ^= old_data_u64 ^ self.data_u64();
-    }
-}
-
-
 /// A transposition table.
 pub struct Tt {
     generation: Cell<u8>,
@@ -246,8 +190,8 @@ impl Tt {
     /// might have been overwritten in the meantime.
     pub fn store(&self, key: u64, mut data: TtEntry) {
         // `store` and `probe` jointly implement a clever lock-less
-        // hashing method. Rather than storing two disjoint items, the
-        // key is stored XOR-ed with data, while data is stored
+        // hashing strategy. Rather than storing two disjoint items,
+        // the key is stored XOR-ed with data, while data is stored
         // additionally as usual.
 
         // Set the entry's generation.
@@ -372,6 +316,62 @@ impl Tt {
 
 
 unsafe impl Sync for Tt {}
+
+
+/// Represents a record in the transposition table.
+///
+/// It consists of 16 bytes, and is laid out the following way:
+///
+/// * key        64 bit
+/// * move16     16 bit
+/// * value      16 bit
+/// * eval value 16 bit
+/// * depth       8 bit
+/// * generation  6 bit
+/// * bound type  2 bit
+#[derive(Copy, Clone)]
+struct Record {
+    key: u64,
+    data: TtEntry,
+}
+
+
+impl Default for Record {
+    fn default() -> Record {
+        Record {
+            key: 0,
+            data: unsafe { transmute(0u64) },
+        }
+    }
+}
+
+
+impl Record {
+    /// Returns the contained data as one `u64` value.
+    #[inline(always)]
+    fn data_u64(&self) -> u64 {
+        unsafe { transmute(self.data) }
+    }
+
+    /// Returns record's generation.
+    #[inline(always)]
+    fn generation(&self) -> u8 {
+        self.data.gen_bound & 0b11111100
+    }
+
+    /// Updates record's generation.
+    #[inline(always)]
+    fn update_generation(&mut self, generation: u8) {
+        assert_eq!(generation & 0b11, 0);
+
+        // Since the `key` is saved XOR-ed with the data, when we
+        // change the data, we have to change the stored `key` as
+        // well.
+        let old_data_u64 = self.data_u64();
+        self.data.gen_bound = generation | self.data.bound();
+        self.key ^= old_data_u64 ^ self.data_u64();
+    }
+}
 
 
 #[cfg(test)]
