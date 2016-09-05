@@ -222,7 +222,7 @@ impl UciEngine for Engine {
         } else if depth.is_some() {
             PlayWhen::Depth(depth.unwrap() as u8)
         } else {
-            PlayWhen::TimeManagement(TimeManager::new(self.position.board().to_move(),
+            PlayWhen::TimeManagement(TimeManager::new(&self.position,
                                                       self.pondering_is_allowed,
                                                       wtime,
                                                       btime,
@@ -264,7 +264,7 @@ impl UciEngine for Engine {
             if self.silent_since.elapsed().unwrap().as_secs() > 10 {
                 self.queue_progress_report();
             }
-            
+
             // Register the updated search status with the time manager.
             if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
                 tm.update_status(self.search.status());

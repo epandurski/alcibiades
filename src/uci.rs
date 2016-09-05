@@ -1,4 +1,4 @@
-//! Handles the "Universal Chess Interface" protocol communication.
+//! Implements the "Universal Chess Interface" protocol communication.
 
 use std::time;
 use std::thread;

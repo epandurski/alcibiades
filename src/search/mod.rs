@@ -1,4 +1,4 @@
-//! Implements the principal game engine functionality.
+//! Implements the searching of the game tree.
 
 pub mod alpha_beta;
 pub mod threading;
