@@ -4,7 +4,6 @@ pub mod alpha_beta;
 pub mod threading;
 
 use std::thread;
-use std::cmp::min;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
@@ -27,40 +26,6 @@ pub const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 /// If this value is too small the engine may become slow, if this
 /// value is too big the engine may become unresponsive.
 pub const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
-
-
-pub struct TimeManagement {
-    move_time_millis: u64, // move time in milliseconds
-}
-
-impl TimeManagement {
-    #[allow(unused_variables)]
-    pub fn new(us: Color,
-               pondering_is_allowed: bool,
-               wtime: Option<u64>,
-               btime: Option<u64>,
-               winc: Option<u64>,
-               binc: Option<u64>,
-               movestogo: Option<u64>)
-               -> TimeManagement {
-        // TODO: We ignore "pondering_is_allowed".
-
-        let (time, inc) = if us == WHITE {
-            (wtime, winc.unwrap_or(0))
-        } else {
-            (btime, binc.unwrap_or(0))
-        };
-        let time = time.unwrap_or(0);
-        let movestogo = movestogo.unwrap_or(40);
-        let movetime = (time + inc * movestogo) / movestogo;
-        TimeManagement { move_time_millis: min(movetime, time / 2) }
-    }
-
-    pub fn must_play(&self, search_status: &SearchStatus) -> bool {
-        // TODO: Implement smarter time management.
-        search_status.duration_millis >= self.move_time_millis
-    }
-}
 
 
 /// A sequence of moves from some starting position, together with the

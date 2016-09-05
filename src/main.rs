@@ -9,6 +9,7 @@ pub mod position;
 pub mod search;
 pub mod uci;
 pub mod tt;
+pub mod time_manager;
 
 use std::process::exit;
 use std::sync::Arc;
@@ -18,7 +19,9 @@ use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::Position;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
-use search::{TimeManagement, Variation, SearchStatus, MultipvSearch};
+use search::{Variation, SearchStatus, MultipvSearch};
+use time_manager::TimeManager;
+
 
 /// The version of the program.
 pub const VERSION: &'static str = "0.1";
@@ -35,7 +38,7 @@ const STARTING_POSITION: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQ
 
 // Represents a condition for terminating the search.
 enum PlayWhen {
-    TimeManagement(TimeManagement), // Stop when `TimeManagement` says.
+    TimeManagement(TimeManager), // Stop when the time manager says.
     MoveTime(u64), // Stop after the given number of milliseconds.
     Nodes(NodeCount), // Stop when the given number of nodes has been searched.
     Depth(u8), // Stop when the given search depth has been reached.
@@ -219,13 +222,13 @@ impl UciEngine for Engine {
         } else if depth.is_some() {
             PlayWhen::Depth(depth.unwrap() as u8)
         } else {
-            PlayWhen::TimeManagement(TimeManagement::new(self.position.board().to_move(),
-                                                         self.pondering_is_allowed,
-                                                         wtime,
-                                                         btime,
-                                                         winc,
-                                                         binc,
-                                                         movestogo))
+            PlayWhen::TimeManagement(TimeManager::new(self.position.board().to_move(),
+                                                      self.pondering_is_allowed,
+                                                      wtime,
+                                                      btime,
+                                                      winc,
+                                                      binc,
+                                                      movestogo))
         };
         self.silent_since = SystemTime::now();
         self.search.start(&self.position, searchmoves, self.variations_count);
