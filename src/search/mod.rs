@@ -45,28 +45,28 @@ pub struct Variation {
 /// Contains information about the current progress of a search.
 pub struct SearchStatus {
     started_at: Option<SystemTime>,
-    
+
     /// `true` if the search is finished or has been stopped, `false`
     /// otherwise.
     pub done: bool,
-    
+
     /// The reached search depth.
     pub depth: u8,
-    
+
     pub variations: Vec<Variation>,
-    
+
     /// Number of milliseconds since the beginning of the search.
     pub duration_millis: u64,
-    
+
     /// Number of analyzed nodes since the beginning of the search.
     pub searched_nodes: NodeCount,
-    
+
     /// Number of analyzed nodes per second.
     pub nps: NodeCount,
 }
 
 
-/// Executes searches in different positions.
+/// Executes searches in different starting positions.
 pub struct SearchExecutor {
     tt: Arc<Tt>,
     position: Position,
@@ -117,18 +117,28 @@ impl SearchExecutor {
         }
     }
 
-    /// Starts a new search.
+    /// Stops the current search and starts a new one.
+    ///
+    /// `position` is the starting position for the new
+    /// search. `searchmoves` may restrict the analysis to the
+    /// supplied subset of moves only. The move format is in long
+    /// algebraic notation. Examples: e2e4, e7e5, e1g1 (white short
+    /// castling), e7e8q (for promotion). `pv_count` specifies how
+    /// many best lines to calculate (the first move in each best line
+    /// will be different).
     #[allow(unused_variables)]
-    pub fn start(&mut self, p: &Position, searchmoves: Option<Vec<String>>, pv_count: usize) {
+    pub fn start(&mut self,
+                 position: &Position,
+                 searchmoves: Option<Vec<String>>,
+                 pv_count: usize) {
         // TODO: We ignore the "pv_count" parameter.
-        assert_eq!(pv_count, 1);
 
         // TODO: We ignore the "searchmoves" parameter.
 
         // TODO: Add `self.legal_moves_count` filed.
 
         self.stop();
-        self.position = p.clone();
+        self.position = position.clone();
         self.status = SearchStatus {
             started_at: Some(SystemTime::now()),
             done: false,
@@ -145,7 +155,7 @@ impl SearchExecutor {
         self.commands
             .send(Command::Search {
                 search_id: 0,
-                position: p.clone(),
+                position: position.clone(),
                 depth: MAX_DEPTH,
                 lower_bound: -29999,
                 upper_bound: 29999,
@@ -154,6 +164,8 @@ impl SearchExecutor {
     }
 
     /// Stops the current search.
+    ///
+    /// Does nothing if the current search is already stopped.
     pub fn stop(&mut self) {
         if !self.status.done {
             self.commands.send(Command::Stop).unwrap();
@@ -164,27 +176,6 @@ impl SearchExecutor {
             }
             self.status.done = true;
         }
-    }
-
-    /// Stops the current search and retires the current instance.
-    ///
-    /// After calling `exit`, no other methods on this instance should
-    /// be called.
-    pub fn exit(&mut self) {
-        self.stop();
-        self.commands.send(Command::Exit).unwrap();
-        self.search_thread.take().unwrap().join().unwrap();
-    }
-
-    /// Returns the status of the current search.
-    ///
-    /// **Important note:** Consecutive calls to this method will
-    /// return the same unchanged result. Only after calling
-    /// `update_status` or `start`, the result returned by `status`
-    /// may change.
-    #[inline(always)]
-    pub fn status(&self) -> &SearchStatus {
-        &self.status
     }
 
     /// Updates the status of the current search.
@@ -199,6 +190,27 @@ impl SearchExecutor {
                 }
             }
         }
+    }
+
+    /// Returns the status of the current search.
+    ///
+    /// **Important note:** Consecutive calls to this method will
+    /// return the same unchanged result. Only after calling
+    /// `update_status` or `start`, the result returned by `status`
+    /// may change.
+    #[inline(always)]
+    pub fn status(&self) -> &SearchStatus {
+        &self.status
+    }
+
+    /// Stops the current search and retires the current instance.
+    ///
+    /// After calling `exit`, no other methods on this instance should
+    /// be called.
+    pub fn exit(&mut self) {
+        self.stop();
+        self.commands.send(Command::Exit).unwrap();
+        self.search_thread.take().unwrap().join().unwrap();
     }
 
     // A helper method. It updates the search status info and makes
