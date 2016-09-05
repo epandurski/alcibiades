@@ -42,19 +42,31 @@ pub struct Variation {
 }
 
 
+/// Contains information about the current progress of a search.
 pub struct SearchStatus {
     started_at: Option<SystemTime>,
+    
+    /// `true` if the search is finished, `false` otherwise.
     pub done: bool,
+    
+    /// The reached search depth.
     pub depth: u8,
+    
     pub variations: Vec<Variation>,
+    
+    /// Number of milliseconds since the beginning of the search.
+    pub duration_millis: u64,
+    
+    /// Number of analyzed nodes since the beginning of the search.
     pub searched_nodes: NodeCount,
-    pub duration_millis: u64, // search duration in milliseconds
-    pub nps: u64, // nodes per second
+    
+    /// Number of analyzed nodes per second.
+    pub nps: NodeCount,
 }
 
 
-/// Implements `UciEngine` trait.
-pub struct MultipvSearch {
+/// Executes game tree searches in different positions.
+pub struct SearchExecutor {
     tt: Arc<Tt>,
     position: Position,
     status: SearchStatus,
@@ -70,9 +82,9 @@ pub struct MultipvSearch {
 }
 
 
-impl MultipvSearch {
+impl SearchExecutor {
     /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> MultipvSearch {
+    pub fn new(tt: Arc<Tt>) -> SearchExecutor {
 
         // Spawn the search thread.
         let (commands_tx, commands_rx) = channel();
@@ -82,7 +94,7 @@ impl MultipvSearch {
             serve_deepening(tt_clone, commands_rx, reports_tx);
         });
 
-        MultipvSearch {
+        SearchExecutor {
             tt: tt,
             search_thread: Some(search_thread),
             position: Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").ok().unwrap(),
@@ -162,11 +174,13 @@ impl MultipvSearch {
         self.search_thread.take().unwrap().join().unwrap();
     }
 
+    /// Returns current search's status.
     #[inline(always)]
     pub fn status(&self) -> &SearchStatus {
         &self.status
     }
 
+    /// Update current search's status.
     pub fn update_status(&mut self) {
         while let Ok(report) = self.reports.try_recv() {
             match report {
