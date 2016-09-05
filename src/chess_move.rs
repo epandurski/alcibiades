@@ -267,7 +267,8 @@ impl Move {
     ///
     /// * `0` for pawn promotions to pieces other than queen.
     ///
-    /// * `MAX_MOVE_SCORE` for captures and pawn promotions to queen.
+    /// * `Move::max_score()` for captures and pawn promotions to
+    ///   queen.
     /// 
     /// * `0` for all other moves.
     #[inline(always)]
@@ -328,8 +329,14 @@ impl Move {
         Move((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE)
     }
 
+    /// Returns the highest possible move score.
+    #[inline(always)]
+    pub fn max_score() -> usize {
+        MAX_MOVE_SCORE
+    }
+
     /// Assigns a new score for the move (between `0` and
-    /// `MAX_MOVE_SCORE`).
+    /// `Move::max_score()`).
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
         assert!(score <= MAX_MOVE_SCORE);
@@ -464,10 +471,6 @@ impl Move {
 }
 
 
-/// The highest possible move score.
-pub const MAX_MOVE_SCORE: usize = 3;
-
-
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
 /// `MOVE_NORMAL`.
 pub type MoveType = usize;
@@ -476,6 +479,10 @@ pub const MOVE_ENPASSANT: MoveType = 0;
 pub const MOVE_PROMOTION: MoveType = 1;
 pub const MOVE_CASTLING: MoveType = 2;
 pub const MOVE_NORMAL: MoveType = 3;
+
+
+// The highest possible move score.
+const MAX_MOVE_SCORE: usize = 3;
 
 
 // Field shifts
@@ -676,6 +683,7 @@ impl MoveStack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::MAX_MOVE_SCORE;
     use basetypes::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
