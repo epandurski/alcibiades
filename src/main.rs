@@ -253,7 +253,6 @@ impl UciEngine for Engine {
             self.search.update_status();
             let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } = self.search
                                                                                          .status();
-
             // Send the (multi)PV when changed.
             if depth > self.current_depth {
                 self.current_depth = depth;
