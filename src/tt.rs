@@ -14,7 +14,6 @@
 use std;
 use std::cell::{UnsafeCell, Cell};
 use std::mem::transmute;
-use std::num::Wrapping;
 use basetypes::Value;
 use chess_move::MoveDigest;
 
@@ -236,7 +235,7 @@ impl Tt {
     pub fn new_search(&self) {
         // Note: The lowest 2 bits of the `generation` field are used
         // for the bound type.
-        self.generation.set((Wrapping(self.generation.get()) + Wrapping(0b100)).0);
+        self.generation.set(self.generation.get().wrapping_add(0b100));
         assert_eq!(self.generation.get() & 0b11, 0);
     }
 
@@ -362,7 +361,7 @@ impl Tt {
         })
     }
 
-    // A helper method for `probe` and `store`. It gives the cluster
+    // A helper method for `probe` and `store`. It returns the cluster
     // for a given key. (Each cluster can store up to 4 records.)
     #[inline]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
