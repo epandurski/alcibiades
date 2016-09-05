@@ -5,10 +5,12 @@ use search::SearchStatus;
 
 pub struct TimeManager {
     move_time_millis: u64, // move time in milliseconds
+    must_play: bool,
 }
 
 
 impl TimeManager {
+    /// Creates a new instance.
     #[allow(unused_variables)]
     pub fn new(us: Color,
                pondering_is_allowed: bool,
@@ -28,13 +30,21 @@ impl TimeManager {
         let time = time.unwrap_or(0);
         let movestogo = movestogo.unwrap_or(40);
         let movetime = (time + inc * movestogo) / movestogo;
-        TimeManager { move_time_millis: min(movetime, time / 2) }
+        TimeManager {
+            move_time_millis: min(movetime, time / 2),
+            must_play: false,
+        }
     }
 
-    pub fn must_play(&self, search_status: &SearchStatus) -> bool {
+    /// Registers the current search status with the time manager.
+    pub fn update_status(&mut self, search_status: &SearchStatus) {
         // TODO: Implement smarter time management.
-        search_status.duration_millis >= self.move_time_millis
+        self.must_play = search_status.duration_millis >= self.move_time_millis;
+    }
+
+    /// Decides if the search must be terminated.
+    #[inline]
+    pub fn must_play(&self) -> bool {
+        self.must_play
     }
 }
-
-

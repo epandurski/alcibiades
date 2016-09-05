@@ -264,11 +264,16 @@ impl UciEngine for Engine {
             if self.silent_since.elapsed().unwrap().as_secs() > 10 {
                 self.queue_progress_report();
             }
+            
+            // Register the updated search status with the time manager.
+            if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
+                tm.update_status(self.search.status());
+            }
 
             // Check if we must play now.
             if !self.is_pondering &&
                match self.play_when {
-                PlayWhen::TimeManagement(ref tm) => done || tm.must_play(self.search.status()),
+                PlayWhen::TimeManagement(ref tm) => done || tm.must_play(),
                 PlayWhen::MoveTime(t) => done || duration_millis >= t,
                 PlayWhen::Nodes(n) => done || searched_nodes >= n,
                 PlayWhen::Depth(d) => done || depth >= d,
