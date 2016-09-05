@@ -123,15 +123,15 @@ impl SearchExecutor {
     /// search. `searchmoves` may restrict the analysis to the
     /// supplied subset of moves only. The move format is in long
     /// algebraic notation. Examples: e2e4, e7e5, e1g1 (white short
-    /// castling), e7e8q (for promotion). `pv_count` specifies how
-    /// many best lines to calculate (the first move in each best line
-    /// will be different).
+    /// castling), e7e8q (for promotion). `variation_count` specifies
+    /// how many best lines to calculate (the first move in each best
+    /// line will be different).
     #[allow(unused_variables)]
     pub fn start(&mut self,
                  position: &Position,
                  searchmoves: Option<Vec<String>>,
-                 pv_count: usize) {
-        // TODO: We ignore the "pv_count" parameter.
+                 variation_count: usize) {
+        // TODO: We ignore the "variation_count" parameter.
 
         // TODO: We ignore the "searchmoves" parameter.
 

@@ -62,7 +62,7 @@ pub struct Engine {
     // Tells the engine how many best lines to calculate and send to
     // the GUI (the first move in each best line is different). This
     // is the so called "MultiPV" mode.
-    variations_count: usize,
+    variation_count: usize,
 
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
@@ -98,7 +98,7 @@ impl Engine {
             current_depth: 0,
             search: SearchExecutor::new(tt),
             play_when: PlayWhen::Never,
-            variations_count: 1,
+            variation_count: 1,
             pondering_is_allowed: false,
             is_pondering: false,
             silent_since: SystemTime::now(),
@@ -169,7 +169,7 @@ impl UciEngine for Engine {
             }
 
             "MultiPV" => {
-                self.variations_count = match value.parse::<usize>().unwrap_or(0) {
+                self.variation_count = match value.parse::<usize>().unwrap_or(0) {
                     0 => 1,
                     n if n > 500 => 500,
                     n => n,
@@ -231,7 +231,7 @@ impl UciEngine for Engine {
                                                       movestogo))
         };
         self.silent_since = SystemTime::now();
-        self.search.start(&self.position, searchmoves, self.variations_count);
+        self.search.start(&self.position, searchmoves, self.variation_count);
     }
 
     fn ponder_hit(&mut self) {
