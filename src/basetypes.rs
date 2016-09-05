@@ -170,8 +170,7 @@ pub const KINGSIDE: CastlingSide = 1;
 
 
 
-/// Holds information about which player is allowed to castle on which
-/// side.
+/// Holds information about which player can castle on which side.
 ///
 /// The castling rights are held in a `usize` value. The lowest 4 bits
 /// of the value contain the whole needed information. It is laid out
@@ -288,7 +287,7 @@ impl CastlingRights {
         } else {
             // Castling is not allowed, therefore every piece on every
             // square on the board can be considered an obstacle.
-            !0
+            BB_UNIVERSAL_SET
         }
     }
 }
