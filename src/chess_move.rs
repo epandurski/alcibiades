@@ -464,7 +464,7 @@ impl Move {
 }
 
 
-/// The maximum possible move score.
+/// The highest possible move score.
 pub const MAX_MOVE_SCORE: usize = 3;
 
 
@@ -472,16 +472,9 @@ pub const MAX_MOVE_SCORE: usize = 3;
 /// `MOVE_NORMAL`.
 pub type MoveType = usize;
 
-/// En-passant capture move type.
 pub const MOVE_ENPASSANT: MoveType = 0;
-
-/// Pawn promotion move type.
 pub const MOVE_PROMOTION: MoveType = 1;
-
-/// Castling move type.
 pub const MOVE_CASTLING: MoveType = 2;
-
-/// Normal move type.
 pub const MOVE_NORMAL: MoveType = 3;
 
 
