@@ -111,9 +111,7 @@ pub enum Report {
 ///
 /// This function executes sequential (non-parallel) search to a fixed
 /// depth.
-pub fn serve_simple(tt: Arc<TranspositionTable>,
-                    commands: Receiver<Command>,
-                    reports: Sender<Report>) {
+pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -216,9 +214,7 @@ pub fn serve_simple(tt: Arc<TranspositionTable>,
 /// This function executes a deepening search with aspiration
 /// window. It starts at depth `1` and consequently increases it until
 /// the specified final depth is reached.
-pub fn serve_deepening(tt: Arc<TranspositionTable>,
-                       commands: Receiver<Command>,
-                       reports: Sender<Report>) {
+pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
     // Start a slave thread that will be commanded to run searches
     // with increasing depths (search deepening).
     let (slave_commands_tx, slave_commands_rx) = channel();

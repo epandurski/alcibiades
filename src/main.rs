@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use std::collections::VecDeque;
 use basetypes::NodeCount;
-use tt::{TranspositionTable, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
+use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::Position;
 use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
 use search::{TimeManagement, Variation, SearchStatus, MultipvSearch};
@@ -45,7 +45,7 @@ enum PlayWhen {
 
 /// Implements `UciEngine` trait.
 pub struct Engine {
-    tt: Arc<TranspositionTable>,
+    tt: Arc<Tt>,
     position: Position,
     current_depth: u8,
 
@@ -85,7 +85,7 @@ impl Engine {
     /// `tt_size_mb` is the preferred size of the transposition
     /// table in Mbytes.
     pub fn new(tt_size_mb: usize) -> Engine {
-        let mut tt = TranspositionTable::new();
+        let mut tt = Tt::new();
         tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
 
@@ -204,7 +204,7 @@ impl UciEngine for Engine {
           mate: Option<u64>,
           movetime: Option<u64>,
           infinite: bool) {
-        // NOTE: We ignore the "mate" parameter.
+        // Note: We ignore the "mate" parameter.
 
         self.search.stop();
         self.tt.new_search();

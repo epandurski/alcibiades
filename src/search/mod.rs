@@ -90,7 +90,7 @@ pub struct SearchStatus {
 
 /// Implements `UciEngine` trait.
 pub struct MultipvSearch {
-    tt: Arc<TranspositionTable>,
+    tt: Arc<Tt>,
     position: Position,
     status: SearchStatus,
 
@@ -107,7 +107,7 @@ pub struct MultipvSearch {
 
 impl MultipvSearch {
     /// Creates a new instance.
-    pub fn new(tt: Arc<TranspositionTable>) -> MultipvSearch {
+    pub fn new(tt: Arc<Tt>) -> MultipvSearch {
 
         // Spawn the search thread.
         let (commands_tx, commands_rx) = channel();
