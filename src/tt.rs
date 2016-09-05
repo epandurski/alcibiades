@@ -44,6 +44,7 @@ pub const BOUND_LOWER: BoundType = 0b01;
 pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 
 
+
 /// Contains information about a particular position.
 #[derive(Copy, Clone)]
 pub struct TtEntry {
@@ -58,6 +59,7 @@ pub struct TtEntry {
     // bound type.
     gen_bound: u8,
 }
+
 
 impl TtEntry {
     /// Creates a new instance.
@@ -117,12 +119,14 @@ impl TtEntry {
 }
 
 
+
 /// A transposition table.
 pub struct Tt {
     generation: Cell<u8>,
     cluster_count: usize,
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
+
 
 impl Tt {
     /// Creates a new transposition table.
@@ -312,7 +316,10 @@ impl Tt {
     }
 }
 
+
 unsafe impl Sync for Tt {}
+
+
 
 
 /// Represents a record in the transposition table.
@@ -332,6 +339,7 @@ struct Record {
     data: TtEntry,
 }
 
+
 impl Default for Record {
     fn default() -> Record {
         Record {
@@ -340,6 +348,7 @@ impl Default for Record {
         }
     }
 }
+
 
 impl Record {
     /// Returns the contained data as one `u64` value.
@@ -367,6 +376,7 @@ impl Record {
         self.key ^= old_data_u64 ^ self.data_u64();
     }
 }
+
 
 
 #[cfg(test)]
