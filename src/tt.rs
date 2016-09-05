@@ -59,7 +59,6 @@ pub struct TtEntry {
     gen_bound: u8,
 }
 
-
 impl TtEntry {
     /// Creates a new instance.
     ///
@@ -124,7 +123,6 @@ pub struct Tt {
     cluster_count: usize,
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
-
 
 impl Tt {
     /// Creates a new transposition table.
@@ -335,7 +333,6 @@ struct Record {
     data: TtEntry,
 }
 
-
 impl Default for Record {
     fn default() -> Record {
         Record {
@@ -344,7 +341,6 @@ impl Default for Record {
         }
     }
 }
-
 
 impl Record {
     /// Returns the contained data as one `u64` value.
