@@ -18,7 +18,7 @@ use std::collections::VecDeque;
 use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::Position;
-use uci::{UciEngine, UciEngineFactory, EngineReply, OptionName, OptionDescription};
+use uci::{UciEngine, UciEngineFactory};
 use search::{Variation, SearchStatus, MultipvSearch};
 use time_manager::TimeManager;
 
@@ -78,7 +78,7 @@ pub struct Engine {
     silent_since: SystemTime,
 
     // A queue for the messages send by the engine to the GUI.
-    queue: VecDeque<EngineReply>,
+    queue: VecDeque<uci::EngineReply>,
 }
 
 
@@ -110,7 +110,7 @@ impl Engine {
     // `self.queue`.
     fn queue_progress_report(&mut self) {
         let &SearchStatus { depth, searched_nodes, nps, .. } = self.search.status();
-        self.queue.push_back(EngineReply::Info(vec![
+        self.queue.push_back(uci::EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("nodes".to_string(), format!("{}", searched_nodes)),
             ("nps".to_string(), format!("{}", nps)),
@@ -135,7 +135,7 @@ impl Engine {
                 moves_string.push_str(&m.notation());
                 moves_string.push(' ');
             }
-            self.queue.push_back(EngineReply::Info(vec![
+            self.queue.push_back(uci::EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("multipv".to_string(), format!("{}", i + 1)),
             ("score".to_string(), format!("cp {}{}", value, bound_suffix)),
@@ -152,7 +152,7 @@ impl Engine {
     // best move to `self.queue`.
     fn queue_best_move(&mut self) {
         let &SearchStatus { ref variations, .. } = self.search.status();
-        self.queue.push_back(EngineReply::BestMove {
+        self.queue.push_back(uci::EngineReply::BestMove {
             best_move: variations[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
             ponder_move: variations[0].moves.get(1).map(|m| m.notation()),
         });
@@ -247,7 +247,7 @@ impl UciEngine for Engine {
         self.queue_best_move();
     }
 
-    fn get_reply(&mut self) -> Option<EngineReply> {
+    fn get_reply(&mut self) -> Option<uci::EngineReply> {
         if !self.search.status().done {
             // Update the search status.
             self.search.update_status();
@@ -305,12 +305,12 @@ impl UciEngineFactory<Engine> for EngineFactory {
         AUTHOR.to_string()
     }
 
-    fn options(&self) -> Vec<(OptionName, OptionDescription)> {
+    fn options(&self) -> Vec<(uci::OptionName, uci::OptionDescription)> {
         vec![
             // TODO: Calculate a sane limit for the hash size.
-            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
-            ("Ponder".to_string(), OptionDescription::Check { default: false }),
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
+            ("Hash".to_string(), uci::OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
+            ("Ponder".to_string(), uci::OptionDescription::Check { default: false }),
+            ("MultiPV".to_string(), uci::OptionDescription::Spin { min: 1, max: 500, default: 1 }),
         ]
     }
 
