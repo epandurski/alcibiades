@@ -39,17 +39,9 @@ use chess_move::MoveDigest;
 ///   or grater than the evaluation.
 pub type BoundType = u8;
 
-
-/// Neither exact value nor a bound.
 pub const BOUND_NONE: BoundType = 0;
-
-/// Upper bound.
 pub const BOUND_UPPER: BoundType = 0b10;
-
-/// Lower bound.
 pub const BOUND_LOWER: BoundType = 0b01;
-
-/// Exact value.
 pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 
 
