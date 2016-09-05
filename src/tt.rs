@@ -51,8 +51,13 @@ pub struct TtEntry {
     move16: MoveDigest,
     value: Value,
     eval_value: Value,
-    gen_bound: u8,
     depth: u8,
+
+    // The transposition table maintains a generation counter for each
+    // entry, which is used to implement an efficient replacement
+    // strategy. This field stores the entry's generation and the
+    // bound type.
+    gen_bound: u8,
 }
 
 
@@ -82,8 +87,8 @@ impl TtEntry {
             move16: move16,
             value: value,
             eval_value: eval_value,
-            gen_bound: bound, // Stores the entry's generation and the bound.
             depth: depth,
+            gen_bound: bound,
         }
     }
 
@@ -122,9 +127,9 @@ impl TtEntry {
 /// * move16     16 bit
 /// * value      16 bit
 /// * eval value 16 bit
+/// * depth       8 bit
 /// * generation  6 bit
 /// * bound type  2 bit
-/// * depth       8 bit
 #[derive(Copy, Clone)]
 struct Record {
     key: u64,
@@ -227,22 +232,7 @@ impl Tt {
         unsafe { &*self.table.get() }.len() * std::mem::size_of::<[Record; 4]>() / 1024 / 1024
     }
 
-    /// Removes all entries in the table.
-    pub fn clear(&self) {
-        let table = unsafe { self.table.get().as_mut().unwrap() };
-        for cluster in table {
-            for record in cluster.iter_mut() {
-                *record = Default::default();
-            }
-        }
-        self.generation.set(0);
-    }
-
     /// Signals that a new search is about to begin.
-    ///
-    /// Internally, the transposition table maintains a generation
-    /// counter that is used to implement an efficient replacement
-    /// strategy. This method increases this counter.
     pub fn new_search(&self) {
         // Note: The lowest 2 bits of the `generation` field are used
         // for the bound type.
@@ -250,47 +240,11 @@ impl Tt {
         assert_eq!(self.generation.get() & 0b11, 0);
     }
 
-    /// Probes for data by a specific key.
-    #[inline]
-    pub fn probe(&self, key: u64) -> Option<TtEntry> {
-        let cluster = unsafe { self.cluster_mut(key) };
-        for record in cluster.iter_mut() {
-            if record.key ^ record.data_u64() == key {
-                // If `key` and `data` were written simultaneously by
-                // different search instances with different keys,
-                // this will yield in a mismatch of the above
-                // comparison (except for the rare and inherent key
-                // collisions).
-                record.update_generation(self.generation.get());
-                return Some(record.data);
-            }
-        }
-        None
-    }
-
-    /// Peeks for data by a specific key.
-    ///
-    /// This method does the same as `probe`, except it does not
-    /// update the generation of the entry. This is useful when we
-    /// want to extract the primary variation from the the
-    /// transposition table, without affecting the entries in the
-    /// table.
-    #[inline]
-    pub fn peek(&self, key: u64) -> Option<TtEntry> {
-        let cluster = unsafe { self.cluster_mut(key) };
-        for record in cluster.iter_mut() {
-            if record.key ^ record.data_u64() == key {
-                return Some(record.data);
-            }
-        }
-        None
-    }
-
     /// Stores data by a specific key.
     ///
     /// After being stored, the data might be retrieved by
-    /// `probe(key)`. This is not guaranteed though, because in the
-    /// meantime it might have been overwritten.
+    /// `probe(key)`. This is not guaranteed though, because the entry
+    /// might have been overwritten in the meantime.
     pub fn store(&self, key: u64, mut data: TtEntry) {
         // `store` and `probe` jointly implement a clever lock-less
         // hashing method. Rather than storing two disjoint items, the
@@ -332,6 +286,56 @@ impl Tt {
             cluster.get_unchecked_mut(replace_index).key = key ^ transmute::<TtEntry, u64>(data);
             cluster.get_unchecked_mut(replace_index).data = data;
         }
+    }
+
+    /// Probes for data by a specific key.
+    ///
+    /// **Note:** This method may write to the transposition table
+    /// (for example, to update the generation of the entry).
+    #[inline]
+    pub fn probe(&self, key: u64) -> Option<TtEntry> {
+        let cluster = unsafe { self.cluster_mut(key) };
+        for record in cluster.iter_mut() {
+            if record.key ^ record.data_u64() == key {
+                // If `key` and `data` were written simultaneously by
+                // different search instances with different keys,
+                // this will yield in a mismatch of the above
+                // comparison (except for the rare and inherent key
+                // collisions).
+                record.update_generation(self.generation.get());
+                return Some(record.data);
+            }
+        }
+        None
+    }
+
+    /// Peeks for data by a specific key.
+    ///
+    /// This method does the same as `probe`, except it will never
+    /// write to the transposition table. This is useful, for example,
+    /// when we want to extract the primary variation from the the
+    /// transposition table, without affecting any entries in the
+    /// table.
+    #[inline]
+    pub fn peek(&self, key: u64) -> Option<TtEntry> {
+        let cluster = unsafe { self.cluster_mut(key) };
+        for record in cluster.iter_mut() {
+            if record.key ^ record.data_u64() == key {
+                return Some(record.data);
+            }
+        }
+        None
+    }
+
+    /// Removes all entries in the table.
+    pub fn clear(&self) {
+        let table = unsafe { self.table.get().as_mut().unwrap() };
+        for cluster in table {
+            for record in cluster.iter_mut() {
+                *record = Default::default();
+            }
+        }
+        self.generation.set(0);
     }
 
     // A helper method for `store`. It implements our replacement
