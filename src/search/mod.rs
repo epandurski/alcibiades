@@ -196,8 +196,8 @@ impl SearchExecutor {
     ///
     /// **Important note:** Consecutive calls to this method will
     /// return the same unchanged result. Only after calling
-    /// `update_status` or `start`, the result returned by `status`
-    /// may change.
+    /// `update_status`, `start`, or `stop`, the result returned by
+    /// `status` may change.
     #[inline(always)]
     pub fn status(&self) -> &SearchStatus {
         &self.status
