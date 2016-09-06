@@ -162,7 +162,7 @@ impl Tt {
         // sure that `requested_cluster_count` is exceeded. Then we
         // make one step back.)
         let mut new_cluster_count = 1;
-        while requested_cluster_count >= new_cluster_count {
+        while new_cluster_count <= requested_cluster_count && new_cluster_count != 0 {
             new_cluster_count <<= 1;
         }
         if new_cluster_count > 1 {
