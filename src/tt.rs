@@ -121,10 +121,13 @@ impl TtEntry {
 
 
 /// A transposition table.
+///
+/// `Tt` methods (except `resize`) do not require a mutable reference
+/// to do their work. This allows one transposition table instance to
+/// be shared safely between many threads.
 pub struct Tt {
     // This is the current generation number. The lowest 2 bits will
-    // always be zeros. We use `Cell` here, because we will use shared
-    // references to write to the transposition table.
+    // always be zeros.
     generation: Cell<u8>,
     
     // The number of clusters in the table.
