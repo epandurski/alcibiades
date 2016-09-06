@@ -53,10 +53,10 @@ pub struct TtEntry {
     eval_value: Value,
     depth: u8,
 
-    // The transposition table maintains a generation counter for each
+    // The transposition table maintains a generation number for each
     // entry, which is used to implement an efficient replacement
-    // strategy. This field stores the entry's generation and the
-    // bound type.
+    // strategy. This field stores the entry's generation (the highest
+    // 6 bits) and the bound type (the lowest 2 bits).
     gen_bound: u8,
 }
 
@@ -122,8 +122,15 @@ impl TtEntry {
 
 /// A transposition table.
 pub struct Tt {
+    // This is the current generation number. The lowest 2 bits will
+    // always be zeros.
     generation: Cell<u8>,
+    
+    // The number of clusters in the table.
     cluster_count: usize,
+    
+    // The table consists of a vector of clusters. Each cluster stores
+    // 4 records.
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
 
@@ -151,21 +158,21 @@ impl Tt {
     pub fn resize(&mut self, size_mb: usize) {
         let requested_cluster_count = (size_mb * 1024 * 1024) / std::mem::size_of::<[Record; 4]>();
 
-        // First, make sure `requested_cluster_count` is exceeded.
+        // Calculate the new cluster count. (To do this, first we make
+        // sure that `requested_cluster_count` is exceeded. Then we
+        // make one step back.)
         let mut new_cluster_count = 1;
         while requested_cluster_count >= new_cluster_count {
             new_cluster_count <<= 1;
         }
-
-        // Then make one step back, being careful so that the new
-        // cluster count is not zero.
         if new_cluster_count > 1 {
             new_cluster_count >>= 1;
         } else {
             new_cluster_count = 1;
         }
+        assert!(new_cluster_count > 0);
 
-        // Finally, reallocate the vector of clusters.
+        // Allocate the new vector of clusters.
         if new_cluster_count != self.cluster_count {
             self.cluster_count = new_cluster_count;
             self.table = UnsafeCell::new(vec![Default::default(); new_cluster_count]);
@@ -179,8 +186,6 @@ impl Tt {
 
     /// Signals that a new search is about to begin.
     pub fn new_search(&self) {
-        // Note: The lowest 2 bits of the `generation` field are used
-        // for the bound type.
         self.generation.set(self.generation.get().wrapping_add(0b100));
         assert_eq!(self.generation.get() & 0b11, 0);
     }
@@ -217,8 +222,8 @@ impl Tt {
             }
 
             // Calculate the score for this record. If we can not find
-            // an empty/old slot, the replaced record will be the
-            // record with the lowest score.
+            // an empty slot or an old record, the replaced record
+            // will be the record with the lowest score.
             let record_score = self.calc_score(record);
             if record_score < replace_score {
                 replace_index = i;
@@ -308,7 +313,7 @@ impl Tt {
     }
 
     // A helper method for `probe` and `store`. It returns the cluster
-    // for a given key. (Each cluster can store up to 4 records.)
+    // for a given key.
     #[inline]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
         let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
