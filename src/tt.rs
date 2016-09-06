@@ -123,7 +123,8 @@ impl TtEntry {
 /// A transposition table.
 pub struct Tt {
     // This is the current generation number. The lowest 2 bits will
-    // always be zeros.
+    // always be zeros. We use `Cell` here, because we will use shared
+    // references to write to the transposition table.
     generation: Cell<u8>,
     
     // The number of clusters in the table.
