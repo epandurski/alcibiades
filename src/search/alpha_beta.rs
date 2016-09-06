@@ -383,7 +383,9 @@ impl<'a> Search<'a> {
 
             // We should not forget to remove the already tried hash
             // move from the list.
-            self.moves.remove_move(state.entry.move16());
+            if state.entry.move16() != 0 {
+                self.moves.remove_move(state.entry.move16());
+            }
 
             // We set new move scores to all captures and promotions
             // to queen according to their static exchange evaluation.
@@ -438,10 +440,12 @@ impl<'a> Search<'a> {
                     state.killer = Some(k2);
                     k1
                 };
-                if let Some(mut m) = self.moves.remove_move(killer) {
-                    if self.position.do_move(m) {
-                        m.set_score(Move::max_score());
-                        return Some(m);
+                if killer != 0 {
+                    if let Some(mut m) = self.moves.remove_move(killer) {
+                        if self.position.do_move(m) {
+                            m.set_score(Move::max_score());
+                            return Some(m);
+                        }
                     }
                 }
                 continue;

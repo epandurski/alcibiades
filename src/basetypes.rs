@@ -14,7 +14,7 @@ pub const BLACK: Color = 1;
 
 /// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, `NO_PIECE`,
 /// or `UNKNOWN_PIECE`.
-pub type PieceType = usize;  // from 0 to 5
+pub type PieceType = usize; // from 0 to 7
 
 pub const KING: PieceType = 0;
 pub const QUEEN: PieceType = 1;
@@ -28,7 +28,7 @@ pub const UNKNOWN_PIECE: PieceType = 7;
 
 
 /// From 0 to 7 (0 is rank 1, 7 is rank 8).
-pub type Rank = usize;  // from 0 to 7
+pub type Rank = usize; // from 0 to 7
 
 pub const RANK_1: Rank = 0;
 pub const RANK_2: Rank = 1;
@@ -42,7 +42,7 @@ pub const RANK_8: Rank = 7;
 
 
 /// From 0 to 7 (0 is file A, 7 is file H).
-pub type File = usize;  // from 0 to 7
+pub type File = usize; // from 0 to 7
 
 pub const FILE_A: File = 0;
 pub const FILE_B: File = 1;
@@ -56,7 +56,7 @@ pub const FILE_H: File = 7;
 
 
 /// From 0 to 63 (0 is A1, 63 is H8).
-pub type Square = usize;  // from 0 to 63
+pub type Square = usize; // from 0 to 63
 
 pub const A1: Square = 0 + 0 * 8;
 pub const B1: Square = 1 + 0 * 8;
@@ -163,7 +163,7 @@ pub const VALUE_UNKNOWN: Value = ::std::i16::MIN;
 
 
 /// `QUEENSIDE` or `KINGSIDE`.
-pub type CastlingSide = usize;
+pub type CastlingSide = usize; // 0 or 1
 
 pub const QUEENSIDE: CastlingSide = 0;
 pub const KINGSIDE: CastlingSide = 1;
