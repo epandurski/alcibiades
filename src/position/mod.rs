@@ -135,7 +135,7 @@ impl Position {
     /// `fen` should be the Forsyth–Edwards Notation of a legal
     /// starting position. `moves` should be an iterator over all the
     /// moves that were played from that position. The move format is
-    /// in long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
+    /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
     /// (white short castling), `e7e8q` (for promotion).
     pub fn from_history(fen: &str,
                         moves: &mut Iterator<Item = &str>)

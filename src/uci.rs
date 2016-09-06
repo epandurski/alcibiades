@@ -11,7 +11,7 @@ use regex::Regex;
 /// Represents a reply from the engine to the GUI.
 ///
 /// The engine reply is either a best move found, or a new/updated
-/// information item. The move format is in long algebraic
+/// information item. The move format is long algebraic
 /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
 /// `e7e8q` (for promotion). If supplied, `ponder_move` is the
 /// response on which the engine would like to ponder.
@@ -33,10 +33,10 @@ pub enum EngineReply {
 /// * `"depth"`: search depth in plies;
 /// 
 /// * `"time"`: the time searched in milliseconds, this should be sent
-/// together with the PV;
+///   together with the PV;
 /// 
 /// * `"nodes"`: nodes searched, the engine should send this info
-/// regularly;
+///   regularly;
 /// 
 /// * `"pv"`: the best line found;
 /// 
@@ -44,21 +44,16 @@ pub enum EngineReply {
 ///
 /// * `"score"`: the score from the engine's point of view;
 ///
+/// * `"nps"`: nodes per second searched, the engine should send this
+///   info regularly;
+/// 
+/// * `"string"`: any string that will be displayed;
+///
 /// * `"currmove"`: currently searching this move;
 /// 
 /// * `"currmovenumber"`: currently searching this move number;
 /// 
-/// * `"hashfull"`: the hash is that much full, the engine should send
-/// this info regularly;
-/// 
-/// * `"nps"`: nodes per second searched, the engine should send this
-/// info regularly.
-/// 
-/// * `"string"`: any string that will be displayed;
-///
-/// * `"refutation"`: a refutation line;
-///
-/// * `"currline"`: the current line the engine is calculating;
+/// * `"currline"`: the current line the engine is calculating.
 pub type InfoType = String;
 
 
@@ -382,7 +377,7 @@ pub trait UciEngine {
     /// 
     /// `fen` will be the position represented in Forsyth–Edwards
     /// notation. `moves` is an iterator over the moves played from
-    /// the given position. The move format is in long algebraic
+    /// the given position. The move format is long algebraic
     /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
     /// castling), `e7e8q` (for promotion).
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
@@ -392,7 +387,7 @@ pub trait UciEngine {
     /// Engine's thinking can be influenced by many parameters:
     /// 
     /// * *searchmoves:* Restricts the search to a subset of moves
-    /// only. The move format is in long algebraic notation. Examples:
+    /// only. The move format is long algebraic notation. Examples:
     /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
     /// promotion).
     /// 

@@ -121,7 +121,7 @@ impl SearchExecutor {
     ///
     /// `position` is the starting position for the new
     /// search. `searchmoves` may restrict the analysis to the
-    /// supplied subset of moves only. The move format is in long
+    /// supplied subset of moves only. The move format is long
     /// algebraic notation. Examples: e2e4, e7e5, e1g1 (white short
     /// castling), e7e8q (for promotion). `variation_count` specifies
     /// how many best lines to calculate (the first move in each best
