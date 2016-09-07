@@ -170,8 +170,10 @@ impl SearchExecutor {
         if !self.status.done {
             self.commands.send(Command::Stop).unwrap();
             loop {
-                if let Ok(Report::Done { .. }) = self.reports.recv() {
-                    break;
+                if let Ok(Report { done, .. }) = self.reports.recv() {
+                    if done {
+                        break;
+                    }
                 }
             }
             self.status.done = true;
@@ -180,14 +182,12 @@ impl SearchExecutor {
 
     /// Updates the status of the current search.
     pub fn update_status(&mut self) {
-        while let Ok(report) = self.reports.try_recv() {
-            match report {
-                Report::Progress { searched_depth, searched_nodes, .. } => {
-                    self.register_progress(searched_depth, searched_nodes);
-                }
-                Report::Done { .. } => {
-                    self.status.done = true;
-                }
+        while let Ok(Report { searched_depth, searched_nodes, done, .. }) = self.reports
+                                                                                .try_recv() {
+            if !done {
+                self.register_progress(searched_depth, searched_nodes);
+            } else {
+                self.status.done = true;
             }
         }
     }

@@ -42,37 +42,23 @@ pub enum Command {
 }
 
 
-/// Represents a report from a search thread.
-pub enum Report {
-    /// Reports search progress.
-    Progress {
-        /// The ID passed with the search command.
-        search_id: usize,
+/// Represents progress report from a search thread.
+pub struct Report {
+    /// The ID passed with the search command.
+    pub search_id: usize,
 
-        /// The number of positions searched so far.
-        searched_nodes: NodeCount,
+    /// The number of positions searched so far.
+    pub searched_nodes: NodeCount,
 
-        /// The search depth completed so far.
-        searched_depth: u8,
+    /// The search depth completed so far.
+    pub searched_depth: u8,
 
-        /// The evaluation of the root position so far.
-        value: Value,
-    },
+    /// The evaluation of the root position so far.
+    pub value: Value,
 
-    /// Reports that the search is finished.
-    Done {
-        /// The ID passed with the search command.
-        search_id: usize,
-
-        /// The total number of positions searched.
-        searched_nodes: NodeCount,
-
-        /// The search depth completed.
-        searched_depth: u8,
-
-        /// The evaluation of the root position.
-        value: Value,
-    },
+    /// `true` if the search is finished or has been stopped, `false`
+    /// otherwise.
+    pub done: bool,
 }
 
 
@@ -82,11 +68,10 @@ pub enum Report {
 /// This function will block and wait to receive commands on the
 /// `commands` channel to start, stop, or exit searches. It is
 /// intended to be called in a separate thread. While the search is
-/// executed, regular `Report::Progress` messages will be send back to
-/// the master thread via the `reports` channel. When the search is
-/// done, a final `Report::Done` message, duplicating the last
-/// `Report::Progress` message, will be sent via the `reports`
-/// channel.
+/// executed, regular `Report` messages will be send back to the
+/// master thread via the `reports` channel. When the search is done,
+/// the final `Report` message will have its `done` field set to
+/// `true`.
 ///
 /// # Example:
 ///
@@ -130,11 +115,12 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                 Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                     assert!(lower_bound < upper_bound);
                     let mut report = |searched_nodes| {
-                        reports.send(Report::Progress {
+                        reports.send(Report {
                                    search_id: search_id,
                                    searched_nodes: searched_nodes,
                                    searched_depth: 0,
                                    value: VALUE_UNKNOWN,
+                                   done: false,
                                })
                                .ok();
                         if let Ok(cmd) = commands.try_recv() {
@@ -152,18 +138,20 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                     } else {
                         0
                     };
-                    reports.send(Report::Progress {
+                    reports.send(Report {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
                                searched_depth: searched_depth,
                                value: value,
+                               done: false,
                            })
                            .ok();
-                    reports.send(Report::Done {
+                    reports.send(Report {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
                                searched_depth: searched_depth,
                                value: value,
+                               done: true, // TODO: merge this and the previous one.
                            })
                            .ok();
                     search.reset();
@@ -184,11 +172,10 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
 /// This function will block and wait to receive commands on the
 /// `commands` channel to start, stop, or exit searches. It is
 /// intended to be called in a separate thread. While the search is
-/// executed, regular `Report::Progress` messages will be send back to
-/// the master thread via the `reports` channel. When the search is
-/// done, a final `Report::Done` message, duplicating the last
-/// `Report::Progress` message, will be sent via the `reports`
-/// channel.
+/// executed, regular `Report` messages will be send back to the
+/// master thread via the `reports` channel. When the search is done,
+/// the final `Report` message will have its `done` field set to
+/// `true`.
 ///
 /// # Example:
 ///
@@ -285,31 +272,30 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                             // thread, but we also constantly check if there is a new
                             // pending command for us, in which case we have to terminate
                             // the search.
-                            match slave_reports_rx.recv().unwrap() {
-                                Report::Progress { searched_nodes, .. } => {
-                                    reports.send(Report::Progress {
-                                               search_id: search_id,
-                                               searched_nodes: current_searched_nodes +
-                                                               searched_nodes,
-                                               searched_depth: current_depth - 1,
-                                               value: current_value,
-                                           })
-                                           .ok();
-                                    if pending_command.is_none() {
-                                        if let Ok(cmd) = commands.try_recv() {
-                                            slave_commands_tx.send(Command::Stop).unwrap();
-                                            pending_command = Some(cmd);
-                                        }
+                            let Report { searched_nodes, value, done, .. } =
+                                slave_reports_rx.recv().unwrap();
+                            if !done {
+                                reports.send(Report {
+                                           search_id: search_id,
+                                           searched_nodes: current_searched_nodes + searched_nodes,
+                                           searched_depth: current_depth - 1,
+                                           value: current_value,
+                                           done: false,
+                                       })
+                                       .ok();
+                                if pending_command.is_none() {
+                                    if let Ok(cmd) = commands.try_recv() {
+                                        slave_commands_tx.send(Command::Stop).unwrap();
+                                        pending_command = Some(cmd);
                                     }
                                 }
-                                Report::Done { searched_nodes, value, .. } => {
-                                    current_searched_nodes += searched_nodes;
-                                    if pending_command.is_none() {
-                                        current_value = value;
-                                        break 'report;
-                                    } else {
-                                        break 'depthloop;
-                                    }
+                            } else {
+                                current_searched_nodes += searched_nodes;
+                                if pending_command.is_none() {
+                                    current_value = value;
+                                    break 'report;
+                                } else {
+                                    break 'depthloop;
                                 }
                             }
                         } // end of 'report
@@ -335,11 +321,12 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
 
                     // Send a progress report with `current_value` for
                     // every completed depth.
-                    reports.send(Report::Progress {
+                    reports.send(Report {
                                search_id: search_id,
                                searched_nodes: current_searched_nodes,
                                searched_depth: current_depth,
                                value: current_value,
+                               done: false,
                            })
                            .ok();
                     current_depth += 1;
@@ -347,11 +334,12 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                 } // end of 'depthloop
 
                 // The search is done -- send a final report.
-                reports.send(Report::Done {
+                reports.send(Report {
                            search_id: search_id,
                            searched_nodes: current_searched_nodes,
                            searched_depth: current_depth - 1,
                            value: current_value,
+                           done: true,
                        })
                        .ok();
             }
