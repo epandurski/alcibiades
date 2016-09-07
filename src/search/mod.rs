@@ -45,7 +45,10 @@ pub struct Variation {
 /// Contains information about the current progress of a search.
 pub struct SearchStatus {
     started_at: Option<SystemTime>,
-    
+
+    /// The starting position for the search.
+    position: Position,
+
     /// `true` if the search is finished or has been stopped, `false`
     /// otherwise.
     pub done: bool,
@@ -70,7 +73,6 @@ pub struct SearchStatus {
 /// positions.
 pub struct SearchThread {
     tt: Arc<Tt>,
-    position: Position,
     status: SearchStatus,
 
     // A handle to the search thread.
@@ -99,11 +101,11 @@ impl SearchThread {
         SearchThread {
             tt: tt,
             search_thread: Some(search_thread),
-            position: Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").ok().unwrap(),
             commands: commands_tx,
             reports: reports_rx,
             status: SearchStatus {
                 started_at: None,
+                position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
                 done: true,
                 depth: 0,
                 variations: vec![Variation {
@@ -140,9 +142,18 @@ impl SearchThread {
         // TODO: Add `self.legal_moves_count` filed.
 
         self.stop();
-        self.position = position.clone();
+        self.commands
+            .send(Command::Search {
+                search_id: 0,
+                position: position.clone(),
+                depth: MAX_DEPTH,
+                lower_bound: -29999,
+                upper_bound: 29999,
+            })
+            .unwrap();
         self.status = SearchStatus {
             started_at: Some(SystemTime::now()),
+            position: position.clone(),
             done: false,
             depth: 0,
             variations: vec![Variation {
@@ -154,15 +165,6 @@ impl SearchThread {
             duration_millis: 0,
             ..self.status
         };
-        self.commands
-            .send(Command::Search {
-                search_id: 0,
-                position: position.clone(),
-                depth: MAX_DEPTH,
-                lower_bound: -29999,
-                upper_bound: 29999,
-            })
-            .unwrap();
     }
 
     /// Stops the current search, updates the status.
@@ -215,111 +217,107 @@ impl SearchThread {
                           (1000 + self.status.duration_millis);
         if self.status.depth < report.depth {
             self.status.depth = report.depth;
-            self.extract_pv(report.depth);
+            self.status.variations = vec![extract_pv(&self.tt,
+                                                     &self.status.position,
+                                                     report.depth)];
         }
         self.status.done = report.done;
-    }
-
-    // A helper method. It extracts the primary variation (PV) from
-    // the transposition table (TT) and updates `status.current_pv`.
-    //
-    // **Note:** Because the PV is a moving target (the search
-    // continues to run in parallel), imperfections in the reported
-    // PVs are unavoidable. To deal with this, we turn a blind eye if
-    // the value at the root of the PV differs from the value at the
-    // leaf by no more than `EPSILON`.
-    fn extract_pv(&mut self, depth: u8) {
-        if depth == 0 {
-            return;
-        }
-
-        // First: Extract the PV, the leaf value, the root value, and
-        // the bound type from the TT.
-        let mut p = self.position.clone();
-        let mut our_turn = true;
-        let mut prev_move = None;
-        let mut moves = Vec::new();
-        let mut leaf_value = -19999;
-        let mut root_value = leaf_value;
-        let mut bound = BOUND_LOWER;
-        while let Some(entry) = self.tt.peek(p.hash()) {
-            if entry.bound() != BOUND_NONE {
-                // Get the value and the bound type. In half of the
-                // cases the value stored in `entry` is from other
-                // side's perspective.
-                if our_turn {
-                    leaf_value = entry.value();
-                    bound = entry.bound();
-                } else {
-                    leaf_value = -entry.value();
-                    bound = match entry.bound() {
-                        BOUND_UPPER => BOUND_LOWER,
-                        BOUND_LOWER => BOUND_UPPER,
-                        x => x,
-                    };
-                }
-
-                // The values under -19999 and over 19999 carry
-                // information about in how many moves is the
-                // inevitable checkmate. However, do not show this to
-                // the user, because it is sometimes incorrect.
-                if leaf_value >= 20000 {
-                    leaf_value = 19999;
-                    if bound == BOUND_LOWER {
-                        bound = BOUND_EXACT
-                    }
-                }
-                if leaf_value <= -20000 {
-                    leaf_value = -19999;
-                    if bound == BOUND_UPPER {
-                        bound = BOUND_EXACT
-                    }
-                }
-
-                if let Some(m) = prev_move {
-                    // Extend the PV with the previous move.
-                    moves.push(m);
-                } else {
-                    // We are at the root -- set the root value.
-                    root_value = leaf_value;
-                }
-
-                if moves.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
-                    if let Some(m) = p.try_move_digest(entry.move16()) {
-                        if p.do_move(m) {
-                            if bound == BOUND_EXACT {
-                                // Extend the PV with one more move.
-                                prev_move = Some(m);
-                                our_turn = !our_turn;
-                                continue;
-                            } else {
-                                // This is the last move in the PV.
-                                moves.push(m);
-                            }
-                        }
-                    }
-                }
-            }
-            break;
-        }
-
-        // Second: Change the bound type if the leaf value in the PV
-        // differs too much from the root value.
-        bound = match leaf_value - root_value {
-            x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
-            x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
-            _ => bound,
-        };
-
-        // Third: Update `status`.
-        self.status.variations = vec![Variation {
-                                          value: root_value,
-                                          bound: bound,
-                                          moves: moves,
-                                      }];
     }
 }
 
 
-// A sufficiently small value (in centipawns).
-const EPSILON: Value = 8;
+// A helper function. It extracts the primary variation (PV) from the
+// transposition table (TT) and returns it.
+//
+// **Note:** Because the PV is a moving target (the search
+// continues to run in parallel), imperfections in the reported
+// PVs are unavoidable. To deal with this, we turn a blind eye if
+// the value at the root of the PV differs from the value at the
+// leaf by no more than `EPSILON`.
+fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
+    const EPSILON: Value = 8; // A sufficiently small value (in centipawns).
+
+    // Extract the PV, the leaf value, the root value, and the bound
+    // type from the TT.
+    let mut p = position.clone();
+    let mut our_turn = true;
+    let mut prev_move = None;
+    let mut moves = Vec::new();
+    let mut leaf_value = -19999;
+    let mut root_value = leaf_value;
+    let mut bound = BOUND_LOWER;
+    while let Some(entry) = tt.peek(p.hash()) {
+        if entry.bound() != BOUND_NONE {
+            // Get the value and the bound type. In half of the
+            // cases the value stored in `entry` is from other
+            // side's perspective.
+            if our_turn {
+                leaf_value = entry.value();
+                bound = entry.bound();
+            } else {
+                leaf_value = -entry.value();
+                bound = match entry.bound() {
+                    BOUND_UPPER => BOUND_LOWER,
+                    BOUND_LOWER => BOUND_UPPER,
+                    x => x,
+                };
+            }
+
+            // The values under -19999 and over 19999 carry
+            // information about in how many moves is the
+            // inevitable checkmate. However, do not show this to
+            // the user, because it is sometimes incorrect.
+            if leaf_value >= 20000 {
+                leaf_value = 19999;
+                if bound == BOUND_LOWER {
+                    bound = BOUND_EXACT
+                }
+            }
+            if leaf_value <= -20000 {
+                leaf_value = -19999;
+                if bound == BOUND_UPPER {
+                    bound = BOUND_EXACT
+                }
+            }
+
+            if let Some(m) = prev_move {
+                // Extend the PV with the previous move.
+                moves.push(m);
+            } else {
+                // We are at the root -- set the root value.
+                root_value = leaf_value;
+            }
+
+            if moves.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
+                if let Some(m) = p.try_move_digest(entry.move16()) {
+                    if p.do_move(m) {
+                        if bound == BOUND_EXACT {
+                            // Extend the PV with one more move.
+                            prev_move = Some(m);
+                            our_turn = !our_turn;
+                            continue;
+                        } else {
+                            // This is the last move in the PV.
+                            moves.push(m);
+                        }
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    // Change the bound type if the leaf value in the PV differs too
+    // much from the root value.
+    bound = match leaf_value - root_value {
+        x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
+        x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
+        _ => bound,
+    };
+
+    Variation {
+        value: root_value,
+        bound: bound,
+        moves: moves,
+    }
+}
