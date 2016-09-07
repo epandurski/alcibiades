@@ -162,7 +162,6 @@ impl<F, E> Server<F, E>
         })
     }
 
-
     /// Serves UCI commands until a "quit" command is received.
     ///
     /// Will return `Err` if an IO error had occurred.
@@ -387,20 +386,20 @@ pub trait UciEngine {
     /// Engine's thinking can be influenced by many parameters:
     /// 
     /// * *searchmoves:* Restricts the search to a subset of moves
-    /// only. The move format is long algebraic notation. Examples:
-    /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
-    /// promotion).
+    ///   only. The move format is long algebraic notation. Examples:
+    ///   `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
+    ///   promotion).
     /// 
     /// * *ponder:* Starts searching in pondering mode. The last move
-    /// sent in in the position string is the ponder move. The engine
-    /// can do what it wants to do, but after a `ponder_hit()` command
-    /// it should execute the suggested move to ponder on. This means
-    /// that the ponder move sent by the GUI can be interpreted as a
-    /// recommendation about which move to ponder. However, if the
-    /// engine decides to ponder on a different move, it should not
-    /// display any mainlines as they are likely to be misinterpreted
-    /// by the GUI because the GUI expects the engine to ponder on the
-    /// suggested move.
+    ///   sent in in the position string is the ponder move. The
+    ///   engine can do what it wants to do, but after a
+    ///   `ponder_hit()` command it should execute the suggested move
+    ///   to ponder on. This means that the ponder move sent by the
+    ///   GUI can be interpreted as a recommendation about which move
+    ///   to ponder. However, if the engine decides to ponder on a
+    ///   different move, it should not display any mainlines as they
+    ///   are likely to be misinterpreted by the GUI because the GUI
+    ///   expects the engine to ponder on the suggested move.
     ///      
     /// * *wtime:* Milliseconds left on the white's clock.
     /// 
@@ -421,7 +420,7 @@ pub trait UciEngine {
     /// * *movetime:* Search for exactly that many milliseconds.
     /// 
     /// * *infinite:* Search until the `stop()` command. Do not exit
-    /// the search without being told so in this mode!
+    ///   the search without being told so in this mode!
     fn go(&mut self,
           searchmoves: Option<Vec<String>>,
           ponder: bool,
@@ -483,7 +482,7 @@ struct SetOptionParams {
 }
 
 
-// Parameters for `UciCommand::Poston`.
+// Parameters for `UciCommand::Position`.
 struct PositionParams {
     fen: String,
     moves: String,
