@@ -45,7 +45,7 @@ pub struct Variation {
 /// Contains information about the current progress of a search.
 pub struct SearchStatus {
     started_at: Option<SystemTime>,
-
+    
     /// `true` if the search is finished or has been stopped, `false`
     /// otherwise.
     pub done: bool,
@@ -66,7 +66,8 @@ pub struct SearchStatus {
 }
 
 
-/// Executes searches in different starting positions.
+/// A thread that executes consecutive searches in different starting
+/// positions.
 pub struct SearchThread {
     tt: Arc<Tt>,
     position: Position,
@@ -117,20 +118,21 @@ impl SearchThread {
         }
     }
 
-    /// Stops the current search and starts a new one.
+    /// Stops the current search, starts a new search, updates the
+    /// status.
     ///
     /// `position` is the starting position for the new
-    /// search. `searchmoves` may restrict the analysis to the
+    /// search. `variation_count` specifies how many best lines to
+    /// calculate (the first move in each best line will be
+    /// different). `searchmoves` may restrict the analysis to the
     /// supplied subset of moves only. The move format is long
     /// algebraic notation. Examples: e2e4, e7e5, e1g1 (white short
-    /// castling), e7e8q (for promotion). `variation_count` specifies
-    /// how many best lines to calculate (the first move in each best
-    /// line will be different).
+    /// castling), e7e8q (for promotion).
     #[allow(unused_variables)]
     pub fn search(&mut self,
                   position: &Position,
-                  searchmoves: Option<Vec<String>>,
-                  variation_count: usize) {
+                  variation_count: usize,
+                  searchmoves: Option<Vec<String>>) {
         // TODO: We ignore the "variation_count" parameter.
 
         // TODO: We ignore the "searchmoves" parameter.
@@ -163,46 +165,30 @@ impl SearchThread {
             .unwrap();
     }
 
-    /// Stops the current search.
+    /// Stops the current search, updates the status.
     ///
     /// Does nothing if the current search is already stopped.
     pub fn stop(&mut self) {
-        if !self.status.done {
-            self.commands.send(Command::Stop).unwrap();
-            loop {
-                if let Ok(Report { done, .. }) = self.reports.recv() {
-                    if done {
-                        break;
-                    }
-                }
-            }
-            self.status.done = true;
+        self.commands.send(Command::Stop).unwrap();
+        while !self.status().done {
+            let r = self.reports.recv().unwrap();
+            self.process_report(r);
         }
     }
 
     /// Updates the status of the current search.
     pub fn update_status(&mut self) {
-        while let Ok(Report { depth, searched_nodes, done, .. }) = self.reports.try_recv() {
-            let duration = self.status.started_at.unwrap().elapsed().unwrap();
-            self.status.duration_millis = 1000 * duration.as_secs() +
-                                          (duration.subsec_nanos() / 1000000) as u64;
-            self.status.searched_nodes = searched_nodes;
-            self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
-                              (1000 + self.status.duration_millis);
-            if self.status.depth < depth {
-                self.status.depth = depth;
-                self.extract_pv(depth);
-            }
-            self.status.done = done;
+        while let Ok(r) = self.reports.try_recv() {
+            self.process_report(r)
         }
     }
 
     /// Returns the status of the current search.
     ///
     /// **Important note:** Consecutive calls to this method will
-    /// return the same unchanged result. Only after calling
-    /// `update_status`, `search`, or `stop`, the result returned by
-    /// `status` may change.
+    /// return the same unchanged result. Only after calling `search`,
+    /// `stop`, or `update_status`, the result returned by `status`
+    /// may change.
     #[inline(always)]
     pub fn status(&self) -> &SearchStatus {
         &self.status
@@ -216,6 +202,22 @@ impl SearchThread {
         self.stop();
         self.commands.send(Command::Exit).unwrap();
         self.search_thread.take().unwrap().join().unwrap();
+    }
+
+    // A helper method. It updates the current status according to the
+    // received report message.
+    pub fn process_report(&mut self, report: Report) {
+        let duration = self.status.started_at.unwrap().elapsed().unwrap();
+        self.status.duration_millis = 1000 * duration.as_secs() +
+                                      (duration.subsec_nanos() / 1000000) as u64;
+        self.status.searched_nodes = report.searched_nodes;
+        self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
+                          (1000 + self.status.duration_millis);
+        if self.status.depth < report.depth {
+            self.status.depth = report.depth;
+            self.extract_pv(report.depth);
+        }
+        self.status.done = report.done;
     }
 
     // A helper method. It extracts the primary variation (PV) from

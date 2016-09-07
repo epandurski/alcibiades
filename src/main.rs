@@ -231,7 +231,7 @@ impl UciEngine for Engine {
                                                       movestogo))
         };
         self.silent_since = SystemTime::now();
-        self.search_thread.search(&self.position, searchmoves, self.variation_count);
+        self.search_thread.search(&self.position, self.variation_count, searchmoves);
     }
 
     fn ponder_hit(&mut self) {
