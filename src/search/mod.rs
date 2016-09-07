@@ -47,10 +47,9 @@ pub struct SearchStatus {
     started_at: Option<SystemTime>,
 
     /// The starting position for the search.
-    position: Position,
+    pub position: Position,
 
-    /// `true` if the search is finished or has been stopped, `false`
-    /// otherwise.
+    /// `true` if the search has stopped, `false` otherwise.
     pub done: bool,
 
     /// The reached search depth.
@@ -58,13 +57,13 @@ pub struct SearchStatus {
 
     pub variations: Vec<Variation>,
 
-    /// Number of milliseconds since the beginning of the search.
+    /// The duration of the search in milliseconds.
     pub duration_millis: u64,
 
-    /// Number of analyzed nodes since the beginning of the search.
+    /// The number of analyzed nodes.
     pub searched_nodes: NodeCount,
 
-    /// Number of analyzed nodes per second.
+    /// Average number of analyzed nodes per second.
     pub nps: NodeCount,
 }
 
