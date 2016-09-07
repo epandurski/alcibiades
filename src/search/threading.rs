@@ -133,15 +133,14 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
                     let value = search.run(lower_bound, upper_bound, depth, Move::invalid())
                                       .unwrap_or(VALUE_UNKNOWN);
-                    let searched_depth = if value != VALUE_UNKNOWN {
-                        depth
-                    } else {
-                        0
-                    };
                     reports.send(Report {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
-                               depth: searched_depth,
+                               depth: if value == VALUE_UNKNOWN {
+                                   0
+                               } else {
+                                   depth
+                               },
                                value: value,
                                done: true,
                            })
