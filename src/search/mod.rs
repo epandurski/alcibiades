@@ -127,10 +127,10 @@ impl SearchThread {
     /// how many best lines to calculate (the first move in each best
     /// line will be different).
     #[allow(unused_variables)]
-    pub fn start(&mut self,
-                 position: &Position,
-                 searchmoves: Option<Vec<String>>,
-                 variation_count: usize) {
+    pub fn search(&mut self,
+                  position: &Position,
+                  searchmoves: Option<Vec<String>>,
+                  variation_count: usize) {
         // TODO: We ignore the "variation_count" parameter.
 
         // TODO: We ignore the "searchmoves" parameter.
@@ -201,7 +201,7 @@ impl SearchThread {
     ///
     /// **Important note:** Consecutive calls to this method will
     /// return the same unchanged result. Only after calling
-    /// `update_status`, `start`, or `stop`, the result returned by
+    /// `update_status`, `search`, or `stop`, the result returned by
     /// `status` may change.
     #[inline(always)]
     pub fn status(&self) -> &SearchStatus {

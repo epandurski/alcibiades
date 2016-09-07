@@ -53,7 +53,7 @@ pub struct Engine {
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
-    search: SearchThread,
+    search_thread: SearchThread,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -96,7 +96,7 @@ impl Engine {
             tt: tt.clone(),
             position: Position::from_fen(STARTING_POSITION).ok().unwrap(),
             current_depth: 0,
-            search: SearchThread::new(tt),
+            search_thread: SearchThread::new(tt),
             play_when: PlayWhen::Never,
             variation_count: 1,
             pondering_is_allowed: false,
@@ -109,7 +109,7 @@ impl Engine {
     // A helper method. It it adds a progress report message to
     // `self.queue`.
     fn queue_progress_report(&mut self) {
-        let &SearchStatus { depth, searched_nodes, nps, .. } = self.search.status();
+        let &SearchStatus { depth, searched_nodes, nps, .. } = self.search_thread.status();
         self.queue.push_back(uci::EngineReply::Info(vec![
             ("depth".to_string(), format!("{}", depth)),
             ("nodes".to_string(), format!("{}", searched_nodes)),
@@ -122,7 +122,7 @@ impl Engine {
     // (multi)PV to `self.queue`.
     fn queue_pv(&mut self) {
         let &SearchStatus { depth, ref variations, searched_nodes, duration_millis, nps, .. } =
-            self.search.status();
+            self.search_thread.status();
         for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
             let bound_suffix = match bound {
                 BOUND_EXACT => "",
@@ -151,7 +151,7 @@ impl Engine {
     // A helper method. It it adds a message containing the current
     // best move to `self.queue`.
     fn queue_best_move(&mut self) {
-        let &SearchStatus { ref variations, .. } = self.search.status();
+        let &SearchStatus { ref variations, .. } = self.search_thread.status();
         self.queue.push_back(uci::EngineReply::BestMove {
             best_move: variations[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
             ponder_move: variations[0].moves.get(1).map(|m| m.notation()),
@@ -209,7 +209,7 @@ impl UciEngine for Engine {
           infinite: bool) {
         // Note: We ignore the "mate" parameter.
 
-        self.search.stop();
+        self.search_thread.stop();
         self.tt.new_search();
         self.current_depth = 0;
         self.is_pondering = ponder;
@@ -231,11 +231,11 @@ impl UciEngine for Engine {
                                                       movestogo))
         };
         self.silent_since = SystemTime::now();
-        self.search.start(&self.position, searchmoves, self.variation_count);
+        self.search_thread.search(&self.position, searchmoves, self.variation_count);
     }
 
     fn ponder_hit(&mut self) {
-        if self.search.status().done {
+        if self.search_thread.status().done {
             self.queue_best_move();
         } else {
             self.is_pondering = false;
@@ -243,16 +243,17 @@ impl UciEngine for Engine {
     }
 
     fn stop(&mut self) {
-        self.search.stop();
+        self.search_thread.stop();
         self.queue_best_move();
     }
 
     fn get_reply(&mut self) -> Option<uci::EngineReply> {
-        if !self.search.status().done {
+        if !self.search_thread.status().done {
             // Update the search status.
-            self.search.update_status();
-            let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } = self.search
-                                                                                         .status();
+            self.search_thread.update_status();
+            let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
+                self.search_thread.status();
+            
             // Send the (multi)PV when changed.
             if depth > self.current_depth {
                 self.current_depth = depth;
@@ -266,7 +267,7 @@ impl UciEngine for Engine {
 
             // Register the updated search status with the time manager.
             if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-                tm.update_status(self.search.status());
+                tm.update_status(self.search_thread.status());
             }
 
             // Check if we must play now.
@@ -286,7 +287,7 @@ impl UciEngine for Engine {
     }
 
     fn exit(&mut self) {
-        self.search.join();
+        self.search_thread.join();
     }
 }
 
