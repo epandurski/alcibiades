@@ -182,13 +182,18 @@ impl SearchExecutor {
 
     /// Updates the status of the current search.
     pub fn update_status(&mut self) {
-        while let Ok(Report { searched_depth, searched_nodes, done, .. }) = self.reports
-                                                                                .try_recv() {
-            if !done {
-                self.register_progress(searched_depth, searched_nodes);
-            } else {
-                self.status.done = true;
+        while let Ok(Report { depth, searched_nodes, done, .. }) = self.reports.try_recv() {
+            let duration = self.status.started_at.unwrap().elapsed().unwrap();
+            self.status.duration_millis = 1000 * duration.as_secs() +
+                                          (duration.subsec_nanos() / 1000000) as u64;
+            self.status.searched_nodes = searched_nodes;
+            self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
+                              (1000 + self.status.duration_millis);
+            if self.status.depth < depth {
+                self.status.depth = depth;
+                self.extract_pv(depth);
             }
+            self.status.done = done;
         }
     }
 
@@ -211,22 +216,6 @@ impl SearchExecutor {
         self.stop();
         self.commands.send(Command::Exit).unwrap();
         self.search_thread.take().unwrap().join().unwrap();
-    }
-
-    // A helper method. It updates the search status info and makes
-    // sure that a new PV is sent to the GUI for each newly reached
-    // depth.
-    fn register_progress(&mut self, depth: u8, searched_nodes: NodeCount) {
-        let duration = self.status.started_at.unwrap().elapsed().unwrap();
-        self.status.duration_millis = 1000 * duration.as_secs() +
-                                      (duration.subsec_nanos() / 1000000) as u64;
-        self.status.searched_nodes = searched_nodes;
-        self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
-                          (1000 + self.status.duration_millis);
-        if self.status.depth < depth {
-            self.status.depth = depth;
-            self.extract_pv(depth);
-        }
     }
 
     // A helper method. It extracts the primary variation (PV) from

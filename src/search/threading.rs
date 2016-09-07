@@ -51,7 +51,7 @@ pub struct Report {
     pub searched_nodes: NodeCount,
 
     /// The search depth completed so far.
-    pub searched_depth: u8,
+    pub depth: u8,
 
     /// The evaluation of the root position so far.
     pub value: Value,
@@ -105,7 +105,7 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
         let mut pending_command = None;
         loop {
             // If there is a pending command, we take it, otherwise we
-            // block and wait to receive a new one.
+            // block and wait to receive a command.
             let command = match pending_command.take() {
                 Some(cmd) => cmd,
                 None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
@@ -118,7 +118,7 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                         reports.send(Report {
                                    search_id: search_id,
                                    searched_nodes: searched_nodes,
-                                   searched_depth: 0,
+                                   depth: 0,
                                    value: VALUE_UNKNOWN,
                                    done: false,
                                })
@@ -141,17 +141,9 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                     reports.send(Report {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
-                               searched_depth: searched_depth,
+                               depth: searched_depth,
                                value: value,
-                               done: false,
-                           })
-                           .ok();
-                    reports.send(Report {
-                               search_id: search_id,
-                               searched_nodes: search.node_count(),
-                               searched_depth: searched_depth,
-                               value: value,
-                               done: true, // TODO: merge this and the previous one.
+                               done: true,
                            })
                            .ok();
                     search.reset();
@@ -274,29 +266,28 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                             // the search.
                             let Report { searched_nodes, value, done, .. } =
                                 slave_reports_rx.recv().unwrap();
-                            if !done {
-                                reports.send(Report {
-                                           search_id: search_id,
-                                           searched_nodes: current_searched_nodes + searched_nodes,
-                                           searched_depth: current_depth - 1,
-                                           value: current_value,
-                                           done: false,
-                                       })
-                                       .ok();
-                                if pending_command.is_none() {
-                                    if let Ok(cmd) = commands.try_recv() {
-                                        slave_commands_tx.send(Command::Stop).unwrap();
-                                        pending_command = Some(cmd);
-                                    }
-                                }
-                            } else {
-                                current_searched_nodes += searched_nodes;
-                                if pending_command.is_none() {
+                            reports.send(Report {
+                                       search_id: search_id,
+                                       searched_nodes: current_searched_nodes + searched_nodes,
+                                       depth: current_depth - 1,
+                                       value: current_value,
+                                       done: false,
+                                   })
+                                   .ok();
+                            if pending_command.is_none() {
+                                if done {
+                                    current_searched_nodes += searched_nodes;
                                     current_value = value;
                                     break 'report;
-                                } else {
-                                    break 'depthloop;
                                 }
+                                if let Ok(cmd) = commands.try_recv() {
+                                    slave_commands_tx.send(Command::Stop).unwrap();
+                                    pending_command = Some(cmd);
+                                }
+                            }
+                            if done {
+                                current_searched_nodes += searched_nodes;
+                                break 'depthloop;
                             }
                         } // end of 'report
 
@@ -324,7 +315,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                     reports.send(Report {
                                search_id: search_id,
                                searched_nodes: current_searched_nodes,
-                               searched_depth: current_depth,
+                               depth: current_depth,
                                value: current_value,
                                done: false,
                            })
@@ -337,7 +328,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                 reports.send(Report {
                            search_id: search_id,
                            searched_nodes: current_searched_nodes,
-                           searched_depth: current_depth - 1,
+                           depth: current_depth - 1,
                            value: current_value,
                            done: true,
                        })
