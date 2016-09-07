@@ -67,7 +67,7 @@ pub struct SearchStatus {
 
 
 /// Executes searches in different starting positions.
-pub struct SearchExecutor {
+pub struct SearchThread {
     tt: Arc<Tt>,
     position: Position,
     status: SearchStatus,
@@ -83,9 +83,9 @@ pub struct SearchExecutor {
 }
 
 
-impl SearchExecutor {
+impl SearchThread {
     /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> SearchExecutor {
+    pub fn new(tt: Arc<Tt>) -> SearchThread {
 
         // Spawn the search thread.
         let (commands_tx, commands_rx) = channel();
@@ -95,7 +95,7 @@ impl SearchExecutor {
             serve_deepening(tt_clone, commands_rx, reports_tx);
         });
 
-        SearchExecutor {
+        SearchThread {
             tt: tt,
             search_thread: Some(search_thread),
             position: Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").ok().unwrap(),
@@ -208,11 +208,11 @@ impl SearchExecutor {
         &self.status
     }
 
-    /// Stops the current search and retires the current instance.
+    /// Stops the current search and joins the search thread.
     ///
-    /// After calling `exit`, no other methods on this instance should
+    /// After calling `join`, no other methods on this instance should
     /// be called.
-    pub fn exit(&mut self) {
+    pub fn join(&mut self) {
         self.stop();
         self.commands.send(Command::Exit).unwrap();
         self.search_thread.take().unwrap().join().unwrap();

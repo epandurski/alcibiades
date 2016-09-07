@@ -19,7 +19,7 @@ use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::Position;
 use uci::{UciEngine, UciEngineFactory};
-use search::{Variation, SearchStatus, SearchExecutor};
+use search::{Variation, SearchStatus, SearchThread};
 use time_manager::TimeManager;
 
 
@@ -52,8 +52,8 @@ pub struct Engine {
     position: Position,
     current_depth: u8,
 
-    // `Engine` will hand over the real work to `SearchExecutor`.
-    search: SearchExecutor,
+    // `Engine` will hand over the real work to `SearchThread`.
+    search: SearchThread,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -96,7 +96,7 @@ impl Engine {
             tt: tt.clone(),
             position: Position::from_fen(STARTING_POSITION).ok().unwrap(),
             current_depth: 0,
-            search: SearchExecutor::new(tt),
+            search: SearchThread::new(tt),
             play_when: PlayWhen::Never,
             variation_count: 1,
             pondering_is_allowed: false,
@@ -286,7 +286,7 @@ impl UciEngine for Engine {
     }
 
     fn exit(&mut self) {
-        self.search.exit();
+        self.search.join();
     }
 }
 
