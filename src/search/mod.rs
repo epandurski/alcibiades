@@ -44,7 +44,8 @@ pub struct Variation {
 
 /// Contains information about the current progress of a search.
 pub struct SearchStatus {
-    started_at: Option<SystemTime>,
+    /// The starting time for the search.
+    pub started_at: SystemTime,
 
     /// The starting position for the search.
     pub position: Position,
@@ -103,7 +104,7 @@ impl SearchThread {
             commands: commands_tx,
             reports: reports_rx,
             status: SearchStatus {
-                started_at: None,
+                started_at: SystemTime::now(),
                 position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
                 done: true,
                 depth: 0,
@@ -151,7 +152,7 @@ impl SearchThread {
             })
             .unwrap();
         self.status = SearchStatus {
-            started_at: Some(SystemTime::now()),
+            started_at: SystemTime::now(),
             position: position.clone(),
             done: false,
             depth: 0,
@@ -208,7 +209,7 @@ impl SearchThread {
     // A helper method. It updates the current status according to the
     // received report message.
     fn process_report(&mut self, report: Report) {
-        let duration = self.status.started_at.unwrap().elapsed().unwrap();
+        let duration = self.status.started_at.elapsed().unwrap();
         self.status.duration_millis = 1000 * duration.as_secs() +
                                       (duration.subsec_nanos() / 1000000) as u64;
         self.status.searched_nodes = report.searched_nodes;
