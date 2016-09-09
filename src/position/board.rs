@@ -849,9 +849,8 @@ impl Board {
     // on its initial square; 7. having an en-passant square that is
     // not having a pawn of corresponding color before, and an empty
     // square on it and behind it; 8. having an en-passant square
-    // while the wrong side is to move; 9. having an en-passant square
-    // while the king is in check not from the passing pawn and not
-    // from a checker that was discovered by the passing pawn.
+    // while the king would be in check if the passing pawn is moved
+    // back to its original position.
     fn is_legal(&self) -> bool {
         if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
             return false;
@@ -894,16 +893,27 @@ impl Board {
          (self.piece_type[KING] & self.color[BLACK] & 1 << E8 != 0)) &&
         (en_passant_bb == BB_EMPTY_SET ||
          {
-            let dest_square_bb = gen_shift(en_passant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
-            let orig_square_bb = gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
+            let dest_square_bb = gen_shift(en_passant_bb, shifts[PAWN_PUSH]);
+            let orig_square_bb = gen_shift(en_passant_bb, -shifts[PAWN_PUSH]);
             let our_king_square = bitscan_forward(our_king_bb);
-            let checkers = self.attacks_to(them, our_king_square);
             (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
             (orig_square_bb & !occupied != 0) &&
-            (checkers == BB_EMPTY_SET || checkers == dest_square_bb ||
-             (pop_count(checkers) == 1 &&
-              self.geometry.squares_between_including[our_king_square][bitscan_forward(checkers)] &
-              orig_square_bb != 0))
+            unsafe {
+                let mask = orig_square_bb | dest_square_bb;
+                let pawns = pawns ^ mask;
+                let o_them = o_them ^ mask;
+                let occupied = occupied ^ mask;
+                0 ==
+                (self.geometry.piece_attacks_from(ROOK, our_king_square, occupied) & o_them &
+                 (self.piece_type[ROOK] | self.piece_type[QUEEN])) |
+                (self.geometry.piece_attacks_from(BISHOP, our_king_square, occupied) & o_them &
+                 (self.piece_type[BISHOP] | self.piece_type[QUEEN])) |
+                (self.geometry.piece_attacks_from(KNIGHT, our_king_square, occupied) & o_them &
+                 self.piece_type[KNIGHT]) |
+                (gen_shift(our_king_bb, -shifts[PAWN_EAST_CAPTURE]) & o_them & pawns & !BB_FILE_H) |
+                (gen_shift(our_king_bb, -shifts[PAWN_WEST_CAPTURE]) & o_them & pawns & !BB_FILE_A)
+            }
         }) &&
         {
             assert_eq!(self._occupied, occupied);
@@ -1443,6 +1453,10 @@ mod tests {
     fn test_move_generation_2() {
         let mut stack = MoveStack::new();
 
+        assert!(Board::from_fen("8/8/7k/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
+        assert!(Board::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
+        assert!(Board::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 0 1").is_ok());
+
         let b = Board::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.count(), 6);
@@ -1453,7 +1467,7 @@ mod tests {
         assert_eq!(stack.count(), 7);
         stack.clear();
 
-        let b = Board::from_fen("8/8/8/8/5pP1/7k/8/5B1K b - g3 0 1").ok().unwrap();
+        let b = Board::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.count(), 5);
         stack.clear();
