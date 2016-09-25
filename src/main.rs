@@ -69,12 +69,12 @@ pub struct Engine {
     // algorithm when pondering is allowed.
     pondering_is_allowed: bool,
 
-    // `true` if the engine is thinking in pondering mode.
+    // `true` if the engine is thinking in pondering mode at the
+    // moment.
     is_pondering: bool,
 
-    // Marks the last time when a message was sent by the engine to
-    // the GUI, or if no message has been sent yet -- the time when
-    // the search stared.
+    // This helps the engine decide when to send periodic progress
+    // reports.
     silent_since: SystemTime,
 
     // A queue for the messages send by the engine to the GUI.
