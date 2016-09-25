@@ -126,15 +126,15 @@ impl TtEntry {
 /// to do their work. This allows one transposition table instance to
 /// be shared safely between many threads.
 pub struct Tt {
-    // This is the current generation number. The lowest 2 bits will
-    // always be zeros.
+    /// The current generation number. The lowest 2 bits will always
+    /// be zeros.
     generation: Cell<u8>,
     
-    // The number of clusters in the table.
+    /// The number of clusters in the table.
     cluster_count: usize,
     
-    // The table consists of a vector of clusters. Each cluster stores
-    // 4 records.
+    /// The table consists of a vector of clusters. Each cluster
+    /// stores 4 records.
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
 

@@ -348,7 +348,7 @@ pub const MOVE_CASTLING: MoveType = 2;
 pub const MOVE_NORMAL: MoveType = 3;
 
 
-// The highest possible move score.
+/// The highest possible move score.
 const MAX_MOVE_SCORE: usize = 3;
 
 

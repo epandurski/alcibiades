@@ -475,7 +475,7 @@ enum UciCommand {
 }
 
 
-// Parameters for `UciCommand::SetOption`.
+/// Parameters for `UciCommand::SetOption`.
 struct SetOptionParams {
     name: String,
     value: String,
