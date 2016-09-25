@@ -829,28 +829,28 @@ impl Board {
         hash
     }
 
-    // A helper method for `create`. It analyzes the board and decides
-    // if it is a legal board.
-    //
-    // In addition to the obviously wrong boards (that for example
-    // declare some pieces having no or more than one color), there
-    // are many chess boards that are impossible to create from the
-    // starting chess position. Here we are interested to detect and
-    // guard against only those of the cases that have a chance of
-    // disturbing some of our explicit and unavoidably, implicit
-    // presumptions about what a chess position is when writing the
-    // code.
-    //
-    // Invalid boards: 1. having more or less than 1 king from each
-    // color; 2. having more than 8 pawns of a color; 3. having more
-    // than 16 pieces (and pawns) of one color; 4. having the side not
-    // to move in check; 5. having pawns on ranks 1 or 8; 6. having
-    // castling rights when the king or the corresponding rook is not
-    // on its initial square; 7. having an en-passant square that is
-    // not having a pawn of corresponding color before, and an empty
-    // square on it and behind it; 8. having an en-passant square
-    // while the king would be in check if the passing pawn is moved
-    // back to its original position.
+    /// A helper method for `create`. It analyzes the board and
+    /// decides if it is a legal board.
+    ///
+    /// In addition to the obviously wrong boards (that for example
+    /// declare some pieces having no or more than one color), there
+    /// are many chess boards that are impossible to create from the
+    /// starting chess position. Here we are interested to detect and
+    /// guard against only those of the cases that have a chance of
+    /// disturbing some of our explicit and unavoidably, implicit
+    /// presumptions about what a chess position is when writing the
+    /// code.
+    ///
+    /// Invalid boards: 1. having more or less than 1 king from each
+    /// color; 2. having more than 8 pawns of a color; 3. having more
+    /// than 16 pieces (and pawns) of one color; 4. having the side
+    /// not to move in check; 5. having pawns on ranks 1 or 8;
+    /// 6. having castling rights when the king or the corresponding
+    /// rook is not on its initial square; 7. having an en-passant
+    /// square that is not having a pawn of corresponding color
+    /// before, and an empty square on it and behind it; 8. having an
+    /// en-passant square while the king would be in check if the
+    /// passing pawn is moved back to its original position.
     fn is_legal(&self) -> bool {
         if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
             return false;
@@ -927,17 +927,17 @@ impl Board {
         }
     }
 
-    // A helper method for `push_piece_moves_to_stack` and
-    // `try_move_digest`. It calculates the pseudo-legal destination
-    // squares for each pawn in `pawns` and stores them in the
-    // `dest_sets` array.
-    //
-    // `dest_sets` is indexed by the sort of the pawn move: push,
-    // double push, west-capture (capturing toward queen-side), and
-    // east-capture (capturing toward king-side). The benefit of this
-    // separation is that knowing the destination square and the pawn
-    // move sort (the index in the `dest_sets` array) is enough to
-    // recover the origin square.
+    /// A helper method for `push_piece_moves_to_stack` and
+    /// `try_move_digest`. It calculates the pseudo-legal destination
+    /// squares for each pawn in `pawns` and stores them in the
+    /// `dest_sets` array.
+    ///
+    /// `dest_sets` is indexed by the type of the pawn move: push,
+    /// double push, west-capture (capturing toward queen-side), and
+    /// east-capture (capturing toward king-side). The benefit of this
+    /// separation is that knowing the destination square and the pawn
+    /// move type (the index in the `dest_sets` array) is enough to
+    /// recover the origin square.
     #[inline]
     fn calc_pawn_dest_sets(&self,
                            pawns: Bitboard,
@@ -966,10 +966,10 @@ impl Board {
         }
     }
 
-    // A helper method for `generate_moves`. It finds all squares
-    // attacked by `piece` from square `orig_square`, and for each
-    // square that is within the `legal_dests` set pushes a new move
-    // to `move_stack`. `piece` can not be a pawn.
+    /// A helper method for `generate_moves`. It finds all squares
+    /// attacked by `piece` from square `orig_square`, and for each
+    /// square that is within the `legal_dests` set pushes a new move
+    /// to `move_stack`. `piece` must not be a pawn.
     #[inline]
     fn push_piece_moves_to_stack(&self,
                                  piece: PieceType,
@@ -996,14 +996,10 @@ impl Board {
         }
     }
 
-    // A helper method for `generate_moves()`. It finds all all
-    // possible moves by the set of pawns given by `pawns`, making
-    // sure all pawn move destinations are within the `legal_dests`
-    // set. Then it pushes the resulting moves to
-    // `move_stack`. `en_passant_bb` represents the en-passant target
-    // square, if there is one. This function also recognizes and
-    // discards the very rare case of pseudo-legal en-passant capture
-    // that leaves discovered check on the 4/5-th rank.
+    /// A helper method for `generate_moves()`. It finds all all
+    /// possible moves by the set of pawns given by `pawns`, making
+    /// sure all pawn move destinations are within the `legal_dests`
+    /// set. Then it pushes the resulting moves to `move_stack`.
     #[inline]
     fn push_pawn_moves_to_stack(&self,
                                 pawns: Bitboard,
@@ -1087,9 +1083,9 @@ impl Board {
         }
     }
 
-    // A helper method for `generate_moves`. It figures out which
-    // castling moves are pseudo-legal and pushes them to
-    // `move_stack`.
+    /// A helper method for `generate_moves`. It figures out which
+    /// castling moves are pseudo-legal and pushes them to
+    /// `move_stack`.
     #[inline(always)]
     fn push_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
 
@@ -1124,8 +1120,8 @@ impl Board {
         }
     }
 
-    // A helper method for `generate_moves`. It returns all pinned
-    // pieces belonging to the side to move.
+    /// A helper method for `generate_moves`. It returns all pinned
+    /// pieces belonging to the side to move.
     #[inline(always)]
     fn find_pinned(&self) -> Bitboard {
         let king_square = self.king_square();
@@ -1175,8 +1171,8 @@ impl Board {
         }
     }
 
-    // A helper method for `generate_moves`. It returns a bitboard
-    // representing the en-passant target square if there is one.
+    /// A helper method for `generate_moves`. It returns a bitboard
+    /// representing the en-passant target square if there is one.
     #[inline]
     fn en_passant_bb(&self) -> Bitboard {
         assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
@@ -1189,9 +1185,9 @@ impl Board {
         }
     }
 
-    // A helper method used by various other methods. It returns the
-    // square that the king of the side to move occupies. The value is
-    // lazily calculated and saved for future use.
+    /// A helper method. It returns the square that the king of the
+    /// side to move occupies. The value is lazily calculated and
+    /// saved for future use.
     #[inline]
     fn king_square(&self) -> Square {
         if self._king_square.get() > 63 {
@@ -1202,9 +1198,9 @@ impl Board {
         self._king_square.get()
     }
 
-    // A helper method for `do_move`. It returns `true` if had our
-    // king moved to square `square` it would be in check, and `false`
-    // otherwise.
+    /// A helper method for `do_move`. It returns `true` if had our
+    /// king moved to square `square` it would be in check, and
+    /// `false` otherwise.
     #[inline]
     fn king_would_be_in_check(&self, square: Square) -> bool {
         let them = 1 ^ self.to_move;
@@ -1236,8 +1232,8 @@ impl Board {
         }
     }
 
-    // A helper method. It returns the type of the piece at the square
-    // represented by the bitboard `square_bb`.
+    /// A helper method. It returns the type of the piece at the
+    /// square represented by the bitboard `square_bb`.
     #[inline(always)]
     fn get_piece_type_at(&self, square_bb: Bitboard) -> PieceType {
         assert!(square_bb != BB_EMPTY_SET);
@@ -1254,15 +1250,15 @@ impl Board {
         panic!("invalid board");
     }
 
-    // A helper method for `push_pawn_moves_to_stack`. It tests for
-    // the special case when an en-passant capture discovers check on
-    // 4/5-th rank.
-    //
-    // This is the very rare occasion when the two pawns participating
-    // in en-passant capture, disappearing in one move, discover an
-    // unexpected check along the horizontal (rank 4 of
-    // 5). `orig_square` and `dist_square` are the origin square and
-    // the destination square of the capturing pawn.
+    /// A helper method for `push_pawn_moves_to_stack`. It tests for
+    /// the special case when an en-passant capture discovers check on
+    /// 4/5-th rank.
+    ///
+    /// This method tests for the very rare occasion when the two
+    /// pawns participating in en-passant capture, disappearing in one
+    /// move, discover an unexpected check along the horizontal (rank
+    /// 4 of 5). `orig_square` and `dist_square` are the origin square
+    /// and the destination square of the capturing pawn.
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
@@ -1313,23 +1309,23 @@ impl Board {
 }
 
 
-// No passing pawn file.
-const NO_ENPASSANT_FILE: usize = 8;
-
-
-// Pawn move types
+// Pawn move types.
 const PAWN_PUSH: usize = 0;
 const PAWN_DOUBLE_PUSH: usize = 1;
 const PAWN_WEST_CAPTURE: usize = 2;
 const PAWN_EAST_CAPTURE: usize = 3;
 
 
-// Pawn move shifts (one for each color and move type)
+/// Pawn move shifts (one for each color and pawn move type).
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 
-// Bitboards that describe how the castling rook moves during the
-// castling move.
+/// Indicates no passing pawn file.
+const NO_ENPASSANT_FILE: usize = 8;
+
+
+/// Bitboards that describe how the castling rook moves during the
+/// castling move.
 const CASTLING_ROOK_MASK: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
                                                 [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
 

@@ -1,4 +1,5 @@
-//! Implements useful functions for manipulating bit-sets.
+//! Implements useful constants and functions for manipulating
+//! bit-sets.
 //!
 //! **Note:** The term "LS1B" used in the code means "least
 //! significant `1` bit".
@@ -17,6 +18,7 @@ pub const BB_RANK_6: Bitboard = BB_RANK_5 << 8;
 pub const BB_RANK_7: Bitboard = BB_RANK_6 << 8;
 pub const BB_RANK_8: Bitboard = BB_RANK_7 << 8;
 
+
 // Files A-H.
 pub const BB_FILE_A: Bitboard = 0x0101010101010101;
 pub const BB_FILE_B: Bitboard = BB_FILE_A << 1;
@@ -27,8 +29,10 @@ pub const BB_FILE_F: Bitboard = BB_FILE_E << 1;
 pub const BB_FILE_G: Bitboard = BB_FILE_F << 1;
 pub const BB_FILE_H: Bitboard = BB_FILE_G << 1;
 
+
 // Rank 1 or 8.
 pub const BB_PAWN_PROMOTION_RANKS: Bitboard = BB_RANK_1 | BB_RANK_8;
+
 
 // The main diagonal (A1-H8), and the main anti-diagonal (A8-H1).
 pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
