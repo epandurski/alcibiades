@@ -116,6 +116,12 @@ impl TtEntry {
     pub fn eval_value(&self) -> Value {
         self.eval_value
     }
+    
+    /// Returns the contained data as one `u64` value.
+    #[inline(always)]
+    fn as_u64(&self) -> u64 {
+        unsafe { transmute(*self) }
+    }
 }
 
 
@@ -217,7 +223,7 @@ impl Tt {
             // Check if this is an empty slot, or an old record for
             // the same key. If this this is the case we will use this
             // slot for the new record.
-            if record.key == 0 || record.key ^ record.data_u64() == key {
+            if record.key == 0 || record.key ^ record.data.as_u64() == key {
                 if data.move16 == 0 {
                     data.move16 = record.data.move16; // Preserve any existing move.
                 }
@@ -237,7 +243,7 @@ impl Tt {
 
         // Write the data to the chosen slot.
         unsafe {
-            cluster.get_unchecked_mut(replace_index).key = key ^ transmute::<TtEntry, u64>(data);
+            cluster.get_unchecked_mut(replace_index).key = key ^ data.as_u64();
             cluster.get_unchecked_mut(replace_index).data = data;
         }
     }
@@ -250,13 +256,13 @@ impl Tt {
     pub fn probe(&self, key: u64) -> Option<TtEntry> {
         let cluster = unsafe { self.cluster_mut(key) };
         for record in cluster.iter_mut() {
-            if record.key ^ record.data_u64() == key {
+            if record.key ^ record.data.as_u64() == key {
                 // If `key` and `data` were written simultaneously by
                 // different search instances with different keys,
                 // this will yield in a mismatch of the above
                 // comparison (except for the rare and inherent key
                 // collisions).
-                record.update_generation(self.generation.get());
+                record.set_generation(self.generation.get());
                 return Some(record.data);
             }
         }
@@ -274,7 +280,7 @@ impl Tt {
     pub fn peek(&self, key: u64) -> Option<TtEntry> {
         let cluster = unsafe { self.cluster_mut(key) };
         for record in cluster.iter_mut() {
-            if record.key ^ record.data_u64() == key {
+            if record.key ^ record.data.as_u64() == key {
                 return Some(record.data);
             }
         }
@@ -362,29 +368,23 @@ impl Default for Record {
 
 
 impl Record {
-    /// Returns the contained data as one `u64` value.
-    #[inline(always)]
-    fn data_u64(&self) -> u64 {
-        unsafe { transmute(self.data) }
-    }
-
     /// Returns record's generation.
     #[inline(always)]
     fn generation(&self) -> u8 {
         self.data.gen_bound & 0b11111100
     }
 
-    /// Updates record's generation.
+    /// Sets record's generation.
     #[inline(always)]
-    fn update_generation(&mut self, generation: u8) {
+    fn set_generation(&mut self, generation: u8) {
         assert_eq!(generation & 0b11, 0);
 
         // Since the `key` is saved XOR-ed with the data, when we
         // change the data, we have to change the stored `key` as
         // well.
-        let old_data_u64 = self.data_u64();
+        let old_data_u64 = self.data.as_u64();
         self.data.gen_bound = generation | self.data.bound();
-        self.key ^= old_data_u64 ^ self.data_u64();
+        self.key ^= old_data_u64 ^ self.data.as_u64();
     }
 }
 
