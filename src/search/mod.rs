@@ -75,13 +75,13 @@ pub struct SearchThread {
     tt: Arc<Tt>,
     status: SearchStatus,
 
-    // A handle to the search thread.
+    /// A handle to the search thread.
     search_thread: Option<thread::JoinHandle<()>>,
 
-    // A channel for sending commands to the search thread.
+    /// A channel for sending commands to the search thread.
     commands: Sender<Command>,
 
-    // A channel for receiving reports from the search thread.
+    /// A channel for receiving reports from the search thread.
     reports: Receiver<Report>,
 }
 
@@ -206,8 +206,8 @@ impl SearchThread {
         self.search_thread.take().unwrap().join().unwrap();
     }
 
-    // A helper method. It updates the current status according to the
-    // received report message.
+    /// A helper method. It updates the current status according to
+    /// the received report message.
     fn process_report(&mut self, report: Report) {
         let duration = self.status.started_at.elapsed().unwrap();
         self.status.duration_millis = 1000 * duration.as_secs() +
@@ -226,14 +226,14 @@ impl SearchThread {
 }
 
 
-// A helper function. It extracts the primary variation (PV) from the
-// transposition table (TT) and returns it.
-//
-// **Note:** Because the PV is a moving target (the search
-// continues to run in parallel), imperfections in the reported
-// PVs are unavoidable. To deal with this, we turn a blind eye if
-// the value at the root of the PV differs from the value at the
-// leaf by no more than `EPSILON`.
+/// A helper function. It extracts the primary variation (PV) from the
+/// transposition table (TT) and returns it.
+///
+/// **Note:** Because the PV is a moving target (the search continues
+/// to run in parallel), imperfections in the reported PVs are
+/// unavoidable. To deal with this, we turn a blind eye if the value
+/// at the root of the PV differs from the value at the leaf by no
+/// more than `EPSILON`.
 fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
     const EPSILON: Value = 8; // A sufficiently small value (in centipawns).
 

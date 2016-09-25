@@ -205,14 +205,15 @@ impl<'a> Search<'a> {
         self.killers.forget_all();
     }
 
-    // A helper method for `Search::run`. Each call to `Search::run`
-    // begins with a call to `Search::node_begin`. This method tries
-    // to calculate and return the value for the node. It basically
-    // does 3 things:
-    //
-    // 1. Checks if the transposition table has the result.
-    // 2. On leaf nodes, performs quiescence search.
-    // 3. Performs null move pruning if possible.
+    /// A helper method for `run`. Each call to `run` begins with a
+    /// call to `node_begin`.
+    ///
+    /// This method tries to calculate and return the value for the
+    /// node. It basically does 3 things:
+    ///
+    /// 1. Checks if the transposition table has the result.
+    /// 2. On leaf nodes, performs quiescence search.
+    /// 3. Performs null move pruning if possible.
     fn node_begin(&mut self,
                   alpha: Value,
                   beta: Value,
@@ -314,8 +315,8 @@ impl<'a> Search<'a> {
         Ok(None)
     }
 
-    // A helper method for `Search::run`. Each call to `Search::run`
-    // ends with a call to `Search::node_end`.
+    /// A helper method for `run`. Each call to `run` ends with a call
+    /// to `_end`.
     #[inline]
     fn node_end(&mut self) {
         // Restore the move list from the previous ply (half-move) and
@@ -336,15 +337,15 @@ impl<'a> Search<'a> {
         }
     }
 
-    // A helper method for `Search::run`. It plays the next legal move
-    // in the current position and returns it.
-    //
-    // Each call to `do_move` for the same position will play and
-    // return a different move. When all legal moves has been played,
-    // `None` will be returned. `do_move` will do whatever it can to
-    // play the best moves first, and the worst last. It will also try
-    // to be efficient, for example it will generate the list of all
-    // pseudo-legal moves at the last possible moment.
+    /// A helper method for `run`. It plays the next legal move in the
+    /// current position and returns it.
+    ///
+    /// Each call to `do_move` for the same position will play and
+    /// return a different move. When all legal moves has been played,
+    /// `None` will be returned. `do_move` will do whatever it can to
+    /// play the best moves first, and the worst last. It will also
+    /// try to be efficient, for example it will generate the list of
+    /// all pseudo-legal moves at the last possible moment.
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
         assert!(self.state_stack.len() > 0);
@@ -484,15 +485,15 @@ impl<'a> Search<'a> {
         None
     }
 
-    // A helper method for `Search::run`. It takes back the last move
-    // played by `Search::do_move`.
+    /// A helper method for `run`. It takes back the last move played
+    /// by `do_move`.
     #[inline]
     fn undo_move(&mut self) {
         self.position.undo_move();
     }
 
-    // A helper method for `Search::run`. It stores the updated node
-    // information in the transposition table.
+    /// A helper method for `run`. It stores the updated node
+    /// information in the transposition table.
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
@@ -500,11 +501,11 @@ impl<'a> Search<'a> {
                       TtEntry::new(value, bound, depth, best_move.digest(), entry.eval_value()));
     }
 
-    // A helper method for `Search::run`. It reports search progress.
-    //
-    // From time to time, we should report how many nodes has been
-    // searched since the beginning of the search. This also gives an
-    // opportunity for the search to be terminated.
+    /// A helper method for `run`. It reports search progress.
+    ///
+    /// From time to time, we should report how many nodes has been
+    /// searched since the beginning of the search. This also gives an
+    /// opportunity for the search to be terminated.
     #[inline]
     fn report_progress(&mut self, new_nodes: NodeCount) -> Result<(), TerminatedSearch> {
         self.unreported_nodes += new_nodes;
@@ -518,8 +519,8 @@ impl<'a> Search<'a> {
         Ok(())
     }
 
-    // A helper method for `Search::run`. It registers that the move
-    // `m` caused a beta cut-off (a killer move).
+    /// A helper method for `run`. It registers that the move `m`
+    /// caused a beta cut-off (a killer move).
     #[inline]
     fn register_killer_move(&mut self, m: Move) {
         self.killers.register(self.state_stack.len() - 1, m);
@@ -527,24 +528,24 @@ impl<'a> Search<'a> {
 }
 
 
-// The number of half-moves with which the search depth will be
-// reduced when trying null moves.
+/// The number of half-moves with which the search depth will be
+/// reduced when trying null moves.
 const NULL_MOVE_REDUCTION: u8 = 3;
 
 
-// Moves with move scores higher than this number will be searched at
-// full depth. Moves with move scores lesser or equal to this number
-// will be searched at reduced depth.
+/// Moves with move scores higher than this number will be searched at
+/// full depth. Moves with move scores lesser or equal to this number
+/// will be searched at reduced depth.
 const REDUCTION_THRESHOLD: usize = 0;
 
 
-// When this distance in half-moves is reached, the old killer moves
-// will be downgraded. This affects for how long the successful old
-// killer moves are kept.
+/// When this distance in half-moves is reached, the old killer moves
+/// will be downgraded. This affects for how long the successful old
+/// killer moves are kept.
 const KILLERS_DOWNGRADE_DISTANCE: usize = 3;
 
 
-// Tells where we are in the move generation sequence.
+/// Tells where we are in the move generation sequence.
 enum NodePhase {
     Pristine,
     ConsideredNullMove,
@@ -556,7 +557,7 @@ enum NodePhase {
 }
 
 
-// Holds information about the state of a node in the search tree.
+/// Holds information about the state of a node in the search tree.
 struct NodeState {
     phase: NodePhase,
     entry: TtEntry,
@@ -654,7 +655,7 @@ impl KillerTable {
 }
 
 
-// A killer move with its hit counter.
+/// A killer move with its hit counter.
 #[derive(Clone, Copy)]
 struct Killer {
     pub digest: MoveDigest,
@@ -662,11 +663,11 @@ struct Killer {
 }
 
 
-// A pair of two killer moves.
-//
-// The `major` killer is always the more important one. The killers
-// are swapped if at some moment the minor killer has got at least as
-// much hits as the major killer.
+/// A pair of two killer moves.
+///
+/// The `major` killer is always the more important one. The killers
+/// are swapped if at some moment the minor killer has got at least as
+/// much hits as the major killer.
 #[derive(Clone, Copy)]
 struct KillerPair {
     pub minor: Killer,
