@@ -19,18 +19,6 @@ use self::board::Board;
 use self::evaluation::evaluate_board;
 
 
-/// Information needed so as to be able to undo the last move.
-#[derive(Clone, Copy)]
-struct StateInfo {
-    /// The number of halfmoves since the last pawn advance or piece
-    /// capture.
-    halfmove_clock: u8,
-
-    /// The last played move.
-    last_move: Move,
-}
-
-
 /// Represents an illegal possiton error.
 pub struct IllegalPosition;
 
@@ -85,17 +73,20 @@ pub struct Position {
     /// advancing a pawn.
     repeated_or_rule50: bool,
 
-    /// A hash value for the set of boards that are still reachable
-    /// from the root position, and had occurred at least twice before
-    /// the root position. An empty set has a hash of `0`.
-    repeated_boards_hash: u64,
-
     /// Information needed so as to be able to undo the played moves.
-    state_stack: Vec<StateInfo>,
+    state_stack: Vec<PositionInfo>,
 
-    /// A list of boards that had occurred during the game. This is
-    /// needed so as to be able to detect repeated positions.
+    /// A list of hashes for the boards that had occurred during the
+    /// game. This is needed so as to be able to detect repeated
+    /// positions.
     encountered_boards: Vec<u64>,
+
+    /// A hash value for the set of boards that had occurred at least
+    /// twice before the root position (the earliest position in
+    /// `state_stack`), and are still reachable from the root
+    /// position. An empty set has a hash of `0`. We use this value
+    /// when we generate position's hash.
+    repeated_boards_hash: u64,
 }
 
 
@@ -118,7 +109,7 @@ impl Position {
             repeated_or_rule50: false,
             repeated_boards_hash: 0,
             encountered_boards: vec![0; halfmove_clock as usize],
-            state_stack: vec![StateInfo {
+            state_stack: vec![PositionInfo {
                                   halfmove_clock: if halfmove_clock < 99 {
                                       halfmove_clock
                                   } else {
@@ -454,7 +445,7 @@ impl Position {
             }
 
             // The move is OK.
-            self.state_stack.push(StateInfo {
+            self.state_stack.push(PositionInfo {
                 halfmove_clock: halfmove_clock,
                 last_move: m,
             });
@@ -787,7 +778,7 @@ impl Position {
     }
 
     #[inline(always)]
-    fn state(&self) -> &StateInfo {
+    fn state(&self) -> &PositionInfo {
         self.state_stack.last().unwrap()
     }
 
@@ -814,6 +805,18 @@ impl Clone for Position {
             state_stack: state_stack,
         }
     }
+}
+
+
+/// Contains information about a position.
+#[derive(Clone, Copy)]
+struct PositionInfo {
+    /// The number of halfmoves since the last pawn advance or piece
+    /// capture.
+    halfmove_clock: u8,
+
+    /// The last played move.
+    last_move: Move,
 }
 
 
