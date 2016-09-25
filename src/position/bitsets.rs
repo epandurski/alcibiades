@@ -306,36 +306,6 @@ pub fn bb_anti_diag(square: Square) -> Bitboard {
 }
 
 
-// A helper function for `calc_line_attacks`. It reverses the bits in
-// a 64 bit number using a recursive algorithm which swaps the order
-// of sub-elements, starting with even and odd bits
-fn reverse(mut v: u64) -> u64 {
-    v = ((v >> 1) & 0x5555555555555555) | ((v & 0x5555555555555555) << 1);
-    v = ((v >> 2) & 0x3333333333333333) | ((v & 0x3333333333333333) << 2);
-    v = ((v >> 4) & 0x0F0F0F0F0F0F0F0F) | ((v & 0x0F0F0F0F0F0F0F0F) << 4);
-    v = ((v >> 8) & 0x00FF00FF00FF00FF) | ((v & 0x00FF00FF00FF00FF) << 8);
-    v = ((v >> 16) & 0x0000FFFF0000FFFF) | ((v & 0x0000FFFF0000FFFF) << 16);
-    ((v >> 32) & 0x00000000FFFFFFFF) | ((v & 0x00000000FFFFFFFF) << 32)
-}
-
-
-// A helper function for `calc_rook_attacks` and
-// `calc_bishop_attacks`. It calculates the set of squares, lying on a
-// single straight line (a file, rank, diagonal, or anti-diagonal),
-// that a piece can attack from a given square and given board
-// occupancy. To accomplish this it uses some really beautiful bit
-// manipulations that are almost indistinguishable from magic.
-fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
-    let from_square_bb = 1u64 << from_square;
-    assert!(from_square_bb & line != 0);
-    let potential_blockers = occupied & line;
-    let forward = potential_blockers.wrapping_sub(from_square_bb.wrapping_mul(2));
-    let rev = reverse(reverse(potential_blockers)
-                          .wrapping_sub(reverse(from_square_bb).wrapping_mul(2)));
-    (forward ^ rev) & line
-}
-
-
 /// Returns the set of squares that are attacked by a rook from a
 /// given square.
 ///
@@ -359,6 +329,37 @@ pub fn bb_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
 pub fn bb_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
     calc_line_attacks(bb_diag(from_square), from_square, occupied) |
     calc_line_attacks(bb_anti_diag(from_square), from_square, occupied)
+}
+
+
+/// A helper function for `calc_rook_attacks` and
+/// `calc_bishop_attacks`.
+///
+/// This function calculates the set of squares, lying on a single
+/// straight line (a file, rank, diagonal, or anti-diagonal), that a
+/// piece can attack from a given square and given board occupancy. To
+/// accomplish this it uses some insanely beautiful bit manipulations
+/// that are almost indistinguishable from magic.
+fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
+    let from_square_bb = 1u64 << from_square;
+    assert!(from_square_bb & line != 0);
+    let potential_blockers = occupied & line;
+    let forward = potential_blockers.wrapping_sub(from_square_bb.wrapping_mul(2));
+    let rev = reverse(reverse(potential_blockers)
+                          .wrapping_sub(reverse(from_square_bb).wrapping_mul(2)));
+    (forward ^ rev) & line
+}
+
+
+/// A helper function for `calc_line_attacks`. It reverses the bits in
+/// a 64 bit number.
+fn reverse(mut v: u64) -> u64 {
+    v = ((v >> 1) & 0x5555555555555555) | ((v & 0x5555555555555555) << 1);
+    v = ((v >> 2) & 0x3333333333333333) | ((v & 0x3333333333333333) << 2);
+    v = ((v >> 4) & 0x0F0F0F0F0F0F0F0F) | ((v & 0x0F0F0F0F0F0F0F0F) << 4);
+    v = ((v >> 8) & 0x00FF00FF00FF00FF) | ((v & 0x00FF00FF00FF00FF) << 8);
+    v = ((v >> 16) & 0x0000FFFF0000FFFF) | ((v & 0x0000FFFF0000FFFF) << 16);
+    ((v >> 32) & 0x00000000FFFFFFFF) | ((v & 0x00000000FFFFFFFF) << 32)
 }
 
 

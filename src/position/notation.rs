@@ -81,7 +81,7 @@ pub fn parse_fen
 }
 
 
-// Parses a square in algebraic notation.
+/// Parses a square in algebraic notation.
 fn parse_square(s: &str) -> Result<Square, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();

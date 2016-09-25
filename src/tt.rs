@@ -292,11 +292,13 @@ impl Tt {
         self.generation.set(0);
     }
 
-    // A helper method for `store`. It implements our replacement
-    // strategy. It returns higher values for the records that are
-    // move likely to save CPU work in the future.
+    /// A helper method for `store`. It implements the record
+    /// replacement strategy.
     #[inline(always)]
     fn calc_score(&self, record: &Record) -> u8 {
+        // Here we try to return higher values for the records that
+        // are move likely to save CPU work in the future:
+        
         // Positions from the current generation are always scored
         // higher than positions from older generations.
         (if record.generation() == self.generation.get() {
@@ -305,10 +307,10 @@ impl Tt {
             0
         }) 
             
-        // Positions with higher search depth are scored higher.
+        // Positions with higher search depths are scored higher.
         + record.data.depth()
             
-        // Positions with exact evaluation are given slight advantage.
+        // Positions with exact evaluations are given slight advantage.
         + (if record.data.bound() == BOUND_EXACT {
             1
         } else {
@@ -316,8 +318,8 @@ impl Tt {
         })
     }
 
-    // A helper method for `probe` and `store`. It returns the cluster
-    // for a given key.
+    /// A helper method for `probe` and `store`. It returns the
+    /// cluster for a given key.
     #[inline]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
         let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;

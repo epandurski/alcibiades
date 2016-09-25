@@ -26,17 +26,17 @@ use time_manager::TimeManager;
 /// The version of the program.
 pub const VERSION: &'static str = "0.1";
 
-// The name of the program.
+/// The name of the program.
 const NAME: &'static str = "Alcibiades";
 
-// The author of the program.
+/// The author of the program.
 const AUTHOR: &'static str = "Evgeni Pandurski";
 
-// The starting position in Forsyth–Edwards notation (FEN).
+/// The starting position in Forsyth–Edwards notation (FEN).
 const STARTING_POSITION: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
 
 
-// Represents a condition for terminating the search.
+/// Represents a condition for terminating the search.
 enum PlayWhen {
     TimeManagement(TimeManager), // Stop when the time manager says.
     MoveTime(u64), // Stop after the given number of milliseconds.
@@ -106,8 +106,8 @@ impl Engine {
         }
     }
 
-    // A helper method. It it adds a progress report message to
-    // `self.queue`.
+    /// A helper method. It it adds a progress report message to the
+    /// queue.
     fn queue_progress_report(&mut self) {
         let &SearchStatus { depth, searched_nodes, nps, .. } = self.search_thread.status();
         self.queue.push_back(uci::EngineReply::Info(vec![
@@ -118,8 +118,8 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It it adds a message containing the current
-    // (multi)PV to `self.queue`.
+    /// A helper method. It it adds a message containing the current
+    /// (multi)PV to the queue.
     fn queue_pv(&mut self) {
         let &SearchStatus { depth, ref variations, searched_nodes, duration_millis, nps, .. } =
             self.search_thread.status();
@@ -148,8 +148,8 @@ impl Engine {
         self.silent_since = SystemTime::now();
     }
 
-    // A helper method. It it adds a message containing the current
-    // best move to `self.queue`.
+    /// A helper method. It it adds a message containing the current
+    /// best move to the queue.
     fn queue_best_move(&mut self) {
         let &SearchStatus { ref variations, .. } = self.search_thread.status();
         self.queue.push_back(uci::EngineReply::BestMove {
@@ -253,19 +253,19 @@ impl UciEngine for Engine {
             self.search_thread.update_status();
             let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
                 self.search_thread.status();
-            
-            // Send the (multi)PV when changed.
+
+            // Send the (multi)PV for each newly reached depth.
             if depth > self.current_depth {
                 self.current_depth = depth;
                 self.queue_pv();
             }
 
-            // Send periodic progress reports.
+            // Send a progress report periodically.
             if self.silent_since.elapsed().unwrap().as_secs() > 10 {
                 self.queue_progress_report();
             }
 
-            // Register the updated search status with the time manager.
+            // Register the search status with the time manager.
             if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
                 tm.update_status(self.search_thread.status());
             }

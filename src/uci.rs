@@ -462,7 +462,7 @@ pub trait UciEngine {
 }
 
 
-// A command from the GUI to the engine.
+/// A command from the GUI to the engine.
 enum UciCommand {
     SetOption(SetOptionParams),
     IsReady,
@@ -482,14 +482,14 @@ struct SetOptionParams {
 }
 
 
-// Parameters for `UciCommand::Position`.
+/// Parameters for `UciCommand::Position`.
 struct PositionParams {
     fen: String,
     moves: String,
 }
 
 
-// Parameters for `UciCommand::Go`.
+/// Parameters for `UciCommand::Go`.
 struct GoParams {
     searchmoves: Option<Vec<String>>,
     ponder: bool,
@@ -506,11 +506,12 @@ struct GoParams {
 }
 
 
-// Represents a parse error.
+/// Represents a parse error.
 struct ParseError;
 
 
-// Tries to interpret a string as a UCI command.
+/// A helper function for `Server::serve`. It tries to interpret a
+/// string as a UCI command.
 fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -540,8 +541,8 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
 }
 
 
-// A helper function for `parse_uci_command`. It parses parameters for
-// the "setoption" command.
+/// A helper function for `parse_uci_command`. It parses parameters
+/// for the "setoption" command.
 fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -558,8 +559,8 @@ fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
 }
 
 
-// A helper function for `parse_uci_command`. It parses parameters for
-// the "position" command.
+/// A helper function for `parse_uci_command`. It parses parameters
+/// for the "position" command.
 fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
     const STARTPOS: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
     lazy_static! {
@@ -586,8 +587,8 @@ fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
 }
 
 
-// A helper function for `parse_uci_command`. It parses parameters for
-// the "go" command.
+/// A helper function for `parse_uci_command`. It parses parameters
+/// for the "go" command.
 fn parse_go_params(s: &str) -> GoParams {
     lazy_static! {
         static ref RE: Regex = Regex::new(

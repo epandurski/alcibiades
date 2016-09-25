@@ -5,6 +5,118 @@ use basetypes::*;
 use position::bitsets::*;
 
 
+/// Loop-up tables for calculating Zobrist hashes.
+///
+/// Zobrist Hashing is a technique to transform a board position of
+/// arbitrary size into a number of a set length, with an equal
+/// distribution over all possible numbers, invented by Albert
+/// Zobrist.  The main purpose of Zobrist hash codes in chess
+/// programming is to get an almost unique index number for any chess
+/// position, with a very important requirement that two similar
+/// positions generate entirely different indices. These index numbers
+/// are used for faster and more space efficient hash tables or
+/// databases, e.g. transposition tables and opening books.
+pub struct ZobristArrays {
+    /// The constant with which the hash value should be XOR-ed when
+    /// the side to move changes.
+    pub to_move: u64,
+
+    /// Constants with which the hash value should be XOR-ed when a
+    /// piece of given color on a given square appears/disappears.
+    pub pieces: [[[u64; 64]; 6]; 2],
+
+    /// Constants with which the hash value should be XOR-ed, for the
+    /// old and the new castling rights on each move.
+    pub castling: [u64; 16],
+
+    /// Constants with which the hash value should be XOR-ed, for the
+    /// old and the new en-passant file on each move.  Only the first
+    /// 8 indexes are used -- the rest exist for memory safety
+    /// reasons, and are set to `0`.
+    pub en_passant: [u64; 16],
+
+    /// Constants with which the hash value should be XOR-ed to
+    /// reflect the number of half-moves played without capturing a
+    /// piece or advancing a pawn.
+    pub halfmove_clock: [u64; 100],
+
+    /// Derived from the `pieces` field. Contains the constants with
+    /// which the Zobrist hash value should be XOR-ed to reflect the
+    /// movement of the rook during castling.
+    pub castling_rook_move: [[u64; 2]; 2],
+}
+
+
+impl ZobristArrays {
+    /// Creates and initializes a new instance.
+    fn new() -> ZobristArrays {
+        use rand::{Rng, SeedableRng};
+        use rand::isaac::Isaac64Rng;
+
+        let seed: &[_] = &[1, 2, 3, 4];
+        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
+
+        let to_move = rng.gen();
+        let mut pieces = [[[0; 64]; 6]; 2];
+        let mut castling = [0; 16];
+        let mut en_passant = [0; 16];
+        let mut halfmove_clock = [0; 100];
+        let mut castling_rook_move = [[0; 2]; 2];
+
+        for color in 0..2 {
+            for piece in 0..6 {
+                for square in 0..64 {
+                    pieces[color][piece][square] = rng.gen();
+                }
+            }
+        }
+
+        for value in 0..16 {
+            castling[value] = rng.gen();
+        }
+
+        for file in 0..8 {
+            en_passant[file] = rng.gen();
+        }
+
+        for n in 0..100 {
+            halfmove_clock[n] = rng.gen();
+        }
+
+        castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
+        castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
+        castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
+        castling_rook_move[BLACK][KINGSIDE] = pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8];
+
+        ZobristArrays {
+            to_move: to_move,
+            pieces: pieces,
+            castling: castling,
+            en_passant: en_passant,
+            halfmove_clock: halfmove_clock,
+            castling_rook_move: castling_rook_move,
+        }
+    }
+
+    /// Returns a reference to an initialized `ZobristArrays` object.
+    ///
+    /// The object is created only during the first call. All next
+    /// calls will return a reference to the same object. This is done
+    /// in a thread-safe manner.
+    pub fn get() -> &'static ZobristArrays {
+        use std::sync::{Once, ONCE_INIT};
+        static INIT_ARRAYS: Once = ONCE_INIT;
+        static mut arrays: Option<ZobristArrays> = None;
+        unsafe {
+            INIT_ARRAYS.call_once(|| {
+                arrays = Some(ZobristArrays::new());
+            });
+            arrays.as_ref().unwrap()
+        }
+    }
+}
+
+
 /// Look-up tables and look-up methods for move generation.
 pub struct BoardGeometry {
     /// Contains bitboards with all squares lying at the line
@@ -232,118 +344,6 @@ impl BoardGeometry {
 }
 
 
-/// Loop-up tables for calculating Zobrist hashes.
-///
-/// Zobrist Hashing is a technique to transform a board position of
-/// arbitrary size into a number of a set length, with an equal
-/// distribution over all possible numbers, invented by Albert
-/// Zobrist.  The main purpose of Zobrist hash codes in chess
-/// programming is to get an almost unique index number for any chess
-/// position, with a very important requirement that two similar
-/// positions generate entirely different indices. These index numbers
-/// are used for faster and more space efficient hash tables or
-/// databases, e.g. transposition tables and opening books.
-pub struct ZobristArrays {
-    /// The constant with which the hash value should be XOR-ed when
-    /// the side to move changes.
-    pub to_move: u64,
-
-    /// Constants with which the hash value should be XOR-ed when a
-    /// piece of given color on a given square appears/disappears.
-    pub pieces: [[[u64; 64]; 6]; 2],
-
-    /// Constants with which the hash value should be XOR-ed, for the
-    /// old and the new castling rights on each move.
-    pub castling: [u64; 16],
-
-    /// Constants with which the hash value should be XOR-ed, for the
-    /// old and the new en-passant file on each move.  Only the first
-    /// 8 indexes are used -- the rest exist for memory safety
-    /// reasons, and are set to `0`.
-    pub en_passant: [u64; 16],
-    
-    /// Constants with which the hash value should be XOR-ed to
-    /// reflect the number of half-moves played without capturing a
-    /// piece or advancing a pawn.
-    pub halfmove_clock: [u64; 100],
-
-    /// Derived from the `pieces` field. Contains the constants with
-    /// which the Zobrist hash value should be XOR-ed to reflect the
-    /// movement of the rook during castling.
-    pub castling_rook_move: [[u64; 2]; 2],
-}
-
-
-impl ZobristArrays {
-    /// Creates and initializes a new instance.
-    fn new() -> ZobristArrays {
-        use rand::{Rng, SeedableRng};
-        use rand::isaac::Isaac64Rng;
-
-        let seed: &[_] = &[1, 2, 3, 4];
-        let mut rng: Isaac64Rng = SeedableRng::from_seed(seed);
-
-        let to_move = rng.gen();
-        let mut pieces = [[[0; 64]; 6]; 2];
-        let mut castling = [0; 16];
-        let mut en_passant = [0; 16];
-        let mut halfmove_clock = [0; 100];
-        let mut castling_rook_move = [[0; 2]; 2];
-
-        for color in 0..2 {
-            for piece in 0..6 {
-                for square in 0..64 {
-                    pieces[color][piece][square] = rng.gen();
-                }
-            }
-        }
-
-        for value in 0..16 {
-            castling[value] = rng.gen();
-        }
-
-        for file in 0..8 {
-            en_passant[file] = rng.gen();
-        }
-
-        for n in 0..100 {
-            halfmove_clock[n] = rng.gen();
-        }
-        
-        castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
-        castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
-        castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
-        castling_rook_move[BLACK][KINGSIDE] = pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8];
-
-        ZobristArrays {
-            to_move: to_move,
-            pieces: pieces,
-            castling: castling,
-            en_passant: en_passant,
-            halfmove_clock: halfmove_clock,
-            castling_rook_move: castling_rook_move,
-        }
-    }
-
-    /// Returns a reference to an initialized `ZobristArrays` object.
-    ///
-    /// The object is created only during the first call. All next
-    /// calls will return a reference to the same object. This is done
-    /// in a thread-safe manner.
-    pub fn get() -> &'static ZobristArrays {
-        use std::sync::{Once, ONCE_INIT};
-        static INIT_ARRAYS: Once = ONCE_INIT;
-        static mut arrays: Option<ZobristArrays> = None;
-        unsafe {
-            INIT_ARRAYS.call_once(|| {
-                arrays = Some(ZobristArrays::new());
-            });
-            arrays.as_ref().unwrap()
-        }
-    }
-}
-
-
 // Global attack tables (uninitialized).
 static mut KING_MAP: [Bitboard; 64] = [0; 64];
 static mut KNIGHT_MAP: [Bitboard; 64] = [0; 64];
@@ -359,22 +359,45 @@ static mut ROOK_MAP: [SMagic; 64] = [SMagic {
     magic: 0,
     shift: 0,
 }; 64];
-const MAP_SIZE: usize = 107648;
-static mut MAP: [Bitboard; MAP_SIZE] = [0; MAP_SIZE];
+const SLIDER_ATTACKS_SIZE: usize = 107648;
+static mut SLIDER_ATTACKS: [Bitboard; SLIDER_ATTACKS_SIZE] = [0; SLIDER_ATTACKS_SIZE];
 
 
-// A helper function. It initializes the global attack tables.
-unsafe fn init_magics() {
-    king_map_init();
-    knight_map_init();
-    let size = get_piece_map(BISHOP, &mut BISHOP_MAP, 0, false);
-    let total = get_piece_map(ROOK, &mut ROOK_MAP, size, false);
-    assert!(total == MAP_SIZE);
+/// An object that "knows" how to query the `SLIDER_ATTACKS` look-up
+/// table for a particular slider (bishop or rook), at a particular
+/// square.
+#[derive(Copy, Clone)]
+struct SMagic {
+    pub offset: usize,
+    pub mask: Bitboard,
+    pub magic: u64,
+    pub shift: u32,
 }
 
 
-// A helper function for `init_magics`.
-unsafe fn knight_map_init() {
+impl SMagic {
+    /// Returns the attack set for given board occupation.
+    #[inline(always)]
+    pub unsafe fn att(&self, occupied: Bitboard) -> Bitboard {
+        let index = (self.magic.wrapping_mul(occupied & self.mask)) >> self.shift;
+        *SLIDER_ATTACKS.get_unchecked(self.offset.wrapping_add(index as usize))
+    }
+}
+
+
+/// A helper function. It initializes the global attack tables.
+unsafe fn init_magics() {
+    init_king_map();
+    init_knight_map();
+    let size = init_slider_map(BISHOP, &mut BISHOP_MAP, 0, false);
+    let total = init_slider_map(ROOK, &mut ROOK_MAP, size, false);
+    assert!(total == SLIDER_ATTACKS_SIZE);
+}
+
+
+/// A helper function for `init_magics`. It initializes knight's
+/// look-up table.
+unsafe fn init_knight_map() {
     let offsets = vec![(-1, -2), (-2, -1), (-2, 1), (-1, 2), (1, -2), (2, -1), (2, 1), (1, 2)];
 
     for (i, attacks) in KNIGHT_MAP.iter_mut().enumerate() {
@@ -389,8 +412,9 @@ unsafe fn knight_map_init() {
 }
 
 
-// A helper function for `init_magics`.
-unsafe fn king_map_init() {
+/// A helper function for `init_magics`. It initializes king's look-up
+/// table.
+unsafe fn init_king_map() {
     let offsets = vec![(1, -1), (1, 0), (1, 1), (0, -1), (0, 1), (-1, -1), (-1, 0), (-1, 1)];
 
     for (i, attacks) in KING_MAP.iter_mut().enumerate() {
@@ -405,15 +429,13 @@ unsafe fn king_map_init() {
 }
 
 
-// A helper function for `init_magics`. It initializes the `MAP`
-// look-up table for a particular slider (bishop or rook). It also
-// calculates the `SMagic` structure for every square on the board for
-// this slider.
-unsafe fn get_piece_map(piece: PieceType,
-                        piece_map: &mut [SMagic; 64],
-                        mut offset: usize,
-                        from_scratch: bool)
-                        -> usize {
+/// A helper function for `init_magics`. It initializes the look-up
+/// table for a particular slider (bishop or rook).
+unsafe fn init_slider_map(piece: PieceType,
+                          piece_map: &mut [SMagic; 64],
+                          mut offset: usize,
+                          from_scratch: bool)
+                          -> usize {
     let mut rng = thread_rng();
 
     for (sq, entry) in piece_map.iter_mut().enumerate() {
@@ -485,7 +507,7 @@ unsafe fn get_piece_map(piece: PieceType,
                 shift: shift,
             };
             for (i, &att) in attacks.iter().enumerate() {
-                MAP[offset + i] = att;
+                SLIDER_ATTACKS[offset + i] = att;
             }
             offset += size;
             break;
@@ -495,26 +517,7 @@ unsafe fn get_piece_map(piece: PieceType,
 }
 
 
-// This structure "knows" how to query the `MAP` look-up table for a
-// particular slider (bishop or rook), at a particular square.
-#[derive(Copy, Clone)]
-struct SMagic {
-    pub offset: usize,
-    pub mask: Bitboard,
-    pub magic: u64,
-    pub shift: u32,
-}
-
-impl SMagic {
-    #[inline(always)]
-    pub unsafe fn att(&self, occupied: Bitboard) -> Bitboard {
-        let index = (self.magic.wrapping_mul(occupied & self.mask)) >> self.shift;
-        *MAP.get_unchecked(self.offset.wrapping_add(index as usize))
-    }
-}
-
-
-// Pre-calculated magic constants.
+/// Pre-calculated bishop magic constants.
 const BISHOP_MAGICS: [u64; 64] = [306397059236266368,
                                   6638343277122827280,
                                   10377420549504106496,
@@ -579,6 +582,9 @@ const BISHOP_MAGICS: [u64; 64] = [306397059236266368,
                                   4516931289817600,
                                   1450317422841301124,
                                   9246488805123342592];
+
+
+/// Pre-calculated rook magic constants.
 const ROOK_MAGICS: [u64; 64] = [36028867955671040,
                                 2395917338224361536,
                                 936757656041832464,
