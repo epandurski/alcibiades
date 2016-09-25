@@ -7,15 +7,11 @@ use position::bitsets::*;
 
 /// Loop-up tables for calculating Zobrist hashes.
 ///
-/// Zobrist Hashing is a technique to transform a board position of
-/// arbitrary size into a number of a set length, with an equal
-/// distribution over all possible numbers, invented by Albert
-/// Zobrist.  The main purpose of Zobrist hash codes in chess
-/// programming is to get an almost unique index number for any chess
-/// position, with a very important requirement that two similar
-/// positions generate entirely different indices. These index numbers
-/// are used for faster and more space efficient hash tables or
-/// databases, e.g. transposition tables and opening books.
+/// Zobrist hashing is a technique to transform a board position into
+/// a number of a fixed length, with an equal distribution over all
+/// possible numbers, invented by Albert Zobrist. The key property of
+/// this method is that two similar positions generate entirely
+/// different hash numbers.
 pub struct ZobristArrays {
     /// The constant with which the hash value should be XOR-ed when
     /// the side to move changes.
@@ -222,10 +218,10 @@ impl BoardGeometry {
         // For every chess engine it is very important to be able to
         // very quickly find the attacking sets for all pieces, from
         // all possible origin squares, and all possible board
-        // occupations. We use "magic bitboards" technique to access
-        // pre-calculated attacking sets of sliding pieces (bishop,
-        // rook, queen). The "magic bitboards" technique consists of
-        // four steps:
+        // occupations. We use the "magic bitboards" technique to
+        // access pre-calculated attacking sets of the sliding pieces
+        // (bishop, rook, queen). The "magic bitboards" technique
+        // consists of four steps:
         //
         // 1. Mask the relevant occupancy bits to form a key. For
         //    example if you had a rook on a1, the relevant occupancy
@@ -282,7 +278,11 @@ impl BoardGeometry {
         // consecutive N bits, to avoid collisions, blowing up the
         // table size.
         unsafe {
-            init_magics();
+            init_king_attacks();
+            init_knight_attacks();
+            let bishop_attacks_size = init_slider_map(BISHOP, &mut BISHOP_MAP, 0, false);
+            let total_size = init_slider_map(ROOK, &mut ROOK_MAP, bishop_attacks_size, false);
+            assert!(total_size == SLIDER_ATTACKS_SIZE);
         }
 
         bg
@@ -331,43 +331,46 @@ impl BoardGeometry {
         assert!(piece < PAWN);
         assert!(from_square <= 63);
         match piece {
-            KING => *KING_MAP.get_unchecked(from_square),
+            KING => *KING_ATTACKS.get_unchecked(from_square),
             QUEEN => {
-                BISHOP_MAP.get_unchecked(from_square).att(occupied) |
-                ROOK_MAP.get_unchecked(from_square).att(occupied)
+                BISHOP_MAP.get_unchecked(from_square).attacks(occupied) |
+                ROOK_MAP.get_unchecked(from_square).attacks(occupied)
             }
-            ROOK => ROOK_MAP.get_unchecked(from_square).att(occupied),
-            BISHOP => BISHOP_MAP.get_unchecked(from_square).att(occupied),
-            _ => *KNIGHT_MAP.get_unchecked(from_square),
+            ROOK => ROOK_MAP.get_unchecked(from_square).attacks(occupied),
+            BISHOP => BISHOP_MAP.get_unchecked(from_square).attacks(occupied),
+            _ => *KNIGHT_ATTACKS.get_unchecked(from_square),
         }
     }
 }
 
 
 // Global attack tables (uninitialized).
-static mut KING_MAP: [Bitboard; 64] = [0; 64];
-static mut KNIGHT_MAP: [Bitboard; 64] = [0; 64];
-static mut BISHOP_MAP: [SMagic; 64] = [SMagic {
-    offset: 0,
-    mask: 0,
-    magic: 0,
-    shift: 0,
-}; 64];
-static mut ROOK_MAP: [SMagic; 64] = [SMagic {
-    offset: 0,
-    mask: 0,
-    magic: 0,
-    shift: 0,
-}; 64];
 const SLIDER_ATTACKS_SIZE: usize = 107648;
 static mut SLIDER_ATTACKS: [Bitboard; SLIDER_ATTACKS_SIZE] = [0; SLIDER_ATTACKS_SIZE];
+static mut KING_ATTACKS: [Bitboard; 64] = [0; 64];
+static mut KNIGHT_ATTACKS: [Bitboard; 64] = [0; 64];
 
 
-/// An object that "knows" how to query the `SLIDER_ATTACKS` look-up
-/// table for a particular slider (bishop or rook), at a particular
-/// square.
+// Global slider maps (uninitialized).
+static mut BISHOP_MAP: [AttacksMagic; 64] = [AttacksMagic {
+    offset: 0,
+    mask: 0,
+    magic: 0,
+    shift: 0,
+}; 64];
+static mut ROOK_MAP: [AttacksMagic; 64] = [AttacksMagic {
+    offset: 0,
+    mask: 0,
+    magic: 0,
+    shift: 0,
+}; 64];
+
+
+/// An object that for a particular slider (bishop or rook) at a
+/// particular square, can "magically" find the corresponding attack
+/// set, for all possible board occupations.
 #[derive(Copy, Clone)]
-struct SMagic {
+struct AttacksMagic {
     pub offset: usize,
     pub mask: Bitboard,
     pub magic: u64,
@@ -375,32 +378,22 @@ struct SMagic {
 }
 
 
-impl SMagic {
+impl AttacksMagic {
     /// Returns the attack set for given board occupation.
     #[inline(always)]
-    pub unsafe fn att(&self, occupied: Bitboard) -> Bitboard {
+    pub unsafe fn attacks(&self, occupied: Bitboard) -> Bitboard {
         let index = (self.magic.wrapping_mul(occupied & self.mask)) >> self.shift;
         *SLIDER_ATTACKS.get_unchecked(self.offset.wrapping_add(index as usize))
     }
 }
 
 
-/// A helper function. It initializes the global attack tables.
-unsafe fn init_magics() {
-    init_king_map();
-    init_knight_map();
-    let size = init_slider_map(BISHOP, &mut BISHOP_MAP, 0, false);
-    let total = init_slider_map(ROOK, &mut ROOK_MAP, size, false);
-    assert!(total == SLIDER_ATTACKS_SIZE);
-}
-
-
 /// A helper function for `init_magics`. It initializes knight's
-/// look-up table.
-unsafe fn init_knight_map() {
+/// attacks table.
+unsafe fn init_knight_attacks() {
     let offsets = vec![(-1, -2), (-2, -1), (-2, 1), (-1, 2), (1, -2), (2, -1), (2, 1), (1, 2)];
 
-    for (i, attacks) in KNIGHT_MAP.iter_mut().enumerate() {
+    for (i, attacks) in KNIGHT_ATTACKS.iter_mut().enumerate() {
         let (r, c) = ((i / 8) as isize, (i % 8) as isize);
 
         for &(dr, dc) in &offsets {
@@ -412,12 +405,12 @@ unsafe fn init_knight_map() {
 }
 
 
-/// A helper function for `init_magics`. It initializes king's look-up
+/// A helper function for `init_magics`. It initializes king's attacks
 /// table.
-unsafe fn init_king_map() {
+unsafe fn init_king_attacks() {
     let offsets = vec![(1, -1), (1, 0), (1, 1), (0, -1), (0, 1), (-1, -1), (-1, 0), (-1, 1)];
 
-    for (i, attacks) in KING_MAP.iter_mut().enumerate() {
+    for (i, attacks) in KING_ATTACKS.iter_mut().enumerate() {
         let (r, c) = ((i / 8) as isize, (i % 8) as isize);
 
         for &(dr, dc) in &offsets {
@@ -430,12 +423,13 @@ unsafe fn init_king_map() {
 
 
 /// A helper function for `init_magics`. It initializes the look-up
-/// table for a particular slider (bishop or rook).
+/// tables for a particular slider (bishop or rook).
 unsafe fn init_slider_map(piece: PieceType,
-                          piece_map: &mut [SMagic; 64],
+                          piece_map: &mut [AttacksMagic; 64],
                           mut offset: usize,
                           from_scratch: bool)
                           -> usize {
+    assert!(piece == BISHOP || piece == ROOK);
     let mut rng = thread_rng();
 
     for (sq, entry) in piece_map.iter_mut().enumerate() {
@@ -500,7 +494,7 @@ unsafe fn init_slider_map(piece: PieceType,
                 *attack = reference[i];
             }
 
-            *entry = SMagic {
+            *entry = AttacksMagic {
                 offset: offset,
                 mask: mask,
                 magic: magic,
