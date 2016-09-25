@@ -63,8 +63,8 @@ pub struct IllegalPosition;
 /// official chess rules prescribe. This is done in the sake of
 /// efficiency. In order to compensate for that
 /// `Position::from_history` "forgets" all positions that have
-/// occurred exactly once. Also, the root positions are never deemed
-/// as a draw due to repetition or rule-50.
+/// occurred exactly once. Also, the root position is never deemed as
+/// a draw due to repetition or rule-50.
 pub struct Position {
     /// The current board.
     ///
