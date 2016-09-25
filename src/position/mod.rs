@@ -413,7 +413,7 @@ impl Position {
             // even in final positions.
             return false;
         }
-        
+
         if let Some(h) = unsafe { self.board_mut().do_move(m) } {
             let halfmove_clock = if m.is_pawn_advance_or_capure() {
                 0
@@ -456,7 +456,7 @@ impl Position {
                 last_move: m,
             });
             true
-                
+
         } else {
             // The move is not OK.
             false
@@ -476,10 +476,10 @@ impl Position {
         self.state_stack.pop();
     }
 
-    // A helper method for `evaluate_quiescence`. It is needed
-    // because`qsearch` should be able to call itself recursively,
-    // which should not complicate `evaluate_quiescence`'s
-    // public-facing interface.
+    /// A helper method for `evaluate_quiescence`. It is needed
+    /// because`qsearch` should be able to call itself recursively,
+    /// which should not complicate `evaluate_quiescence`'s
+    /// public-facing interface.
     fn qsearch(&self,
                mut lower_bound: Value,
                upper_bound: Value,
@@ -518,7 +518,7 @@ impl Position {
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
         }
-        
+
         let obligatory_material_gain = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
 
         // Generate all non-quiet moves.
@@ -610,17 +610,17 @@ impl Position {
         }
     }
 
-    // A helper method for `qsearch` and `evaluate_move`. It
-    // calculates the static evaluation exchange (SSE) value of a
-    // move.
-    //
-    // SEE is just an evaluation calulated without actually trying
-    // moves on the board, the returned value might be incorrect for
-    // many tactical reasons. In addition to that, if during the
-    // calculation it is determined that one of the sides inevitably
-    // loses material, for performance reasons the calculation is
-    // terminated and a value is returned which might not be exact
-    // (but its sign will be correct).
+    /// A helper method for `qsearch` and `evaluate_move`. It
+    /// calculates the static evaluation exchange (SSE) value of a
+    /// move.
+    ///
+    /// SEE is just an evaluation calulated without actually trying
+    /// moves on the board, the returned value might be incorrect for
+    /// many tactical reasons. In addition to that, if during the
+    /// calculation it is determined that one of the sides inevitably
+    /// loses material, for performance reasons the calculation is
+    /// terminated and a value is returned which might not be exact
+    /// (but its sign will be correct).
     fn calc_see(&self, m: Move) -> Value {
         // The impemented algorithm creates a swap-list of best case
         // material gains by traversing the "attackers and defenders"
@@ -710,9 +710,9 @@ impl Position {
         }
     }
 
-    // A helper method for `Position::from_history`. It removes all
-    // states but the current one from `state_stack`. It also forgets
-    // all encountered boards before the last irreversible move.
+    /// A helper method for `from_history`. It removes all states but
+    /// the current one from `state_stack`, and forgets all
+    /// encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
         let state = *self.state();
         let repeated_boards = {
@@ -752,16 +752,16 @@ impl Position {
         self.state_stack.reserve(32);
     }
 
-    // A helper method for `Position::hash`. It returns `true` if the
-    // root position can not be reached from the current position,
-    // `false` otherwise.
+    /// A helper method for `hash`. It returns `true` if the root
+    /// position (the earliest in `state_stack`) can not be reached by
+    /// playing moves from the current position, `false` otherwise.
     #[inline(always)]
     fn root_is_unreachable(&self) -> bool {
         self.encountered_boards.len() > self.state().halfmove_clock as usize
     }
 
-    // A helper method for `Position::do_move`. It returns if the side
-    // to move is checkmated.
+    /// A helper method for `do_move`. It returns if the side to move
+    /// is checkmated.
     fn is_checkmate(&self) -> bool {
         self.board().checkers() != 0 &&
         MOVE_STACK.with(|s| unsafe {
@@ -834,10 +834,10 @@ const SSE_EXCHANGE_MAX_PLY: u8 = 2;
 const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
 
 
-// Helper function for `Position::from_history`. It sets all unique
-// (non-repeated) values in `slice` to `value`, and returns a sorted
-// vector containing a single value for each duplicated value in
-// `slice`.
+/// Helper function for `Position::from_history`. It sets all unique
+/// (non-repeated) values in `slice` to `value`, and returns a sorted
+/// vector containing a single value for each duplicated value in
+/// `slice`.
 fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
     where T: Copy + Ord
 {
@@ -861,10 +861,10 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 }
 
 
-// A helper function for `calc_see`. It returns a bitboard describing
-// the position on the board of the piece that could attack
-// `target_square`, but only when `xrayed_square` becomes
-// vacant. Returns `0` if there is no such piece.
+/// A helper function for `Position::calc_see`. It returns a bitboard
+/// describing the position on the board of the piece that could
+/// attack `target_square`, but only when `xrayed_square` becomes
+/// vacant. (Returns `0` if there is no such piece.)
 #[inline]
 fn consider_xrays(geometry: &BoardGeometry,
                   piece_type_array: &[Bitboard; 6],
@@ -892,9 +892,9 @@ fn consider_xrays(geometry: &BoardGeometry,
 }
 
 
-// A helper function for `calc_see`. It takes a subset of pieces
-// `set`, and returns the type of the least valuable piece, and a
-// bitboard describing its position on the board.
+/// A helper function for `Position::calc_see`. It takes a subset of
+/// pieces `set`, and returns the type of the least valuable piece,
+/// and a bitboard describing its position on the board.
 #[inline]
 fn get_least_valuable_piece(piece_type_array: &[Bitboard; 6],
                             set: Bitboard)
