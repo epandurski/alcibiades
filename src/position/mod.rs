@@ -19,13 +19,14 @@ use self::board::Board;
 use self::evaluation::evaluate_board;
 
 
+/// Information needed so as to be able to undo the last move.
 #[derive(Clone, Copy)]
 struct StateInfo {
-    // The number of halfmoves since the last pawn advance or piece
-    // capture.
+    /// The number of halfmoves since the last pawn advance or piece
+    /// capture.
     halfmove_clock: u8,
 
-    // The last played move.
+    /// The last played move.
     last_move: Move,
 }
 
@@ -65,33 +66,35 @@ pub struct IllegalPosition;
 /// occurred exactly once. Also, the root positions are never deemed
 /// as a draw due to repetition or rule-50.
 pub struct Position {
-    // The current board.  We use `UnsafeCell` for it, because the
-    // `evaluate_quiescence` method logically is non-mutating, but
-    // internally it tries moves on the board and then undoes them,
-    // always leaving everything the way it was.
+    /// The current board.
+    ///
+    /// We use `UnsafeCell` for this, because the
+    /// `evaluate_quiescence` method logically is non-mutating, but
+    /// internally it tries moves on the board and then undoes them,
+    /// always leaving everything the way it was.
     board: UnsafeCell<Board>,
 
-    // The Zobrist hash value for the current board.
+    /// The Zobrist hash value for the current board.
     board_hash: u64,
 
-    // The count of half-moves since the beginning of the game.
+    /// The count of half-moves since the beginning of the game.
     halfmove_count: u16,
 
-    // `true` if the position is deemed as a draw by repetition or
-    // because 50 moves have been played without capturing a piece or
-    // advancing a pawn.
+    /// `true` if the position is deemed as a draw by repetition or
+    /// because 50 moves have been played without capturing a piece or
+    /// advancing a pawn.
     repeated_or_rule50: bool,
 
-    // A hash value for the set of boards that are still reachable
-    // from the root position, and had occurred at least twice before
-    // the root position. An empty set has a hash of `0`.
+    /// A hash value for the set of boards that are still reachable
+    /// from the root position, and had occurred at least twice before
+    /// the root position. An empty set has a hash of `0`.
     repeated_boards_hash: u64,
 
-    // Information needed so as to be able to undo the played moves.
+    /// Information needed so as to be able to undo the played moves.
     state_stack: Vec<StateInfo>,
 
-    // A list of boards that had occurred during the game. This is
-    // needed so as to be able to detect repeated positions.
+    /// A list of boards that had occurred during the game. This is
+    /// needed so as to be able to detect repeated positions.
     encountered_boards: Vec<u64>,
 }
 
@@ -814,23 +817,23 @@ impl Clone for Position {
 }
 
 
-// Thread-local storage for the generated moves.
+/// Thread-local storage for the generated moves.
 thread_local!(
     static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
 );
 
 
-// The material value of pieces.
+/// The material value of pieces.
 const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
 
-// Do not try exchanges with SSE==0 in `qsearch` once this ply has
-// been reached.
+/// Do not try exchanges with SSE==0 in `qsearch` once this ply has
+/// been reached.
 const SSE_EXCHANGE_MAX_PLY: u8 = 2;
 
 
-// Do not blend `halfmove_clock` into position's hash until it gets
-// greater or equal to this number.
+/// Do not blend `halfmove_clock` into position's hash until it gets
+/// greater or equal to this number.
 const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
 
 

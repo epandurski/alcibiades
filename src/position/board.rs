@@ -31,7 +31,7 @@ pub struct Board {
     color: [Bitboard; 2],
     to_move: Color,
     castling: CastlingRights,
-    en_passant_file: usize,
+    en_passant_file: usize, // between 8 and 15 if there is no en-passant file.
     _occupied: Bitboard, // will always be equal to self.color[0] | self.color[1]
     _king_square: Cell<Square>, // lazily calculated, >= 64 if not calculated yet
 
