@@ -26,7 +26,7 @@ use regex::Regex;
 /// A command from the GUI to the engine.
 enum UciCommand {
     /// This is sent to the engine when the user wants to change the
-    /// value of some internal parameter of the engine.
+    /// value of some configuration option supported by the engine.
     SetOption {
         name: String,
         value: String,
