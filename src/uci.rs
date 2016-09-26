@@ -539,6 +539,23 @@ pub trait UciEngine {
 }
 
 
+/// Parameters for `UciCommand::Go`.
+struct GoParams {
+    searchmoves: Option<Vec<String>>,
+    ponder: bool,
+    wtime: Option<u64>,
+    btime: Option<u64>,
+    winc: Option<u64>,
+    binc: Option<u64>,
+    movestogo: Option<u64>,
+    depth: Option<u64>,
+    nodes: Option<u64>,
+    mate: Option<u64>,
+    movetime: Option<u64>,
+    infinite: bool,
+}
+
+
 /// Represents a parse error.
 struct ParseError;
 
@@ -561,8 +578,8 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
             "isready" => Ok(UciCommand::IsReady),
             "ponderhit" => Ok(UciCommand::PonderHit),
             "ucinewgame" => Ok(UciCommand::UciNewGame),
-            "setoption" => Ok(try!(parse_setoption_params(params_str))),
-            "position" => Ok(try!(parse_position_params(params_str))),
+            "setoption" => parse_setoption_params(params_str),
+            "position" => parse_position_params(params_str),
             "go" => Ok(UciCommand::Go(parse_go_params(params_str))),
             _ => Err(ParseError),
         }
@@ -613,22 +630,6 @@ fn parse_position_params(s: &str) -> Result<UciCommand, ParseError> {
     }
 }
 
-
-/// Parameters for `UciCommand::Go`.
-struct GoParams {
-    searchmoves: Option<Vec<String>>,
-    ponder: bool,
-    wtime: Option<u64>,
-    btime: Option<u64>,
-    winc: Option<u64>,
-    binc: Option<u64>,
-    movestogo: Option<u64>,
-    depth: Option<u64>,
-    nodes: Option<u64>,
-    mate: Option<u64>,
-    movetime: Option<u64>,
-    infinite: bool,
-}
 
 fn parse_go_params(s: &str) -> GoParams {
     lazy_static! {
