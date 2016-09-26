@@ -1,4 +1,19 @@
 //! Implements the "Universal Chess Interface" protocol communication.
+//!
+//! "Universal Chess Interface" (UCI) is an open communication
+//! protocol for chess engines to play games automatically, that is to
+//! communicate with other programs including Graphical User
+//! Interfaces (GUI). UCI was designed and developed by Rudolf Huber
+//! and Stefan Meyer-Kahlen, released in November 2000. The protocol
+//! is independent of the operating system. For "Windows", the engine
+//! is a normal "exe" file, either a console or "real" windows
+//! application. All communication is done via standard input and
+//! output with text commands.
+//!
+//! This module handles the low-level details of the UCI protocol. It
+//! only requires the programmer to define two `struct`s that
+//! implement the `UciEngine` and `UciEngineFactory` traits. Then
+//! `Server` will handle the communication with the GUI all by itself.
 
 use std::time;
 use std::thread;
@@ -8,7 +23,49 @@ use std::sync::mpsc::{channel, TryRecvError};
 use regex::Regex;
 
 
-/// Represents a reply from the engine to the GUI.
+/// A command from the GUI to the engine.
+enum UciCommand {
+    /// This is sent to the engine when the user wants to change the
+    /// value of some internal parameter of the engine.
+    SetOption {
+        name: String,
+        value: String,
+    },
+
+    /// This is used to synchronize the engine with the GUI.
+    IsReady,
+
+    /// This is sent to the engine when the next search (started with
+    /// `UciCommand::Position` and `UciCommand::Go`) will be from a
+    /// different game.
+    UciNewGame,
+
+    /// Set up the position described in `fen` and play the suppied
+    /// `moves` on the internal chess board.
+    Position {
+        fen: String,
+        moves: String,
+    },
+
+    /// Start calculating on the current position set up with
+    /// `UciCommand::Position`.
+    Go(GoParams),
+
+    ///	Stop calculating as soon as possible and send
+    ///	`EngineReply::BestMove`.
+    Stop,
+
+    /// The user has played the expected move. This will be sent if
+    /// the engine was told to ponder on the same move the user has
+    /// played.
+    PonderHit,
+
+    /// Quit the program as soon as possible.
+    Quit,
+}
+
+
+/// A reply from the engine to the GUI.
 ///
 /// The engine reply is either a best move found, or a new/updated
 /// information item. The move format is long algebraic
@@ -94,6 +151,25 @@ pub enum OptionDescription {
 
 
 /// UCI protocol server -- connects the engine to the GUI.
+///
+/// # Example:
+/// ```rust
+/// use uci;
+/// 
+/// fn main() {
+///     if let Ok(mut server) = uci::Server::wait_for_hanshake(MyEngineFactory) {
+///         match server.serve() {
+///             Ok(_) => {
+///                 exit(0);
+///             }
+///             Err(_) => {
+///                 exit(1);
+///             }
+///         }
+///     }
+///     exit(2);
+/// }
+/// ```
 pub struct Server<F, E>
     where F: UciEngineFactory<E>,
           E: UciEngine
@@ -107,11 +183,11 @@ impl<F, E> Server<F, E>
     where F: UciEngineFactory<E>,
           E: UciEngine
 {
-    /// Waits for a UCI handshake from the GUI and sends proper
-    /// initialization information.
+    /// Waits for UCI handshake from the GUI.
     ///
     /// Will return `Err` if the handshake was unsuccessful, or if an
-    /// IO error had occurred.
+    /// IO error had occurred. The current thread will be blocked
+    /// until the handshake is finalized.
     pub fn wait_for_hanshake(engine_factory: F) -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
@@ -162,7 +238,8 @@ impl<F, E> Server<F, E>
         })
     }
 
-    /// Serves UCI commands until a "quit" command is received.
+    /// Blocks the current thread and serves UCI commands until a
+    /// "quit" command is received.
     ///
     /// Will return `Err` if an IO error had occurred.
     pub fn serve(&mut self) -> io::Result<()> {
@@ -211,10 +288,10 @@ impl<F, E> Server<F, E>
                         // The UCI specification states that the
                         // "Hash" `setoption` command, should be the
                         // first command passed to the engine.
-                        if let UciCommand::SetOption(ref params) = cmd {
-                            if params.name == "Hash" {
+                        if let UciCommand::SetOption { ref name, ref value } = cmd {
+                            if name == "Hash" {
                                 self.engine = Some(self.engine_factory
-                                                       .create(params.value.parse::<usize>().ok()));
+                                                       .create(value.parse::<usize>().ok()));
                                 continue;
                             }
                         }
@@ -232,15 +309,15 @@ impl<F, E> Server<F, E>
                         try!(write!(writer, "readyok\n"));
                         try!(writer.flush());
                     }
-                    UciCommand::SetOption(SetOptionParams { name, value }) => {
+                    UciCommand::SetOption { name, value } => {
                         engine.set_option(name.as_str(), value.as_str());
                     }
-                    UciCommand::Position(PositionParams { fen, moves }) => {
+                    UciCommand::Position { fen, moves } => {
                         engine.position(fen.as_str(), &mut moves.split_whitespace());
                     }
                     UciCommand::Stop => {
                         engine.stop();
-                        
+
                         // The "stop" command requires the engine to
                         // send the best move. Here we break the
                         // read-command cycle so that the engine can
@@ -453,7 +530,7 @@ pub trait UciEngine {
     /// indicating the best move found, or `EngineReply::Info`
     /// indicating a new/updated information item.
     fn get_reply(&mut self) -> Option<EngineReply>;
-    
+
     /// Terminates the engine permanently.
     ///
     /// After calling `exit`, no other methods on this instance should
@@ -465,41 +542,6 @@ pub trait UciEngine {
 /// Represents a parse error.
 struct ParseError;
 
-
-/// A command from the GUI to the engine.
-enum UciCommand {
-    /// This is sent to the engine when the user wants to change some
-    /// internal parameter of the engine.
-    SetOption(SetOptionParams),
-    
-    /// This is used to synchronize the engine with the GUI.
-    IsReady,
-    
-    /// This is sent to the engine when the next search (started with
-    /// `UciCommand::Position` and `UciCommand::Go`) will be from a
-    /// different game.
-    UciNewGame,
-    
-    /// Set up the described position and play the suppied moves on
-    /// the internal chess board.
-    Position(PositionParams),
-    
-    /// Start calculating on the current position set up with
-    /// `UciCommand::Position`.
-    Go(GoParams),
-    
-    ///	Stop calculating as soon as possible and send
-    ///	`EngineReply::BestMove`.
-    Stop,
-    
-    /// The user has played the expected move. This will be sent if
-    /// the engine was told to ponder on the same move the user has
-    /// played.
-    PonderHit,
-    
-    /// Quit the program as soon as possible.
-    Quit,
-}
 
 fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
@@ -519,8 +561,8 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
             "isready" => Ok(UciCommand::IsReady),
             "ponderhit" => Ok(UciCommand::PonderHit),
             "ucinewgame" => Ok(UciCommand::UciNewGame),
-            "setoption" => Ok(UciCommand::SetOption(try!(parse_setoption_params(params_str)))),
-            "position" => Ok(UciCommand::Position(try!(parse_position_params(params_str)))),
+            "setoption" => Ok(try!(parse_setoption_params(params_str))),
+            "position" => Ok(try!(parse_position_params(params_str))),
             "go" => Ok(UciCommand::Go(parse_go_params(params_str))),
             _ => Err(ParseError),
         }
@@ -530,19 +572,13 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
 }
 
 
-/// Parameters for `UciCommand::SetOption`.
-struct SetOptionParams {
-    name: String,
-    value: String,
-}
-
-fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
+fn parse_setoption_params(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             r"^name\s+(\S.*?)(?:\s+value\s+(.*?))?\s*$").unwrap();
     }
     if let Some(captures) = RE.captures(s) {
-        Ok(SetOptionParams {
+        Ok(UciCommand::SetOption {
             name: captures.at(1).unwrap().to_string(),
             value: captures.at(2).unwrap_or("").to_string(),
         })
@@ -552,13 +588,7 @@ fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
 }
 
 
-/// Parameters for `UciCommand::Position`.
-struct PositionParams {
-    fen: String,
-    moves: String,
-}
-
-fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
+fn parse_position_params(s: &str) -> Result<UciCommand, ParseError> {
     const STARTPOS: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -570,7 +600,7 @@ fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
         ).unwrap();
     }
     if let Some(captures) = RE.captures(s) {
-        Ok(PositionParams {
+        Ok(UciCommand::Position {
             fen: if let Some(fen) = captures.name("fen") {
                 fen.to_string()
             } else {
@@ -692,59 +722,85 @@ mod tests {
 
     #[test]
     fn test_parse_setoption_params() {
-        use super::parse_setoption_params;
-        assert_eq!(parse_setoption_params("name   xxx  value   yyy  ").ok().unwrap().name,
-                   "xxx".to_string());
-        assert_eq!(parse_setoption_params("name xxx value yyy").ok().unwrap().value,
-                   "yyy".to_string());
-        assert_eq!(parse_setoption_params("name xxx   value  ").ok().unwrap().value,
-                   "".to_string());
-        assert_eq!(parse_setoption_params("name xxx    ").ok().unwrap().value,
-                   "".to_string());
+        use super::{parse_setoption_params, UciCommand};
+        let params = ["name   xxx  value   yyy  ",
+                      "name xxx value yyy",
+                      "name xxx   value  ",
+                      "name xxx    "];
+        for (i, s) in params.iter().enumerate() {
+            if let Some(UciCommand::SetOption { name, value }) = parse_setoption_params(s).ok() {
+                match i {
+                    0 => {
+                        assert_eq!(name, "xxx");
+                    }
+                    1 => {
+                        assert_eq!(value, "yyy");
+                    }
+                    2 => {
+                        assert_eq!(value, "");
+                    }
+                    3 => {
+                        assert_eq!(value, "");
+                    }
+                    _ => (),
+                }
+            } else {
+                panic!("unsuccessful parsing: {}", s);
+            }
+        }
         assert!(parse_setoption_params("name     ").is_err());
         assert!(parse_setoption_params("namexxx     ").is_err());
     }
 
     #[test]
     fn test_parse_position_params() {
-        use super::parse_position_params;
-        assert_eq!(parse_position_params("startpos  ").ok().unwrap().fen,
-                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1");
-        assert_eq!(parse_position_params("startpos ").ok().unwrap().moves.len(),
-                   0);
-        assert_eq!(parse_position_params("startpos   moves  ").ok().unwrap().moves.len(),
-                   0);
-        assert_eq!(parse_position_params("startpos   moves   e2e4   d2d4 ")
-                       .ok()
-                       .unwrap()
-                       .moves
-                       .split_whitespace()
-                       .count(),
-                   2);
-        assert_eq!(parse_position_params("fen 8/8/8/8/8/8/8/k6K w KQk e6 0 1 moves e2e4")
-                       .ok()
-                       .unwrap()
-                       .moves
-                       .split_whitespace()
-                       .count(),
-                   1);
-        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K w - - 0 1  moves e2e4")
-                       .ok()
-                       .unwrap()
-                       .fen,
-                   "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
-        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K   w   -  -  0  1    moves e2e4")
-                       .ok()
-                       .unwrap()
-                       .fen,
-                   "8/8/8/8/8/8/8/k6K   w   -  -  0  1".to_string());
-        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K w - - 0 1    moves")
-                       .ok()
-                       .unwrap()
-                       .fen,
-                   "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
-        assert_eq!(parse_position_params("fen   8/8/8/8/8/8/8/k6K w - - 0 1   ").ok().unwrap().fen,
-                   "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+        use super::{parse_position_params, UciCommand};
+        let params = ["startpos  ",
+                      "startpos ",
+                      "startpos   moves  ",
+                      "startpos   moves   e2e4   d2d4 ",
+                      "fen 8/8/8/8/8/8/8/k6K w KQk e6 0 1 moves e2e4",
+                      "fen   8/8/8/8/8/8/8/k6K w - - 0 1  moves e2e4",
+                      "fen   8/8/8/8/8/8/8/k6K   w   -  -  0  1    moves e2e4",
+                      "fen   8/8/8/8/8/8/8/k6K w - - 0 1    moves",
+                      "fen   8/8/8/8/8/8/8/k6K w - - 0 1   "];
+        for (i, s) in params.iter().enumerate() {
+            if let Some(UciCommand::Position { fen, moves }) = parse_position_params(s).ok() {
+                match i {
+                    0 => {
+                        assert_eq!(fen,
+                                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1");
+                    }
+                    1 => {
+                        assert_eq!(moves.len(), 0);
+                    }
+                    2 => {
+                        assert_eq!(moves.len(), 0);
+                    }
+                    3 => {
+                        assert_eq!(moves.split_whitespace().count(), 2);
+                    }
+                    4 => {
+                        assert_eq!(moves.split_whitespace().count(), 1);
+                    }
+                    5 => {
+                        assert_eq!(fen, "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+                    }
+                    6 => {
+                        assert_eq!(fen, "8/8/8/8/8/8/8/k6K   w   -  -  0  1".to_string());
+                    }
+                    7 => {
+                        assert_eq!(fen, "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+                    }
+                    8 => {
+                        assert_eq!(fen, "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+                    }
+                    _ => (),
+                }
+            } else {
+                panic!("unsuccessful parsing: {}", s);
+            }
+        }
     }
 
     #[test]
@@ -783,25 +839,25 @@ mod tests {
             _ => false,
         });
         assert!(match parse_uci_command("position startpos").ok().unwrap() {
-            UciCommand::Position(_) => true,
+            UciCommand::Position { .. } => true,
             _ => false,
         });
         assert!(match parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1")
                           .ok()
                           .unwrap() {
-            UciCommand::Position(_) => true,
+            UciCommand::Position { .. } => true,
             _ => false,
         });
         assert!(match parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1 moves h1h2")
                           .ok()
                           .unwrap() {
-            UciCommand::Position(_) => true,
+            UciCommand::Position { .. } => true,
             _ => false,
         });
         assert!(parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1 moves h1h2 aabb")
                     .is_err());
         assert!(match parse_uci_command("setoption name x value y").ok().unwrap() {
-            UciCommand::SetOption(_) => true,
+            UciCommand::SetOption { .. } => true,
             _ => false,
         });
         assert!(match parse_uci_command("go infinite").ok().unwrap() {
