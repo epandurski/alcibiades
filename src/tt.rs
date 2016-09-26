@@ -139,8 +139,8 @@ pub struct Tt {
     /// The number of clusters in the table.
     cluster_count: usize,
     
-    /// The table consists of a vector of clusters. Each cluster
-    /// stores 4 records.
+    /// The transposition table consists of a vector of clusters. Each
+    /// cluster stores 4 records.
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
 
@@ -183,10 +183,9 @@ impl Tt {
         assert!(new_cluster_count > 0);
 
         // Allocate the new vector of clusters.
-        if new_cluster_count != self.cluster_count {
-            self.cluster_count = new_cluster_count;
-            self.table = UnsafeCell::new(vec![Default::default(); new_cluster_count]);
-        }
+        self.generation.set(0);
+        self.cluster_count = new_cluster_count;
+        self.table = UnsafeCell::new(vec![Default::default(); new_cluster_count]);
     }
 
     /// Returns the size of the transposition table in Mbytes.
@@ -368,13 +367,11 @@ impl Default for Record {
 
 
 impl Record {
-    /// Returns record's generation.
     #[inline(always)]
     fn generation(&self) -> u8 {
         self.data.gen_bound & 0b11111100
     }
 
-    /// Sets record's generation.
     #[inline(always)]
     fn set_generation(&mut self, generation: u8) {
         assert_eq!(generation & 0b11, 0);
@@ -382,9 +379,9 @@ impl Record {
         // Since the `key` is saved XOR-ed with the data, when we
         // change the data, we have to change the stored `key` as
         // well.
-        let old_data_u64 = self.data.as_u64();
+        let old_data_as_u64 = self.data.as_u64();
         self.data.gen_bound = generation | self.data.bound();
-        self.key ^= old_data_u64 ^ self.data.as_u64();
+        self.key ^= old_data_as_u64 ^ self.data.as_u64();
     }
 }
 
