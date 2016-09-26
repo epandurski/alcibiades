@@ -13,6 +13,7 @@
 
 use std;
 use std::cell::{UnsafeCell, Cell};
+use std::cmp::min;
 use std::mem::transmute;
 use basetypes::Value;
 use chess_move::MoveDigest;
@@ -116,7 +117,7 @@ impl TtEntry {
     pub fn eval_value(&self) -> Value {
         self.eval_value
     }
-    
+
     /// Returns the contained data as one `u64` value.
     #[inline(always)]
     fn as_u64(&self) -> u64 {
@@ -135,10 +136,10 @@ pub struct Tt {
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.
     generation: Cell<u8>,
-    
+
     /// The number of clusters in the table.
     cluster_count: usize,
-    
+
     /// The transposition table consists of a vector of clusters. Each
     /// cluster stores 4 records.
     table: UnsafeCell<Vec<[Record; 4]>>,
@@ -159,7 +160,7 @@ impl Tt {
         }
     }
 
-    /// Resizes the transpositon table. All entries in the table will
+    /// Resizes the transposition table. All entries in the table will
     /// be lost.
     ///
     /// `size_mb` is the desired new size in Mbytes. If `size_mb` is
@@ -195,8 +196,33 @@ impl Tt {
 
     /// Signals that a new search is about to begin.
     pub fn new_search(&self) {
-        self.generation.set(self.generation.get().wrapping_add(0b100));
-        assert_eq!(self.generation.get() & 0b11, 0);
+        const N: usize = 128;
+
+        loop {
+            // Increment `self.generation` (with wrapping).
+            self.generation.set(self.generation.get().wrapping_add(0b100));
+            assert_eq!(self.generation.get() & 0b11, 0);
+
+            // Count how many staled records from this generation
+            // there are among the first `N` clusters.
+            let mut staled = 0;
+            let mut cluster_iter = unsafe { self.table.get().as_ref().unwrap().iter() };
+            for _ in 0..min(N, self.cluster_count) {
+                for record in cluster_iter.next().unwrap() {
+                    if record.key != 0 && record.generation() == self.generation.get() {
+                        staled += 1;
+                    }
+                }
+            }
+
+            if staled < N {
+                // We exit the loop only if the staled records from
+                // this generation are not too many. (We may get too
+                // many staled records if, for example, a very long
+                // search was executed long time ago.)
+                break;
+            }
+        }
     }
 
     /// Stores data by a specific key.
@@ -303,7 +329,7 @@ impl Tt {
     fn calc_score(&self, record: &Record) -> u8 {
         // Here we try to return higher values for the records that
         // are move likely to save CPU work in the future:
-        
+
         // Positions from the current generation are always scored
         // higher than positions from older generations.
         (if record.generation() == self.generation.get() {
