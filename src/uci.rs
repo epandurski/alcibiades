@@ -81,7 +81,7 @@ pub enum EngineReply {
 }
 
 
-/// Specific information article that the engine sends to the GUI.
+/// Specific information item that the engine sends to the GUI.
 ///
 /// There are many standard types of information that GUIs visualize
 /// and therefore expect the engine to send. Here are some of the most
