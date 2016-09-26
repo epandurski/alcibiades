@@ -462,56 +462,45 @@ pub trait UciEngine {
 }
 
 
-/// A command from the GUI to the engine.
-enum UciCommand {
-    SetOption(SetOptionParams),
-    IsReady,
-    UciNewGame,
-    Position(PositionParams),
-    Go(GoParams),
-    Stop,
-    PonderHit,
-    Quit,
-}
-
-
-/// Parameters for `UciCommand::SetOption`.
-struct SetOptionParams {
-    name: String,
-    value: String,
-}
-
-
-/// Parameters for `UciCommand::Position`.
-struct PositionParams {
-    fen: String,
-    moves: String,
-}
-
-
-/// Parameters for `UciCommand::Go`.
-struct GoParams {
-    searchmoves: Option<Vec<String>>,
-    ponder: bool,
-    wtime: Option<u64>,
-    btime: Option<u64>,
-    winc: Option<u64>,
-    binc: Option<u64>,
-    movestogo: Option<u64>,
-    depth: Option<u64>,
-    nodes: Option<u64>,
-    mate: Option<u64>,
-    movetime: Option<u64>,
-    infinite: bool,
-}
-
-
 /// Represents a parse error.
 struct ParseError;
 
 
-/// A helper function for `Server::serve`. It tries to interpret a
-/// string as a UCI command.
+/// A command from the GUI to the engine.
+enum UciCommand {
+    /// This is sent to the engine when the user wants to change some
+    /// internal parameter of the engine.
+    SetOption(SetOptionParams),
+    
+    /// This is used to synchronize the engine with the GUI.
+    IsReady,
+    
+    /// This is sent to the engine when the next search (started with
+    /// `UciCommand::Position` and `UciCommand::Go`) will be from a
+    /// different game.
+    UciNewGame,
+    
+    /// Set up the described position and play the suppied moves on
+    /// the internal chess board.
+    Position(PositionParams),
+    
+    /// Start calculating on the current position set up with
+    /// `UciCommand::Position`.
+    Go(GoParams),
+    
+    ///	Stop calculating as soon as possible and send
+    ///	`EngineReply::BestMove`.
+    Stop,
+    
+    /// The user has played the expected move. This will be sent if
+    /// the engine was told to ponder on the same move the user has
+    /// played.
+    PonderHit,
+    
+    /// Quit the program as soon as possible.
+    Quit,
+}
+
 fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -541,8 +530,12 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
 }
 
 
-/// A helper function for `parse_uci_command`. It parses parameters
-/// for the "setoption" command.
+/// Parameters for `UciCommand::SetOption`.
+struct SetOptionParams {
+    name: String,
+    value: String,
+}
+
 fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
@@ -559,8 +552,12 @@ fn parse_setoption_params(s: &str) -> Result<SetOptionParams, ParseError> {
 }
 
 
-/// A helper function for `parse_uci_command`. It parses parameters
-/// for the "position" command.
+/// Parameters for `UciCommand::Position`.
+struct PositionParams {
+    fen: String,
+    moves: String,
+}
+
 fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
     const STARTPOS: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
     lazy_static! {
@@ -587,8 +584,22 @@ fn parse_position_params(s: &str) -> Result<PositionParams, ParseError> {
 }
 
 
-/// A helper function for `parse_uci_command`. It parses parameters
-/// for the "go" command.
+/// Parameters for `UciCommand::Go`.
+struct GoParams {
+    searchmoves: Option<Vec<String>>,
+    ponder: bool,
+    wtime: Option<u64>,
+    btime: Option<u64>,
+    winc: Option<u64>,
+    binc: Option<u64>,
+    movestogo: Option<u64>,
+    depth: Option<u64>,
+    nodes: Option<u64>,
+    mate: Option<u64>,
+    movetime: Option<u64>,
+    infinite: bool,
+}
+
 fn parse_go_params(s: &str) -> GoParams {
     lazy_static! {
         static ref RE: Regex = Regex::new(
