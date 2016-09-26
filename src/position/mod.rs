@@ -360,9 +360,9 @@ impl Position {
 
     /// Returns a null move.
     ///
-    /// "Null move" is an illegal pseudo-move that changes only the
-    /// side to move. It is sometimes useful to include a speculative
-    /// null move in the search tree so as to achieve more aggressive
+    /// "Null move" is a pseudo-move that changes only the side to
+    /// move. It is sometimes useful to include a speculative null
+    /// move in the search tree so as to achieve more aggressive
     /// pruning.
     #[inline]
     pub fn null_move(&self) -> Move {

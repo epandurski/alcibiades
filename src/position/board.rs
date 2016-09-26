@@ -375,8 +375,8 @@ impl Board {
 
     /// Returns a null move.
     ///
-    /// "Null move" is an illegal pseudo-move that changes nothing on
-    /// the board except the side to move (and the en-passant file, of
+    /// "Null move" is a pseudo-move that changes nothing on the board
+    /// except the side to move (and the en-passant file, of
     /// course). It is sometimes useful to include a speculative null
     /// move in the search tree so as to achieve more aggressive
     /// pruning.
