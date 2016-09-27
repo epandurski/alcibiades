@@ -62,7 +62,7 @@ pub struct Position {
     /// always leaving everything the way it was.
     board: UnsafeCell<Board>,
 
-    /// The Zobrist hash value for the current board.
+    /// The hash value for the current board.
     board_hash: u64,
 
     /// The count of half-moves since the beginning of the game.
@@ -91,10 +91,10 @@ pub struct Position {
 
 
 impl Position {
-    /// Creates a new instance.
+    /// Creates a new board instance from a FEN string.
     ///
-    /// `fen` should be the Forsyth–Edwards Notation of a legal
-    /// starting position.
+    /// A FEN (Forsyth–Edwards Notation) string defines a particular
+    /// position using only the ASCII character set.
     pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
