@@ -30,7 +30,7 @@ pub struct IllegalPosition;
 ///
 /// 1. Threefold/twofold repetition detection.
 /// 2. Draw by the 50 moves rule detection.
-/// 3. Fast calculation of position's Zobrist hash value.
+/// 3. Fast calculation of position's hash value.
 /// 4. Exact evaluation of final positions.
 /// 5. Static position evaluation.
 /// 6. Static exchange evaluation.
