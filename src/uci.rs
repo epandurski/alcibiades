@@ -580,7 +580,7 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
             "ucinewgame" => Ok(UciCommand::UciNewGame),
             "setoption" => parse_setoption_params(params_str),
             "position" => parse_position_params(params_str),
-            "go" => Ok(UciCommand::Go(parse_go_params(params_str))),
+            "go" => parse_go_params(params_str),
             _ => Err(ParseError),
         }
     } else {
@@ -631,7 +631,7 @@ fn parse_position_params(s: &str) -> Result<UciCommand, ParseError> {
 }
 
 
-fn parse_go_params(s: &str) -> GoParams {
+fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(
             format!(
@@ -691,7 +691,7 @@ fn parse_go_params(s: &str) -> GoParams {
             }
         }
     }
-    params
+    Ok(UciCommand::Go(params))
 }
 
 
@@ -699,26 +699,74 @@ fn parse_go_params(s: &str) -> GoParams {
 mod tests {
     #[test]
     fn test_parse_go_params() {
-        use super::parse_go_params;
-        assert_eq!(parse_go_params(" wtime22000  ").wtime, None);
-        assert_eq!(parse_go_params(" wtime    22000  ").wtime, Some(22000));
-        assert_eq!(parse_go_params("wtime 22000").wtime, Some(22000));
-        assert_eq!(parse_go_params("wtime 99999999999999998888888888999999999999999999").wtime,
-                   None);
-        assert_eq!(parse_go_params("wtime 22000").infinite, false);
-        assert_eq!(parse_go_params("searchmoves   e2e4  c7c8q  ").searchmoves,
-                   Some(vec!["e2e4".to_string(), "c7c8q".to_string()]));
-        assert_eq!(parse_go_params("searchmoves   e2e4  c7c8q,ponder  ").searchmoves,
-                   Some(vec!["e2e4".to_string()]));
-        assert_eq!(parse_go_params("searchmoves aabb").searchmoves, None);
-        assert_eq!(parse_go_params("infinite wtime 22000").wtime, Some(22000));
-        assert_eq!(parse_go_params("infinite wtime 22000").infinite, true);
-        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000").infinite,
-                   true);
-        assert_eq!(parse_go_params("wtime fdfee / 22000 infinite btime 11000 fdfds").infinite,
-                   true);
-        assert_eq!(parse_go_params("wtime 22000 infinite btime 11000 ponder").btime,
-                   Some(11000));
+        use super::{parse_go_params, UciCommand};
+        let params = [" wtime22000  ",
+                      " wtime    22000  ",
+                      "wtime 22000",
+                      "wtime 99999999999999998888888888999999999999999999",
+                      "wtime 22000",
+                      "searchmoves   e2e4  c7c8q  ",
+                      "searchmoves   e2e4  c7c8q,ponder  ",
+                      "searchmoves aabb",
+                      "infinite wtime 22000",
+                      "wtime 22000 infinite btime 11000",
+                      "wtime fdfee / 22000 infinite btime 11000 fdfds",
+                      "wtime 22000 infinite btime 11000 ponder"];
+        for (i, s) in params.iter().enumerate() {
+            if let Some(UciCommand::Go(p)) = parse_go_params(s).ok() {
+                match i {
+                    0 => {
+                        assert_eq!(p.wtime, None);
+                    }
+                    1 => {
+                        assert_eq!(p.wtime, Some(22000));
+                        assert_eq!(p.ponder, false);
+                    }
+                    2 => {
+                        assert_eq!(p.wtime, Some(22000));
+                    }
+                    3 => {
+                        assert_eq!(p.wtime, None);
+                    }
+                    4 => {
+                        assert_eq!(p.infinite, false);
+                    }
+                    5 => {
+                        assert_eq!(p.searchmoves,
+                                   Some(vec!["e2e4".to_string(), "c7c8q".to_string()]));
+                    }
+                    6 => {
+                        assert_eq!(p.searchmoves, Some(vec!["e2e4".to_string()]));
+                    }
+                    7 => {
+                        assert_eq!(p.searchmoves, None);
+                    }
+                    8 => {
+                        assert_eq!(p.wtime, Some(22000));
+                        assert_eq!(p.infinite, true);
+                    }
+                    9 => {
+                        assert_eq!(p.infinite, true);
+                        assert_eq!(p.wtime, Some(22000));
+                        assert_eq!(p.btime, Some(11000));
+                    }
+                    10 => {
+                        assert_eq!(p.infinite, true);
+                        assert_eq!(p.wtime, None);
+                        assert_eq!(p.btime, Some(11000));
+                    }
+                    11 => {
+                        assert_eq!(p.infinite, true);
+                        assert_eq!(p.wtime, Some(22000));
+                        assert_eq!(p.btime, Some(11000));
+                        assert_eq!(p.ponder, true);
+                    }
+                    _ => (),
+                }
+            } else {
+                panic!("unsuccessful parsing: {}", s);
+            }
+        }
     }
 
     #[test]
@@ -733,14 +781,18 @@ mod tests {
                 match i {
                     0 => {
                         assert_eq!(name, "xxx");
+                        assert_eq!(value, "yyy");
                     }
                     1 => {
+                        assert_eq!(name, "xxx");
                         assert_eq!(value, "yyy");
                     }
                     2 => {
+                        assert_eq!(name, "xxx");
                         assert_eq!(value, "");
                     }
                     3 => {
+                        assert_eq!(name, "xxx");
                         assert_eq!(value, "");
                     }
                     _ => (),
@@ -771,14 +823,21 @@ mod tests {
                     0 => {
                         assert_eq!(fen,
                                    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1");
+                        assert_eq!(moves.len(), 0);
                     }
                     1 => {
+                        assert_eq!(fen,
+                                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1");
                         assert_eq!(moves.len(), 0);
                     }
                     2 => {
+                        assert_eq!(fen,
+                                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1");
                         assert_eq!(moves.len(), 0);
                     }
                     3 => {
+                        assert_eq!(fen,
+                                   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1");
                         assert_eq!(moves.split_whitespace().count(), 2);
                     }
                     4 => {
@@ -786,15 +845,19 @@ mod tests {
                     }
                     5 => {
                         assert_eq!(fen, "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+                        assert_eq!(moves.split_whitespace().count(), 1);
                     }
                     6 => {
                         assert_eq!(fen, "8/8/8/8/8/8/8/k6K   w   -  -  0  1".to_string());
+                        assert_eq!(moves.split_whitespace().count(), 1);
                     }
                     7 => {
                         assert_eq!(fen, "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+                        assert_eq!(moves.len(), 0);
                     }
                     8 => {
                         assert_eq!(fen, "8/8/8/8/8/8/8/k6K w - - 0 1".to_string());
+                        assert_eq!(moves.len(), 0);
                     }
                     _ => (),
                 }
