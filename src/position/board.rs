@@ -164,8 +164,8 @@ impl Board {
         self._pinned.get()
     }
 
-    /// Returns a bitboard of all pieces (and pawns) of color `us`
-    /// that attack `square`.
+    /// Returns a bitboard of all pieces and pawns of color `us` that
+    /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
         let occupied_by_us = self.color[us];
         if square > 63 {
