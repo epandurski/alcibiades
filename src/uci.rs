@@ -14,6 +14,25 @@
 //! only requires the programmer to define two `struct`s that
 //! implement the `UciEngine` and `UciEngineFactory` traits. Then
 //! `Server` will handle the communication with the GUI all by itself.
+//!
+//! # Example:
+//! ```rust
+//! use uci;
+//!
+//! fn main() {
+//!     if let Ok(mut server) = uci::Server::wait_for_hanshake(MyEngineFactory) {
+//!         match server.serve() {
+//!             Ok(_) => {
+//!                 exit(0);
+//!             }
+//!             Err(_) => {
+//!                 exit(1);
+//!             }
+//!         }
+//!     }
+//!     exit(2);
+//! }
+//! ```
 
 use std::time;
 use std::thread;
@@ -151,25 +170,6 @@ pub enum OptionDescription {
 
 
 /// UCI protocol server -- connects the engine to the GUI.
-///
-/// # Example:
-/// ```rust
-/// use uci;
-/// 
-/// fn main() {
-///     if let Ok(mut server) = uci::Server::wait_for_hanshake(MyEngineFactory) {
-///         match server.serve() {
-///             Ok(_) => {
-///                 exit(0);
-///             }
-///             Err(_) => {
-///                 exit(1);
-///             }
-///         }
-///     }
-///     exit(2);
-/// }
-/// ```
 pub struct Server<F, E>
     where F: UciEngineFactory<E>,
           E: UciEngine
