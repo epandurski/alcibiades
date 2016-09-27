@@ -16,7 +16,7 @@ use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::transmute;
 use basetypes::Value;
-use chess_move::MoveDigest;
+use moves::MoveDigest;
 
 
 /// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.

@@ -3,7 +3,7 @@
 use std::mem;
 use std::cmp::max;
 use basetypes::*;
-use chess_move::*;
+use moves::*;
 use position::Position;
 use search::*;
 use tt::*;
@@ -695,7 +695,7 @@ impl Default for KillerPair {
 mod tests {
     use super::{Search, KillerTable};
     use tt::*;
-    use chess_move::*;
+    use moves::*;
     use position::Position;
 
     #[test]

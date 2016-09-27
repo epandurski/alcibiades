@@ -3,7 +3,7 @@
 use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
-use chess_move::*;
+use moves::*;
 use position::bitsets::*;
 use position::tables::*;
 use position::notation;
@@ -1334,7 +1334,7 @@ const CASTLING_ROOK_MASK: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 
 mod tests {
     use super::*;
     use basetypes::*;
-    use chess_move::*;
+    use moves::*;
 
     #[test]
     fn test_attacks_from() {

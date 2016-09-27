@@ -4,7 +4,7 @@ extern crate regex;
 extern crate rand;
 
 pub mod basetypes;
-pub mod chess_move;
+pub mod moves;
 pub mod position;
 pub mod search;
 pub mod uci;

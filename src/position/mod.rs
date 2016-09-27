@@ -12,7 +12,7 @@ use std::cmp::max;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
-use chess_move::*;
+use moves::*;
 use self::bitsets::*;
 use self::tables::*;
 use self::board::Board;
@@ -921,7 +921,7 @@ mod tests {
     use super::board::Board;
     use super::PIECE_VALUES;
     use basetypes::*;
-    use chess_move::*;
+    use moves::*;
 
     // This is a very simple evaluation function used for the testing
     // of `qsearch`.

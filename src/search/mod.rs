@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
 use basetypes::*;
-use chess_move::*;
+use moves::*;
 use position::Position;
 use tt::*;
 use self::threading::*;

@@ -6,7 +6,7 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
-use chess_move::*;
+use moves::*;
 use position::Position;
 use tt::*;
 use search::INITIAL_ASPIRATION_WINDOW;
