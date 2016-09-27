@@ -5,8 +5,8 @@ use std::cell::Cell;
 use basetypes::*;
 use moves::*;
 use position::bitsets::*;
-use position::tables::*;
-use position::fen::*;
+use position::tables::{BoardGeometry, ZobristArrays};
+use position::fen::{parse_fen, PiecesPlacement};
 
 
 /// Represents an illegal board error.

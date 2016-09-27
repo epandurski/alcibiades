@@ -14,8 +14,8 @@ use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
 use self::bitsets::*;
-use self::tables::*;
-use self::fen::*;
+use self::tables::BoardGeometry;
+use self::fen::parse_fen;
 use self::board::Board;
 use self::evaluation::evaluate_board;
 
