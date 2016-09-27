@@ -6,11 +6,8 @@ use basetypes::*;
 use moves::*;
 use notation::{parse_fen, PiecesPlacement};
 use bitsets::*;
+use position::IllegalPosition;
 use position::tables::{BoardGeometry, ZobristArrays};
-
-
-/// Represents an illegal board error.
-pub struct IllegalBoard;
 
 
 /// Holds the current chess position and "knows" the rules of chess.
@@ -54,17 +51,17 @@ impl Board {
                   to_move: Color,
                   castling: CastlingRights,
                   en_passant_square: Option<Square>)
-                  -> Result<Board, IllegalBoard> {
+                  -> Result<Board, IllegalPosition> {
 
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
             BLACK => RANK_3,
-            _ => return Err(IllegalBoard),
+            _ => return Err(IllegalPosition),
         };
         let en_passant_file = match en_passant_square {
             None => NO_ENPASSANT_FILE,
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
-            _ => return Err(IllegalBoard),
+            _ => return Err(IllegalPosition),
         };
         let b = Board {
             geometry: BoardGeometry::get(),
@@ -83,7 +80,7 @@ impl Board {
         if b.is_legal() {
             Ok(b)
         } else {
-            Err(IllegalBoard)
+            Err(IllegalPosition)
         }
     }
 
@@ -93,11 +90,9 @@ impl Board {
     /// position using only the ASCII character set. This function
     /// makes expensive verification to make sure that the resulting
     /// new board is legal.
-    pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
-        let (ref placement, to_move, castling, en_passant_square, _, _) = try!(parse_fen(fen)
-                                                                                   .map_err(|_| {
-                                                                                       IllegalBoard
-                                                                                   }));
+    pub fn from_fen(fen: &str) -> Result<Board, IllegalPosition> {
+        let (ref placement, to_move, castling, en_passant_square, _, _) =
+            try!(parse_fen(fen).map_err(|_| IllegalPosition));
         Board::create(placement, to_move, castling, en_passant_square)
     }
 
