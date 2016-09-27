@@ -298,6 +298,20 @@ impl Move {
         self.0 as MoveDigest
     }
 
+    /// Returns the algebraic notation of the move.
+    ///
+    /// Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
+    /// `e7e8q` (for promotion).
+    pub fn notation(&self) -> String {
+        format!("{}{}{}",
+                notation(self.orig_square()),
+                notation(self.dest_square()),
+                match self.move_type() {
+                    MOVE_PROMOTION => ["q", "r", "b", "n"][self.aux_data()],
+                    _ => "",
+                })
+    }
+    
     /// Returns `true` if the move is a pawn advance or a capture,
     /// `false` otherwise.
     #[inline]
@@ -319,20 +333,6 @@ impl Move {
     pub fn is_null(&self) -> bool {
         assert!(self.orig_square() != self.dest_square() || self.captured_piece() == NO_PIECE);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
-    }
-
-    /// Returns the algebraic notation of the move.
-    ///
-    /// Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
-    /// `e7e8q` (for promotion).
-    pub fn notation(&self) -> String {
-        format!("{}{}{}",
-                notation(self.orig_square()),
-                notation(self.dest_square()),
-                match self.move_type() {
-                    MOVE_PROMOTION => ["q", "r", "b", "n"][self.aux_data()],
-                    _ => "",
-                })
     }
 }
 
