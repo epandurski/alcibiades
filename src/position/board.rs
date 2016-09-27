@@ -10,16 +10,14 @@ use position::IllegalPosition;
 use position::tables::{BoardGeometry, ZobristArrays};
 
 
-/// Holds the current chess position and "knows" the rules of chess.
+/// Holds the current position and "knows" the basic rules of chess.
 ///
-/// `Board` can calculate a hash value for the current position,
-/// generate all possible moves in the current position, play a
-/// selected move, and take it back. It can tell you which pieces
-/// attack a specific square, which pieces are pinned, and which are
-/// the checkers to the king. It can also fabricate a "null move" that
-/// can be used to aggressively prune the search tree. Other than
-/// that, `Board` does not know anything about chess strategy or
-/// tactics.
+/// In a nutshell, `Board` can generate all possible moves in the
+/// current position, play a selected move, and take it back. It can
+/// also play a "null move" which can be used to selectively prune the
+/// search tree. `Board` does not try to be clever. In particular, it
+/// is completely unaware of repeating positions, rule-50, chess
+/// strategy or tactics.
 #[derive(Clone)]
 pub struct Board {
     geometry: &'static BoardGeometry,
@@ -130,6 +128,28 @@ impl Board {
         self._occupied
     }
 
+    /// Returns the side to move.
+    #[inline(always)]
+    pub fn to_move(&self) -> Color {
+        self.to_move
+    }
+
+    /// Returns the castling rights.
+    #[inline(always)]
+    pub fn castling(&self) -> CastlingRights {
+        self.castling
+    }
+
+    /// Returns the en-passant file, or `None` if there is none.
+    #[inline(always)]
+    pub fn en_passant_file(&self) -> Option<File> {
+        if self.en_passant_file < 8 {
+            Some(self.en_passant_file)
+        } else {
+            None
+        }
+    }
+
     /// Returns the bitboard of all checkers that are attacking the
     /// king.
     ///
@@ -187,28 +207,6 @@ impl Board {
              self.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
             (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
              self.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
-        }
-    }
-
-    /// Returns the side to move.
-    #[inline(always)]
-    pub fn to_move(&self) -> Color {
-        self.to_move
-    }
-
-    /// Returns the castling rights.
-    #[inline(always)]
-    pub fn castling(&self) -> CastlingRights {
-        self.castling
-    }
-
-    /// Returns the en-passant file, or `None` if there is none.
-    #[inline(always)]
-    pub fn en_passant_file(&self) -> Option<File> {
-        if self.en_passant_file < 8 {
-            Some(self.en_passant_file)
-        } else {
-            None
         }
     }
 

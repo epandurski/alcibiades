@@ -22,10 +22,10 @@ use self::evaluation::evaluate_board;
 pub struct IllegalPosition;
 
 
-/// Represents a chess position.
+/// Holds the current position and "knows" the rules of chess.
 ///
 /// `Position` improves on the features of `Board` adding the the
-/// following functionality:
+/// following important functionality:
 ///
 /// 1. Threefold/twofold repetition detection.
 /// 2. Draw by the 50 moves rule detection.
