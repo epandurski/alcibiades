@@ -273,7 +273,7 @@ impl Position {
     /// of the interval. `static_evaluation` should be the value
     /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
     /// returned value will be between `-19999` and `19999`. For
-    /// repeated positions `0` is returned.
+    /// repeated and rule-50 positions `0` is returned.
     ///
     /// **Note:** This method will return a reliable result even when
     /// the side to move is in check. In this case it will try all
