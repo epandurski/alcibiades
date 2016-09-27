@@ -6,7 +6,7 @@ use basetypes::*;
 use moves::*;
 use position::bitsets::*;
 use position::tables::*;
-use position::fen;
+use position::fen::*;
 
 
 /// Represents an illegal board error.
@@ -50,7 +50,7 @@ impl Board {
     ///
     /// This function makes expensive verification to make sure that
     /// the resulting new board is legal.
-    pub fn create(placement: &fen::PiecesPlacement,
+    pub fn create(placement: &PiecesPlacement,
                   to_move: Color,
                   castling: CastlingRights,
                   en_passant_square: Option<Square>)
@@ -94,9 +94,10 @@ impl Board {
     /// makes expensive verification to make sure that the resulting
     /// new board is legal.
     pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
-        let (ref placement, to_move, castling, en_passant_square, _, _) =
-            try!(fen::parse(fen).map_err(|_| IllegalBoard));
-
+        let (ref placement, to_move, castling, en_passant_square, _, _) = try!(parse_fen(fen)
+                                                                                   .map_err(|_| {
+                                                                                       IllegalBoard
+                                                                                   }));
         Board::create(placement, to_move, castling, en_passant_square)
     }
 

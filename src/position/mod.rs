@@ -15,6 +15,7 @@ use basetypes::*;
 use moves::*;
 use self::bitsets::*;
 use self::tables::*;
+use self::fen::*;
 use self::board::Board;
 use self::evaluation::evaluate_board;
 
@@ -97,7 +98,7 @@ impl Position {
     /// position using only the ASCII character set.
     pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
-            try!(fen::parse(fen).map_err(|_| IllegalPosition));
+            try!(parse_fen(fen).map_err(|_| IllegalPosition));
         let mut p = Position {
             board: UnsafeCell::new(try!(Board::create(placement,
                                                       to_move,

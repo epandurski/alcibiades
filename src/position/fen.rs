@@ -60,7 +60,7 @@ pub struct PiecesPlacement {
 
 
 /// Parses a Forsyth–Edwards Notation (FEN) string.
-pub fn parse
+pub fn parse_fen
     (s: &str)
      -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), ParseError> {
 
