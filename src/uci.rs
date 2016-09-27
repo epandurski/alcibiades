@@ -257,11 +257,8 @@ impl<F, E> Server<F, E>
                     Ok(0) => return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF")),
                     Ok(_) => parse_uci_command(line.as_str()),
                 } {
-                    // Check if this is a "quit" command. The UCI protocol
-                    // requires that we do not initialize the engine
-                    // before "isready", "setoption", or other non-"quit"
-                    // command had been received.
                     if let UciCommand::Quit = cmd {
+                        // Quit.
                         return Ok(());
                     }
                     if tx.send(cmd).is_err() {
