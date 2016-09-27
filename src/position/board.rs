@@ -15,13 +15,14 @@ pub struct IllegalBoard;
 
 /// Holds the current chess position and "knows" the rules of chess.
 ///
-/// `Board` can generate all possible moves in the current position,
-/// calculate a hash value for the current position, play a selected
-/// move, and take it back. It can tell you which pieces attack a
-/// specific square, which pieces are pinned, and which are the
-/// checkers to the king. It can also fabricate a "null move" that can
-/// be used to aggressively prune the search tree. Other than that,
-/// `Board` does not know anything about chess strategy or tactics.
+/// `Board` can calculate a hash value for the current position,
+/// generate all possible moves in the current position, play a
+/// selected move, and take it back. It can tell you which pieces
+/// attack a specific square, which pieces are pinned, and which are
+/// the checkers to the king. It can also fabricate a "null move" that
+/// can be used to aggressively prune the search tree. Other than
+/// that, `Board` does not know anything about chess strategy or
+/// tactics.
 #[derive(Clone)]
 pub struct Board {
     geometry: &'static BoardGeometry,
