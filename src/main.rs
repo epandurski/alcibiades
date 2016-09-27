@@ -11,6 +11,7 @@ pub mod uci;
 pub mod tt;
 pub mod time_manager;
 pub mod notation;
+pub mod bitsets;
 
 use std::process::exit;
 use std::sync::Arc;

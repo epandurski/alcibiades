@@ -1,9 +1,8 @@
 //! Implements the rules of chess and position evaluation.
 
-pub mod bitsets;
 pub mod tables;
 pub mod board;
-pub mod evaluation;
+mod evaluation;
 
 use std::u16;
 use std::mem;
@@ -13,7 +12,7 @@ use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
 use notation::parse_fen;
-use self::bitsets::*;
+use bitsets::*;
 use self::tables::BoardGeometry;
 use self::board::Board;
 use self::evaluation::evaluate_board;
@@ -928,7 +927,7 @@ mod tests {
     #[allow(unused_variables)]
     fn simple_eval(board: &Board) -> Value {
         use basetypes::*;
-        use position::bitsets::*;
+        use bitsets::*;
         let piece_type = board.piece_type();
         let color = board.color();
         let us = board.to_move();

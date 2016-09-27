@@ -1,11 +1,11 @@
-//! Implements the rules of chess.
+//! Implements the basic rules of chess.
 
 use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
 use moves::*;
 use notation::{parse_fen, PiecesPlacement};
-use position::bitsets::*;
+use bitsets::*;
 use position::tables::{BoardGeometry, ZobristArrays};
 
 
