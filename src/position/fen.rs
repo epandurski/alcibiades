@@ -1,8 +1,8 @@
-//! Implements Forsyth–Edwards notation (FEN) parsing.
+//! Implements Forsyth–Edwards Notation (FEN) parsing.
 //!
-//! A FEN (Forsyth–Edwards Notation) string defines a particular
-//! position using only the ASCII character set. A FEN string
-//! contains six fields separated by a space. The fields are:
+//! A FEN string defines a particular position using only the ASCII
+//! character set. A FEN string contains six fields separated by a
+//! space. The fields are:
 //!
 //! 1) Piece placement (from white's perspective). Each rank is
 //!    described, starting with rank 8 and ending with rank 1. Within
@@ -59,8 +59,8 @@ pub struct PiecesPlacement {
 }
 
 
-/// Parses a FEN string.
-pub fn parse_fen
+/// Parses a Forsyth–Edwards Notation (FEN) string.
+pub fn parse
     (s: &str)
      -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), ParseError> {
 

@@ -4,7 +4,7 @@ pub mod bitsets;
 pub mod tables;
 pub mod board;
 pub mod evaluation;
-pub mod notation;
+pub mod fen;
 
 use std::u16;
 use std::mem;
@@ -97,7 +97,7 @@ impl Position {
     /// position using only the ASCII character set.
     pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
-            try!(notation::parse_fen(fen).map_err(|_| IllegalPosition));
+            try!(fen::parse(fen).map_err(|_| IllegalPosition));
         let mut p = Position {
             board: UnsafeCell::new(try!(Board::create(placement,
                                                       to_move,
