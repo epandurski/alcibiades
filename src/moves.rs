@@ -196,6 +196,22 @@ impl Move {
         Move((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE)
     }
 
+    /// Decodes the promoted piece type from the raw value returned by
+    /// `aux_data`.
+    ///
+    /// The interpretation of the raw value is: `0` -- queen, `1` --
+    /// rook, `2` -- bishop, `3` -- knight.
+    #[inline]
+    pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
+        assert!(pp_code <= 3);
+        match pp_code {
+            0 => QUEEN,
+            1 => ROOK,
+            2 => BISHOP,
+            _ => KNIGHT,
+        }
+    }
+    
     /// Returns the highest possible move score.
     #[inline(always)]
     pub fn max_score() -> usize {
@@ -276,6 +292,12 @@ impl Move {
         (self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
     }
 
+    /// Returns the least significant 16 bits of the raw move value.
+    #[inline(always)]
+    pub fn digest(&self) -> MoveDigest {
+        self.0 as MoveDigest
+    }
+
     /// Returns `true` if the move is a pawn advance or a capture,
     /// `false` otherwise.
     #[inline]
@@ -299,12 +321,6 @@ impl Move {
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 
-    /// Returns the least significant 16 bits of the raw move value.
-    #[inline(always)]
-    pub fn digest(&self) -> MoveDigest {
-        self.0 as MoveDigest
-    }
-
     /// Returns the algebraic notation of the move.
     ///
     /// Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
@@ -317,22 +333,6 @@ impl Move {
                     MOVE_PROMOTION => ["q", "r", "b", "n"][self.aux_data()],
                     _ => "",
                 })
-    }
-
-    /// Decodes the promoted piece type from the raw value returned by
-    /// `m.aux_data()`.
-    ///
-    /// The interpretation of the raw value is: `0` -- queen, `1` --
-    /// rook, `2` -- bishop, `3` -- knight.
-    #[inline]
-    pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
-        assert!(pp_code <= 3);
-        match pp_code {
-            0 => QUEEN,
-            1 => ROOK,
-            2 => BISHOP,
-            _ => KNIGHT,
-        }
     }
 }
 
