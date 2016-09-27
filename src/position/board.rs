@@ -4,9 +4,9 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
 use moves::*;
+use notation::{parse_fen, PiecesPlacement};
 use position::bitsets::*;
 use position::tables::{BoardGeometry, ZobristArrays};
-use position::fen::{parse_fen, PiecesPlacement};
 
 
 /// Represents an illegal board error.
@@ -1284,33 +1284,6 @@ impl Board {
                            (self.piece_type[ROOK] | self.piece_type[QUEEN]);
             checkers == BB_EMPTY_SET
         }
-    }
-
-    #[allow(dead_code)]
-    fn pretty_string(&self) -> String {
-        let mut s = String::new();
-        for rank in (0..8).rev() {
-            for file in 0..8 {
-                let square = square(file, rank);
-                let bb = 1 << square;
-                let piece = match bb {
-                    x if x & self.piece_type[KING] != 0 => 'k',
-                    x if x & self.piece_type[QUEEN] != 0 => 'q',
-                    x if x & self.piece_type[ROOK] != 0 => 'r',
-                    x if x & self.piece_type[BISHOP] != 0 => 'b',
-                    x if x & self.piece_type[KNIGHT] != 0 => 'n',
-                    x if x & self.piece_type[PAWN] != 0 => 'p',
-                    _ => '.',
-                };
-                if bb & self.color[WHITE] != 0 {
-                    s.push(piece.to_uppercase().next().unwrap());
-                } else {
-                    s.push(piece);
-                }
-            }
-            s.push('\n');
-        }
-        s
     }
 }
 

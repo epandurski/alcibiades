@@ -4,7 +4,6 @@ pub mod bitsets;
 pub mod tables;
 pub mod board;
 pub mod evaluation;
-pub mod fen;
 
 use std::u16;
 use std::mem;
@@ -13,9 +12,9 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
+use notation::parse_fen;
 use self::bitsets::*;
 use self::tables::BoardGeometry;
-use self::fen::parse_fen;
 use self::board::Board;
 use self::evaluation::evaluate_board;
 

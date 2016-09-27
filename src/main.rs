@@ -10,6 +10,7 @@ pub mod search;
 pub mod uci;
 pub mod tt;
 pub mod time_manager;
+pub mod notation;
 
 use std::process::exit;
 use std::sync::Arc;

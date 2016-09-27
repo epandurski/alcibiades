@@ -1,41 +1,4 @@
-//! Implements Forsyth–Edwards Notation (FEN) parsing.
-//!
-//! A FEN string defines a particular position using only the ASCII
-//! character set. A FEN string contains six fields separated by a
-//! space. The fields are:
-//!
-//! 1) Piece placement (from white's perspective). Each rank is
-//!    described, starting with rank 8 and ending with rank 1. Within
-//!    each rank, the contents of each square are described from file A
-//!    through file H. Following the Standard Algebraic Notation (SAN),
-//!    each piece is identified by a single letter taken from the
-//!    standard English names. White pieces are designated using
-//!    upper-case letters ("PNBRQK") whilst Black uses lowercase
-//!    ("pnbrqk"). Blank squares are noted using digits 1 through 8
-//!    (the number of blank squares), and "/" separates ranks.
-//!
-//! 2) Active color. "w" means white moves next, "b" means black.
-//!
-//! 3) Castling availability. If neither side can castle, this is
-//!    "-". Otherwise, this has one or more letters: "K" (White can
-//!    castle kingside), "Q" (White can castle queenside), "k" (Black
-//!    can castle kingside), and/or "q" (Black can castle queenside).
-//!
-//! 4) En passant target square (in algebraic notation). If there's no
-//!    en passant target square, this is "-". If a pawn has just made a
-//!    2-square move, this is the position "behind" the pawn. This is
-//!    recorded regardless of whether there is a pawn in position to
-//!    make an en passant capture.
-//!
-//! 5) Halfmove clock. This is the number of halfmoves since the last
-//!    pawn advance or capture. This is used to determine if a draw can
-//!    be claimed under the fifty-move rule.
-//!
-//! 6) Fullmove number. The number of the full move. It starts at 1,
-//!    and is incremented after Black's move.
-//!
-//! # Example:
-//! The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
+//! Implements parsing of various chess notations.
 
 use regex::Regex;
 use basetypes::*;
@@ -58,8 +21,92 @@ pub struct PiecesPlacement {
     pub color: [Bitboard; 2],
 }
 
+impl PiecesPlacement {
+    /// Returns a human-readable representation of the placement of
+    /// pieces.
+    pub fn pretty_string(&self) -> String {
+        let mut s = String::new();
+        for rank in (0..8).rev() {
+            for file in 0..8 {
+                let square = square(file, rank);
+                let bb = 1 << square;
+                let piece = match bb {
+                    x if x & self.piece_type[KING] != 0 => 'k',
+                    x if x & self.piece_type[QUEEN] != 0 => 'q',
+                    x if x & self.piece_type[ROOK] != 0 => 'r',
+                    x if x & self.piece_type[BISHOP] != 0 => 'b',
+                    x if x & self.piece_type[KNIGHT] != 0 => 'n',
+                    x if x & self.piece_type[PAWN] != 0 => 'p',
+                    _ => '.',
+                };
+                if bb & self.color[WHITE] != 0 {
+                    s.push(piece.to_uppercase().next().unwrap());
+                } else {
+                    s.push(piece);
+                }
+            }
+            s.push('\n');
+        }
+        s
+    }
+}
+
+
+/// Parses a square in lowercase algebraic notation.
+pub fn parse_square(s: &str) -> Result<Square, ParseError> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
+    }
+
+    if RE.is_match(s) {
+        let mut chars = s.chars();
+        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
+        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
+        Ok(square(file, rank))
+    } else {
+        Err(ParseError)
+    }
+}
+
 
 /// Parses a Forsyth–Edwards Notation (FEN) string.
+///
+/// A FEN string defines a particular position using only the ASCII
+/// character set. A FEN string contains six fields separated by a
+/// space. The fields are:
+///
+/// 1) Piece placement (from white's perspective). Each rank is
+///    described, starting with rank 8 and ending with rank 1. Within
+///    each rank, the contents of each square are described from file A
+///    through file H. Following the Standard Algebraic Notation (SAN),
+///    each piece is identified by a single letter taken from the
+///    standard English names. White pieces are designated using
+///    upper-case letters ("PNBRQK") whilst Black uses lowercase
+///    ("pnbrqk"). Blank squares are noted using digits 1 through 8
+///    (the number of blank squares), and "/" separates ranks.
+///
+/// 2) Active color. "w" means white moves next, "b" means black.
+///
+/// 3) Castling availability. If neither side can castle, this is
+///    "-". Otherwise, this has one or more letters: "K" (White can
+///    castle kingside), "Q" (White can castle queenside), "k" (Black
+///    can castle kingside), and/or "q" (Black can castle queenside).
+///
+/// 4) En passant target square (in algebraic notation). If there's no
+///    en passant target square, this is "-". If a pawn has just made a
+///    2-square move, this is the position "behind" the pawn. This is
+///    recorded regardless of whether there is a pawn in position to
+///    make an en passant capture.
+///
+/// 5) Halfmove clock. This is the number of halfmoves since the last
+///    pawn advance or capture. This is used to determine if a draw can
+///    be claimed under the fifty-move rule.
+///
+/// 6) Fullmove number. The number of the full move. It starts at 1,
+///    and is incremented after Black's move.
+///
+/// # Example:
+/// The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
 pub fn parse_fen
     (s: &str)
      -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), ParseError> {
@@ -75,23 +122,6 @@ pub fn parse_fen
             x if x == 0 || x > 9000 => return Err(ParseError),
             x => x,
         }))
-    } else {
-        Err(ParseError)
-    }
-}
-
-
-/// Parses a square in algebraic notation.
-fn parse_square(s: &str) -> Result<Square, ParseError> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
-    }
-
-    if RE.is_match(s) {
-        let mut chars = s.chars();
-        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
-        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
-        Ok(square(file, rank))
     } else {
         Err(ParseError)
     }
