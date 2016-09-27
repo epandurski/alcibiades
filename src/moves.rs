@@ -158,7 +158,7 @@ impl Move {
         assert!(en_passant_file <= 0b1111);
         assert!(promoted_piece_code <= 0b11);
 
-        // Captures are treated differently than quiet moves.
+        // Captures get higher move scores than quiet moves.
         let mut score_shifted = if captured_piece == NO_PIECE {
             0 << M_SHIFT_SCORE
         } else {
