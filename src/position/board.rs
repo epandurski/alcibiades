@@ -5,7 +5,7 @@ use std::cell::Cell;
 use basetypes::*;
 use moves::*;
 use notation::parse_fen;
-use bitsets::*;
+use position::bitsets::*;
 use position::IllegalPosition;
 use position::tables::{BoardGeometry, ZobristArrays};
 

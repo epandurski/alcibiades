@@ -2,6 +2,7 @@
 
 pub mod tables;
 pub mod board;
+pub mod bitsets;
 mod evaluation;
 
 use std::u16;
@@ -12,7 +13,7 @@ use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
 use notation::parse_fen;
-use bitsets::*;
+use self::bitsets::*;
 use self::tables::BoardGeometry;
 use self::board::Board;
 use self::evaluation::evaluate_board;
@@ -930,7 +931,7 @@ mod tests {
     #[allow(unused_variables)]
     fn simple_eval(board: &Board) -> Value {
         use basetypes::*;
-        use bitsets::*;
+        use position::bitsets::*;
         let piece_type = board.pieces().piece_type;
         let color = board.pieces().color;
         let us = board.to_move();
