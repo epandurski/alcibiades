@@ -1,7 +1,7 @@
-//! Implements the rules of chess and position evaluation.
+//! Implements the rules of chess and the position evaluation logic.
 
 pub mod tables;
-pub mod board;
+pub mod move_generation;
 pub mod bitsets;
 mod evaluation;
 
@@ -15,7 +15,7 @@ use moves::*;
 use notation::parse_fen;
 use self::bitsets::*;
 use self::tables::BoardGeometry;
-use self::board::Board;
+use self::move_generation::Board;
 use self::evaluation::evaluate_board;
 
 
@@ -23,7 +23,8 @@ use self::evaluation::evaluate_board;
 pub struct IllegalPosition;
 
 
-/// Holds the current position and "knows" the rules of chess.
+/// Holds the current position, "knows" the rules of chess, can
+/// evaluate the odds.
 ///
 /// `Position` improves on the features of `Board` adding the the
 /// following important functionality:
@@ -921,7 +922,7 @@ fn get_least_valuable_piece(piece_type_array: &[Bitboard; 6],
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::board::Board;
+    use super::move_generation::Board;
     use super::PIECE_VALUES;
     use basetypes::*;
     use moves::*;

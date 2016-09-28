@@ -3,7 +3,7 @@
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use position::bitsets::*;
-use position::board::Board;
+use position::move_generation::Board;
 
 
 /// Statically evaluates the board.
