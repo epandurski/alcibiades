@@ -874,7 +874,7 @@ impl Board {
             } else {
                 BB_UNIVERSAL_SET
             }
-        });  // Returns "UNIVERSAL_SET" if "self.piece_type" is messed up.
+        });  // Returns `UNIVERSAL_SET` if `self.pieces.piece_type` is messed up.
 
         let them = 1 ^ us;
         let o_us = self.pieces.color[us];
