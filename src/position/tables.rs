@@ -38,8 +38,9 @@ pub struct ZobristArrays {
 
     /// Derived from the `pieces` field. Contains the constants with
     /// which the Zobrist hash value should be XOR-ed to reflect the
-    /// movement of the rook during castling.
-    pub castling_rook_move: [[u64; 2]; 2],
+    /// movement of the rook during castling. Needed for performance
+    /// reasons only.
+    pub _castling_rook_move: [[u64; 2]; 2],
 }
 
 
@@ -90,7 +91,7 @@ impl ZobristArrays {
             castling: castling,
             en_passant: en_passant,
             halfmove_clock: halfmove_clock,
-            castling_rook_move: castling_rook_move,
+            _castling_rook_move: castling_rook_move,
         }
     }
 

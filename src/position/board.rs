@@ -622,7 +622,7 @@ impl Board {
                 let mask = CASTLING_ROOK_MASK[us][side];
                 self.pieces.piece_type[ROOK] ^= mask;
                 self.pieces.color[us] ^= mask;
-                hash ^= self.zobrist.castling_rook_move[us][side];
+                hash ^= self.zobrist._castling_rook_move[us][side];
             }
 
             let not_orig_bb = !(1 << orig_square);
