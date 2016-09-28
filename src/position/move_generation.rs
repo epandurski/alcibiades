@@ -23,12 +23,19 @@ use position::tables::{BoardGeometry, ZobristArrays};
 pub struct Board {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
+    
+    /// The placement of the pieces on the board.
     pieces: PiecesPlacement,
+    
+    /// The side to move.
     to_move: Color,
+    
+    /// The castling rights for both players.
     castling: CastlingRights,
 
-    /// The en-passant file. Values between 8 and 15 indicate that
-    /// there is no en-passant file.
+    /// The file on which an en-passant pawn capture is
+    /// possible. Values between 8 and 15 indicate that en-passant
+    /// capture is not possible.
     en_passant_file: usize,
 
     /// This will always be equal to `self.pieces.color[WHITE] |
@@ -141,7 +148,10 @@ impl Board {
         self.castling
     }
 
-    /// Returns the en-passant file, or `None` if there is none.
+    /// Returns the file on which an en-passant pawn capture is
+    /// possible.
+    ///
+    /// Returns `None` if en-passant pawn capture is not possible.
     #[inline(always)]
     pub fn en_passant_file(&self) -> Option<File> {
         if self.en_passant_file < 8 {
@@ -372,10 +382,9 @@ impl Board {
     /// Returns a null move.
     ///
     /// "Null move" is a pseudo-move that changes nothing on the board
-    /// except the side to move (and the en-passant file, of
-    /// course). It is sometimes useful to include a speculative null
-    /// move in the search tree so as to achieve more aggressive
-    /// pruning.
+    /// except the side to move. It is sometimes useful to include a
+    /// speculative null move in the search tree so as to achieve more
+    /// aggressive pruning.
     #[inline]
     pub fn null_move(&self) -> Move {
         let king_square = self.king_square();
