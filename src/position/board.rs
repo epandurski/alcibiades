@@ -622,7 +622,7 @@ impl Board {
                 let mask = CASTLING_ROOK_MASK[us][side];
                 self.pieces.piece_type[ROOK] ^= mask;
                 self.pieces.color[us] ^= mask;
-                hash ^= self.zobrist._castling_rook_move[us][side];
+                hash ^= self.zobrist._castling_rook_movement[us][side];
             }
 
             let not_orig_bb = !(1 << orig_square);
@@ -682,12 +682,12 @@ impl Board {
             }
 
             // Update the en-passant file.
-            hash ^= *self.zobrist.en_passant.get_unchecked(self.en_passant_file);
+            hash ^= *self.zobrist.en_passant_file.get_unchecked(self.en_passant_file);
             self.en_passant_file = if piece == PAWN {
                 match dest_square as isize - orig_square as isize {
                     16 | -16 => {
                         let file = file(dest_square);
-                        hash ^= *self.zobrist.en_passant.get_unchecked(file);
+                        hash ^= *self.zobrist.en_passant_file.get_unchecked(file);
                         file
                     }
                     _ => NO_ENPASSANT_FILE,
@@ -822,7 +822,7 @@ impl Board {
             }
         }
         hash ^= self.zobrist.castling[self.castling.value()];
-        hash ^= self.zobrist.en_passant[self.en_passant_file];
+        hash ^= self.zobrist.en_passant_file[self.en_passant_file];
         if self.to_move == BLACK {
             hash ^= self.zobrist.to_move;
         }

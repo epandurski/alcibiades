@@ -29,7 +29,7 @@ pub struct ZobristArrays {
     /// old and the new en-passant file on each move.  Only the first
     /// 8 indexes are used -- the rest exist for memory safety
     /// reasons, and are set to `0`.
-    pub en_passant: [u64; 16],
+    pub en_passant_file: [u64; 16],
 
     /// Constants with which the hash value should be XOR-ed to
     /// reflect the number of half-moves played without capturing a
@@ -40,7 +40,7 @@ pub struct ZobristArrays {
     /// which the Zobrist hash value should be XOR-ed to reflect the
     /// movement of the rook during castling. Needed for performance
     /// reasons only.
-    pub _castling_rook_move: [[u64; 2]; 2],
+    pub _castling_rook_movement: [[u64; 2]; 2],
 }
 
 
@@ -56,9 +56,8 @@ impl ZobristArrays {
         let to_move = rng.gen();
         let mut pieces = [[[0; 64]; 6]; 2];
         let mut castling = [0; 16];
-        let mut en_passant = [0; 16];
+        let mut en_passant_file = [0; 16];
         let mut halfmove_clock = [0; 100];
-        let mut castling_rook_move = [[0; 2]; 2];
 
         for color in 0..2 {
             for piece in 0..6 {
@@ -73,25 +72,23 @@ impl ZobristArrays {
         }
 
         for file in 0..8 {
-            en_passant[file] = rng.gen();
+            en_passant_file[file] = rng.gen();
         }
 
         for n in 0..100 {
             halfmove_clock[n] = rng.gen();
         }
 
-        castling_rook_move[WHITE][QUEENSIDE] = pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1];
-        castling_rook_move[WHITE][KINGSIDE] = pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1];
-        castling_rook_move[BLACK][QUEENSIDE] = pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8];
-        castling_rook_move[BLACK][KINGSIDE] = pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8];
-
         ZobristArrays {
             to_move: to_move,
             pieces: pieces,
             castling: castling,
-            en_passant: en_passant,
+            en_passant_file: en_passant_file,
             halfmove_clock: halfmove_clock,
-            _castling_rook_move: castling_rook_move,
+            _castling_rook_movement: [[pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1],
+                                       pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1]],
+                                      [pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8],
+                                       pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8]]],
         }
     }
 
