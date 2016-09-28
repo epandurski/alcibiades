@@ -8,50 +8,6 @@ use basetypes::*;
 pub struct ParseError;
 
 
-/// Pieces placement desctiption.
-pub struct PiecesPlacement {
-    /// An array of occupation bitboards indexed by piece type.  For
-    /// example, `piece_placement.piece_type[PAWN]` gives the set of
-    /// all pawns on the board (white and black).
-    pub piece_type: [Bitboard; 6],
-
-    /// An array of occupation bitboards indexed by color.  For
-    /// example, `piece_placement.color[WHITE]` gives the set of all
-    /// white pieces and pawns on the board.
-    pub color: [Bitboard; 2],
-}
-
-impl PiecesPlacement {
-    /// Returns a human-readable representation of the placement of
-    /// pieces.
-    pub fn pretty_string(&self) -> String {
-        let mut s = String::new();
-        for rank in (0..8).rev() {
-            for file in 0..8 {
-                let square = square(file, rank);
-                let bb = 1 << square;
-                let piece = match bb {
-                    x if x & self.piece_type[KING] != 0 => 'k',
-                    x if x & self.piece_type[QUEEN] != 0 => 'q',
-                    x if x & self.piece_type[ROOK] != 0 => 'r',
-                    x if x & self.piece_type[BISHOP] != 0 => 'b',
-                    x if x & self.piece_type[KNIGHT] != 0 => 'n',
-                    x if x & self.piece_type[PAWN] != 0 => 'p',
-                    _ => '.',
-                };
-                if bb & self.color[WHITE] != 0 {
-                    s.push(piece.to_uppercase().next().unwrap());
-                } else {
-                    s.push(piece);
-                }
-            }
-            s.push('\n');
-        }
-        s
-    }
-}
-
-
 /// Parses a square in lowercase algebraic notation.
 pub fn parse_square(s: &str) -> Result<Square, ParseError> {
     lazy_static! {

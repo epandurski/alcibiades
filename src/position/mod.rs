@@ -640,8 +640,9 @@ impl Position {
         // attacks from other pieces, so we must consider adding new
         // attackers/defenders every time a piece from the `may_xray`
         // set makes a capture.
-        let may_xray = board.piece_type()[PAWN] | board.piece_type()[BISHOP] |
-                       board.piece_type()[ROOK] | board.piece_type()[QUEEN];
+        let may_xray = board.pieces().piece_type[PAWN] | board.pieces().piece_type[BISHOP] |
+                       board.pieces().piece_type[ROOK] |
+                       board.pieces().piece_type[QUEEN];
 
         unsafe {
             let mut depth = 0;
@@ -673,16 +674,18 @@ impl Position {
                 occupied ^= orig_square_bb;
                 if orig_square_bb & may_xray != 0 {
                     attackers_and_defenders |= consider_xrays(board.geometry(),
-                                                              &board.piece_type(),
+                                                              &board.pieces().piece_type,
                                                               occupied,
                                                               dest_square,
                                                               bitscan_forward(orig_square_bb));
                 }
 
                 // Find the next piece to enter the exchange.
-                let next_attacker = get_least_valuable_piece(board.piece_type(),
+                let next_attacker = get_least_valuable_piece(&board.pieces().piece_type,
                                                              attackers_and_defenders &
-                                                             *board.color().get_unchecked(us));
+                                                             *board.pieces()
+                                                                   .color
+                                                                   .get_unchecked(us));
                 piece = next_attacker.0;
                 orig_square_bb = next_attacker.1;
             }
@@ -928,8 +931,8 @@ mod tests {
     fn simple_eval(board: &Board) -> Value {
         use basetypes::*;
         use bitsets::*;
-        let piece_type = board.piece_type();
-        let color = board.color();
+        let piece_type = board.pieces().piece_type;
+        let color = board.pieces().color;
         let us = board.to_move();
         let them = 1 ^ us;
         let mut result = 0;

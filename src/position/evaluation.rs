@@ -27,8 +27,8 @@ pub fn evaluate_board(board: &Board) -> Value {
         return -19999;
     }
     
-    let piece_type = board.piece_type();
-    let color = board.color();
+    let piece_type = board.pieces().piece_type;
+    let color = board.pieces().color;
     let us = board.to_move();
     let them = 1 ^ us;
     let mut result = 0;
