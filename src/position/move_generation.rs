@@ -23,13 +23,13 @@ use position::tables::{BoardGeometry, ZobristArrays};
 pub struct Board {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
-    
+
     /// The placement of the pieces on the board.
     pieces: PiecesPlacement,
-    
+
     /// The side to move.
     to_move: Color,
-    
+
     /// The castling rights for both players.
     castling: CastlingRights,
 
