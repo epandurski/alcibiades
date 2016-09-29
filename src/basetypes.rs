@@ -132,16 +132,12 @@ pub type NodeCount = u64;
 
 /// A set of squares on the chessboard.
 ///
-/// `u64` bit-sets called *bitboards* (BB) can be used to represent a
-/// set of squares on the chessboard. For example, the set of squares
-/// that are occupied by white rooks in the beginning of the game is:
-/// `1 << A1 | 1 << H1`. `BB_EMPTY_SET` equals `0` and represents the
-/// empty set, `BB_UNIVERSAL_SET` represents the set of all 64 squares
-/// on the board.
+/// `u64` bit-sets called *bitboards* can be used to represent a set
+/// of squares on the chessboard. For example, the set of squares that
+/// are occupied by white rooks in the beginning of the game is: `1 <<
+/// A1 | 1 << H1`. `0` represents the empty set, `0xffffffffffffffff`
+/// represents the set of all 64 squares on the board.
 pub type Bitboard = u64;
-
-pub const BB_EMPTY_SET: Bitboard = 0;
-pub const BB_UNIVERSAL_SET: Bitboard = 0xffffffffffffffff;
 
 
 
@@ -332,7 +328,7 @@ impl CastlingRights {
         } else {
             // Castling is not allowed, therefore every piece on every
             // square on the board can be considered an obstacle.
-            BB_UNIVERSAL_SET
+            !0
         }
     }
 }

@@ -8,6 +8,14 @@ use std::num::Wrapping;
 use basetypes::*;
 
 
+/// The empty set.
+pub const BB_EMPTY_SET: Bitboard = 0;
+
+
+/// The set of all 64 squares on the board.
+pub const BB_UNIVERSAL_SET: Bitboard = 0xffffffffffffffff;
+
+
 // Ranks 1-8.
 pub const BB_RANK_1: Bitboard = 0b11111111;
 pub const BB_RANK_2: Bitboard = BB_RANK_1 << 8;
@@ -30,12 +38,14 @@ pub const BB_FILE_G: Bitboard = BB_FILE_F << 1;
 pub const BB_FILE_H: Bitboard = BB_FILE_G << 1;
 
 
-// Rank 1 or 8.
+/// Rank 1 and rank 8.
 pub const BB_PAWN_PROMOTION_RANKS: Bitboard = BB_RANK_1 | BB_RANK_8;
 
 
-// The main diagonal (A1-H8), and the main anti-diagonal (A8-H1).
+/// The main diagonal (A1-H8)
 pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
+
+/// The main anti-diagonal (A8-H1).
 pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
 
 
