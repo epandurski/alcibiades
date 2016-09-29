@@ -23,8 +23,8 @@ use self::evaluation::evaluate_board;
 pub struct IllegalPosition;
 
 
-/// Holds the current position, "knows" the rules of chess, can
-/// evaluate the odds.
+/// Holds the current position, knows the rules of chess, can evaluate
+/// the odds.
 ///
 /// `Position` improves on the features of `Board` adding the the
 /// following important functionality:
@@ -161,7 +161,19 @@ impl Position {
         unsafe { &*self.board.get() }
     }
 
-    /// Returns if the position is unlikely to be a zugzwang.
+    /// Returns the side to move.
+    #[inline(always)]
+    pub fn to_move(&self) -> Color {
+        self.board().to_move()
+    }
+
+    /// Returns if the side to move is in check.
+    #[inline(always)]
+    pub fn is_check(&self) -> bool {
+        self.board().checkers() != 0
+    }
+
+    /// Returns if the side to move is unlikely to be in zugzwang.
     ///
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
@@ -169,7 +181,7 @@ impl Position {
     /// return `true`. This is useful when deciding if it is safe to
     /// try a "null move".
     #[inline]
-    pub fn is_zugzwang_safe(&self) -> bool {
+    pub fn is_zugzwang_unlikely(&self) -> bool {
         // TODO: Write a real implementation.
         true
     }

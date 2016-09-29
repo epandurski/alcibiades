@@ -48,11 +48,11 @@ pub struct Board {
 
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
-    pub _checkers: Cell<Bitboard>,
+    _checkers: Cell<Bitboard>,
 
     /// Lazily calculated bitboard of all pinned pieces and pawns --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
-    pub _pinned: Cell<Bitboard>,
+    _pinned: Cell<Bitboard>,
 }
 
 

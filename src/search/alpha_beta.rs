@@ -230,9 +230,8 @@ impl<'a> Search<'a> {
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
             entry: entry,
-            checkers: BB_UNIVERSAL_SET,
-            pinned: BB_UNIVERSAL_SET,
             killer: None,
+            is_check: unsafe { mem::uninitialized() }, // We will initialize this soon!
         });
 
         // Check if the TT entry gives the result.
@@ -267,9 +266,8 @@ impl<'a> Search<'a> {
         {
             self.moves.save();
             let state = self.state_stack.last_mut().unwrap();
-            state.checkers = self.position.board().checkers();
-            state.pinned = self.position.board().pinned();
             state.phase = NodePhase::ConsideredNullMove;
+            state.is_check = self.position.is_check();
         }
 
         // Consider null move pruning. In positions that are not prone
@@ -278,7 +276,8 @@ impl<'a> Search<'a> {
         // of the sub-tree search is still high enough to cause a beta
         // cutoff. Nodes are saved by reducing the depth of the
         // sub-tree under the null move.
-        if !last_move.is_null() && entry.eval_value() >= beta && self.position.is_zugzwang_safe() {
+        if !last_move.is_null() && entry.eval_value() >= beta &&
+           self.position.is_zugzwang_unlikely() {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {
                 depth as i8 - NULL_MOVE_REDUCTION as i8 - 1
@@ -357,14 +356,6 @@ impl<'a> Search<'a> {
             true
         });
         assert!(ply < MAX_DEPTH as usize);
-
-        // Restore board's `_checkers` and `_pinned` fields. This is
-        // merely an optimization -- instead of recalculating them
-        // again and again, we recall them from the state stack.
-        assert_eq!(self.position.board().checkers(), state.checkers);
-        assert_eq!(self.position.board().pinned(), state.pinned);
-        self.position.board()._checkers.set(state.checkers);
-        self.position.board()._pinned.set(state.pinned);
 
         // Try the hash move.
         if let NodePhase::ConsideredNullMove = state.phase {
@@ -472,8 +463,7 @@ impl<'a> Search<'a> {
 
             // Fourth -- the remaining quiet moves.
             if self.position.do_move(m) {
-                if state.checkers != 0 || self.position.board().checkers() != 0 ||
-                   m.move_type() == MOVE_PROMOTION {
+                if state.is_check || self.position.is_check() || m.move_type() == MOVE_PROMOTION {
                     // When evading check, giving check, or promoting
                     // a pawn -- set a high move score to avoid search
                     // depth reductions.
@@ -561,9 +551,8 @@ enum NodePhase {
 struct NodeState {
     phase: NodePhase,
     entry: TtEntry,
-    checkers: Bitboard,
-    pinned: Bitboard,
     killer: Option<MoveDigest>,
+    is_check: bool,
 }
 
 
