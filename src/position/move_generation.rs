@@ -130,12 +130,6 @@ impl Board {
         &self.pieces
     }
 
-    /// Returns a bitboard of all occupied squares.
-    #[inline(always)]
-    pub fn occupied(&self) -> Bitboard {
-        self._occupied
-    }
-
     /// Returns the side to move.
     #[inline(always)]
     pub fn to_move(&self) -> Color {
@@ -150,8 +144,6 @@ impl Board {
 
     /// Returns the file on which an en-passant pawn capture is
     /// possible.
-    ///
-    /// Returns `None` if en-passant pawn capture is not possible.
     #[inline(always)]
     pub fn en_passant_file(&self) -> Option<File> {
         if self.en_passant_file < 8 {
@@ -159,6 +151,12 @@ impl Board {
         } else {
             None
         }
+    }
+
+    /// Returns a bitboard of all occupied squares.
+    #[inline(always)]
+    pub fn occupied(&self) -> Bitboard {
+        self._occupied
     }
 
     /// Returns the bitboard of all checkers that are attacking the

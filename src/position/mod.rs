@@ -155,20 +155,51 @@ impl Position {
         Ok(p)
     }
 
-    /// Returns the board associated with the current position.
-    #[inline(always)]
-    pub fn board(&self) -> &Board {
-        unsafe { &*self.board.get() }
+    /// Returns a description of the placement of the pieces on the
+    /// board.
+    #[inline]
+    pub fn pieces(&self) -> &PiecesPlacement {
+        self.board().pieces()
     }
 
     /// Returns the side to move.
-    #[inline(always)]
+    #[inline]
     pub fn to_move(&self) -> Color {
         self.board().to_move()
     }
 
+    /// Returns the castling rights.
+    #[inline]
+    pub fn castling(&self) -> CastlingRights {
+        self.board().castling()
+    }
+
+    /// Returns the file on which an en-passant pawn capture is
+    /// possible.
+    #[inline]
+    pub fn en_passant_file(&self) -> Option<File> {
+        self.board().en_passant_file()
+    }
+
+    /// Returns the number of half-moves since the last piece capture
+    /// or pawn advance.
+    #[inline]
+    pub fn halfmove_clock(&self) -> u8 {
+        self.state().halfmove_clock
+    }
+
+    /// Returns the count of half-moves since the beginning of the
+    /// game.
+    ///
+    /// At the beginning of the game it starts at `0`, and is
+    /// incremented after anyone's move.
+    #[inline]
+    pub fn halfmove_count(&self) -> u16 {
+        self.halfmove_count
+    }
+
     /// Returns if the side to move is in check.
-    #[inline(always)]
+    #[inline]
     pub fn is_check(&self) -> bool {
         self.board().checkers() != 0
     }
@@ -184,16 +215,6 @@ impl Position {
     pub fn is_zugzwang_unlikely(&self) -> bool {
         // TODO: Write a real implementation.
         true
-    }
-
-    /// Returns the count of half-moves since the beginning of the
-    /// game.
-    ///
-    /// At the beginning of the game it starts at `0`, and is
-    /// incremented after anyone's move.
-    #[inline(always)]
-    pub fn halfmove_count(&self) -> u16 {
-        self.halfmove_count
     }
 
     /// Returns an almost unique hash value for the position.
@@ -799,6 +820,11 @@ impl Position {
     }
 
     #[inline(always)]
+    fn board(&self) -> &Board {
+        unsafe { &*self.board.get() }
+    }
+
+    #[inline(always)]
     unsafe fn board_mut(&self) -> &mut Board {
         &mut *self.board.get()
     }
@@ -827,8 +853,8 @@ impl Clone for Position {
 /// Contains information about a position.
 #[derive(Clone, Copy)]
 struct PositionInfo {
-    /// The number of halfmoves since the last pawn advance or piece
-    /// capture.
+    /// The number of half-moves since the last piece capture or pawn
+    /// advance.
     halfmove_clock: u8,
 
     /// The last played move.
