@@ -12,8 +12,7 @@ pub const BLACK: Color = 1;
 
 
 
-/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN`, `NO_PIECE`,
-/// or `UNKNOWN_PIECE`.
+/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN` or `NO_PIECE`.
 pub type PieceType = usize;
 
 pub const KING: PieceType = 0;
@@ -23,7 +22,6 @@ pub const BISHOP: PieceType = 3;
 pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
 pub const NO_PIECE: PieceType = 6;
-pub const UNKNOWN_PIECE: PieceType = 7;
 
 
 
