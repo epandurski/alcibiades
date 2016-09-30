@@ -9,23 +9,23 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::SystemTime;
 use basetypes::*;
 use moves::*;
-use position::Position;
 use tt::*;
+use position::Position;
 use self::threading::*;
 
 
 /// The maximum search depth in half-moves.
-pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
+const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 /// The half-with of the initial aspiration window in centipawns.
-pub const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
+const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 
 /// The number of nodes that will be searched without reporting search
 /// progress.
 ///
 /// If this value is too small the engine may become slow, if this
 /// value is too big the engine may become unresponsive.
-pub const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
+const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 /// A sequence of moves from some starting position, together with the

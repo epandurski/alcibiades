@@ -4,9 +4,9 @@ use std::mem;
 use std::cmp::max;
 use basetypes::*;
 use moves::*;
-use position::Position;
-use search::*;
 use tt::*;
+use position::Position;
+use search::{MAX_DEPTH, NODE_COUNT_REPORT_INTERVAL};
 
 
 /// Represents a terminated search condition.
