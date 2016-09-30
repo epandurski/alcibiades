@@ -316,7 +316,7 @@ impl CastlingRights {
     /// vacant in order for the specified (`player`, `side`) castling
     /// move to be eventually possible. If `player` does not have the
     /// rights to castle on `side`, this method will return
-    /// `BB_UNIVERSAL_SET`.
+    /// `0xffffffffffffffff`.
     #[inline]
     pub fn obstacles(&self, player: Color, side: CastlingSide) -> Bitboard {
         const OBSTACLES: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
