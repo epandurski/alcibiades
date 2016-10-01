@@ -304,6 +304,9 @@ impl Board {
                         let piece_legal_dests = if 1 << orig_square & pinned == 0 {
                             legal_dests
                         } else {
+                            // If the piece is pinned, reduce the set
+                            // of legal destination to the squares on
+                            // the line of the pin.
                             unsafe { legal_dests & *pin_lines.get_unchecked(orig_square) }
                         };
                         self.push_piece_moves_to_stack(piece,
@@ -347,7 +350,9 @@ impl Board {
                                                   move_stack);
                 }
 
-                // Find pinned pawn moves pawn by pawn.
+                // Find pinned pawn moves pawn by pawn, reducing the
+                // set of legal destination for each pawn to the
+                // squares on the line of the pin.
                 while pinned_pawns != BB_EMPTY_SET {
                     let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
                     let pin_line = unsafe { *pin_lines.get_unchecked(pawn_square) };
@@ -364,15 +369,15 @@ impl Board {
         // or passing through an attacked square when castling). This
         // is executed even when the king is in double check.
         {
+            // Reduce the set of destinations when searching only for
+            // captures, pawn promotions to queen, and check evasions.
             let king_dests = if generate_all_moves {
                 self.push_castling_moves_to_stack(move_stack);
                 !occupied_by_us
             } else {
-                // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions to queen, and
-                // check evasions.
                 occupied_by_them
             };
+
             self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
         }
     }
