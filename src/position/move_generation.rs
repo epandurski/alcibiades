@@ -432,9 +432,7 @@ impl Board {
             } else {
                 KINGSIDE
             };
-            if checkers != 0 ||
-               self.castling_obstacles(self.to_move, side) & self.occupied() != 0 ||
-               orig_square != king_square ||
+            if checkers != 0 || self.castling_obstacles(side) != 0 || orig_square != king_square ||
                dest_square != [[C1, C8], [G1, G8]][side][self.to_move] {
                 return None;
             }
@@ -1098,16 +1096,9 @@ impl Board {
     /// `move_stack`.
     #[inline(always)]
     fn push_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
-
-        // We can not castle if in check.
         if self.checkers() == BB_EMPTY_SET {
-
-            // Try queen-side and king-side castling.
             for side in 0..2 {
-
-                // ensure squares between the king and the rook are empty
-                if self.castling_obstacles(self.to_move, side) & self.occupied() == 0 {
-
+                if self.castling_obstacles(side) == 0 {
                     // It seems castling is legal unless king's
                     // passing or final squares are attacked, but
                     // we do not care about that, because this
@@ -1294,20 +1285,15 @@ impl Board {
         }
     }
 
-    /// A helper method. It returns a bitboard with potential castling
-    /// obstacles.
-    /// 
-    /// This method returns a bitboard with the set of squares that
-    /// should be vacant in order for the specified (`player`, `side`)
-    /// castling move to be eventually possible. If `player` does not
-    /// have the rights to castle on `side`, this method will return
-    /// `UNIVERSAL_SET`.
+    /// A helper method. It returns a bitboard with the set of pieces
+    /// between the king and the castling rook.
     #[inline]
-    fn castling_obstacles(&self, player: Color, side: CastlingSide) -> Bitboard {
-        const OBSTACLES: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
-                                               [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        if self.castling.can_castle(player, side) {
-            OBSTACLES[player][side]
+    fn castling_obstacles(&self, side: CastlingSide) -> Bitboard {
+        assert!(side <= 1);
+        const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
+                                             [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
+        if self.castling.can_castle(self.to_move, side) {
+            self.occupied() & unsafe { *BETWEEN.get_unchecked(self.to_move).get_unchecked(side) }
         } else {
             // Castling is not allowed, therefore every piece on every
             // square on the board can be considered an obstacle.
