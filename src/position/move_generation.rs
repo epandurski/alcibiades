@@ -1004,10 +1004,10 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves()`. It finds all all
-    /// possible moves by the set of pawns given by `pawns`, making
-    /// sure all pawn move destinations are within the `legal_dests`
-    /// set. Then it pushes the resulting moves to `move_stack`.
+    /// A helper method for `generate_moves()`. It finds all
+    /// pseudo-legal moves by the set of pawns given by `pawns`,
+    /// making sure that all destination squares are within the
+    /// `legal_dests` set. Then it pushes the moves to `move_stack`.
     #[inline]
     fn push_pawn_moves_to_stack(&self,
                                 pawns: Bitboard,
@@ -1201,9 +1201,8 @@ impl Board {
         self._king_square.get()
     }
 
-    /// A helper method for `do_move`. It returns `true` if had our
-    /// king moved to square `square` it would be in check, and
-    /// `false` otherwise.
+    /// A helper method for `do_move`. It returns if the king of the
+    /// side to move would be in check if moved to `square`.
     #[inline]
     fn king_would_be_in_check(&self, square: Square) -> bool {
         let them = 1 ^ self.to_move;
@@ -1295,8 +1294,9 @@ impl Board {
         if self.castling.can_castle(self.to_move, side) {
             self.occupied() & unsafe { *BETWEEN.get_unchecked(self.to_move).get_unchecked(side) }
         } else {
-            // Castling is not allowed, therefore every piece on every
-            // square on the board can be considered an obstacle.
+            // Castling is not possible, therefore every piece on
+            // every square on the board can be considered an
+            // obstacle.
             BB_UNIVERSAL_SET
         }
     }
