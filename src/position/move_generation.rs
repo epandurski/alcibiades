@@ -433,7 +433,7 @@ impl Board {
                 KINGSIDE
             };
             if checkers != 0 ||
-               self.castling.obstacles(self.to_move, side) & self.occupied() != 0 ||
+               self.castling_obstacles(self.to_move, side) & self.occupied() != 0 ||
                orig_square != king_square ||
                dest_square != [[C1, C8], [G1, G8]][side][self.to_move] {
                 return None;
@@ -1106,7 +1106,7 @@ impl Board {
             for side in 0..2 {
 
                 // ensure squares between the king and the rook are empty
-                if self.castling.obstacles(self.to_move, side) & self.occupied() == 0 {
+                if self.castling_obstacles(self.to_move, side) & self.occupied() == 0 {
 
                     // It seems castling is legal unless king's
                     // passing or final squares are attacked, but
@@ -1291,6 +1291,27 @@ impl Board {
             } & occupied_by_them &
                            (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]);
             checkers == BB_EMPTY_SET
+        }
+    }
+
+    /// A helper method. It returns a bitboard with potential castling
+    /// obstacles.
+    /// 
+    /// This method returns a bitboard with the set of squares that
+    /// should be vacant in order for the specified (`player`, `side`)
+    /// castling move to be eventually possible. If `player` does not
+    /// have the rights to castle on `side`, this method will return
+    /// `UNIVERSAL_SET`.
+    #[inline]
+    fn castling_obstacles(&self, player: Color, side: CastlingSide) -> Bitboard {
+        const OBSTACLES: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
+                                               [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
+        if self.castling.can_castle(player, side) {
+            OBSTACLES[player][side]
+        } else {
+            // Castling is not allowed, therefore every piece on every
+            // square on the board can be considered an obstacle.
+            BB_UNIVERSAL_SET
         }
     }
 }

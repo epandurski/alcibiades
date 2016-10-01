@@ -569,8 +569,6 @@ mod tests {
         let granted = c.grant(BLACK, KINGSIDE);
         assert_eq!(granted, true);
         assert_eq!(c.value(), 0b1110);
-        assert_eq!(c.obstacles(WHITE, QUEENSIDE), !0);
-        assert_eq!(c.obstacles(BLACK, QUEENSIDE), 1 << B8 | 1 << C8 | 1 << D8);
     }
 
     #[test]

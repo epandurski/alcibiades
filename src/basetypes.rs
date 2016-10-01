@@ -309,26 +309,6 @@ impl CastlingRights {
         assert!(side <= 1);
         (1 << (player << 1) << side) & self.0 != 0
     }
-
-    /// Returns a bitboard with potential castling obstacles.
-    /// 
-    /// Returns a bitboard with the set of squares that should be
-    /// vacant in order for the specified (`player`, `side`) castling
-    /// move to be eventually possible. If `player` does not have the
-    /// rights to castle on `side`, this method will return
-    /// `0xffffffffffffffff`.
-    #[inline]
-    pub fn obstacles(&self, player: Color, side: CastlingSide) -> Bitboard {
-        const OBSTACLES: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
-                                               [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        if self.can_castle(player, side) {
-            OBSTACLES[player][side]
-        } else {
-            // Castling is not allowed, therefore every piece on every
-            // square on the board can be considered an obstacle.
-            !0
-        }
-    }
 }
 
 
