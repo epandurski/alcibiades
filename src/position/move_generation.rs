@@ -424,6 +424,7 @@ impl Board {
         let move_type = get_move_type(move_digest);
         let orig_square = get_orig_square(move_digest);
         let dest_square = get_dest_square(move_digest);
+        let promoted_piece_code = get_aux_data(move_digest);
         let king_square = self.king_square();
         let checkers = self.checkers();
         assert!(self.to_move <= 1);
@@ -438,7 +439,8 @@ impl Board {
                 KINGSIDE
             };
             if checkers != 0 || self.castling_obstacles(side) != 0 || orig_square != king_square ||
-               dest_square != [[C1, C8], [G1, G8]][side][self.to_move] {
+               dest_square != [[C1, C8], [G1, G8]][side][self.to_move] ||
+               promoted_piece_code != 0 {
                 return None;
             }
             return Some(Move::new(self.to_move,
@@ -498,8 +500,7 @@ impl Board {
             }
         };
 
-        // These are good initial guesses.
-        let mut promoted_piece_code = 0;
+        // This is a good initial guess.
         let mut captured_piece = self.get_piece_type_at(dest_square_bb);
 
         if piece == PAWN {
@@ -521,7 +522,8 @@ impl Board {
             match dest_square_bb {
                 x if x == en_passant_bb => {
                     if move_type != MOVE_ENPASSANT ||
-                       !self.en_passant_special_check_ok(orig_square, dest_square) {
+                       !self.en_passant_special_check_ok(orig_square, dest_square) ||
+                       promoted_piece_code != 0 {
                         return None;
                     }
                     captured_piece = PAWN;
@@ -530,10 +532,9 @@ impl Board {
                     if move_type != MOVE_PROMOTION {
                         return None;
                     }
-                    promoted_piece_code = get_aux_data(move_digest);
                 }
                 _ => {
-                    if move_type != MOVE_NORMAL {
+                    if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
                         return None;
                     }
                 }
@@ -542,7 +543,8 @@ impl Board {
             pseudo_legal_dests &= unsafe {
                 self.geometry.piece_attacks_from(piece, orig_square, self.occupied())
             };
-            if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 {
+            if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 ||
+               promoted_piece_code != 0 {
                 return None;
             }
         }
