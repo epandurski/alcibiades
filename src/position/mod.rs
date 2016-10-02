@@ -949,7 +949,7 @@ fn get_least_valuable_piece(piece_type_array: &[Bitboard; 6],
                             -> (PieceType, Bitboard) {
     for p in (KING..NO_PIECE).rev() {
         let piece_subset = unsafe { *piece_type_array.get_unchecked(p) } & set;
-        if piece_subset != BB_EMPTY_SET {
+        if piece_subset != 0 {
             return (p, ls1b(piece_subset));
         }
     }

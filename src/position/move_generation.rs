@@ -276,7 +276,7 @@ impl Board {
                 BB_EMPTY_SET,
         };
 
-        if legal_dests != BB_EMPTY_SET {
+        if legal_dests != 0 {
             // This block is not executed when the king is in double
             // check.
 
@@ -299,7 +299,7 @@ impl Board {
                 for piece in QUEEN..PAWN {
                     let mut bb = unsafe { *self.pieces.piece_type.get_unchecked(piece) } &
                                  occupied_by_us;
-                    while bb != BB_EMPTY_SET {
+                    while bb != 0 {
                         let orig_square = bitscan_forward_and_reset(&mut bb);
                         let piece_legal_dests = if 1 << orig_square & pinned == 0 {
                             legal_dests
@@ -342,7 +342,7 @@ impl Board {
                 let all_pawns = self.pieces.piece_type[PAWN] & occupied_by_us;
                 let mut pinned_pawns = all_pawns & pinned;
                 let free_pawns = all_pawns ^ pinned_pawns;
-                if free_pawns != BB_EMPTY_SET {
+                if free_pawns != 0 {
                     self.push_pawn_moves_to_stack(free_pawns,
                                                   en_passant_bb,
                                                   pawn_legal_dests,
@@ -353,7 +353,7 @@ impl Board {
                 // Find pinned pawn moves pawn by pawn, reducing the
                 // set of legal destination for each pawn to the
                 // squares on the line of the pin.
-                while pinned_pawns != BB_EMPTY_SET {
+                while pinned_pawns != 0 {
                     let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
                     let pin_line = unsafe { *pin_lines.get_unchecked(pawn_square) };
                     self.push_pawn_moves_to_stack(1 << pawn_square,
@@ -827,7 +827,7 @@ impl Board {
         for color in 0..2 {
             for piece in 0..6 {
                 let mut bb = self.pieces.color[color] & self.pieces.piece_type[piece];
-                while bb != BB_EMPTY_SET {
+                while bb != 0 {
                     let square = bitscan_forward_and_reset(&mut bb);
                     hash ^= self.zobrist.pieces[color][piece][square];
                 }
@@ -903,7 +903,7 @@ impl Board {
         (!self.castling.can_castle(BLACK, KINGSIDE) ||
          (self.pieces.piece_type[ROOK] & self.pieces.color[BLACK] & 1 << H8 != 0) &&
          (self.pieces.piece_type[KING] & self.pieces.color[BLACK] & 1 << E8 != 0)) &&
-        (en_passant_bb == BB_EMPTY_SET ||
+        (en_passant_bb == 0 ||
          {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
             let dest_square_bb = gen_shift(en_passant_bb, shifts[PAWN_PUSH]);
@@ -992,11 +992,11 @@ impl Board {
                                  move_stack: &mut MoveStack) {
         assert!(piece < PAWN);
         assert!(orig_square <= 63);
-        let mut dest_set = unsafe {
+        let mut piece_dests = unsafe {
             self.geometry.piece_attacks_from(piece, orig_square, self.occupied())
         } & legal_dests;
-        while dest_set != BB_EMPTY_SET {
-            let dest_square = bitscan_forward_and_reset(&mut dest_set);
+        while piece_dests != 0 {
+            let dest_square = bitscan_forward_and_reset(&mut piece_dests);
             let captured_piece = self.get_piece_type_at(1 << dest_square);
             move_stack.push(Move::new(self.to_move,
                                       MOVE_NORMAL,
@@ -1037,7 +1037,7 @@ impl Board {
         let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
         for i in 0..4 {
             let s = unsafe { dest_sets.get_unchecked_mut(i) };
-            while *s != BB_EMPTY_SET {
+            while *s != 0 {
                 let dest_square = bitscan_forward_and_reset(s);
                 let dest_square_bb = 1 << dest_square;
                 let orig_square = (dest_square as isize -
@@ -1102,7 +1102,7 @@ impl Board {
     /// `move_stack`.
     #[inline(always)]
     fn push_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
-        if self.checkers() == BB_EMPTY_SET {
+        if self.checkers() == 0 {
             for side in 0..2 {
                 if self.castling_obstacles(side) == 0 {
                     // It seems that castling is legal unless king's
@@ -1150,8 +1150,8 @@ impl Board {
             straight_sliders & self.geometry.piece_attacks_from(ROOK, king_square, straight_sliders)
         };
 
-        if pinners == BB_EMPTY_SET {
-            BB_EMPTY_SET
+        if pinners == 0 {
+            0
         } else {
             let occupied_by_us = unsafe { *self.pieces.color.get_unchecked(self.to_move) };
             let between_king_square_and = unsafe {
@@ -1160,11 +1160,11 @@ impl Board {
                     .get_unchecked(king_square)
             };
             let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
-            let mut pinned_or_discovered_checkers = BB_EMPTY_SET;
+            let mut pinned_or_discovered_checkers = 0;
 
             // Scan all potential pinners and see if there is one and only
             // one piece between the pinner and our king.
-            while pinners != BB_EMPTY_SET {
+            while pinners != 0 {
                 let pinner_square = bitscan_forward_and_reset(&mut pinners);
                 let blockers_group = unsafe {
                     between_king_square_and.get_unchecked(pinner_square)
@@ -1219,25 +1219,23 @@ impl Board {
             let occupied_by_them = *self.pieces.color.get_unchecked(them);
 
             (self.geometry.piece_attacks_from(ROOK, square, occupied) & occupied_by_them &
-             (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) !=
-            BB_EMPTY_SET ||
+             (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) != 0 ||
             (self.geometry.piece_attacks_from(BISHOP, square, occupied) & occupied_by_them &
-             (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) !=
-            BB_EMPTY_SET ||
+             (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) != 0 ||
             (self.geometry.piece_attacks_from(KNIGHT, square, occupied) & occupied_by_them &
-             self.pieces.piece_type[KNIGHT]) != BB_EMPTY_SET ||
+             self.pieces.piece_type[KNIGHT]) != 0 ||
             (self.geometry.piece_attacks_from(KING, square, occupied) & occupied_by_them &
-             self.pieces.piece_type[KING]) != BB_EMPTY_SET ||
+             self.pieces.piece_type[KING]) != 0 ||
             {
                 let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(them);
                 let square_bb = 1 << square;
 
                 (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
                  self.pieces.piece_type[PAWN] &
-                 !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) != BB_EMPTY_SET ||
+                 !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) != 0 ||
                 (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
                  self.pieces.piece_type[PAWN] &
-                 !(BB_FILE_A | BB_RANK_1 | BB_RANK_8)) != BB_EMPTY_SET
+                 !(BB_FILE_A | BB_RANK_1 | BB_RANK_8)) != 0
             }
         }
     }
@@ -1246,7 +1244,7 @@ impl Board {
     /// square represented by the bitboard `square_bb`.
     #[inline(always)]
     fn get_piece_type_at(&self, square_bb: Bitboard) -> PieceType {
-        assert!(square_bb != BB_EMPTY_SET);
+        assert!(square_bb != 0);
         assert_eq!(square_bb, ls1b(square_bb));
         let bb = square_bb & self.occupied();
         if bb == 0 {
@@ -1286,7 +1284,7 @@ impl Board {
                 self.geometry.piece_attacks_from(ROOK, king_square, occupied)
             } & occupied_by_them &
                            (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]);
-            checkers == BB_EMPTY_SET
+            checkers == 0
         }
     }
 
