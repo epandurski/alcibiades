@@ -955,26 +955,27 @@ impl Board {
                            pawns: Bitboard,
                            en_passant_bb: Bitboard,
                            dest_sets: &mut [Bitboard; 4]) {
-        const PAWN_MOVE_QUIET: [Bitboard; 4] = [BB_UNIVERSAL_SET,
-                                                BB_UNIVERSAL_SET,
-                                                BB_EMPTY_SET,
-                                                BB_EMPTY_SET];
-        const PAWN_MOVE_CANDIDATES: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                                     BB_RANK_2 | BB_RANK_7,
-                                                     !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                                     !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+        const QUIET: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
+                                      BB_UNIVERSAL_SET, // double push
+                                      BB_EMPTY_SET, // west-capture
+                                      BB_EMPTY_SET]; // east-capture
+        const CANDIDATES: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                           BB_RANK_2 | BB_RANK_7,
+                                           !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                           !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
         unsafe {
             let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(self.to_move);
             let not_occupied_by_us = !*self.pieces.color.get_unchecked(self.to_move);
             let capture_targets = *self.pieces.color.get_unchecked(1 ^ self.to_move) |
                                   en_passant_bb;
             for i in 0..4 {
-                *dest_sets.get_unchecked_mut(i) =
-                    gen_shift(pawns & *PAWN_MOVE_CANDIDATES.get_unchecked(i),
-                              *shifts.get_unchecked(i)) &
-                    (capture_targets ^ *PAWN_MOVE_QUIET.get_unchecked(i)) &
-                    not_occupied_by_us;
+                *dest_sets.get_unchecked_mut(i) = gen_shift(pawns & *CANDIDATES.get_unchecked(i),
+                                                            *shifts.get_unchecked(i)) &
+                                                  (capture_targets ^ *QUIET.get_unchecked(i)) &
+                                                  not_occupied_by_us;
             }
+
+            // Double pushes are trickier.
             dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
         }
     }
@@ -1029,8 +1030,8 @@ impl Board {
         dest_sets[PAWN_WEST_CAPTURE] &= legal_dests;
         dest_sets[PAWN_EAST_CAPTURE] &= legal_dests;
 
-        // Scan each destination set (push, double push, west capture,
-        // east capture). For each move calculate the origin and
+        // Scan each destination set (push, double push, west-capture,
+        // east-capture). For each move calculate the origin and
         // destination squares, and determine the move type
         // (en-passant capture, pawn promotion, or a normal move).
         let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
@@ -1104,10 +1105,10 @@ impl Board {
         if self.checkers() == BB_EMPTY_SET {
             for side in 0..2 {
                 if self.castling_obstacles(side) == 0 {
-                    // It seems castling is legal unless king's
-                    // passing or final squares are attacked, but
-                    // we do not care about that, because this
-                    // will be verified in "do_move()".
+                    // It seems that castling is legal unless king's
+                    // passing or final squares are attacked, but we
+                    // do not care about that, because this will be
+                    // verified in "do_move()".
                     move_stack.push(Move::new(self.to_move,
                                               MOVE_CASTLING,
                                               KING,
