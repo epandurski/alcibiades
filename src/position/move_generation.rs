@@ -281,7 +281,9 @@ impl Board {
             // check.
 
             let pinned = self.pinned();
-            let pin_lines = unsafe { self.geometry.squares_at_line.get_unchecked(king_square) };
+            let pin_lines: &[Bitboard; 64] = unsafe {
+                self.geometry.squares_at_line.get_unchecked(king_square)
+            };
             let en_passant_bb = self.en_passant_bb();
 
             // Find queen, rook, bishop, and knight moves.
@@ -1156,7 +1158,7 @@ impl Board {
             0
         } else {
             let occupied_by_us = unsafe { *self.pieces.color.get_unchecked(self.to_move) };
-            let between_king_square_and = unsafe {
+            let between_king_square_and: &[Bitboard; 64] = unsafe {
                 self.geometry
                     .squares_between_including
                     .get_unchecked(king_square)
