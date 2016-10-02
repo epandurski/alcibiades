@@ -1277,16 +1277,14 @@ impl Board {
         } else {
             // The king is on the 4/5-th rank -- we have more work to do.
             let the_two_pawns = 1 << orig_square |
-                                gen_shift(1,
-                                          dest_square as isize -
-                                          PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
-            let occupied = self.occupied() & !the_two_pawns;
-            let occupied_by_them = self.pieces.color[1 ^ self.to_move] & !the_two_pawns;
-            let checkers = unsafe {
-                self.geometry.piece_attacks_from(ROOK, king_square, occupied)
-            } & occupied_by_them &
-                           (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]);
-            checkers == 0
+                                gen_shift(1 << dest_square,
+                                          -PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
+            let checker_bb = unsafe {
+                self.geometry
+                    .piece_attacks_from(ROOK, king_square, self.occupied() & !the_two_pawns)
+            } & self.pieces.color[1 ^ self.to_move] &
+                             (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]);
+            checker_bb == 0
         }
     }
 
