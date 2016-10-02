@@ -947,11 +947,10 @@ impl Board {
     /// `dest_sets` array.
     ///
     /// `dest_sets` is indexed by the type of the pawn move: push,
-    /// double push, west-capture (capturing toward queen-side), and
-    /// east-capture (capturing toward king-side). The benefit of this
-    /// separation is that knowing the destination square and the pawn
-    /// move type (the index in the `dest_sets` array) is enough to
-    /// recover the origin square.
+    /// double push, west capture, and east capture. The benefit of
+    /// this separation is that knowing the destination square and the
+    /// pawn move type (the index in the `dest_sets` array) is enough
+    /// to recover the origin square.
     #[inline]
     fn calc_pawn_dest_sets(&self,
                            pawns: Bitboard,
@@ -959,8 +958,8 @@ impl Board {
                            dest_sets: &mut [Bitboard; 4]) {
         const QUIET: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
                                       BB_UNIVERSAL_SET, // double push
-                                      BB_EMPTY_SET, // west-capture
-                                      BB_EMPTY_SET]; // east-capture
+                                      BB_EMPTY_SET, // west capture
+                                      BB_EMPTY_SET]; // east capture
         const CANDIDATES: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
                                            BB_RANK_2 | BB_RANK_7,
                                            !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
@@ -1032,8 +1031,8 @@ impl Board {
         dest_sets[PAWN_WEST_CAPTURE] &= legal_dests;
         dest_sets[PAWN_EAST_CAPTURE] &= legal_dests;
 
-        // Scan each destination set (push, double push, west-capture,
-        // east-capture). For each move calculate the origin and
+        // Scan each destination set (push, double push, west capture,
+        // east capture). For each move calculate the origin and
         // destination squares, and determine the move type
         // (en-passant capture, pawn promotion, or a normal move).
         let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(self.to_move) };
@@ -1309,10 +1308,19 @@ impl Board {
 }
 
 
-// Pawn move types.
+// Pawn move types:
+// ================
+
+/// Pawn push.
 const PAWN_PUSH: usize = 0;
+
+/// Double pawn push.
 const PAWN_DOUBLE_PUSH: usize = 1;
+
+/// Pawn capture toward the queen-side.
 const PAWN_WEST_CAPTURE: usize = 2;
+
+/// Pawn capture toward the king-side.
 const PAWN_EAST_CAPTURE: usize = 3;
 
 
