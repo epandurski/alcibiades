@@ -194,10 +194,6 @@ impl Board {
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
         let occupied_by_us = self.pieces.color[us];
         if square > 63 {
-            // We call "piece_attacks_from()" here many times, which for
-            // performance reasons do not do array boundary checks. Since
-            // "Board::attacks_to()" is a public function, we have to
-            // guarantee memory safety for all its users.
             panic!("invalid square");
         }
         let square_bb = 1 << square;
@@ -614,8 +610,6 @@ impl Board {
         });
 
         if piece >= NO_PIECE {
-            // Since "Board::do_move()" is a public function, we have
-            // to guarantee memory safety for all its users.
             panic!("invalid piece");
         }
 
@@ -761,8 +755,6 @@ impl Board {
         assert!(m.en_passant_file() <= NO_ENPASSANT_FILE);
 
         if piece >= NO_PIECE {
-            // Since "Board::undo_move()" is a public function, we
-            // have to guarantee memory safety for all its users.
             panic!("invalid piece");
         }
 
