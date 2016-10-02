@@ -1317,10 +1317,14 @@ const PAWN_EAST_CAPTURE: usize = 3;
 
 
 /// Pawn move shifts (one for each color and pawn move type).
+///
+/// Example: The bitboard for a white pawn on "e2" is `1 << E2`. If
+/// the pawn is pushed one square forward, the updated bitboard would
+/// be: `gen_shift(1 << E2, PAWN_MOVE_SHIFTS[WHITE][PAWN_PUSH])`
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 
-/// Indicates no passing pawn file.
+/// Indicates that en-passant capture is not possible.
 const NO_ENPASSANT_FILE: usize = 8;
 
 
