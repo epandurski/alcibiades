@@ -714,8 +714,7 @@ impl Board {
             self.to_move = them;
             hash ^= self.zobrist.to_move;
 
-            // Update "_occupied", "_checkers", "_pinned", and
-            // "_king_square".
+            // Update the auxiliary fields.
             self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
             self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
@@ -731,6 +730,9 @@ impl Board {
     /// The move passed to this method **must** be the last move passed
     /// to `do_move`.
     pub fn undo_move(&mut self, m: Move) {
+        // In this method we basically do the same things that we do
+        // in `do_move`, but in reverse.
+
         let them = self.to_move;
         let us = 1 ^ them;
         let move_type = m.move_type();
@@ -804,8 +806,7 @@ impl Board {
                 *self.pieces.color.get_unchecked_mut(us) ^= mask;
             }
 
-            // Update "_occupied", "_checkers", "_pinned", and
-            // "_king_square".
+            // Update the auxiliary fields.
             self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
             self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
