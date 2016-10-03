@@ -38,10 +38,6 @@ pub struct Board {
     /// capture is not possible.
     en_passant_file: usize,
 
-    /// This will always be equal to `self.pieces.color[WHITE] |
-    /// self.pieces.color[BLACK]`
-    _occupied: Bitboard,
-
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
     _checkers: Cell<Bitboard>,
@@ -80,7 +76,6 @@ impl Board {
             to_move: to_move,
             castling: castling,
             en_passant_file: en_passant_file,
-            _occupied: pieces_placement.color[WHITE] | pieces_placement.color[BLACK],
             _checkers: Cell::new(BB_UNIVERSAL_SET),
             _pinned: Cell::new(BB_UNIVERSAL_SET),
         };
@@ -151,7 +146,7 @@ impl Board {
     /// Returns a bitboard of all occupied squares.
     #[inline(always)]
     pub fn occupied(&self) -> Bitboard {
-        self._occupied
+        self.pieces.color[WHITE] | self.pieces.color[BLACK]
     }
 
     /// Returns the bitboard of all checkers that are attacking the
@@ -715,7 +710,6 @@ impl Board {
             hash ^= self.zobrist.to_move;
 
             // Update the auxiliary fields.
-            self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
             self._checkers.set(BB_UNIVERSAL_SET);
             self._pinned.set(BB_UNIVERSAL_SET);
         }
@@ -804,7 +798,6 @@ impl Board {
             }
 
             // Update the auxiliary fields.
-            self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
             self._checkers.set(BB_UNIVERSAL_SET);
             self._pinned.set(BB_UNIVERSAL_SET);
         }
@@ -927,7 +920,6 @@ impl Board {
             }
         }) &&
         {
-            assert_eq!(self._occupied, occupied);
             assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             assert!(self._pinned.get() == BB_UNIVERSAL_SET ||
