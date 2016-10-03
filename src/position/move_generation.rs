@@ -1313,10 +1313,10 @@ impl Board {
 // Pawn move types:
 // ================
 
-/// Pawn push.
+/// Pawn push move.
 const PAWN_PUSH: usize = 0;
 
-/// Double pawn push.
+/// Double pawn push move.
 const PAWN_DOUBLE_PUSH: usize = 1;
 
 /// Pawn capture toward the queen-side.
