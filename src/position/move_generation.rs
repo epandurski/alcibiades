@@ -42,10 +42,6 @@ pub struct Board {
     /// self.pieces.color[BLACK]`
     _occupied: Bitboard,
 
-    /// The square on which the king of the side to move is
-    /// placed. Lazily calculated, >= 64 if not calculated yet.
-    _king_square: Cell<Square>,
-
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
     _checkers: Cell<Bitboard>,
@@ -85,7 +81,6 @@ impl Board {
             castling: castling,
             en_passant_file: en_passant_file,
             _occupied: pieces_placement.color[WHITE] | pieces_placement.color[BLACK],
-            _king_square: Cell::new(64),
             _checkers: Cell::new(BB_UNIVERSAL_SET),
             _pinned: Cell::new(BB_UNIVERSAL_SET),
         };
@@ -721,7 +716,6 @@ impl Board {
 
             // Update the auxiliary fields.
             self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
-            self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
             self._pinned.set(BB_UNIVERSAL_SET);
         }
@@ -811,7 +805,6 @@ impl Board {
 
             // Update the auxiliary fields.
             self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
-            self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
             self._pinned.set(BB_UNIVERSAL_SET);
         }
@@ -939,8 +932,6 @@ impl Board {
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             assert!(self._pinned.get() == BB_UNIVERSAL_SET ||
                     self._pinned.get() == self.find_pinned());
-            assert!(self._king_square.get() > 63 ||
-                    self._king_square.get() == bitscan_1bit(our_king_bb));
             true
         }
     }
@@ -1200,16 +1191,11 @@ impl Board {
     }
 
     /// A helper method. It returns the square that the king of the
-    /// side to move occupies. The value is lazily calculated and
-    /// saved for future use.
+    /// side to move occupies.
     #[inline]
     fn king_square(&self) -> Square {
-        if self._king_square.get() > 63 {
-            self._king_square
-                .set(bitscan_1bit(self.pieces.piece_type[KING] &
-                                  unsafe { *self.pieces.color.get_unchecked(self.to_move) }));
-        }
-        self._king_square.get()
+        bitscan_1bit(self.pieces.piece_type[KING] &
+                     unsafe { *self.pieces.color.get_unchecked(self.to_move) })
     }
 
     /// A helper method for `do_move`. It returns if the king of the
