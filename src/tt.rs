@@ -351,7 +351,7 @@ impl Tt {
 
     /// A helper method for `probe` and `store`. It returns the
     /// cluster for a given key.
-    #[inline]
+    #[inline(always)]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
         let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
         self.table.get().as_mut().unwrap().get_unchecked_mut(cluster_index)

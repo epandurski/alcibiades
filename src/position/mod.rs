@@ -913,7 +913,7 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 /// describing the position on the board of the piece that could
 /// attack `target_square`, but only when `xrayed_square` becomes
 /// vacant. (Returns `0` if there is no such piece.)
-#[inline]
+#[inline(always)]
 fn consider_xrays(geometry: &BoardGeometry,
                   piece_type_array: &[Bitboard; 6],
                   occupied: Bitboard,
@@ -943,7 +943,7 @@ fn consider_xrays(geometry: &BoardGeometry,
 /// A helper function for `Position::calc_see`. It takes a subset of
 /// pieces `set`, and returns the type of the least valuable piece,
 /// and a bitboard describing its position on the board.
-#[inline]
+#[inline(always)]
 fn get_least_valuable_piece(piece_type_array: &[Bitboard; 6],
                             set: Bitboard)
                             -> (PieceType, Bitboard) {
