@@ -41,10 +41,6 @@ pub struct Board {
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
     _checkers: Cell<Bitboard>,
-
-    /// Lazily calculated bitboard of all pinned pieces and pawns --
-    /// `BB_UNIVERSAL_SET` if not calculated yet.
-    _pinned: Cell<Bitboard>,
 }
 
 
@@ -77,7 +73,6 @@ impl Board {
             castling: castling,
             en_passant_file: en_passant_file,
             _checkers: Cell::new(BB_UNIVERSAL_SET),
-            _pinned: Cell::new(BB_UNIVERSAL_SET),
         };
 
         if b.is_legal() {
@@ -162,21 +157,6 @@ impl Board {
             self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
         }
         self._checkers.get()
-    }
-
-    /// Returns the bitboard of all pinned pieces and pawns of the
-    /// color of the side to move.
-    ///
-    /// The bitboard of all pinned pieces and pawns is calculated the
-    /// first time it is needed and is saved to the `_pinned` filed,
-    /// in case it is needed again. If there is a saved value already,
-    /// the call to `pinned` is practically free.
-    #[inline]
-    pub fn pinned(&self) -> Bitboard {
-        if self._pinned.get() == BB_UNIVERSAL_SET {
-            self._pinned.set(self.find_pinned());
-        }
-        self._pinned.get()
     }
 
     /// Returns a bitboard of all pieces and pawns of color `us` that
@@ -266,7 +246,7 @@ impl Board {
             // This block is not executed when the king is in double
             // check.
 
-            let pinned = self.pinned();
+            let pinned = self.find_pinned();
             let pin_lines: &[Bitboard; 64] = unsafe {
                 self.geometry.squares_at_line.get_unchecked(king_square)
             };
@@ -484,7 +464,7 @@ impl Board {
             };
 
             // Verify if the moved piece is pinned.
-            if orig_square_bb & self.pinned() != 0 {
+            if orig_square_bb & self.find_pinned() != 0 {
                 pseudo_legal_dests &= unsafe {
                     *self.geometry
                          .squares_at_line
@@ -709,9 +689,7 @@ impl Board {
             self.to_move = them;
             hash ^= self.zobrist.to_move;
 
-            // Update the auxiliary fields.
             self._checkers.set(BB_UNIVERSAL_SET);
-            self._pinned.set(BB_UNIVERSAL_SET);
         }
 
         assert!(self.is_legal());
@@ -797,9 +775,7 @@ impl Board {
                 *self.pieces.color.get_unchecked_mut(us) ^= mask;
             }
 
-            // Update the auxiliary fields.
             self._checkers.set(BB_UNIVERSAL_SET);
-            self._pinned.set(BB_UNIVERSAL_SET);
         }
 
         assert!(self.is_legal());
@@ -922,8 +898,6 @@ impl Board {
         {
             assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
-            assert!(self._pinned.get() == BB_UNIVERSAL_SET ||
-                    self._pinned.get() == self.find_pinned());
             true
         }
     }
@@ -938,7 +912,7 @@ impl Board {
     /// this separation is that knowing the destination square and the
     /// pawn move type (the index in the `dest_sets` array) is enough
     /// to recover the origin square.
-    #[inline]
+    #[inline(always)]
     fn calc_pawn_dest_sets(&self,
                            pawns: Bitboard,
                            en_passant_bb: Bitboard,
@@ -953,14 +927,13 @@ impl Board {
                                            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
         unsafe {
             let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(self.to_move);
-            let not_occupied_by_us = !*self.pieces.color.get_unchecked(self.to_move);
             let capture_targets = *self.pieces.color.get_unchecked(1 ^ self.to_move) |
                                   en_passant_bb;
             for i in 0..4 {
                 *dest_sets.get_unchecked_mut(i) = gen_shift(pawns & *CANDIDATES.get_unchecked(i),
                                                             *shifts.get_unchecked(i)) &
                                                   (capture_targets ^ *QUIET.get_unchecked(i)) &
-                                                  not_occupied_by_us;
+                                                  !*self.pieces.color.get_unchecked(self.to_move);
             }
 
             // Double pushes are trickier.
@@ -972,7 +945,6 @@ impl Board {
     /// attacked by `piece` from square `orig_square`, and for each
     /// square that is within the `legal_dests` set pushes a new move
     /// to `move_stack`. `piece` must not be a pawn.
-    #[inline]
     fn push_piece_moves_to_stack(&self,
                                  piece: PieceType,
                                  orig_square: Square,
@@ -1002,7 +974,6 @@ impl Board {
     /// pseudo-legal moves by the set of pawns given by `pawns`,
     /// making sure that all destination squares are within the
     /// `legal_dests` set. Then it pushes the moves to `move_stack`.
-    #[inline]
     fn push_pawn_moves_to_stack(&self,
                                 pawns: Bitboard,
                                 en_passant_bb: Bitboard,
@@ -1115,8 +1086,8 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves`. It returns all pinned
-    /// pieces belonging to the side to move.
+    /// A helper method for `generate_moves` and `try_move_digest`. It
+    /// returns all pinned pieces belonging to the side to move.
     #[inline(always)]
     fn find_pinned(&self) -> Bitboard {
         let king_square = self.king_square();
@@ -1170,7 +1141,7 @@ impl Board {
 
     /// A helper method for `generate_moves`. It returns a bitboard
     /// representing the en-passant target square if there is one.
-    #[inline]
+    #[inline(always)]
     fn en_passant_bb(&self) -> Bitboard {
         assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
         if self.en_passant_file >= NO_ENPASSANT_FILE {
@@ -1184,7 +1155,7 @@ impl Board {
 
     /// A helper method. It returns the square that the king of the
     /// side to move occupies.
-    #[inline]
+    #[inline(always)]
     fn king_square(&self) -> Square {
         bitscan_1bit(self.pieces.piece_type[KING] &
                      unsafe { *self.pieces.color.get_unchecked(self.to_move) })
@@ -1192,7 +1163,6 @@ impl Board {
 
     /// A helper method for `do_move`. It returns if the king of the
     /// side to move would be in check if moved to `square`.
-    #[inline]
     fn king_would_be_in_check(&self, square: Square) -> bool {
         let them = 1 ^ self.to_move;
         let occupied = self.occupied() & !(1 << self.king_square());
@@ -1271,7 +1241,7 @@ impl Board {
 
     /// A helper method. It returns a bitboard with the set of pieces
     /// between the king and the castling rook.
-    #[inline]
+    #[inline(always)]
     fn castling_obstacles(&self, side: CastlingSide) -> Bitboard {
         assert!(side <= 1);
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
