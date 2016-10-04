@@ -146,7 +146,7 @@ impl Board {
     /// Returns a bitboard of all occupied squares.
     #[inline(always)]
     pub fn occupied(&self) -> Bitboard {
-        self.pieces.color[WHITE] | self.pieces.color[BLACK]
+        self._occupied
     }
 
     /// Returns the bitboard of all checkers that are attacking the
