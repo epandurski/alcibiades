@@ -901,6 +901,8 @@ impl Board {
             }
         }) &&
         {
+            assert_eq!(self._occupied,
+                       self.pieces.color[WHITE] | self.pieces.color[BLACK]);
             assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             true
