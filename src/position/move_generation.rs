@@ -275,7 +275,7 @@ impl Board {
                         legal_dests
                     } else {
                         // We are in check from a pawn, therefore the
-                        // en-passant capture is legal.
+                        // en-passant capture is legal too.
                         legal_dests | en_passant_bb
                     }
                 } else {
