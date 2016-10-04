@@ -236,6 +236,9 @@ impl Board {
             // check.
 
             let pinned = self.find_pinned();
+            let our_pawns = self.pieces.piece_type[PAWN] & occupied_by_us;
+            let mut pinned_pawns = our_pawns & pinned;
+            let free_pawns = our_pawns ^ pinned_pawns;
             let en_passant_bb = self.en_passant_bb();
 
             // Generate queen, rook, bishop, and knight moves.
@@ -282,10 +285,6 @@ impl Board {
                     debug_assert_eq!(legal_dests, !occupied_by_us);
                     legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
                 };
-
-                let all_pawns = self.pieces.piece_type[PAWN] & occupied_by_us;
-                let mut pinned_pawns = all_pawns & pinned;
-                let free_pawns = all_pawns ^ pinned_pawns;
 
                 // Generate all free pawn moves at once.
                 if free_pawns != 0 {
