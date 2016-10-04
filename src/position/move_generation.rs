@@ -207,12 +207,12 @@ impl Board {
         // alpha-beta pruning will eliminate the need for this
         // verification at all.
 
-        debug_assert!(self.is_legal());
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = unsafe { *self.pieces.color.get_unchecked(self.to_move) };
         let occupied_by_them = self.occupied() ^ occupied_by_us;
         let generate_all_moves = all || checkers != 0;
+        debug_assert!(self.is_legal());
         debug_assert!(king_square <= 63);
 
         // When in check, for every move except king's moves, the only
@@ -562,8 +562,12 @@ impl Board {
         let dest_square = m.dest_square();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
-        let mut hash = 0;
+        let mut h = 0;
+        let mut old_hash: u64 = unsafe { uninitialized() };
         assert!(piece < NO_PIECE);
+        if cfg!(debug_assertions) {
+            old_hash = self.calc_hash();
+        }
         debug_assert!(us <= 1);
         debug_assert!(move_type <= 3);
         debug_assert!(orig_square <= 63);
@@ -610,7 +614,7 @@ impl Board {
                 let mask = CASTLING_ROOK_MASK[us][side];
                 self.pieces.piece_type[ROOK] ^= mask;
                 self.pieces.color[us] ^= mask;
-                hash ^= self.zobrist._castling_rook_movement[us][side];
+                h ^= self.zobrist._castling_rook_movement[us][side];
             }
 
             let not_orig_bb = !(1 << orig_square);
@@ -619,29 +623,29 @@ impl Board {
             // empty the origin square
             *self.pieces.piece_type.get_unchecked_mut(piece) &= not_orig_bb;
             *self.pieces.color.get_unchecked_mut(us) &= not_orig_bb;
-            hash ^= *self.zobrist
-                         .pieces
-                         .get_unchecked(us)
-                         .get_unchecked(piece)
-                         .get_unchecked(orig_square);
+            h ^= *self.zobrist
+                      .pieces
+                      .get_unchecked(us)
+                      .get_unchecked(piece)
+                      .get_unchecked(orig_square);
 
             // Remove the captured piece (if any).
             if captured_piece < NO_PIECE {
                 let not_captured_bb = if move_type == MOVE_ENPASSANT {
                     let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
                     let captured_pawn_square = (dest_square as isize + shift) as Square;
-                    hash ^= *self.zobrist
-                                 .pieces
-                                 .get_unchecked(them)
-                                 .get_unchecked(captured_piece)
-                                 .get_unchecked(captured_pawn_square);
+                    h ^= *self.zobrist
+                              .pieces
+                              .get_unchecked(them)
+                              .get_unchecked(captured_piece)
+                              .get_unchecked(captured_pawn_square);
                     !(1 << captured_pawn_square)
                 } else {
-                    hash ^= *self.zobrist
-                                 .pieces
-                                 .get_unchecked(them)
-                                 .get_unchecked(captured_piece)
-                                 .get_unchecked(dest_square);
+                    h ^= *self.zobrist
+                              .pieces
+                              .get_unchecked(them)
+                              .get_unchecked(captured_piece)
+                              .get_unchecked(dest_square);
                     !dest_bb
                 };
                 *self.pieces.piece_type.get_unchecked_mut(captured_piece) &= not_captured_bb;
@@ -656,26 +660,26 @@ impl Board {
             };
             *self.pieces.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
             *self.pieces.color.get_unchecked_mut(us) |= dest_bb;
-            hash ^= *self.zobrist
-                         .pieces
-                         .get_unchecked(us)
-                         .get_unchecked(dest_piece)
-                         .get_unchecked(dest_square);
+            h ^= *self.zobrist
+                      .pieces
+                      .get_unchecked(us)
+                      .get_unchecked(dest_piece)
+                      .get_unchecked(dest_square);
 
             // Update castling rights (null moves do not affect castling).
             if orig_square != dest_square {
-                hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
+                h ^= *self.zobrist.castling.get_unchecked(self.castling.value());
                 self.castling.update(orig_square, dest_square);
-                hash ^= *self.zobrist.castling.get_unchecked(self.castling.value());
+                h ^= *self.zobrist.castling.get_unchecked(self.castling.value());
             }
 
             // Update the en-passant file.
-            hash ^= *self.zobrist.en_passant_file.get_unchecked(self.en_passant_file);
+            h ^= *self.zobrist.en_passant_file.get_unchecked(self.en_passant_file);
             self.en_passant_file = if piece == PAWN {
                 match dest_square as isize - orig_square as isize {
                     16 | -16 => {
                         let file = file(dest_square);
-                        hash ^= *self.zobrist.en_passant_file.get_unchecked(file);
+                        h ^= *self.zobrist.en_passant_file.get_unchecked(file);
                         file
                     }
                     _ => NO_ENPASSANT_FILE,
@@ -686,15 +690,17 @@ impl Board {
 
             // Change the side to move.
             self.to_move = them;
-            hash ^= self.zobrist.to_move;
+            h ^= self.zobrist.to_move;
 
             // Update the auxiliary fields.
             self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
             self._checkers.set(BB_UNIVERSAL_SET);
+
         }
 
         debug_assert!(self.is_legal());
-        Some(hash)
+        debug_assert_eq!(old_hash ^ h, self.calc_hash());
+        Some(h)
     }
 
     /// Takes back a previously played move.
