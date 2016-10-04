@@ -319,7 +319,7 @@ impl Position {
                                upper_bound: Value,
                                static_evaluation: Value)
                                -> (Value, NodeCount) {
-        assert!(lower_bound < upper_bound);
+        debug_assert!(lower_bound < upper_bound);
         if self.repeated_or_rule50 {
             // This is a final position -- a draw.
             (0, 0)
@@ -460,8 +460,8 @@ impl Position {
             self.halfmove_count += 1;
             self.encountered_boards.push(self.board_hash);
             self.board_hash ^= h;
-            assert!(halfmove_clock <= 99);
-            assert!(self.encountered_boards.len() >= halfmove_clock as usize);
+            debug_assert!(halfmove_clock <= 99);
+            debug_assert!(self.encountered_boards.len() >= halfmove_clock as usize);
 
             // Figure out if the new position is repeated.
             if halfmove_clock >= 4 {
@@ -494,7 +494,7 @@ impl Position {
     /// Takes back the last played move.
     #[inline]
     pub fn undo_move(&mut self) {
-        assert!(self.state_stack.len() > 1);
+        debug_assert!(self.state_stack.len() > 1);
         unsafe {
             self.board_mut().undo_move(self.state().last_move);
         }
@@ -518,7 +518,7 @@ impl Position {
                eval_func: &Fn(&Board) -> Value,
                searched_nodes: &mut NodeCount)
                -> Value {
-        assert!(lower_bound < upper_bound);
+        debug_assert!(lower_bound < upper_bound);
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
@@ -530,11 +530,11 @@ impl Position {
         // side to move is in check!)
         let stand_pat = if not_in_check {
             if static_evaluation != VALUE_UNKNOWN {
-                assert!(static_evaluation > -20000 && static_evaluation < 20000);
+                debug_assert!(static_evaluation > -20000 && static_evaluation < 20000);
                 static_evaluation
             } else {
                 let v = eval_func(self.board());
-                assert!(v > -20000 && v < 20000);
+                debug_assert!(v > -20000 && v < 20000);
                 v
             }
         } else {
@@ -663,8 +663,8 @@ impl Position {
         let orig_square = m.orig_square();
         let dest_square = m.dest_square();
         let captured_piece = m.captured_piece();
-        assert!(piece < NO_PIECE);
-        assert!(captured_piece <= NO_PIECE);
+        debug_assert!(piece < NO_PIECE);
+        debug_assert!(captured_piece <= NO_PIECE);
         let board = self.board();
         let mut occupied = board.occupied();
         let mut orig_square_bb = 1 << orig_square;

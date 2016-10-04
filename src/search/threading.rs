@@ -113,7 +113,7 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
 
             match command {
                 Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                    assert!(lower_bound < upper_bound);
+                    debug_assert!(lower_bound < upper_bound);
                     let mut report = |searched_nodes| {
                         reports.send(Report {
                                    search_id: search_id,
@@ -212,7 +212,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
 
         match command {
             Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
-                assert!(lower_bound < upper_bound);
+                debug_assert!(lower_bound < upper_bound);
                 let mut current_searched_nodes = 0;
                 let mut current_value = VALUE_UNKNOWN;
                 let mut current_depth = 1;

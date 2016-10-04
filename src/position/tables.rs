@@ -326,8 +326,8 @@ impl BoardGeometry {
                                      from_square: Square,
                                      occupied: Bitboard)
                                      -> Bitboard {
-        assert!(piece < PAWN);
-        assert!(from_square <= 63);
+        debug_assert!(piece < PAWN);
+        debug_assert!(from_square <= 63);
         match piece {
             KING => *KING_ATTACKS.get_unchecked(from_square),
             QUEEN => {

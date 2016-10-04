@@ -149,14 +149,14 @@ impl Move {
                castling: CastlingRights,
                promoted_piece_code: usize)
                -> Move {
-        assert!(us <= 1);
-        assert!(move_type <= 0x11);
-        assert!(piece < NO_PIECE);
-        assert!(orig_square <= 63);
-        assert!(dest_square <= 63);
-        assert!(captured_piece != KING && captured_piece <= NO_PIECE);
-        assert!(en_passant_file <= 0b1111);
-        assert!(promoted_piece_code <= 0b11);
+        debug_assert!(us <= 1);
+        debug_assert!(move_type <= 0x11);
+        debug_assert!(piece < NO_PIECE);
+        debug_assert!(orig_square <= 63);
+        debug_assert!(dest_square <= 63);
+        debug_assert!(captured_piece != KING && captured_piece <= NO_PIECE);
+        debug_assert!(en_passant_file <= 0b1111);
+        debug_assert!(promoted_piece_code <= 0b11);
 
         // Captures get higher move scores than quiet moves.
         let mut score_shifted = if captured_piece == NO_PIECE {
@@ -203,7 +203,7 @@ impl Move {
     /// rook, `2` -- bishop, `3` -- knight.
     #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
-        assert!(pp_code <= 3);
+        debug_assert!(pp_code <= 3);
         match pp_code {
             0 => QUEEN,
             1 => ROOK,
@@ -222,7 +222,7 @@ impl Move {
     /// `Move::max_score()`).
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
-        assert!(score <= MAX_MOVE_SCORE);
+        debug_assert!(score <= MAX_MOVE_SCORE);
         self.0 &= !M_MASK_SCORE;
         self.0 |= score << M_SHIFT_SCORE;
     }
@@ -230,7 +230,7 @@ impl Move {
     /// Returns the assigned move score.
     #[inline(always)]
     pub fn score(&self) -> usize {
-        assert!(self.0 >> M_SHIFT_SCORE <= MAX_MOVE_SCORE);
+        debug_assert!(self.0 >> M_SHIFT_SCORE <= MAX_MOVE_SCORE);
         self.0 >> M_SHIFT_SCORE
     }
 
@@ -331,7 +331,7 @@ impl Move {
     /// for which the origin and destination squares are the same.
     #[inline]
     pub fn is_null(&self) -> bool {
-        assert!(self.orig_square() != self.dest_square() || self.captured_piece() == NO_PIECE);
+        debug_assert!(self.orig_square() != self.dest_square() || self.captured_piece() == NO_PIECE);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 }
@@ -440,14 +440,14 @@ impl MoveStack {
     /// Returns the number of moves in the current move list.
     #[inline]
     pub fn count(&self) -> usize {
-        assert!(self.moves.len() >= self.first_move_index);
+        debug_assert!(self.moves.len() >= self.first_move_index);
         self.moves.len() - self.first_move_index
     }
 
     /// Appends a move to the end of the current move list.
     #[inline]
     pub fn push(&mut self, m: Move) {
-        assert!(self.moves.len() >= self.first_move_index);
+        debug_assert!(self.moves.len() >= self.first_move_index);
         self.moves.push(m);
     }
 
@@ -455,7 +455,7 @@ impl MoveStack {
     /// it, or `None` if empty.
     #[inline]
     pub fn pop(&mut self) -> Option<Move> {
-        assert!(self.moves.len() >= self.first_move_index);
+        debug_assert!(self.moves.len() >= self.first_move_index);
         if self.moves.len() > self.first_move_index {
             self.moves.pop()
         } else {
@@ -471,7 +471,7 @@ impl MoveStack {
     /// and returns it. If such move is not found, `None` is returned.
     #[inline]
     pub fn remove_move(&mut self, move_digest: MoveDigest) -> Option<Move> {
-        assert!(self.moves.len() >= self.first_move_index);
+        debug_assert!(self.moves.len() >= self.first_move_index);
         let last_move = if let Some(last) = self.moves.last() {
             *last
         } else {
@@ -488,7 +488,7 @@ impl MoveStack {
             }
             return None;
         }
-        assert!(!self.moves.is_empty());
+        debug_assert!(!self.moves.is_empty());
         self.moves.pop();
         Some(m)
     }
@@ -499,7 +499,7 @@ impl MoveStack {
     /// Returns `None` if the current move list is empty.
     #[inline]
     pub fn remove_best_move(&mut self) -> Option<Move> {
-        assert!(self.moves.len() >= self.first_move_index);
+        debug_assert!(self.moves.len() >= self.first_move_index);
         let moves = &mut self.moves;
         if moves.len() > self.first_move_index {
             let i = moves.len() - 1;
