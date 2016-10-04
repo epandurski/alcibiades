@@ -413,7 +413,7 @@ impl Board {
         let occupied_by_us = self.pieces.color[self.to_move];
         let orig_square_bb = occupied_by_us & (1 << orig_square);
         let dest_square_bb = 1 << dest_square;
-        let mut captured_piece = self.get_piece_type_at(dest_square_bb);
+        let mut captured_piece = self.get_piece_type_at(dest_square);
 
         // Figure out what is the type of the moved piece.
         let piece;
@@ -911,7 +911,7 @@ impl Board {
                                   .piece_attacks_from(piece, orig_square, self.occupied());
         while piece_dests != 0 {
             let dest_square = bitscan_forward_and_reset(&mut piece_dests);
-            let captured_piece = self.get_piece_type_at(1 << dest_square);
+            let captured_piece = self.get_piece_type_at(dest_square);
             move_stack.push(Move::new(self.to_move,
                                       MOVE_NORMAL,
                                       piece,
@@ -954,7 +954,7 @@ impl Board {
                 let dest_square = bitscan_forward_and_reset(s);
                 let dest_square_bb = 1 << dest_square;
                 let orig_square = (dest_square as isize - shifts[i]) as Square;
-                let captured_piece = self.get_piece_type_at(dest_square_bb);
+                let captured_piece = self.get_piece_type_at(dest_square);
                 match dest_square_bb {
 
                     // en-passant capture
@@ -1104,13 +1104,11 @@ impl Board {
         }
     }
 
-    /// A helper method. It returns the type of the piece at the
-    /// square represented by the bitboard `square_bb`.
+    /// A helper method. It returns the type of the piece at `square`.
     #[inline(always)]
-    fn get_piece_type_at(&self, square_bb: Bitboard) -> PieceType {
-        debug_assert!(square_bb != 0);
-        debug_assert_eq!(square_bb, ls1b(square_bb));
-        let bb = square_bb & self.occupied();
+    fn get_piece_type_at(&self, square: Square) -> PieceType {
+        debug_assert!(square <= 63);
+        let bb = 1 << square & self.occupied();
         if bb == 0 {
             return NO_PIECE;
         }
@@ -1142,6 +1140,7 @@ impl Board {
                                 gen_shift(1 << dest_square,
                                           -PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
             let occupied = self.occupied() & !the_two_pawns;
+
             0 ==
             self.geometry.piece_attacks_from(ROOK, king_square, occupied) &
             self.pieces.color[1 ^ self.to_move] &
