@@ -49,10 +49,6 @@ pub struct Board {
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
     pub _checkers: Cell<Bitboard>,
-
-    /// Lazily calculated bitboard of all pinned pieces and pawns --
-    /// `BB_UNIVERSAL_SET` if not calculated yet.
-    _pinned: Cell<Bitboard>,
 }
 
 
@@ -87,7 +83,6 @@ impl Board {
             _occupied: pieces_placement.color[WHITE] | pieces_placement.color[BLACK],
             _king_square: Cell::new(64),
             _checkers: Cell::new(BB_UNIVERSAL_SET),
-            _pinned: Cell::new(BB_UNIVERSAL_SET),
         };
 
         if b.is_legal() {
@@ -172,21 +167,6 @@ impl Board {
             self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
         }
         self._checkers.get()
-    }
-
-    /// Returns the bitboard of all pinned pieces and pawns of the
-    /// color of the side to move.
-    ///
-    /// The bitboard of all pinned pieces and pawns is calculated the
-    /// first time it is needed and is saved to the `_pinned` filed,
-    /// in case it is needed again. If there is a saved value already,
-    /// the call to `pinned` is practically free.
-    #[inline]
-    pub fn pinned(&self) -> Bitboard {
-        if self._pinned.get() == BB_UNIVERSAL_SET {
-            self._pinned.set(self.find_pinned());
-        }
-        self._pinned.get()
     }
 
     /// Returns a bitboard of all pieces and pawns of color `us` that
@@ -274,7 +254,7 @@ impl Board {
             // This block is not executed when the king is in double
             // check.
 
-            let pinned = self.pinned();
+            let pinned = self.find_pinned();
             let pin_lines: &[Bitboard; 64] = unsafe {
                 self.geometry.squares_at_line.get_unchecked(king_square)
             };
@@ -492,7 +472,7 @@ impl Board {
             };
 
             // Verify if the moved piece is pinned.
-            if orig_square_bb & self.pinned() != 0 {
+            if orig_square_bb & self.find_pinned() != 0 {
                 pseudo_legal_dests &= unsafe {
                     *self.geometry
                          .squares_at_line
@@ -717,7 +697,6 @@ impl Board {
             self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
             self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
-            self._pinned.set(BB_UNIVERSAL_SET);
         }
 
         debug_assert!(self.is_legal());
@@ -803,7 +782,6 @@ impl Board {
             self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
             self._king_square.set(64);
             self._checkers.set(BB_UNIVERSAL_SET);
-            self._pinned.set(BB_UNIVERSAL_SET);
         }
 
         debug_assert!(self.is_legal());
@@ -927,8 +905,6 @@ impl Board {
             assert_eq!(self._occupied, occupied);
             assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
-            assert!(self._pinned.get() == BB_UNIVERSAL_SET ||
-                    self._pinned.get() == self.find_pinned());
             assert!(self._king_square.get() > 63 ||
                     self._king_square.get() == bitscan_1bit(our_king_bb));
             true
