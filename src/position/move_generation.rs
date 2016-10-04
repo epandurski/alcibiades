@@ -1071,8 +1071,7 @@ impl Board {
     }
 
     /// A helper method. It returns the square that the king of the
-    /// side to move occupies. The value is lazily calculated and
-    /// saved for future use.
+    /// side to move occupies.
     #[inline(always)]
     fn king_square(&self) -> Square {
         bitscan_1bit(self.pieces.piece_type[KING] & self.pieces.color[self.to_move])
