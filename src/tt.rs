@@ -82,8 +82,8 @@ impl TtEntry {
                move16: MoveDigest,
                eval_value: Value)
                -> TtEntry {
-        assert!(bound <= 0b11);
-        assert!(depth < 127);
+        debug_assert!(bound <= 0b11);
+        debug_assert!(depth < 127);
         TtEntry {
             move16: move16,
             value: value,
@@ -201,7 +201,7 @@ impl Tt {
         loop {
             // Increment `self.generation` (with wrapping).
             self.generation.set(self.generation.get().wrapping_add(0b100));
-            assert_eq!(self.generation.get() & 0b11, 0);
+            debug_assert_eq!(self.generation.get() & 0b11, 0);
 
             // Count how many staled records from this generation
             // there are among the first `N` clusters.
@@ -400,7 +400,7 @@ impl Record {
 
     #[inline(always)]
     fn set_generation(&mut self, generation: u8) {
-        assert_eq!(generation & 0b11, 0);
+        debug_assert_eq!(generation & 0b11, 0);
 
         // Since the `key` is saved XOR-ed with the data, when we
         // change the data, we have to change the stored `key` as

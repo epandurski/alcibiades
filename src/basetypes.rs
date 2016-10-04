@@ -254,9 +254,8 @@ impl CastlingRights {
     /// castle on the given side before this method was called, and
     /// `false` otherwise.
     pub fn grant(&mut self, player: Color, side: CastlingSide) -> bool {
-        if player > 1 || side > 1 {
-            panic!("invalid arguments");
-        }
+        assert!(player <= 1);
+        assert!(side <= 1);
         let before = self.0;
         let mask = 1 << (player << 1) << side;
         self.0 |= mask;
@@ -268,16 +267,16 @@ impl CastlingRights {
     /// `orig_square` and `dest_square` describe the played move.
     #[inline(always)]
     pub fn update(&mut self, orig_square: Square, dest_square: Square) {
-        assert!(orig_square <= 63);
-        assert!(dest_square <= 63);
-        
+        debug_assert!(orig_square <= 63);
+        debug_assert!(dest_square <= 63);
+
         const WQ: usize = 1 << 0;
         const WK: usize = 1 << 1;
         const WB: usize = WQ | WK;
         const BQ: usize = 1 << 2;
         const BK: usize = 1 << 3;
         const BB: usize = BQ | BK;
-        
+
         // On each move, the value of `CASTLING_RELATION` for the
         // origin and destination squares should be AND-ed with the
         // castling rights value, to derive the updated castling
@@ -305,8 +304,8 @@ impl CastlingRights {
     /// side.
     #[inline(always)]
     pub fn can_castle(&self, player: Color, side: CastlingSide) -> bool {
-        assert!(player <= 1);
-        assert!(side <= 1);
+        debug_assert!(player <= 1);
+        debug_assert!(side <= 1);
         (1 << (player << 1) << side) & self.0 != 0
     }
 }
@@ -315,22 +314,22 @@ impl CastlingRights {
 /// Returns the square on given file and rank.
 #[inline]
 pub fn square(file: File, rank: Rank) -> Square {
-    assert!(file < 8);
-    assert!(rank < 8);
+    debug_assert!(file < 8);
+    debug_assert!(rank < 8);
     rank * 8 + file
 }
 
 /// Returns the rank of a given square.
 #[inline(always)]
 pub fn rank(square: Square) -> Rank {
-    assert!(square <= 63);
+    debug_assert!(square <= 63);
     square >> 3
 }
 
 /// Returns the file of a given square.
 #[inline(always)]
 pub fn file(square: Square) -> File {
-    assert!(square <= 63);
+    debug_assert!(square <= 63);
     square % 8
 }
 

@@ -229,7 +229,7 @@ pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
 /// ```
 #[inline(always)]
 pub fn bitscan_forward(b: Bitboard) -> Square {
-    assert!(b != 0);
+    debug_assert!(b != 0);
     b.trailing_zeros() as Square
 }
 
@@ -248,7 +248,7 @@ pub fn bitscan_forward(b: Bitboard) -> Square {
 /// ```
 #[inline(always)]
 pub fn bitscan_forward_and_reset(b: &mut Bitboard) -> Square {
-    assert!(*b != 0);
+    debug_assert!(*b != 0);
     let ls1b_position = b.trailing_zeros() as Square;
     *b ^= 1 << ls1b_position;
     ls1b_position
@@ -261,8 +261,8 @@ pub fn bitscan_forward_and_reset(b: &mut Bitboard) -> Square {
 /// `x`. Otherwise, it will panic or return garbage.
 #[inline(always)]
 pub fn bitscan_1bit(b: Bitboard) -> Square {
-    assert!(b != 0);
-    assert_eq!(b, ls1b(b));
+    debug_assert!(b != 0);
+    debug_assert_eq!(b, ls1b(b));
     b.trailing_zeros() as Square
 }
 
@@ -356,7 +356,7 @@ pub fn bb_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
 /// that are almost indistinguishable from magic.
 fn calc_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
     let from_square_bb = 1u64 << from_square;
-    assert!(from_square_bb & line != 0);
+    debug_assert!(from_square_bb & line != 0);
     let potential_blockers = occupied & line;
     let forward = potential_blockers.wrapping_sub(from_square_bb.wrapping_mul(2));
     let rev = reverse(reverse(potential_blockers)

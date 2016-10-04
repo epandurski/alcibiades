@@ -94,7 +94,7 @@ impl<'a> Search<'a> {
         // score that the minimizing player is assured of
         // respectively.
 
-        assert!(alpha < beta);
+        debug_assert!(alpha < beta);
         let mut value = VALUE_UNKNOWN;
 
         if let Some(v) = try!(self.node_begin(alpha, beta, depth, last_move)) {
@@ -103,7 +103,7 @@ impl<'a> Search<'a> {
 
         } else {
             // Initial guests.
-            assert!(depth > 0);
+            debug_assert!(depth > 0);
             let mut bound = BOUND_EXACT;
             let mut best_move = Move::invalid();
 
@@ -137,7 +137,7 @@ impl<'a> Search<'a> {
                     }
                 };
                 self.undo_move();
-                assert!(v > VALUE_UNKNOWN);
+                debug_assert!(v > VALUE_UNKNOWN);
 
                 // Increase/decrease the value for a checkmate by one
                 // on every half-move. This way the engine will seek
@@ -176,7 +176,7 @@ impl<'a> Search<'a> {
             // Check if we are in a final position (no legal moves).
             if value == VALUE_UNKNOWN {
                 value = self.position.evaluate_final();
-                assert_eq!(bound, BOUND_EXACT);
+                debug_assert_eq!(bound, BOUND_EXACT);
             }
 
             // Store the result to the transposition table.
@@ -347,15 +347,15 @@ impl<'a> Search<'a> {
     /// all pseudo-legal moves at the last possible moment.
     #[inline]
     fn do_move(&mut self) -> Option<Move> {
-        assert!(self.state_stack.len() > 0);
+        debug_assert!(self.state_stack.len() > 0);
         let ply = self.state_stack.len() - 1;
         let state = unsafe { self.state_stack.get_unchecked_mut(ply) };
-        assert!(if let NodePhase::Pristine = state.phase {
+        debug_assert!(if let NodePhase::Pristine = state.phase {
             false
         } else {
             true
         });
-        assert!(ply < MAX_DEPTH as usize);
+        debug_assert!(ply < MAX_DEPTH as usize);
 
         // Try the hash move.
         if let NodePhase::ConsideredNullMove = state.phase {
@@ -578,7 +578,7 @@ impl KillerTable {
     /// Registers a new killer move for the specified `half_move`.
     #[inline]
     pub fn register(&mut self, half_move: usize, m: Move) {
-        assert!(half_move < self.array.len());
+        debug_assert!(half_move < self.array.len());
         if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
             // captures and promotions.
@@ -588,7 +588,7 @@ impl KillerTable {
         let minor = &mut pair.minor;
         let major = &mut pair.major;
         let digest = m.digest();
-        assert!(digest != 0);
+        debug_assert!(digest != 0);
 
         // Register the move in one of the slots.
         if major.digest == digest {
@@ -619,7 +619,7 @@ impl KillerTable {
     /// the slots -- `0` is returned instead.
     #[inline]
     pub fn get(&self, half_move: usize) -> (MoveDigest, MoveDigest) {
-        assert!(half_move < self.array.len());
+        debug_assert!(half_move < self.array.len());
         let pair = unsafe { self.array.get_unchecked(half_move) };
         (pair.major.digest, pair.minor.digest)
     }
@@ -628,7 +628,7 @@ impl KillerTable {
     /// factor of two.
     #[inline]
     pub fn downgrade(&mut self, half_move: usize) {
-        assert!(half_move < self.array.len());
+        debug_assert!(half_move < self.array.len());
         let pair = unsafe { self.array.get_unchecked_mut(half_move) };
         pair.minor.hits >>= 1;
         pair.major.hits >>= 1;
