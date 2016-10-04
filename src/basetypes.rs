@@ -265,7 +265,7 @@ impl CastlingRights {
     /// Updates the castling rights after played move.
     ///
     /// `orig_square` and `dest_square` describe the played move.
-    #[inline]
+    #[inline(always)]
     pub fn update(&mut self, orig_square: Square, dest_square: Square) {
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
@@ -302,7 +302,7 @@ impl CastlingRights {
 
     /// Returns if a given player has the rights to castle on a given
     /// side.
-    #[inline]
+    #[inline(always)]
     pub fn can_castle(&self, player: Color, side: CastlingSide) -> bool {
         debug_assert!(player <= 1);
         debug_assert!(side <= 1);

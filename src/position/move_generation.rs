@@ -1124,7 +1124,7 @@ impl Board {
 
     /// A helper method for `generate_moves`. It returns all pinned
     /// pieces belonging to the side to move.
-    #[inline(always)]
+    #[inline]
     fn find_pinned(&self) -> Bitboard {
         let king_square = self.king_square();
         let occupied_by_them = unsafe { *self.pieces.color.get_unchecked(1 ^ self.to_move) };
