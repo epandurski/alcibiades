@@ -291,13 +291,7 @@ impl CastlingRights {
             !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
             !BQ, !0,  !0,  !0,  !BB, !0,  !0,  !BK,
         ];
-        self.0 &= unsafe {
-            // AND-ing with anything can not corrupt the instance, so
-            // we are safe even if `orig_square` and `dest_square` are
-            // out of bounds.
-            *CASTLING_RELATION.get_unchecked(orig_square) &
-            *CASTLING_RELATION.get_unchecked(dest_square)
-        };
+        self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }
 
     /// Returns if a given player has the rights to castle on a given

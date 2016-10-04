@@ -469,8 +469,7 @@ impl Position {
                     (self.encountered_boards.len() - (halfmove_clock as usize)) as isize;
                 let mut i = (self.encountered_boards.len() - 4) as isize;
                 while i >= last_irrev {
-                    if self.board_hash ==
-                       unsafe { *self.encountered_boards.get_unchecked(i as usize) } {
+                    if self.board_hash == self.encountered_boards[i as usize] {
                         self.repeated_or_rule50 = true;
                         break;
                     }
@@ -565,7 +564,7 @@ impl Position {
                 PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
                 PIECE_VALUES[PAWN]
             } else {
-                unsafe { *PIECE_VALUES.get_unchecked(captured_piece) }
+                PIECE_VALUES[captured_piece]
             };
             if material_gain < obligatory_material_gain {
                 continue;
@@ -716,7 +715,7 @@ impl Position {
                 }
 
                 // Find the next piece to enter the exchange.
-                let next_attacker = get_least_valuable_piece(&board.pieces().piece_type,
+                let next_attacker = get_least_valuable_piece(board.pieces(),
                                                              attackers_and_defenders &
                                                              *board.pieces()
                                                                    .color
@@ -920,22 +919,17 @@ fn consider_xrays(geometry: &BoardGeometry,
                   target_square: Square,
                   xrayed_square: Square)
                   -> Bitboard {
-    unsafe {
-        let candidates = occupied &
-                         *geometry.squares_behind_blocker
-                                  .get_unchecked(target_square)
-                                  .get_unchecked(xrayed_square);
+    let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
 
-        // Try the straight sliders first, if not, the diagonal sliders.
-        let straight_slider_bb = geometry.piece_attacks_from(ROOK, target_square, candidates) &
-                                 candidates &
-                                 (piece_type_array[QUEEN] | piece_type_array[ROOK]);
-        if straight_slider_bb != 0 {
-            straight_slider_bb
-        } else {
-            geometry.piece_attacks_from(BISHOP, target_square, candidates) & candidates &
-            (piece_type_array[QUEEN] | piece_type_array[BISHOP])
-        }
+    // Try the straight sliders first, if not, the diagonal sliders.
+    let straight_slider_bb = geometry.piece_attacks_from(ROOK, target_square, candidates) &
+                             candidates &
+                             (piece_type_array[QUEEN] | piece_type_array[ROOK]);
+    if straight_slider_bb != 0 {
+        straight_slider_bb
+    } else {
+        geometry.piece_attacks_from(BISHOP, target_square, candidates) & candidates &
+        (piece_type_array[QUEEN] | piece_type_array[BISHOP])
     }
 }
 
@@ -944,11 +938,9 @@ fn consider_xrays(geometry: &BoardGeometry,
 /// pieces `set`, and returns the type of the least valuable piece,
 /// and a bitboard describing its position on the board.
 #[inline(always)]
-fn get_least_valuable_piece(piece_type_array: &[Bitboard; 6],
-                            set: Bitboard)
-                            -> (PieceType, Bitboard) {
+fn get_least_valuable_piece(pieces: &PiecesPlacement, set: Bitboard) -> (PieceType, Bitboard) {
     for p in (KING..NO_PIECE).rev() {
-        let piece_subset = unsafe { *piece_type_array.get_unchecked(p) } & set;
+        let piece_subset = unsafe { *pieces.piece_type.get_unchecked(p) } & set;
         if piece_subset != 0 {
             return (p, ls1b(piece_subset));
         }

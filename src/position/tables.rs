@@ -311,32 +311,25 @@ impl BoardGeometry {
     /// board which is occupied with pieces according to the
     /// `occupied` bitboard. It does not matter if `from_square` is
     /// occupied or not.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it is extremely
-    /// performace-critical, and so it does unchecked array
-    /// accesses. Users of this method should make sure that:
-    ///
-    /// * `piece < PAWN`.
-    /// * `from_square <= 63`.
     #[inline(always)]
-    pub unsafe fn piece_attacks_from(&self,
-                                     piece: PieceType,
-                                     from_square: Square,
-                                     occupied: Bitboard)
-                                     -> Bitboard {
+    pub fn piece_attacks_from(&self,
+                              piece: PieceType,
+                              from_square: Square,
+                              occupied: Bitboard)
+                              -> Bitboard {
         debug_assert!(piece < PAWN);
         debug_assert!(from_square <= 63);
-        match piece {
-            KING => *KING_ATTACKS.get_unchecked(from_square),
-            QUEEN => {
-                BISHOP_MAP.get_unchecked(from_square).attacks(occupied) |
-                ROOK_MAP.get_unchecked(from_square).attacks(occupied)
+        unsafe {
+            match piece {
+                KING => KING_ATTACKS[from_square],
+                QUEEN => {
+                    BISHOP_MAP[from_square].attacks(occupied) |
+                    ROOK_MAP[from_square].attacks(occupied)
+                }
+                ROOK => ROOK_MAP[from_square].attacks(occupied),
+                BISHOP => BISHOP_MAP[from_square].attacks(occupied),
+                _ => KNIGHT_ATTACKS[from_square],
             }
-            ROOK => ROOK_MAP.get_unchecked(from_square).attacks(occupied),
-            BISHOP => BISHOP_MAP.get_unchecked(from_square).attacks(occupied),
-            _ => *KNIGHT_ATTACKS.get_unchecked(from_square),
         }
     }
 }
@@ -670,14 +663,12 @@ mod tests {
     #[test]
     fn test_piece_attacks_from() {
         let g = BoardGeometry::new();
-        unsafe {
-            for piece in KING..PAWN {
-                for square in 0..64 {
-                    assert_eq!(g.piece_attacks_from(piece, square, 0),
-                               g.piece_attacks_from(piece, square, 1 << square));
-                    assert_eq!(g.piece_attacks_from(piece, square, 1 << D4),
-                               g.piece_attacks_from(piece, square, 1 << D4 | 1 << square));
-                }
+        for piece in KING..PAWN {
+            for square in 0..64 {
+                assert_eq!(g.piece_attacks_from(piece, square, 0),
+                           g.piece_attacks_from(piece, square, 1 << square));
+                assert_eq!(g.piece_attacks_from(piece, square, 1 << D4),
+                           g.piece_attacks_from(piece, square, 1 << D4 | 1 << square));
             }
         }
     }

@@ -267,10 +267,10 @@ impl Tt {
         }
 
         // Write the data to the chosen slot.
-        unsafe {
-            cluster.get_unchecked_mut(replace_index).key = key ^ data.as_u64();
-            cluster.get_unchecked_mut(replace_index).data = data;
-        }
+        cluster[replace_index] = Record {
+            key: key ^ data.as_u64(),
+            data: data,
+        };
     }
 
     /// Probes for data by a specific key.
