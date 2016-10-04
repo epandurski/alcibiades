@@ -211,7 +211,7 @@ impl Move {
             _ => KNIGHT,
         }
     }
-    
+
     /// Returns the highest possible move score.
     #[inline(always)]
     pub fn max_score() -> usize {
@@ -311,7 +311,7 @@ impl Move {
                     _ => "",
                 })
     }
-    
+
     /// Returns `true` if the move is a pawn advance or a capture,
     /// `false` otherwise.
     #[inline]
@@ -331,7 +331,8 @@ impl Move {
     /// for which the origin and destination squares are the same.
     #[inline]
     pub fn is_null(&self) -> bool {
-        debug_assert!(self.orig_square() != self.dest_square() || self.captured_piece() == NO_PIECE);
+        debug_assert!(self.orig_square() != self.dest_square() ||
+                      self.captured_piece() == NO_PIECE);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 }

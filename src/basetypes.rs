@@ -270,14 +270,14 @@ impl CastlingRights {
     pub fn update(&mut self, orig_square: Square, dest_square: Square) {
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
-        
+
         const WQ: usize = 1 << 0;
         const WK: usize = 1 << 1;
         const WB: usize = WQ | WK;
         const BQ: usize = 1 << 2;
         const BK: usize = 1 << 3;
         const BB: usize = BQ | BK;
-        
+
         // On each move, the value of `CASTLING_RELATION` for the
         // origin and destination squares should be AND-ed with the
         // castling rights value, to derive the updated castling

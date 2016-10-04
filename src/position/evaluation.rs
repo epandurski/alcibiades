@@ -18,15 +18,15 @@ use position::move_generation::Board;
 #[inline]
 pub fn evaluate_board(board: &Board) -> Value {
     // TODO: Implement a real evaluation.
-    
+
     const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
-    
+
     if board.checkers() != 0 {
         // In positions under check we can be vastly incorrect with no
         // negative consequences.
         return -19999;
     }
-    
+
     let piece_type = board.pieces().piece_type;
     let color = board.pieces().color;
     let us = board.to_move();
@@ -48,5 +48,3 @@ pub fn evaluate_board(board: &Board) -> Value {
 // let mut rng = rand::thread_rng();
 // let mut between = Range::new(0, 10);
 // let x = between.sample(&mut rng);
-
-
