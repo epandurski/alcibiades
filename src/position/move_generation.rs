@@ -240,7 +240,7 @@ impl Board {
 
             // Generate queen, rook, bishop, and knight moves.
             {
-                let legal_dests = if generate_all_moves {
+                let piece_legal_dests = if generate_all_moves {
                     legal_dests
                 } else {
                     debug_assert_eq!(legal_dests, !occupied_by_us);
@@ -252,12 +252,13 @@ impl Board {
                     while bb != 0 {
                         let orig_square = bitscan_forward_and_reset(&mut bb);
                         let piece_legal_dests = if 1 << orig_square & pinned == 0 {
-                            legal_dests
+                            piece_legal_dests
                         } else {
-                            // If the piece is pinned, reduce the set
+                            // The piece is pinned -- reduce the set
                             // of legal destination to the squares on
                             // the line of the pin.
-                            legal_dests & self.geometry.squares_at_line[king_square][orig_square]
+                            piece_legal_dests &
+                            self.geometry.squares_at_line[king_square][orig_square]
                         };
                         self.push_piece_moves_to_stack(piece,
                                                        orig_square,
@@ -269,26 +270,24 @@ impl Board {
 
             // Generate pawn moves.
             {
-                let legal_dests = if generate_all_moves {
-                    legal_dests
+                let pawn_legal_dests = if generate_all_moves {
+                    if checkers & self.pieces.piece_type[PAWN] == 0 {
+                        legal_dests
+                    } else {
+                        // We are in check from a pawn, therefore the
+                        // en-passant capture is legal.
+                        legal_dests | en_passant_bb
+                    }
                 } else {
                     debug_assert_eq!(legal_dests, !occupied_by_us);
                     legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
                 };
 
-                // When in check, the en-passant capture can be a
-                // legal evasion move, but only when the checking
-                // piece is the passing pawn itself.
-                let pawn_legal_dests = if checkers & self.pieces.piece_type[PAWN] == 0 {
-                    legal_dests
-                } else {
-                    legal_dests | en_passant_bb
-                };
-
-                // Generate all free pawn moves at once.
                 let all_pawns = self.pieces.piece_type[PAWN] & occupied_by_us;
                 let mut pinned_pawns = all_pawns & pinned;
                 let free_pawns = all_pawns ^ pinned_pawns;
+
+                // Generate all free pawn moves at once.
                 if free_pawns != 0 {
                     self.push_pawn_moves_to_stack(free_pawns,
                                                   en_passant_bb,
@@ -302,10 +301,11 @@ impl Board {
                 // squares on the line of the pin.
                 while pinned_pawns != 0 {
                     let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
-                    let pin_line = self.geometry.squares_at_line[king_square][pawn_square];
+                    let pawn_legal_dests = pawn_legal_dests &
+                                           self.geometry.squares_at_line[king_square][pawn_square];
                     self.push_pawn_moves_to_stack(1 << pawn_square,
                                                   en_passant_bb,
-                                                  pin_line & pawn_legal_dests,
+                                                  pawn_legal_dests,
                                                   !generate_all_moves,
                                                   move_stack);
                 }
