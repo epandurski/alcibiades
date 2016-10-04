@@ -848,7 +848,7 @@ impl Board {
             } else {
                 BB_UNIVERSAL_SET
             }
-        });  // Returns `UNIVERSAL_SET` if `self.pieces.piece_type` is messed up.
+        });  // `occupied` becomes `UNIVERSAL_SET` if `self.pieces.piece_type` is messed up.
 
         let them = 1 ^ us;
         let o_us = self.pieces.color[us];
@@ -901,8 +901,7 @@ impl Board {
             }
         }) &&
         {
-            assert_eq!(self._occupied,
-                       self.pieces.color[WHITE] | self.pieces.color[BLACK]);
+            assert_eq!(self._occupied, occupied);
             assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             true
