@@ -213,10 +213,6 @@ impl Board {
         debug_assert!(self.is_legal());
         debug_assert!(king_square <= 63);
 
-        // When in check, for every move except king's moves, the only
-        // legal destination squares are those lying on the line
-        // between the checker and the king. Also, no piece can move
-        // to a square that is occupied by a friendly piece.
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
             0 =>
@@ -240,17 +236,10 @@ impl Board {
             // check.
 
             let pinned = self.find_pinned();
-            let pin_lines: &[Bitboard; 64] = self.geometry
-                                                 .squares_at_line
-                                                 .get(king_square)
-                                                 .unwrap();
             let en_passant_bb = self.en_passant_bb();
 
-            // Find queen, rook, bishop, and knight moves.
+            // Generate queen, rook, bishop, and knight moves.
             {
-                // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions to queen, and
-                // check evasions.
                 let legal_dests = if generate_all_moves {
                     legal_dests
                 } else {
@@ -268,7 +257,7 @@ impl Board {
                             // If the piece is pinned, reduce the set
                             // of legal destination to the squares on
                             // the line of the pin.
-                            legal_dests & pin_lines[orig_square]
+                            legal_dests & self.geometry.squares_at_line[king_square][orig_square]
                         };
                         self.push_piece_moves_to_stack(piece,
                                                        orig_square,
@@ -278,11 +267,8 @@ impl Board {
                 }
             }
 
-            // Find pawn moves.
+            // Generate pawn moves.
             {
-                // Reduce the set of legal destinations when searching
-                // only for captures, pawn promotions to queen, and
-                // check evasions.
                 let legal_dests = if generate_all_moves {
                     legal_dests
                 } else {
@@ -299,7 +285,7 @@ impl Board {
                     legal_dests | en_passant_bb
                 };
 
-                // Find all free pawn moves at once.
+                // Generate all free pawn moves at once.
                 let all_pawns = self.pieces.piece_type[PAWN] & occupied_by_us;
                 let mut pinned_pawns = all_pawns & pinned;
                 let free_pawns = all_pawns ^ pinned_pawns;
@@ -311,12 +297,12 @@ impl Board {
                                                   move_stack);
                 }
 
-                // Find pinned pawn moves pawn by pawn, reducing the
-                // set of legal destination for each pawn to the
+                // Generate pinned pawn moves pawn by pawn, reducing
+                // the set of legal destination for each pawn to the
                 // squares on the line of the pin.
                 while pinned_pawns != 0 {
                     let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
-                    let pin_line = pin_lines[pawn_square];
+                    let pin_line = self.geometry.squares_at_line[king_square][pawn_square];
                     self.push_pawn_moves_to_stack(1 << pawn_square,
                                                   en_passant_bb,
                                                   pin_line & pawn_legal_dests,
@@ -326,21 +312,31 @@ impl Board {
             }
         }
 
-        // Find king moves (pseudo-legal, possibly moving into check
-        // or passing through an attacked square when castling). This
-        // is executed even when the king is in double check.
-        {
-            // Reduce the set of destinations when searching only for
-            // captures, pawn promotions to queen, and check evasions.
-            let king_dests = if generate_all_moves {
-                self.push_castling_moves_to_stack(move_stack);
-                !occupied_by_us
-            } else {
-                occupied_by_them
-            };
-
-            self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
-        }
+        // Generate king moves (pseudo-legal, possibly moving into
+        // check or passing through an attacked square when
+        // castling). This is executed even when the king is in double
+        // check.
+        let king_dests = if generate_all_moves {
+            if checkers == 0 {
+                for side in 0..2 {
+                    if self.castling_obstacles(side) == 0 {
+                        move_stack.push(Move::new(self.to_move,
+                                                  MOVE_CASTLING,
+                                                  KING,
+                                                  king_square,
+                                                  [[C1, C8], [G1, G8]][side][self.to_move],
+                                                  NO_PIECE,
+                                                  self.en_passant_file,
+                                                  self.castling,
+                                                  0));
+                    }
+                }
+            }
+            !occupied_by_us
+        } else {
+            occupied_by_them
+        };
+        self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
     }
 
     /// Returns a null move.
@@ -1008,32 +1004,6 @@ impl Board {
                                                   self.castling,
                                                   0));
                     }
-                }
-            }
-        }
-    }
-
-    /// A helper method for `generate_moves`. It figures out which
-    /// castling moves are pseudo-legal and pushes them to
-    /// `move_stack`.
-    #[inline(always)]
-    fn push_castling_moves_to_stack(&self, move_stack: &mut MoveStack) {
-        if self.checkers() == 0 {
-            for side in 0..2 {
-                if self.castling_obstacles(side) == 0 {
-                    // It seems that castling is legal unless king's
-                    // passing or final squares are attacked, but we
-                    // do not care about that, because this will be
-                    // verified in "do_move()".
-                    move_stack.push(Move::new(self.to_move,
-                                              MOVE_CASTLING,
-                                              KING,
-                                              self.king_square(),
-                                              [[C1, C8], [G1, G8]][side][self.to_move],
-                                              NO_PIECE,
-                                              self.en_passant_file,
-                                              self.castling,
-                                              0));
                 }
             }
         }
