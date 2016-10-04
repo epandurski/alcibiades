@@ -192,10 +192,8 @@ impl Board {
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
+        assert!(square <= 63);
         let occupied_by_us = self.pieces.color[us];
-        if square > 63 {
-            panic!("invalid square");
-        }
         let square_bb = 1 << square;
         unsafe {
             let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(us);
@@ -590,8 +588,8 @@ impl Board {
         let piece = m.piece();
         let captured_piece = m.captured_piece();
         let mut hash = 0;
+        assert!(piece < NO_PIECE);
         debug_assert!(us <= 1);
-        debug_assert!(piece < NO_PIECE);
         debug_assert!(move_type <= 3);
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
@@ -608,10 +606,6 @@ impl Board {
             m2.set_score(0);
             m1 == m2
         });
-
-        if piece >= NO_PIECE {
-            panic!("invalid piece");
-        }
 
         unsafe {
             // Verify if the move will leave the king in check.
@@ -746,17 +740,13 @@ impl Board {
         let aux_data = m.aux_data();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
+        assert!(piece < NO_PIECE);
         debug_assert!(them <= 1);
-        debug_assert!(piece < NO_PIECE);
         debug_assert!(move_type <= 3);
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
         debug_assert!(aux_data <= 3);
         debug_assert!(m.en_passant_file() <= NO_ENPASSANT_FILE);
-
-        if piece >= NO_PIECE {
-            panic!("invalid piece");
-        }
 
         let orig_bb = 1 << orig_square;
         let not_dest_bb = !(1 << dest_square);
