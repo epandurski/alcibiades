@@ -231,7 +231,7 @@ impl Board {
                 BB_EMPTY_SET,
         };
 
-        if legal_dests != 0 {
+        if legal_dests != BB_EMPTY_SET {
             // This block is not executed when the king is in double
             // check.
 
