@@ -940,7 +940,7 @@ fn consider_xrays(geometry: &BoardGeometry,
 #[inline(always)]
 fn get_least_valuable_piece(pieces: &PiecesPlacement, set: Bitboard) -> (PieceType, Bitboard) {
     for p in (KING..NO_PIECE).rev() {
-        let piece_subset = unsafe { *pieces.piece_type.get_unchecked(p) } & set;
+        let piece_subset = pieces.piece_type[p] & set;
         if piece_subset != 0 {
             return (p, ls1b(piece_subset));
         }

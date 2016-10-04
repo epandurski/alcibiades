@@ -564,117 +564,98 @@ impl Board {
             m1 == m2
         });
 
-        unsafe {
-            // Verify if the move will leave the king in check.
-            if piece == KING {
-                if orig_square != dest_square {
-                    if self.king_would_be_in_check(dest_square) {
-                        return None;  // the king is in check -- illegal move
-                    }
-                } else {
-                    if self.checkers() != 0 {
-                        return None;  // invalid "null move"
-                    }
-                }
-            }
-
-            // Move the rook if the move is castling.
-            if move_type == MOVE_CASTLING {
-                if self.king_would_be_in_check((orig_square + dest_square) >> 1) {
-                    return None;  // king's passing square is attacked -- illegal move
-                }
-
-                let side = if dest_square > orig_square {
-                    KINGSIDE
-                } else {
-                    QUEENSIDE
-                };
-                let mask = CASTLING_ROOK_MASK[us][side];
-                self.pieces.piece_type[ROOK] ^= mask;
-                self.pieces.color[us] ^= mask;
-                h ^= self.zobrist._castling_rook_movement[us][side];
-            }
-
-            let not_orig_bb = !(1 << orig_square);
-            let dest_bb = 1 << dest_square;
-
-            // empty the origin square
-            *self.pieces.piece_type.get_unchecked_mut(piece) &= not_orig_bb;
-            *self.pieces.color.get_unchecked_mut(us) &= not_orig_bb;
-            h ^= *self.zobrist
-                      .pieces
-                      .get_unchecked(us)
-                      .get_unchecked(piece)
-                      .get_unchecked(orig_square);
-
-            // Remove the captured piece (if any).
-            if captured_piece < NO_PIECE {
-                let not_captured_bb = if move_type == MOVE_ENPASSANT {
-                    let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
-                    let captured_pawn_square = (dest_square as isize + shift) as Square;
-                    h ^= *self.zobrist
-                              .pieces
-                              .get_unchecked(them)
-                              .get_unchecked(captured_piece)
-                              .get_unchecked(captured_pawn_square);
-                    !(1 << captured_pawn_square)
-                } else {
-                    h ^= *self.zobrist
-                              .pieces
-                              .get_unchecked(them)
-                              .get_unchecked(captured_piece)
-                              .get_unchecked(dest_square);
-                    !dest_bb
-                };
-                *self.pieces.piece_type.get_unchecked_mut(captured_piece) &= not_captured_bb;
-                *self.pieces.color.get_unchecked_mut(them) &= not_captured_bb;
-            }
-
-            // Occupy the destination square.
-            let dest_piece = if move_type == MOVE_PROMOTION {
-                Move::piece_from_aux_data(m.aux_data())
-            } else {
-                piece
-            };
-            *self.pieces.piece_type.get_unchecked_mut(dest_piece) |= dest_bb;
-            *self.pieces.color.get_unchecked_mut(us) |= dest_bb;
-            h ^= *self.zobrist
-                      .pieces
-                      .get_unchecked(us)
-                      .get_unchecked(dest_piece)
-                      .get_unchecked(dest_square);
-
-            // Update castling rights (null moves do not affect castling).
+        // Verify if the move will leave the king in check.
+        if piece == KING {
             if orig_square != dest_square {
-                h ^= *self.zobrist.castling.get_unchecked(self.castling.value());
-                self.castling.update(orig_square, dest_square);
-                h ^= *self.zobrist.castling.get_unchecked(self.castling.value());
-            }
-
-            // Update the en-passant file.
-            h ^= *self.zobrist.en_passant_file.get_unchecked(self.en_passant_file);
-            self.en_passant_file = if piece == PAWN {
-                match dest_square as isize - orig_square as isize {
-                    16 | -16 => {
-                        let file = file(dest_square);
-                        h ^= *self.zobrist.en_passant_file.get_unchecked(file);
-                        file
-                    }
-                    _ => NO_ENPASSANT_FILE,
+                if self.king_would_be_in_check(dest_square) {
+                    return None;  // the king is in check -- illegal move
                 }
             } else {
-                NO_ENPASSANT_FILE
-            };
-
-            // Change the side to move.
-            self.to_move = them;
-            h ^= self.zobrist.to_move;
-
-            // Update the auxiliary fields.
-            self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
-            self._checkers.set(BB_UNIVERSAL_SET);
-
+                if self.checkers() != 0 {
+                    return None;  // invalid "null move"
+                }
+            }
         }
+
+        // Move the rook if the move is castling.
+        if move_type == MOVE_CASTLING {
+            if self.king_would_be_in_check((orig_square + dest_square) >> 1) {
+                return None;  // king's passing square is attacked -- illegal move
+            }
+
+            let side = if dest_square > orig_square {
+                KINGSIDE
+            } else {
+                QUEENSIDE
+            };
+            let mask = CASTLING_ROOK_MASK[us][side];
+            self.pieces.piece_type[ROOK] ^= mask;
+            self.pieces.color[us] ^= mask;
+            h ^= self.zobrist._castling_rook_movement[us][side];
+        }
+
+        let not_orig_bb = !(1 << orig_square);
+        let dest_bb = 1 << dest_square;
+
+        // empty the origin square
+        self.pieces.piece_type[piece] &= not_orig_bb;
+        self.pieces.color[us] &= not_orig_bb;
+        h ^= self.zobrist.pieces[us][piece][orig_square];
+
+        // Remove the captured piece (if any).
+        if captured_piece < NO_PIECE {
+            let not_captured_bb = if move_type == MOVE_ENPASSANT {
+                let captured_pawn_square =
+                    (dest_square as isize + PAWN_MOVE_SHIFTS[them][PAWN_PUSH]) as Square;
+                h ^= self.zobrist.pieces[them][captured_piece][captured_pawn_square];
+                !(1 << captured_pawn_square)
+            } else {
+                h ^= self.zobrist.pieces[them][captured_piece][dest_square];
+                !dest_bb
+            };
+            self.pieces.piece_type[captured_piece] &= not_captured_bb;
+            self.pieces.color[them] &= not_captured_bb;
+        }
+
+        // Occupy the destination square.
+        let dest_piece = if move_type == MOVE_PROMOTION {
+            Move::piece_from_aux_data(m.aux_data())
+        } else {
+            piece
+        };
+        self.pieces.piece_type[dest_piece] |= dest_bb;
+        self.pieces.color[us] |= dest_bb;
+        h ^= self.zobrist.pieces[us][dest_piece][dest_square];
+
+        // Update castling rights (null moves do not affect castling).
+        if orig_square != dest_square {
+            h ^= self.zobrist.castling[self.castling.value()];
+            self.castling.update(orig_square, dest_square);
+            h ^= self.zobrist.castling[self.castling.value()];
+        }
+
+        // Update the en-passant file.
+        h ^= self.zobrist.en_passant_file[self.en_passant_file];
+        self.en_passant_file = if piece == PAWN {
+            match dest_square as isize - orig_square as isize {
+                16 | -16 => {
+                    let file = file(dest_square);
+                    h ^= self.zobrist.en_passant_file[file];
+                    file
+                }
+                _ => NO_ENPASSANT_FILE,
+            }
+        } else {
+            NO_ENPASSANT_FILE
+        };
+
+        // Change the side to move.
+        self.to_move = them;
+        h ^= self.zobrist.to_move;
+
+        // Update the auxiliary fields.
+        self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
+        self._checkers.set(BB_UNIVERSAL_SET);
 
         debug_assert!(self.is_legal());
         debug_assert_eq!(old_hash ^ h, self.calc_hash());
@@ -708,58 +689,56 @@ impl Board {
         let orig_bb = 1 << orig_square;
         let not_dest_bb = !(1 << dest_square);
 
-        unsafe {
-            // Change the side to move.
-            self.to_move = us;
+        // Change the side to move.
+        self.to_move = us;
 
-            // Restore the en-passant file.
-            self.en_passant_file = m.en_passant_file();
+        // Restore the en-passant file.
+        self.en_passant_file = m.en_passant_file();
 
-            // Restore castling rights.
-            self.castling = m.castling();
+        // Restore castling rights.
+        self.castling = m.castling();
 
-            // Empty the destination square.
-            let dest_piece = if move_type == MOVE_PROMOTION {
-                Move::piece_from_aux_data(aux_data)
+        // Empty the destination square.
+        let dest_piece = if move_type == MOVE_PROMOTION {
+            Move::piece_from_aux_data(aux_data)
+        } else {
+            piece
+        };
+        self.pieces.piece_type[dest_piece] &= not_dest_bb;
+        self.pieces.color[us] &= not_dest_bb;
+
+        // Put back the captured piece (if any).
+        if captured_piece < NO_PIECE {
+            let captured_bb = if move_type == MOVE_ENPASSANT {
+                let captured_pawn_square =
+                    (dest_square as isize + PAWN_MOVE_SHIFTS[them][PAWN_PUSH]) as Square;
+                1 << captured_pawn_square
             } else {
-                piece
+                !not_dest_bb
             };
-            *self.pieces.piece_type.get_unchecked_mut(dest_piece) &= not_dest_bb;
-            *self.pieces.color.get_unchecked_mut(us) &= not_dest_bb;
-
-            // Put back the captured piece (if any).
-            if captured_piece < NO_PIECE {
-                let captured_bb = if move_type == MOVE_ENPASSANT {
-                    let shift = PAWN_MOVE_SHIFTS.get_unchecked(them)[PAWN_PUSH];
-                    let captured_pawn_square = (dest_square as isize + shift) as Square;
-                    1 << captured_pawn_square
-                } else {
-                    !not_dest_bb
-                };
-                *self.pieces.piece_type.get_unchecked_mut(captured_piece) |= captured_bb;
-                *self.pieces.color.get_unchecked_mut(them) |= captured_bb;
-            }
-
-            // Restore the piece on the origin square.
-            *self.pieces.piece_type.get_unchecked_mut(piece) |= orig_bb;
-            *self.pieces.color.get_unchecked_mut(us) |= orig_bb;
-
-            // Move the rook back if the move is castling.
-            if move_type == MOVE_CASTLING {
-                let side = if dest_square > orig_square {
-                    KINGSIDE
-                } else {
-                    QUEENSIDE
-                };
-                let mask = *CASTLING_ROOK_MASK.get_unchecked(us).get_unchecked(side);
-                self.pieces.piece_type[ROOK] ^= mask;
-                *self.pieces.color.get_unchecked_mut(us) ^= mask;
-            }
-
-            // Update the auxiliary fields.
-            self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
-            self._checkers.set(BB_UNIVERSAL_SET);
+            self.pieces.piece_type[captured_piece] |= captured_bb;
+            self.pieces.color[them] |= captured_bb;
         }
+
+        // Restore the piece on the origin square.
+        self.pieces.piece_type[piece] |= orig_bb;
+        self.pieces.color[us] |= orig_bb;
+
+        // Move the rook back if the move is castling.
+        if move_type == MOVE_CASTLING {
+            let side = if dest_square > orig_square {
+                KINGSIDE
+            } else {
+                QUEENSIDE
+            };
+            let mask = CASTLING_ROOK_MASK[us][side];
+            self.pieces.piece_type[ROOK] ^= mask;
+            self.pieces.color[us] ^= mask;
+        }
+
+        // Update the auxiliary fields.
+        self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
+        self._checkers.set(BB_UNIVERSAL_SET);
 
         debug_assert!(self.is_legal());
     }
@@ -909,20 +888,16 @@ impl Board {
                                            BB_RANK_2 | BB_RANK_7,
                                            !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
                                            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
-        unsafe {
-            let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get_unchecked(self.to_move);
-            let capture_targets = *self.pieces.color.get_unchecked(1 ^ self.to_move) |
-                                  en_passant_bb;
-            for i in 0..4 {
-                *dest_sets.get_unchecked_mut(i) = gen_shift(pawns & *CANDIDATES.get_unchecked(i),
-                                                            *shifts.get_unchecked(i)) &
-                                                  (capture_targets ^ *QUIET.get_unchecked(i)) &
-                                                  !*self.pieces.color.get_unchecked(self.to_move);
-            }
-
-            // Double pushes are trickier.
-            dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+        let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get(self.to_move).unwrap();
+        let capture_targets = self.pieces.color[1 ^ self.to_move] | en_passant_bb;
+        for i in 0..4 {
+            dest_sets[i] = gen_shift(pawns & CANDIDATES[i], shifts[i]) &
+                           (capture_targets ^ QUIET[i]) &
+                           !self.pieces.color[self.to_move];
         }
+
+        // Double pushes are trickier.
+        dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
     }
 
     /// A helper method for `generate_moves`. It finds all squares
@@ -1173,7 +1148,7 @@ impl Board {
             return NO_PIECE;
         }
         for i in (KING..NO_PIECE).rev() {
-            if bb & unsafe { *self.pieces.piece_type.get_unchecked(i) } != 0 {
+            if bb & self.pieces.piece_type[i] != 0 {
                 return i;
             }
         }
@@ -1215,7 +1190,7 @@ impl Board {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
         if self.castling.can_castle(self.to_move, side) {
-            self.occupied() & unsafe { *BETWEEN.get_unchecked(self.to_move).get_unchecked(side) }
+            self.occupied() & BETWEEN[self.to_move][side]
         } else {
             // Castling is not possible, therefore every piece on
             // every square on the board can be considered an
