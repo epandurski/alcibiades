@@ -454,9 +454,8 @@ impl Board {
         if piece == PAWN {
             let en_passant_bb = self.en_passant_bb();
             if checkers & self.pieces.piece_type[PAWN] != 0 {
-                // Even if we are in check, the en-passant capture can
-                // still be a legal move, given that the checking
-                // piece is the passing pawn itself.
+                // We are in check from a pawn, therefore the
+                // en-passant capture is legal too.
                 pseudo_legal_dests |= en_passant_bb;
             }
             let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
