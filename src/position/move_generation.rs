@@ -51,8 +51,7 @@ pub struct Board {
 impl Board {
     /// Creates a new board instance.
     ///
-    /// This function makes expensive verification to make sure that
-    /// the resulting new board is legal.
+    /// This function verifies that the resulting new board is legal.
     pub fn create(pieces_placement: &PiecesPlacement,
                   to_move: Color,
                   castling: CastlingRights,
@@ -91,8 +90,7 @@ impl Board {
     ///
     /// A FEN (Forsyth–Edwards Notation) string defines a particular
     /// position using only the ASCII character set. This function
-    /// makes expensive verification to make sure that the resulting
-    /// new board is legal.
+    /// verifies that the resulting new board is legal.
     pub fn from_fen(fen: &str) -> Result<Board, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, _, _) =
             try!(parse_fen(fen).map_err(|_| IllegalPosition));
@@ -167,7 +165,8 @@ impl Board {
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
-        assert!(square <= 63);
+        debug_assert!(us <= 1);
+        debug_assert!(square <= 63);
         let occupied_by_us = self.pieces.color[us];
         let square_bb = 1 << square;
         let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get(us).unwrap();
