@@ -202,7 +202,6 @@ impl Board {
         // alpha-beta pruning will eliminate the need for this
         // verification at all.
 
-        debug_assert!(self.is_legal());
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = self.pieces.color[self.to_move];
