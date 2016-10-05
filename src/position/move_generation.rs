@@ -860,6 +860,7 @@ impl Board {
                            pawns: Bitboard,
                            en_passant_bb: Bitboard,
                            dest_sets: &mut [Bitboard; 4]) {
+        debug_assert_eq!(ls1b(en_passant_bb), en_passant_bb);
         const QUIET: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
                                       BB_UNIVERSAL_SET, // double push
                                       BB_EMPTY_SET, // west capture
@@ -893,11 +894,11 @@ impl Board {
                                  move_stack: &mut MoveStack) {
         debug_assert!(piece < PAWN);
         debug_assert!(orig_square <= 63);
-        let mut piece_dests = legal_dests &
-                              self.geometry
-                                  .piece_attacks_from(piece, orig_square, self.occupied());
-        while piece_dests != 0 {
-            let dest_square = bitscan_forward_and_reset(&mut piece_dests);
+        let mut piece_legal_dests = legal_dests &
+                                    self.geometry
+                                        .piece_attacks_from(piece, orig_square, self.occupied());
+        while piece_legal_dests != 0 {
+            let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
             move_stack.push(Move::new(self.to_move,
                                       MOVE_NORMAL,
@@ -921,6 +922,7 @@ impl Board {
                                 legal_dests: Bitboard,
                                 only_queen_promotions: bool,
                                 move_stack: &mut MoveStack) {
+        debug_assert_eq!(ls1b(en_passant_bb), en_passant_bb);
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
         self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
 
@@ -939,10 +941,9 @@ impl Board {
             let s = &mut dest_sets[i];
             while *s != 0 {
                 let dest_square = bitscan_forward_and_reset(s);
-                let dest_square_bb = 1 << dest_square;
                 let orig_square = (dest_square as isize - shifts[i]) as Square;
                 let captured_piece = self.get_piece_type_at(dest_square);
-                match dest_square_bb {
+                match 1 << dest_square {
 
                     // en-passant capture
                     x if x == en_passant_bb => {
@@ -1019,24 +1020,24 @@ impl Board {
             0
         } else {
             let occupied_by_us = self.pieces.color[self.to_move];
-            let between_king_square_and: &[Bitboard; 64] =
-                &self.geometry
-                     .squares_between_including[king_square];
-            let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
+            let potential_blockers = (occupied_by_us & !(1 << king_square)) |
+                                     (occupied_by_them & !pinners);
             let mut pinned_or_discovered_checkers = 0;
 
-            // Scan all potential pinners and see if there is one and only
-            // one piece between the pinner and our king.
+            // Scan all potential pinners and see if there is one and
+            // only one piece between our king and the pinner. (In
+            // this case the piece is either a pinned piece of ours or
+            // enemy's discovered checker.)
+            let between_our_king_and: &[Bitboard; 64] =
+                &self.geometry.squares_between_including[king_square];
             while pinners != 0 {
                 let pinner_square = bitscan_forward_and_reset(&mut pinners);
-                let blockers_group = blockers & between_king_square_and[pinner_square];
-                if ls1b(blockers_group) == blockers_group {
-                    // A group of blockers consisting of only one
-                    // piece is either a pinned piece of ours or
-                    // enemy's discovered checker.
-                    pinned_or_discovered_checkers |= blockers_group;
+                let blockers = potential_blockers & between_our_king_and[pinner_square];
+                if ls1b(blockers) == blockers {
+                    pinned_or_discovered_checkers |= blockers;
                 }
             }
+
             pinned_or_discovered_checkers & occupied_by_us
         }
     }
