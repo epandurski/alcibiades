@@ -913,7 +913,7 @@ impl Board {
     /// the set of pawns given by `pawns` to `move_stack`, ensuring
     /// that all destination squares are within the `legal_dests`
     /// set. When `only_queen_promotions` is `true`, only promotions
-    /// queen are pushed to `move_stack`.
+    /// to queen are pushed to `move_stack`.
     fn push_pawn_moves_to_stack(&self,
                                 pawns: Bitboard,
                                 en_passant_bb: Bitboard,
