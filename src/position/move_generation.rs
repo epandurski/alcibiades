@@ -422,7 +422,7 @@ impl Board {
         debug_assert!(piece <= PAWN);
 
         // Initialize the pseudo-legal destinations set -- we will
-        // continue to shrink this set as we go.
+        // continue to shrink (or expand) this set as we go.
         let mut pseudo_legal_dests = !occupied_by_us;
 
         if piece != KING {
