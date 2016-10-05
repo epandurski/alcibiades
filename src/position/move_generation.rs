@@ -922,7 +922,6 @@ impl Board {
                                 legal_dests: Bitboard,
                                 only_queen_promotions: bool,
                                 move_stack: &mut MoveStack) {
-        debug_assert_eq!(ls1b(en_passant_bb), en_passant_bb);
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
         self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
 
