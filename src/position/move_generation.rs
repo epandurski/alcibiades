@@ -843,8 +843,7 @@ impl Board {
         }
     }
 
-    /// A helper method for `push_piece_moves_to_stack` and
-    /// `try_move_digest`. It calculates the pseudo-legal destination
+    /// A helper method. It calculates the pseudo-legal destination
     /// squares for each pawn in `pawns` and stores them in the
     /// `dest_sets` array.
     ///
@@ -909,7 +908,7 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves()`. It pushes all
+    /// A helper method for `generate_moves`. It pushes all
     /// pseudo-legal moves by the set of pawns given by `pawns` to
     /// `move_stack`, ensuring that all destination squares are within
     /// the `legal_dests` set. When `only_queen_promotions` is `true`,
@@ -988,8 +987,8 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves`. It returns all pinned
-    /// pieces belonging to the side to move.
+    /// A helper method. It returns all pinned pieces belonging to the
+    /// side to move.
     fn find_pinned(&self) -> Bitboard {
         let king_square = self.king_square();
         let occupied_by_them = self.pieces.color[1 ^ self.to_move];
@@ -1035,8 +1034,8 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves`. It returns a bitboard
-    /// representing the en-passant target square if there is one.
+    /// A helper method. It returns a bitboard representing the
+    /// en-passant target square if there is one.
     #[inline(always)]
     fn en_passant_bb(&self) -> Bitboard {
         if self.en_passant_file >= NO_ENPASSANT_FILE {
@@ -1098,12 +1097,11 @@ impl Board {
         panic!("invalid board");
     }
 
-    /// A helper method for `push_pawn_moves_to_stack`. It tests for
-    /// the rare occasion when the two pawns participating in the
-    /// en-passant capture, disappearing from the 4/5-th rank in one
-    /// move, discover a check along this rank. `orig_square` and
-    /// `dist_square` are the origin and destination squares of the
-    /// capturing pawn.
+    /// A helper method. It tests for the rare occasion when the two
+    /// pawns participating in the en-passant capture, disappearing
+    /// from the 4/5-th rank in one move, discover a check along this
+    /// rank. `orig_square` and `dist_square` are the origin and
+    /// destination squares of the capturing pawn.
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if rank(king_square) != [RANK_5, RANK_4][self.to_move] {
