@@ -909,11 +909,11 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves()`. It pushes all moves by
-    /// the set of pawns given by `pawns` to `move_stack`, ensuring
-    /// that all destination squares are within the `legal_dests`
-    /// set. When `only_queen_promotions` is `true`, only promotions
-    /// to queen are pushed to `move_stack`.
+    /// A helper method for `generate_moves()`. It pushes all
+    /// pseudo-legal moves by the set of pawns given by `pawns` to
+    /// `move_stack`, ensuring that all destination squares are within
+    /// the `legal_dests` set. When `only_queen_promotions` is `true`,
+    /// only promotions to queen are pushed to `move_stack`.
     fn push_pawn_moves_to_stack(&self,
                                 pawns: Bitboard,
                                 en_passant_bb: Bitboard,
