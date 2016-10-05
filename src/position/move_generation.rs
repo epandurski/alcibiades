@@ -481,7 +481,7 @@ impl Board {
                     }
                 }
                 _ => {
-                    // normal pawn move (push or plain capture)
+                    // normal pawn move
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
                         return None;
                     }
@@ -921,8 +921,6 @@ impl Board {
                                 move_stack: &mut MoveStack) {
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
         self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
-
-        // Make sure all destination squares in all sets are legal.
         dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
         dest_sets[PAWN_PUSH] &= legal_dests;
         dest_sets[PAWN_WEST_CAPTURE] &= legal_dests;
@@ -931,7 +929,7 @@ impl Board {
         // Scan each destination set (push, double push, west capture,
         // east capture). For each move calculate the origin and
         // destination squares, and determine the move type
-        // (en-passant capture, pawn promotion, or a normal move).
+        // (en-passant capture, pawn promotion, or normal move).
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         for i in 0..4 {
             let s = &mut dest_sets[i];
@@ -974,7 +972,7 @@ impl Board {
                         }
                     }
 
-                    // normal pawn move (push or plain capture)
+                    // normal pawn move
                     _ => {
                         move_stack.push(Move::new(self.to_move,
                                                   MOVE_NORMAL,
@@ -1113,19 +1111,17 @@ impl Board {
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if rank(king_square) != [RANK_5, RANK_4][self.to_move] {
-            // The king is not on the 4/5-th rank -- we are done.
+            // The king is not on the 4/5-th rank.
             true
         } else {
-            // The king is on the 4/5-th rank -- we have more work to do.
             let the_two_pawns = 1 << orig_square |
                                 gen_shift(1 << dest_square,
                                           -PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
             let occupied = self.occupied() & !the_two_pawns;
 
-            0 ==
             self.geometry.piece_attacks_from(ROOK, king_square, occupied) &
             self.pieces.color[1 ^ self.to_move] &
-            (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])
+            (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]) == 0
         }
     }
 
