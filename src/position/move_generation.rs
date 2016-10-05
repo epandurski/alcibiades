@@ -727,8 +727,6 @@ impl Board {
 
     /// Calculates and returns the Zobrist hash value for the board.
     ///
-    /// This is a relatively expensive operation.
-    ///
     /// Zobrist hashing is a technique to transform a board position
     /// into a number of a fixed length, with an equal distribution
     /// over all possible numbers, invented by Albert Zobrist. The key
