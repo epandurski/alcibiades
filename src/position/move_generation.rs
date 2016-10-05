@@ -204,13 +204,12 @@ impl Board {
         // alpha-beta pruning will eliminate the need for this
         // verification at all.
 
+        debug_assert!(self.is_legal());
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = self.pieces.color[self.to_move];
         let occupied_by_them = self.occupied() ^ occupied_by_us;
         let generate_all_moves = all || checkers != 0;
-        debug_assert!(self.is_legal());
-        debug_assert!(king_square <= 63);
 
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
@@ -345,8 +344,9 @@ impl Board {
     /// aggressive pruning.
     #[inline]
     pub fn null_move(&self) -> Move {
+        // Null moves are represented as king's moves for which the
+        // destination square equals the origin square.
         let king_square = self.king_square();
-        debug_assert!(king_square <= 63);
         Move::new(self.to_move,
                   MOVE_NORMAL,
                   KING,
@@ -1011,7 +1011,6 @@ impl Board {
     fn find_pinned(&self) -> Bitboard {
         let king_square = self.king_square();
         let occupied_by_them = self.pieces.color[1 ^ self.to_move];
-        debug_assert!(king_square <= 63);
 
         // To find all potential pinners, we remove all our pieces
         // from the board, and all enemy pieces that can not slide in
