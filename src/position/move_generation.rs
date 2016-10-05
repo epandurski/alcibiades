@@ -365,15 +365,30 @@ impl Board {
     /// `None`. This is useful when playing moves from the
     /// transposition table, without calling `generate_moves`.
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
-        // We could easily call `generate_moves` here and verify if
-        // some of the generated moves has the right digest, but this
-        // would be much slower. The whole purpose of this method is
-        // to be able to check if a move is pseudo-legal *without*
-        // generating all moves.
+        // The purpose of this method is to be able to check if a move
+        // is pseudo-legal *without* generating all moves.
+
+        let mut generated_move = unsafe { uninitialized() };
+
+        if cfg!(debug_assertions) {
+            // Initialize `generated_move`, which will be used to
+            // assert that `try_move_digest` works correctly.
+            generated_move = None;
+            let mut move_stack = MoveStack::new();
+            self.generate_moves(true, &mut move_stack);
+            while let Some(m) = move_stack.pop() {
+                if m.digest() == move_digest {
+                    generated_move = Some(m);
+                    break;
+                }
+            }
+        }
 
         if move_digest == 0 {
+            debug_assert!(generated_move.is_none());
             return None;
         }
+
         let move_type = get_move_type(move_digest);
         let orig_square = get_orig_square(move_digest);
         let dest_square = get_dest_square(move_digest);
@@ -390,17 +405,20 @@ impl Board {
             if checkers != 0 || self.castling_obstacles(side) != 0 || orig_square != king_square ||
                dest_square != [[C1, C8], [G1, G8]][side][self.to_move] ||
                promoted_piece_code != 0 {
+                debug_assert!(generated_move.is_none());
                 return None;
             }
-            return Some(Move::new(self.to_move,
-                                  MOVE_CASTLING,
-                                  KING,
-                                  orig_square,
-                                  dest_square,
-                                  NO_PIECE,
-                                  self.en_passant_file,
-                                  self.castling,
-                                  0));
+            let m = Move::new(self.to_move,
+                              MOVE_CASTLING,
+                              KING,
+                              orig_square,
+                              dest_square,
+                              NO_PIECE,
+                              self.en_passant_file,
+                              self.castling,
+                              0);
+            debug_assert_eq!(generated_move, Some(m));
+            return Some(m);
         }
 
         let occupied_by_us = self.pieces.color[self.to_move];
@@ -417,6 +435,7 @@ impl Board {
                     break 'pieces;
                 }
             }
+            debug_assert!(generated_move.is_none());
             return None;
         }
         debug_assert!(piece <= PAWN);
@@ -437,6 +456,7 @@ impl Board {
                 }
                 _ => {
                     // We are in double check.
+                    debug_assert!(generated_move.is_none());
                     return None;
                 } 
             };
@@ -460,6 +480,7 @@ impl Board {
                                   dest_sets[PAWN_WEST_CAPTURE] |
                                   dest_sets[PAWN_EAST_CAPTURE];
             if pseudo_legal_dests & dest_square_bb == 0 {
+                debug_assert!(generated_move.is_none());
                 return None;
             }
 
@@ -469,6 +490,7 @@ impl Board {
                     if move_type != MOVE_ENPASSANT ||
                        !self.en_passant_special_check_ok(orig_square, dest_square) ||
                        promoted_piece_code != 0 {
+                        debug_assert!(generated_move.is_none());
                         return None;
                     }
                     captured_piece = PAWN;
@@ -476,12 +498,14 @@ impl Board {
                 x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                     // pawn promotion
                     if move_type != MOVE_PROMOTION {
+                        debug_assert!(generated_move.is_none());
                         return None;
                     }
                 }
                 _ => {
                     // normal move
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
+                        debug_assert!(generated_move.is_none());
                         return None;
                     }
                 }
@@ -493,19 +517,22 @@ impl Board {
                                       .piece_attacks_from(piece, orig_square, self.occupied());
             if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 ||
                promoted_piece_code != 0 {
+                debug_assert!(generated_move.is_none());
                 return None;
             }
         }
 
-        Some(Move::new(self.to_move,
-                       move_type,
-                       piece,
-                       orig_square,
-                       dest_square,
-                       captured_piece,
-                       self.en_passant_file,
-                       self.castling,
-                       promoted_piece_code))
+        let m = Move::new(self.to_move,
+                          move_type,
+                          piece,
+                          orig_square,
+                          dest_square,
+                          captured_piece,
+                          self.en_passant_file,
+                          self.castling,
+                          promoted_piece_code);
+        debug_assert_eq!(generated_move, Some(m));
+        Some(m)
     }
 
     /// Plays a move on the board.
