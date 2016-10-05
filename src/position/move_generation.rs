@@ -481,7 +481,7 @@ impl Board {
                     }
                 }
                 _ => {
-                    // normal pawn move
+                    // normal move
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
                         return None;
                     }
@@ -848,10 +848,10 @@ impl Board {
     /// squares for each pawn in `pawns` and stores them in the
     /// `dest_sets` array.
     ///
-    /// `dest_sets` is indexed by the type of the pawn move: push,
-    /// double push, west capture, and east capture. The benefit of
-    /// this separation is that knowing the destination square and the
-    /// pawn move type (the index in the `dest_sets` array) is enough
+    /// `dest_sets` is indexed by the sub-type of the pawn move: push,
+    /// double push, west capture, east capture. The benefit of this
+    /// separation is that knowing the destination square and the pawn
+    /// move sub-type (the index in the `dest_sets` array) is enough
     /// to recover the origin square.
     #[inline(always)]
     fn calc_pawn_dest_sets(&self,
@@ -920,22 +920,20 @@ impl Board {
                                 legal_dests: Bitboard,
                                 only_queen_promotions: bool,
                                 move_stack: &mut MoveStack) {
+        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
         self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
-        dest_sets[PAWN_DOUBLE_PUSH] &= legal_dests;
-        dest_sets[PAWN_PUSH] &= legal_dests;
-        dest_sets[PAWN_WEST_CAPTURE] &= legal_dests;
-        dest_sets[PAWN_EAST_CAPTURE] &= legal_dests;
 
-        // Scan each destination set (push, double push, west capture,
-        // east capture). For each move calculate the origin and
-        // destination squares, and determine the move type
-        // (en-passant capture, pawn promotion, or normal move).
-        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
+        // Process each pawn move sub-type (push, double push, west
+        // capture, east capture).
         for i in 0..4 {
-            let s = &mut dest_sets[i];
-            while *s != 0 {
-                let dest_square = bitscan_forward_and_reset(s);
+            let mut pawn_legal_dests = dest_sets[i] & legal_dests;
+
+            // For each legal destination, determine the move type
+            // (en-passant capture, pawn promotion, normal move), and
+            // push the move to `move_stack`.
+            while pawn_legal_dests != 0 {
+                let dest_square = bitscan_forward_and_reset(&mut pawn_legal_dests);
                 let orig_square = (dest_square as isize - shifts[i]) as Square;
                 let captured_piece = self.get_piece_type_at(dest_square);
                 match 1 << dest_square {
@@ -973,7 +971,7 @@ impl Board {
                         }
                     }
 
-                    // normal pawn move
+                    // normal move
                     _ => {
                         move_stack.push(Move::new(self.to_move,
                                                   MOVE_NORMAL,
@@ -1141,8 +1139,8 @@ impl Board {
 }
 
 
-// Pawn move types:
-// ================
+// Pawn move sub-types:
+// ====================
 
 /// Pawn push move.
 const PAWN_PUSH: usize = 0;
@@ -1157,7 +1155,7 @@ const PAWN_WEST_CAPTURE: usize = 2;
 const PAWN_EAST_CAPTURE: usize = 3;
 
 
-/// Pawn move shifts (one for each color and pawn move type).
+/// Pawn move shifts (one for each color and pawn move sub-type).
 ///
 /// Example: The bitboard for a white pawn on "e2" is `1 << E2`. If
 /// the pawn is pushed one square forward, the updated bitboard would
