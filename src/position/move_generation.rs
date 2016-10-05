@@ -165,8 +165,6 @@ impl Board {
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
-        debug_assert!(us <= 1);
-        debug_assert!(square <= 63);
         let occupied_by_us = self.pieces.color[us];
         let square_bb = 1 << square;
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
@@ -893,7 +891,6 @@ impl Board {
                                  legal_dests: Bitboard,
                                  move_stack: &mut MoveStack) {
         debug_assert!(piece < PAWN);
-        debug_assert!(orig_square <= 63);
         let mut piece_legal_dests = legal_dests &
                                     self.geometry
                                         .piece_attacks_from(piece, orig_square, self.occupied());
@@ -1045,7 +1042,6 @@ impl Board {
     /// representing the en-passant target square if there is one.
     #[inline(always)]
     fn en_passant_bb(&self) -> Bitboard {
-        debug_assert!(self.en_passant_file <= NO_ENPASSANT_FILE);
         if self.en_passant_file >= NO_ENPASSANT_FILE {
             0
         } else if self.to_move == WHITE {
