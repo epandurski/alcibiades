@@ -349,7 +349,7 @@ impl<'a> Search<'a> {
     fn do_move(&mut self) -> Option<Move> {
         debug_assert!(self.state_stack.len() > 0);
         let ply = self.state_stack.len() - 1;
-        let state = self.state_stack.get_mut(ply).unwrap();
+        let state = &mut self.state_stack[ply];
         debug_assert!(if let NodePhase::Pristine = state.phase {
             false
         } else {
@@ -584,7 +584,7 @@ impl KillerTable {
             // captures and promotions.
             return;
         }
-        let pair = self.array.get_mut(half_move).unwrap();
+        let pair = &mut self.array[half_move];
         let minor = &mut pair.minor;
         let major = &mut pair.major;
         let digest = m.digest();
@@ -620,7 +620,7 @@ impl KillerTable {
     #[inline]
     pub fn get(&self, half_move: usize) -> (MoveDigest, MoveDigest) {
         debug_assert!(half_move < self.array.len());
-        let pair = self.array.get(half_move).unwrap();
+        let pair = &self.array[half_move];
         (pair.major.digest, pair.minor.digest)
     }
 
@@ -629,7 +629,7 @@ impl KillerTable {
     #[inline]
     pub fn downgrade(&mut self, half_move: usize) {
         debug_assert!(half_move < self.array.len());
-        let pair = self.array.get_mut(half_move).unwrap();
+        let pair = &mut self.array[half_move];
         pair.minor.hits >>= 1;
         pair.major.hits >>= 1;
     }

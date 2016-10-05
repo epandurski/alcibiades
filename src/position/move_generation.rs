@@ -169,7 +169,7 @@ impl Board {
         debug_assert!(square <= 63);
         let occupied_by_us = self.pieces.color[us];
         let square_bb = 1 << square;
-        let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get(us).unwrap();
+        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
 
         (self.geometry.piece_attacks_from(ROOK, square, self.occupied()) & occupied_by_us &
          (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) |
@@ -868,7 +868,7 @@ impl Board {
                                            BB_RANK_2 | BB_RANK_7,
                                            !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
                                            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
-        let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get(self.to_move).unwrap();
+        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         let capture_targets = self.pieces.color[1 ^ self.to_move] | en_passant_bb;
         for i in 0..4 {
             dest_sets[i] = gen_shift(pawns & CANDIDATES[i], shifts[i]) &
@@ -933,9 +933,9 @@ impl Board {
         // east capture). For each move calculate the origin and
         // destination squares, and determine the move type
         // (en-passant capture, pawn promotion, or a normal move).
-        let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get(self.to_move).unwrap();
+        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         for i in 0..4 {
-            let s = dest_sets.get_mut(i).unwrap();
+            let s = &mut dest_sets[i];
             while *s != 0 {
                 let dest_square = bitscan_forward_and_reset(s);
                 let dest_square_bb = 1 << dest_square;
@@ -1018,10 +1018,9 @@ impl Board {
             0
         } else {
             let occupied_by_us = self.pieces.color[self.to_move];
-            let between_king_square_and: &[Bitboard; 64] = self.geometry
-                                                               .squares_between_including
-                                                               .get(king_square)
-                                                               .unwrap();
+            let between_king_square_and: &[Bitboard; 64] =
+                &self.geometry
+                     .squares_between_including[king_square];
             let blockers = occupied_by_us & !(1 << king_square) | (occupied_by_them & !pinners);
             let mut pinned_or_discovered_checkers = 0;
 
@@ -1078,7 +1077,7 @@ impl Board {
         (self.geometry.piece_attacks_from(KING, square, occupied) & occupied_by_them &
          self.pieces.piece_type[KING]) != 0 ||
         {
-            let shifts: &[isize; 4] = PAWN_MOVE_SHIFTS.get(them).unwrap();
+            let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
             let square_bb = 1 << square;
 
             (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
