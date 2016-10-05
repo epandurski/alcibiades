@@ -1101,14 +1101,11 @@ impl Board {
     }
 
     /// A helper method for `push_pawn_moves_to_stack`. It tests for
-    /// the special case when an en-passant capture discovers check on
-    /// 4/5-th rank.
-    ///
-    /// This method tests for the very rare occasion when the two
-    /// pawns participating in en-passant capture, disappearing in one
-    /// move, discover an unexpected check along the horizontal (rank
-    /// 4 of 5). `orig_square` and `dist_square` are the origin square
-    /// and the destination square of the capturing pawn.
+    /// the rare occasion when the two pawns participating in the
+    /// en-passant capture, disappearing from the 4/5-th rank in one
+    /// move, discover a check along this rank. `orig_square` and
+    /// `dist_square` are the origin and destination squares of the
+    /// capturing pawn.
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if rank(king_square) != [RANK_5, RANK_4][self.to_move] {
