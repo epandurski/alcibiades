@@ -1112,7 +1112,7 @@ impl Board {
     /// and the destination square of the capturing pawn.
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
-        if (1 << king_square) & [BB_RANK_5, BB_RANK_4][self.to_move] == 0 {
+        if rank(king_square) != [RANK_5, RANK_4][self.to_move] {
             // The king is not on the 4/5-th rank -- we are done.
             true
         } else {
@@ -1133,7 +1133,6 @@ impl Board {
     /// between the king and the castling rook.
     #[inline(always)]
     fn castling_obstacles(&self, side: CastlingSide) -> Bitboard {
-        debug_assert!(side <= 1);
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
         if self.castling.can_castle(self.to_move, side) {
