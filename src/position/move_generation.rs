@@ -870,10 +870,11 @@ impl Board {
                                            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         let capture_targets = self.pieces.color[1 ^ self.to_move] | en_passant_bb;
+        let not_occupied_by_us = !self.pieces.color[self.to_move];
         for i in 0..4 {
             dest_sets[i] = gen_shift(pawns & CANDIDATES[i], shifts[i]) &
                            (capture_targets ^ QUIET[i]) &
-                           !self.pieces.color[self.to_move];
+                           not_occupied_by_us;
         }
 
         // Double pushes are trickier.
