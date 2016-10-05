@@ -909,10 +909,10 @@ impl Board {
         }
     }
 
-    /// A helper method for `generate_moves()`. It finds all moves by
-    /// the set of pawns given by `pawns`, making sure that all
-    /// destination squares are within the `legal_dests` set. Then it
-    /// pushes the moves to `move_stack`.
+    /// A helper method for `generate_moves()`. It pushes all moves by
+    /// the set of pawns given by `pawns` to `move_stack`, ensuring
+    /// that all destination squares are within the `legal_dests`
+    /// set. Then it pushes the moves to `move_stack`.
     fn push_pawn_moves_to_stack(&self,
                                 pawns: Bitboard,
                                 en_passant_bb: Bitboard,
