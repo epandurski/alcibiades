@@ -667,7 +667,6 @@ impl Board {
         let orig_square = m.orig_square();
         let dest_square = m.dest_square();
         let dest_square_bb = 1 << dest_square;
-        let aux_data = m.aux_data();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
         assert!(piece < NO_PIECE);
@@ -684,7 +683,7 @@ impl Board {
 
         // Empty the destination square.
         let dest_piece = if move_type == MOVE_PROMOTION {
-            Move::piece_from_aux_data(aux_data)
+            Move::piece_from_aux_data(m.aux_data())
         } else {
             piece
         };
