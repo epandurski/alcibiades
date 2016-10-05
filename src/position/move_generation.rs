@@ -380,10 +380,6 @@ impl Board {
         let promoted_piece_code = get_aux_data(move_digest);
         let king_square = self.king_square();
         let checkers = self.checkers();
-        debug_assert!(self.to_move <= 1);
-        debug_assert!(move_type <= 3);
-        debug_assert!(orig_square <= 63);
-        debug_assert!(dest_square <= 63);
 
         if move_type == MOVE_CASTLING {
             let side = if dest_square < orig_square {
@@ -415,7 +411,7 @@ impl Board {
         // Figure out what is the type of the moved piece.
         let piece;
         'pieces: loop {
-            for i in (KING..NO_PIECE).rev() {
+            for i in KING..NO_PIECE {
                 if orig_square_bb & self.pieces.piece_type[i] != 0 {
                     piece = i;
                     break 'pieces;
@@ -425,13 +421,16 @@ impl Board {
         }
         debug_assert!(piece <= PAWN);
 
-        // We initialize the pseudo-legal destinations set here. We
-        // will continue to shrink this set as we go.
+        // Initialize the pseudo-legal destinations set -- we will
+        // continue to shrink this set as we go.
         let mut pseudo_legal_dests = !occupied_by_us;
 
         if piece != KING {
             pseudo_legal_dests &= match ls1b(checkers) {
-                0 => BB_UNIVERSAL_SET,
+                0 => {
+                    // We are not in check.
+                    BB_UNIVERSAL_SET
+                }
                 x if x == checkers => {
                     // We are in check.
                     x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)]
