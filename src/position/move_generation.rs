@@ -666,19 +666,12 @@ impl Board {
         let move_type = m.move_type();
         let orig_square = m.orig_square();
         let dest_square = m.dest_square();
+        let dest_square_bb = 1 << dest_square;
         let aux_data = m.aux_data();
         let piece = m.piece();
         let captured_piece = m.captured_piece();
         assert!(piece < NO_PIECE);
-        debug_assert!(them <= 1);
-        debug_assert!(move_type <= 3);
-        debug_assert!(orig_square <= 63);
-        debug_assert!(dest_square <= 63);
-        debug_assert!(aux_data <= 3);
         debug_assert!(m.en_passant_file() <= NO_ENPASSANT_FILE);
-
-        let orig_bb = 1 << orig_square;
-        let not_dest_bb = !(1 << dest_square);
 
         // Change the side to move.
         self.to_move = us;
@@ -695,25 +688,24 @@ impl Board {
         } else {
             piece
         };
-        self.pieces.piece_type[dest_piece] &= not_dest_bb;
-        self.pieces.color[us] &= not_dest_bb;
+        self.pieces.piece_type[dest_piece] &= !dest_square_bb;
+        self.pieces.color[us] &= !dest_square_bb;
 
         // Put back the captured piece (if any).
         if captured_piece < NO_PIECE {
-            let captured_bb = if move_type == MOVE_ENPASSANT {
-                let captured_pawn_square =
-                    (dest_square as isize + PAWN_MOVE_SHIFTS[them][PAWN_PUSH]) as Square;
-                1 << captured_pawn_square
+            let captured_piece_bb = if move_type == MOVE_ENPASSANT {
+                gen_shift(dest_square_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
             } else {
-                !not_dest_bb
+                dest_square_bb
             };
-            self.pieces.piece_type[captured_piece] |= captured_bb;
-            self.pieces.color[them] |= captured_bb;
+            self.pieces.piece_type[captured_piece] |= captured_piece_bb;
+            self.pieces.color[them] |= captured_piece_bb;
         }
 
         // Restore the piece on the origin square.
-        self.pieces.piece_type[piece] |= orig_bb;
-        self.pieces.color[us] |= orig_bb;
+        let orig_square_bb = 1 << orig_square;
+        self.pieces.piece_type[piece] |= orig_square_bb;
+        self.pieces.color[us] |= orig_square_bb;
 
         // Move the rook back if the move is castling.
         if move_type == MOVE_CASTLING {
