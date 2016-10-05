@@ -474,6 +474,7 @@ impl Board {
                 // en-passant capture is legal too.
                 pseudo_legal_dests |= en_passant_bb;
             }
+
             let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
             self.calc_pawn_dest_sets(orig_square_bb, en_passant_bb, &mut dest_sets);
             pseudo_legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
