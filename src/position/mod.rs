@@ -679,10 +679,9 @@ impl Position {
             gain[depth + 1] = PIECE_VALUES[piece] - gain[depth];
 
             if max(-gain[depth], gain[depth + 1]) < 0 {
-                // Now we know that the sign of the result will not
-                // change even if the captured piece happens to be
-                // defended. This is good enough for our purposes, so
-                // we stop here.
+                // The side that made the last capture wins even if
+                // the captured piece happens to be defended. This is
+                // good enough for our purposes, so we stop here.
                 break;
             }
 
