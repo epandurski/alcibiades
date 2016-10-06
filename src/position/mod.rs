@@ -680,82 +680,81 @@ impl Position {
         // `may_xray` set makes a capture.
         let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
 
-        unsafe {
-            let mut depth = 0;
-            let mut gain: [Value; 66] = mem::uninitialized();
-            *gain.get_unchecked_mut(depth) = PIECE_VALUES[captured_piece];
+        let mut depth = 0;
+        let mut gain: [Value; 66] = unsafe { mem::uninitialized() };
+        gain[depth] = PIECE_VALUES[captured_piece];
 
-            // Try each piece in `attackers_and_defenders` one by one,
-            // starting with `piece` at `orig_square_bb`.
-            'exchange: while orig_square_bb != 0 {
-                // Change the side to move.
-                us ^= 1;
-                depth += 1;
+        // Try each piece in `attackers_and_defenders` one by one,
+        // starting with `piece` at `orig_square_bb`.
+        'exchange: while orig_square_bb != 0 {
+            // Change the side to move.
+            us ^= 1;
+            depth += 1;
 
-                // Store a speculative value that will be used if the
-                // captured piece happens to be defended.
-                *gain.get_unchecked_mut(depth) = PIECE_VALUES[piece] -
-                                                 *gain.get_unchecked(depth - 1);
+            // Store a speculative value that will be used if the
+            // captured piece happens to be defended.
+            gain[depth] = PIECE_VALUES[piece] - gain[depth - 1];
 
-                if max(-*gain.get_unchecked(depth - 1), *gain.get_unchecked(depth)) < 0 {
-                    // Stopping here may change the exact value that
-                    // would otherwise be returned, but will never
-                    // change the sign of the returned value, which is
-                    // good enough for our purposes.
-                    break;
-                }
-
-                // Register that `orig_square_bb` is now vacant.
-                attackers_and_defenders &= !orig_square_bb;
-                occupied &= !orig_square_bb;
-
-                // Consider adding new attackers/defenders, now that
-                // `orig_square_bb` is vacant.
-                if orig_square_bb & may_xray != 0 {
-                    attackers_and_defenders |= {
-                        let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
-                        let bb = geometry.piece_attacks_from(ROOK, dest_square, candidates) &
-                                 candidates &
-                                 (piece_type[QUEEN] | piece_type[ROOK]);
-                        if bb != 0 {
-                            // a straight slider
-                            bb
-                        } else {
-                            // a diagonal slider
-                            geometry.piece_attacks_from(BISHOP, dest_square, candidates) &
-                            candidates &
-                            (piece_type[QUEEN] | piece_type[BISHOP])
-                        }
-                    };
-                }
-
-                // Find the next piece to enter the exchange.
-                let candidates = attackers_and_defenders & color[us];
-                for p in (KING..NO_PIECE).rev() {
-                    let bb = candidates & piece_type[p];
-                    if bb != 0 {
-                        piece = p;
-                        orig_square_bb = ls1b(bb);
-                        continue 'exchange;
-                    }
-                }
-                break 'exchange;
+            if max(-gain[depth - 1], gain[depth]) < 0 {
+                // Now we know that the sign of the result will
+                // not change even if the captured piece happens
+                // to be defended. This is good enough for our
+                // purposes, so we can stop here.
+                break;
             }
 
-            // Discard the speculative store -- the last attacker can
-            // never be captured.
-            depth -= 1;
+            // Register that `orig_square_bb` is now vacant.
+            attackers_and_defenders &= !orig_square_bb;
+            occupied &= !orig_square_bb;
 
-            // Collapse the all values to one. Again, exploit the fact
-            // that the side to move can back off from further
-            // exchange if it is not favorable.
+            // Consider adding new attackers/defenders, now that
+            // `orig_square_bb` is vacant.
+            if orig_square_bb & may_xray != 0 {
+                attackers_and_defenders |= {
+                    let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
+                    let bb = geometry.piece_attacks_from(ROOK, dest_square, candidates) &
+                             candidates &
+                             (piece_type[QUEEN] | piece_type[ROOK]);
+                    if bb != 0 {
+                        // a straight slider
+                        bb
+                    } else {
+                        // a diagonal slider
+                        geometry.piece_attacks_from(BISHOP, dest_square, candidates) & candidates &
+                        (piece_type[QUEEN] | piece_type[BISHOP])
+                    }
+                };
+            }
+
+            // Find the next piece to enter the exchange.
+            let candidates = attackers_and_defenders & color[us];
+            for p in (KING..NO_PIECE).rev() {
+                let bb = candidates & piece_type[p];
+                if bb != 0 {
+                    piece = p;
+                    orig_square_bb = ls1b(bb);
+                    continue 'exchange;
+                }
+            }
+            break 'exchange;
+        }
+
+        // Discard the speculative store -- the last attacker can
+        // never be captured.
+        depth -= 1;
+
+        // Collapse the all values to one. Again, exploit the fact
+        // that the side to move can back off from further exchange if
+        // it is not favorable (negamax).
+        unsafe {
             while depth > 0 {
                 *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
                                                           *gain.get_unchecked(depth));
                 depth -= 1;
             }
-            gain[0]
         }
+
+        gain[0]
     }
 
     /// A helper method for `from_history`. It removes all states but
