@@ -725,11 +725,10 @@ impl Position {
             break 'exchange;
         }
 
-        // Negamax the `gain` array (an unary tree since there are no
-        // branches but just a series of captures) for a final static
-        // exchange evaluation. This uses the fact that the side to
-        // move can back off from further exchange if it is not
-        // favorable.
+        // Negamax the `gain` array for the final static exchange
+        // evaluation. (The `gain` array actually represents a binary
+        // tree, at each node of which the player can either continue
+        // the exchange or back off.)
         unsafe {
             while depth > 0 {
                 *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
