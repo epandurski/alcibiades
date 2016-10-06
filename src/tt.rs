@@ -11,10 +11,9 @@
 //! information about positions previously searched, how deeply they
 //! were searched, and what we concluded about them.
 
-use std;
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
-use std::mem::transmute;
+use std::mem::{transmute, size_of};
 use basetypes::Value;
 use moves::MoveDigest;
 
@@ -167,7 +166,7 @@ impl Tt {
     /// not in the form "2**n", the new size of the transposition
     /// table will be as close as possible, but less than `size_mb`.
     pub fn resize(&mut self, size_mb: usize) {
-        let requested_cluster_count = (size_mb * 1024 * 1024) / std::mem::size_of::<[Record; 4]>();
+        let requested_cluster_count = (size_mb * 1024 * 1024) / size_of::<[Record; 4]>();
 
         // Calculate the new cluster count. (To do this, first we make
         // sure that `requested_cluster_count` is exceeded. Then we
@@ -191,7 +190,7 @@ impl Tt {
 
     /// Returns the size of the transposition table in Mbytes.
     pub fn size(&self) -> usize {
-        unsafe { &*self.table.get() }.len() * std::mem::size_of::<[Record; 4]>() / 1024 / 1024
+        self.cluster_count * size_of::<[Record; 4]>() / 1024 / 1024
     }
 
     /// Signals that a new search is about to begin.
