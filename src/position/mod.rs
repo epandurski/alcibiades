@@ -6,7 +6,7 @@ pub mod bitsets;
 mod evaluation;
 
 use std::u16;
-use std::mem;
+use std::mem::uninitialized;
 use std::cmp::max;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
@@ -669,7 +669,7 @@ impl Position {
         // The `gain` array will hold the total material gained at
         // each `depth`, from the viewpoint of the side that made the
         // last capture (`us`).
-        let mut gain: [Value; 34] = unsafe { mem::uninitialized() };
+        let mut gain: [Value; 34] = unsafe { uninitialized() };
         gain[depth] = PIECE_VALUES[m.captured_piece()];
 
         // Examine the possible exchanges, fill the `gain` array.
