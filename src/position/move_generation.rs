@@ -1100,11 +1100,10 @@ impl Board {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
             let square_bb = 1 << square;
 
-            (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
-             self.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) !=
-            0 ||
-            (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
-             self.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8)) != 0
+            gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
+            self.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8) != 0 ||
+            gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
+            self.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8) != 0
         }
     }
 
