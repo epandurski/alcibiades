@@ -588,7 +588,7 @@ impl Position {
 
                         // This is an even exchange -- try it only
                         // during the first few plys.
-                        0 if ply >= SSE_EXCHANGE_MAX_PLY => continue,
+                        0 if ply >= SEE_EXCHANGE_MAX_PLY => continue,
 
                         // A winning move -- try it always.
                         _ => (),
@@ -638,7 +638,7 @@ impl Position {
     }
 
     /// A helper method for `qsearch` and `evaluate_move`. It
-    /// calculates the static evaluation exchange (SSE) value of a
+    /// calculates the static exchange evaluation (SEE) value of a
     /// move.
     fn calc_see(&self, m: Move) -> Value {
         debug_assert!(m.piece() < NO_PIECE);
@@ -653,8 +653,8 @@ impl Position {
         let color: &[Bitboard; 2] = &board.pieces().color;
 
         // Those will be updated on each capture:
-        let mut depth = 0;
         let mut us = self.board().to_move();
+        let mut depth = 0;
         let mut piece = m.piece();
         let mut orig_square_bb = 1 << m.orig_square();
         let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
@@ -667,27 +667,22 @@ impl Position {
         let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
 
         // The `gain` array will hold the total material gained at
-        // each `depth`, from the viewpoint of the side that played
-        // the last move (`us`).
+        // each `depth`, from the viewpoint of the side that made the
+        // last capture (`us`).
         let mut gain: [Value; 34] = unsafe { mem::uninitialized() };
         gain[depth] = PIECE_VALUES[m.captured_piece()];
 
-        // Try each piece in `attackers_and_defenders` one by one,
-        // starting with `piece` at `orig_square_bb`.
+        // Examine the possible exchanges, fill the `gain` array.
         'exchange: while orig_square_bb != 0 {
-            // Change the side to move.
-            us ^= 1;
-            depth += 1;
-
             // Store a speculative value that will be used if the
             // captured piece happens to be defended.
-            gain[depth] = PIECE_VALUES[piece] - gain[depth - 1];
+            gain[depth + 1] = PIECE_VALUES[piece] - gain[depth];
 
-            if max(-gain[depth - 1], gain[depth]) < 0 {
-                // Now we know that the sign of the result will
-                // not change even if the captured piece happens
-                // to be defended. This is good enough for our
-                // purposes, so we can stop here.
+            if max(-gain[depth], gain[depth + 1]) < 0 {
+                // Now we know that the sign of the result will not
+                // change even if the captured piece happens to be
+                // defended. This is good enough for our purposes, so
+                // we stop here.
                 break;
             }
 
@@ -713,12 +708,16 @@ impl Position {
                 };
             }
 
+            // Change the side to move.
+            us ^= 1;
+
             // Find the next piece to enter the exchange. (The least
             // valuable piece belonging to the side to move.)
             let candidates = attackers_and_defenders & color[us];
             for p in (KING..NO_PIECE).rev() {
                 let bb = candidates & piece_type[p];
                 if bb != 0 {
+                    depth += 1;
                     piece = p;
                     orig_square_bb = ls1b(bb);
                     continue 'exchange;
@@ -727,15 +726,11 @@ impl Position {
             break 'exchange;
         }
 
-        // Discard the speculative store -- the last attacker can not
-        // be captured.
-        depth -= 1;
-
-        // The `gain` array (an unary tree since there are no branches
-        // but just a series of captures) is negamaxed for a final
-        // static exchange evaluation. (Using the fact that the side
-        // to move can back off from further exchange if it is not
-        // favorable.)
+        // Negamax the `gain` array (an unary tree since there are no
+        // branches but just a series of captures) for a final static
+        // exchange evaluation. This uses the fact that the side to
+        // move can back off from further exchange if it is not
+        // favorable.
         unsafe {
             while depth > 0 {
                 *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
@@ -879,9 +874,9 @@ thread_local!(
 const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
 
-/// Do not try exchanges with SSE==0 in `qsearch` once this ply has
+/// Do not try exchanges with SEE==0 in `qsearch` once this ply has
 /// been reached.
-const SSE_EXCHANGE_MAX_PLY: u8 = 2;
+const SEE_EXCHANGE_MAX_PLY: u8 = 2;
 
 
 /// Do not blend `halfmove_clock` into position's hash until it gets
