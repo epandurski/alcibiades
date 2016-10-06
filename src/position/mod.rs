@@ -674,16 +674,16 @@ impl Position {
         debug_assert!(piece < NO_PIECE);
         debug_assert!(captured_piece <= NO_PIECE);
 
-        // `may_xray` holds the set of pieces that may block x-ray
-        // attacks from other pieces, so we must consider adding new
-        // attackers/defenders every time a piece from the `may_xray`
-        // set makes a capture.
+        // `may_xray` holds the set of pieces that may block attacks
+        // from other pieces, and therefore we must consider adding
+        // new attackers/defenders every time a piece from the
+        // `may_xray` set makes a capture.
         let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
 
         unsafe {
             let mut depth = 0;
             let mut gain: [Value; 66] = mem::uninitialized();
-            *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(captured_piece);
+            *gain.get_unchecked_mut(depth) = PIECE_VALUES[captured_piece];
 
             // Try each piece in `attackers_and_defenders` one by one,
             // starting with `piece` at `orig_square`.
@@ -694,7 +694,7 @@ impl Position {
 
                 // Store a speculative value that will be used if the
                 // captured piece happens to be defended.
-                *gain.get_unchecked_mut(depth) = *PIECE_VALUES.get_unchecked(piece) -
+                *gain.get_unchecked_mut(depth) = PIECE_VALUES[piece] -
                                                  *gain.get_unchecked(depth - 1);
 
                 if max(-*gain.get_unchecked(depth - 1), *gain.get_unchecked(depth)) < 0 {
@@ -887,7 +887,7 @@ thread_local!(
 
 
 /// The material value of pieces.
-const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
+const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
 
 /// Do not try exchanges with SSE==0 in `qsearch` once this ply has
