@@ -14,7 +14,6 @@ use basetypes::*;
 use moves::*;
 use notation::parse_fen;
 use self::bitsets::*;
-use self::tables::BoardGeometry;
 use self::move_generation::Board;
 use self::evaluation::evaluate_board;
 
@@ -665,6 +664,10 @@ impl Position {
         let dest_square = m.dest_square();
         let captured_piece = m.captured_piece();
         let board = self.board();
+        let geometry = board.geometry();
+        let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
+        let piece_type: &[Bitboard; 6] = &board.pieces().piece_type;
+        let color: &[Bitboard; 2] = &board.pieces().color;
         let mut occupied = board.occupied();
         let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
                                           board.attacks_to(BLACK, dest_square);
@@ -675,9 +678,7 @@ impl Position {
         // attacks from other pieces, so we must consider adding new
         // attackers/defenders every time a piece from the `may_xray`
         // set makes a capture.
-        let may_xray = board.pieces().piece_type[PAWN] | board.pieces().piece_type[BISHOP] |
-                       board.pieces().piece_type[ROOK] |
-                       board.pieces().piece_type[QUEEN];
+        let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
 
         unsafe {
             let mut depth = 0;
@@ -686,7 +687,7 @@ impl Position {
 
             // Try each piece in `attackers_and_defenders` one by one,
             // starting with `piece` at `orig_square`.
-            while orig_square_bb != 0 {
+            'exchange: while orig_square_bb != 0 {
                 // Change the side to move.
                 us ^= 1;
                 depth += 1;
@@ -704,25 +705,41 @@ impl Position {
                     break;
                 }
 
-                // Update attackers and defenders.
+                // Register that `orig_square_bb` is now vacant.
                 attackers_and_defenders &= !orig_square_bb;
-                occupied ^= orig_square_bb;
+                occupied &= !orig_square_bb;
+
+                // Consider adding new attackers/defenders, now that
+                // `orig_square_bb` is vacant.
                 if orig_square_bb & may_xray != 0 {
-                    attackers_and_defenders |= consider_xrays(board.geometry(),
-                                                              &board.pieces().piece_type,
-                                                              occupied,
-                                                              dest_square,
-                                                              bitscan_forward(orig_square_bb));
+                    attackers_and_defenders |= {
+                        let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
+                        let bb = geometry.piece_attacks_from(ROOK, dest_square, candidates) &
+                                 candidates &
+                                 (piece_type[QUEEN] | piece_type[ROOK]);
+                        if bb != 0 {
+                            // a straight slider
+                            bb
+                        } else {
+                            // a diagonal slider
+                            geometry.piece_attacks_from(BISHOP, dest_square, candidates) &
+                            candidates &
+                            (piece_type[QUEEN] | piece_type[BISHOP])
+                        }
+                    };
                 }
 
                 // Find the next piece to enter the exchange.
-                let next_attacker = get_least_valuable_piece(board.pieces(),
-                                                             attackers_and_defenders &
-                                                             *board.pieces()
-                                                                   .color
-                                                                   .get_unchecked(us));
-                piece = next_attacker.0;
-                orig_square_bb = next_attacker.1;
+                let candidates = attackers_and_defenders & color[us];
+                for p in (KING..NO_PIECE).rev() {
+                    let bb = candidates & piece_type[p];
+                    if bb != 0 {
+                        piece = p;
+                        orig_square_bb = ls1b(bb);
+                        continue 'exchange;
+                    }
+                }
+                break 'exchange;
             }
 
             // Discard the speculative store -- the last attacker can
@@ -907,47 +924,6 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
         }
     }
     repeated
-}
-
-
-/// A helper function for `Position::calc_see`. It returns a bitboard
-/// describing the position on the board of the piece that could
-/// attack `target_square`, but only when `xrayed_square` becomes
-/// vacant. (Returns `0` if there is no such piece.)
-#[inline(always)]
-fn consider_xrays(geometry: &BoardGeometry,
-                  piece_type_array: &[Bitboard; 6],
-                  occupied: Bitboard,
-                  target_square: Square,
-                  xrayed_square: Square)
-                  -> Bitboard {
-    let candidates = occupied & geometry.squares_behind_blocker[target_square][xrayed_square];
-
-    // Try the straight sliders first, if not, the diagonal sliders.
-    let straight_slider_bb = geometry.piece_attacks_from(ROOK, target_square, candidates) &
-                             candidates &
-                             (piece_type_array[QUEEN] | piece_type_array[ROOK]);
-    if straight_slider_bb != 0 {
-        straight_slider_bb
-    } else {
-        geometry.piece_attacks_from(BISHOP, target_square, candidates) & candidates &
-        (piece_type_array[QUEEN] | piece_type_array[BISHOP])
-    }
-}
-
-
-/// A helper function for `Position::calc_see`. It takes a subset of
-/// pieces `set`, and returns the type of the least valuable piece,
-/// and a bitboard describing its position on the board.
-#[inline(always)]
-fn get_least_valuable_piece(pieces: &PiecesPlacement, set: Bitboard) -> (PieceType, Bitboard) {
-    for p in (KING..NO_PIECE).rev() {
-        let piece_subset = pieces.piece_type[p] & set;
-        if piece_subset != 0 {
-            return (p, ls1b(piece_subset));
-        }
-    }
-    (NO_PIECE, 0)
 }
 
 
