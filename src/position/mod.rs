@@ -743,7 +743,7 @@ impl Position {
         // never be captured.
         depth -= 1;
 
-        // Collapse the values to one. Again, exploit the fact that
+        // Collapse all values to one. Again, exploit the fact that
         // the side to move can back off from further exchange if it
         // is not favorable (negamax).
         unsafe {
