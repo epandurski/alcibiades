@@ -573,9 +573,9 @@ impl Position {
             let dest_square_bb = 1 << dest_square;
 
             // Calculate the static exchange evaluation and decide
-            // whether to try the move. (This applis to "normal"
-            // captures only -- check evasions, castlings, pawn
-            // promotions, and en-passant captures are exempt.)
+            // whether to try the move. (This applies only to "normal"
+            // captures -- check evasions, castlings, pawn promotions,
+            // and en-passant captures are exempt.)
             if not_in_check && move_type == MOVE_NORMAL {
                 // Verify if this is a mandatory recapture. (In order
                 // to fix SEE errors due to pinned and overloaded
