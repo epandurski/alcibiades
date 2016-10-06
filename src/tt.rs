@@ -205,7 +205,7 @@ impl Tt {
             // Count how many staled records from this generation
             // there are among the first `N` clusters.
             let mut staled = 0;
-            let mut cluster_iter = unsafe { self.table.get().as_ref().unwrap().iter() };
+            let mut cluster_iter = unsafe { &*self.table.get() }.iter();
             for _ in 0..min(N, self.cluster_count) {
                 for record in cluster_iter.next().unwrap() {
                     if record.key != 0 && record.generation() == self.generation.get() {
@@ -313,7 +313,7 @@ impl Tt {
 
     /// Removes all entries in the table.
     pub fn clear(&self) {
-        let table = unsafe { self.table.get().as_mut().unwrap() };
+        let table = unsafe { &mut *self.table.get() };
         for cluster in table {
             for record in cluster.iter_mut() {
                 *record = Default::default();
@@ -353,7 +353,7 @@ impl Tt {
     #[inline(always)]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
         let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
-        &mut self.table.get().as_mut().unwrap()[cluster_index]
+        self.table.get().as_mut().unwrap().get_mut(cluster_index).unwrap()
     }
 }
 
