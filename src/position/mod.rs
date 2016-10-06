@@ -578,9 +578,9 @@ impl Position {
             // and en-passant captures are exempt.)
             if not_in_check && move_type == MOVE_NORMAL {
                 // Verify if this is a mandatory recapture. (In order
-                // to fix SEE errors due to pinned and overloaded
-                // pieces, at least one recapture at the last capture
-                // square is always tried.)
+                // to correct SEE errors due to pinned and overloaded
+                // pieces, at least one recapture at the square of the
+                // last capture is always tried.)
                 if recapture_squares & dest_square_bb == 0 {
                     match self.calc_see(m) {
                         // This is a losing move -- do not try it.
