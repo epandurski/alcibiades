@@ -686,7 +686,7 @@ impl Position {
             *gain.get_unchecked_mut(depth) = PIECE_VALUES[captured_piece];
 
             // Try each piece in `attackers_and_defenders` one by one,
-            // starting with `piece` at `orig_square`.
+            // starting with `piece` at `orig_square_bb`.
             'exchange: while orig_square_bb != 0 {
                 // Change the side to move.
                 us ^= 1;
