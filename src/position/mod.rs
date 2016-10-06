@@ -746,7 +746,7 @@ impl Position {
         let state = *self.state();
         self.repeated_or_rule50 = false;
 
-        // Find the set of repeated, still reachable boards.
+        // Find the set of previously repeated, still reachable boards.
         let repeated_boards = {
             // Forget all encountered boards before the last
             // irreversible move.
@@ -762,11 +762,11 @@ impl Position {
         };
 
         // Calculate a single hash value representing the set of
-        // repeated, still reachable boards. (We will XOR this value
-        // with board's hash to obtain position's hash. That way, we
-        // guarantee that two positions that differ only in their set
-        // of repeated, still reachable boards will have different
-        // hashes.)
+        // previously repeated, still reachable boards. (We will XOR
+        // this value with board's hash to obtain position's
+        // hash. That way, we guarantee that two positions that differ
+        // only in their set of previously repeated, still reachable
+        // boards will have different hashes.)
         self.repeated_boards_hash = if repeated_boards.is_empty() {
             0
         } else {
