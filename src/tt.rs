@@ -353,7 +353,7 @@ impl Tt {
     #[inline(always)]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
         let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
-        self.table.get().as_mut().unwrap().get_mut(cluster_index).unwrap()
+        &mut (&mut *self.table.get())[cluster_index]
     }
 }
 
