@@ -726,7 +726,7 @@ impl Position {
         }
 
         // Negamax the `gain` array for the final static exchange
-        // evaluation. (The `gain` array actually represents a binary
+        // evaluation. (The `gain` array actually represents a unary
         // tree, at each node of which the player can either continue
         // the exchange or back off.)
         unsafe {
