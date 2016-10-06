@@ -743,9 +743,9 @@ impl Position {
         // never be captured.
         depth -= 1;
 
-        // Collapse the all values to one. Again, exploit the fact
-        // that the side to move can back off from further exchange if
-        // it is not favorable (negamax).
+        // Collapse the values to one. Again, exploit the fact that
+        // the side to move can back off from further exchange if it
+        // is not favorable (negamax).
         unsafe {
             while depth > 0 {
                 *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
