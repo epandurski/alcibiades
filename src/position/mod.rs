@@ -681,7 +681,7 @@ impl Position {
         let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
 
         let mut depth = 0;
-        let mut gain: [Value; 66] = unsafe { mem::uninitialized() };
+        let mut gain: [Value; 34] = unsafe { mem::uninitialized() };
         gain[depth] = PIECE_VALUES[captured_piece];
 
         // Try each piece in `attackers_and_defenders` one by one,
