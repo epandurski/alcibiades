@@ -651,7 +651,7 @@ impl Position {
     /// (but its sign will be correct).
     fn calc_see(&self, m: Move) -> Value {
         // The impemented algorithm creates a swap-list of best case
-        // material gains by traversing the "attackers and defenders"
+        // material gains by traversing the `attackers and defenders`
         // set in least valuable piece order from pawn, knight,
         // bishop, rook, queen until king, with alternating sides. The
         // swap-list (an unary tree since there are no branches but
@@ -661,15 +661,15 @@ impl Position {
         let mut us = self.board().to_move();
         let mut piece = m.piece();
         let orig_square = m.orig_square();
+        let mut orig_square_bb = 1 << orig_square;
         let dest_square = m.dest_square();
         let captured_piece = m.captured_piece();
-        debug_assert!(piece < NO_PIECE);
-        debug_assert!(captured_piece <= NO_PIECE);
         let board = self.board();
         let mut occupied = board.occupied();
-        let mut orig_square_bb = 1 << orig_square;
         let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
                                           board.attacks_to(BLACK, dest_square);
+        debug_assert!(piece < NO_PIECE);
+        debug_assert!(captured_piece <= NO_PIECE);
 
         // `may_xray` holds the set of pieces that may block x-ray
         // attacks from other pieces, so we must consider adding new
