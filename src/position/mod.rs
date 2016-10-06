@@ -114,8 +114,6 @@ impl Position {
                                   halfmove_clock: if halfmove_clock < 99 {
                                       halfmove_clock
                                   } else {
-                                      // We do not allow `halfmove_clock` to be
-                                      // greater than 99.
                                       99
                                   },
                                   last_move: Move::invalid(),
@@ -284,7 +282,9 @@ impl Position {
     /// `-19999` and `19999`.
     #[inline]
     pub fn evaluate_static(&self) -> Value {
-        evaluate_board(self.board())
+        let v = evaluate_board(self.board());
+        debug_assert!(v >= -19999 && v <= 19999);
+        v
     }
 
     /// Performs a "quiescence search" and returns an evaluation.
@@ -446,7 +446,6 @@ impl Position {
             let halfmove_clock = if m.is_pawn_advance_or_capure() {
                 0
             } else {
-                // We do not allow `halfmove_clock` to become greater than 99.
                 match self.state().halfmove_clock {
                     x if x < 99 => x + 1,
                     _ => {
@@ -526,7 +525,7 @@ impl Position {
         // moves can improve over the stand pat, there will be at
         // least one "quiet" move that will at least preserve the
         // stand pat value. (Note that this is not true if the the
-        // side to move is in check!)
+        // side to move is in check.)
         let stand_pat = if not_in_check {
             if static_evaluation != VALUE_UNKNOWN {
                 debug_assert!(static_evaluation > -20000 && static_evaluation < 20000);
@@ -555,8 +554,9 @@ impl Position {
         // Try all generated moves one by one. Moves with higher
         // scores are tried before moves with lower scores.
         while let Some(m) = move_stack.remove_best_move() {
-            // Check if the potential material gain from this move is
-            // big enough to warrant trying the move.
+            // Check if the immediate material gain from this move is
+            // big enough to warrant trying the move (no less than
+            // `obligatory_material_gain`).
             let move_type = m.move_type();
             let captured_piece = m.captured_piece();
             let material_gain = if move_type == MOVE_PROMOTION {
@@ -574,13 +574,14 @@ impl Position {
             let dest_square_bb = 1 << dest_square;
 
             // Calculate the static exchange evaluation and decide
-            // whether to try the move. But first make sure that we
-            // are dealing with a pure capture move.
+            // whether to try the move. (This applis to "normal"
+            // captures only -- check evasions, castlings, pawn
+            // promotions, and en-passant captures are exempt.)
             if not_in_check && move_type == MOVE_NORMAL {
-                // Verify if this is a mandatory recapture. In order
+                // Verify if this is a mandatory recapture. (In order
                 // to fix SEE errors due to pinned and overloaded
                 // pieces, at least one recapture at the last capture
-                // square is always tried.
+                // square is always tried.)
                 if recapture_squares & dest_square_bb == 0 {
                     match self.calc_see(m) {
                         // This is a losing move -- do not try it.
@@ -853,7 +854,8 @@ impl Clone for Position {
 #[derive(Clone, Copy)]
 struct PositionInfo {
     /// The number of half-moves since the last piece capture or pawn
-    /// advance.
+    /// advance. (We do not allow `halfmove_clock` to become greater
+    /// than 99.)
     halfmove_clock: u8,
 
     /// The last played move.
