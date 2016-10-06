@@ -640,39 +640,25 @@ impl Position {
     /// A helper method for `qsearch` and `evaluate_move`. It
     /// calculates the static evaluation exchange (SSE) value of a
     /// move.
-    ///
-    /// SEE is just an evaluation calulated without actually trying
-    /// moves on the board, the returned value might be incorrect for
-    /// many tactical reasons. In addition to that, if during the
-    /// calculation it is determined that one of the sides inevitably
-    /// loses material, for performance reasons the calculation is
-    /// terminated and a value is returned which might not be exact
-    /// (but its sign will be correct).
     fn calc_see(&self, m: Move) -> Value {
-        // The impemented algorithm creates a swap-list of best case
-        // material gains by traversing the `attackers and defenders`
-        // set in least valuable piece order from pawn, knight,
-        // bishop, rook, queen until king, with alternating sides. The
-        // swap-list (an unary tree since there are no branches but
-        // just a series of captures) is negamaxed for a final static
-        // exchange evaluation.
+        debug_assert!(m.piece() < NO_PIECE);
+        debug_assert!(m.captured_piece() <= NO_PIECE);
 
-        let mut us = self.board().to_move();
-        let mut piece = m.piece();
-        let orig_square = m.orig_square();
-        let mut orig_square_bb = 1 << orig_square;
-        let dest_square = m.dest_square();
-        let captured_piece = m.captured_piece();
+        let dest_square = m.dest_square();  // the exchange square
         let board = self.board();
         let geometry = board.geometry();
+        let occupied = board.occupied();
         let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
         let piece_type: &[Bitboard; 6] = &board.pieces().piece_type;
         let color: &[Bitboard; 2] = &board.pieces().color;
-        let mut occupied = board.occupied();
+
+        // Those will be updated on each capture:
+        let mut depth = 0;
+        let mut us = self.board().to_move();
+        let mut piece = m.piece();
+        let mut orig_square_bb = 1 << m.orig_square();
         let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
                                           board.attacks_to(BLACK, dest_square);
-        debug_assert!(piece < NO_PIECE);
-        debug_assert!(captured_piece <= NO_PIECE);
 
         // `may_xray` holds the set of pieces that may block attacks
         // from other pieces, and therefore we must consider adding
@@ -680,9 +666,11 @@ impl Position {
         // `may_xray` set makes a capture.
         let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
 
-        let mut depth = 0;
+        // The `gain` array will hold the total material gained at
+        // each `depth`, from the viewpoint of the side that played
+        // the last move (`us`).
         let mut gain: [Value; 34] = unsafe { mem::uninitialized() };
-        gain[depth] = PIECE_VALUES[captured_piece];
+        gain[depth] = PIECE_VALUES[m.captured_piece()];
 
         // Try each piece in `attackers_and_defenders` one by one,
         // starting with `piece` at `orig_square_bb`.
@@ -705,7 +693,6 @@ impl Position {
 
             // Register that `orig_square_bb` is now vacant.
             attackers_and_defenders &= !orig_square_bb;
-            occupied &= !orig_square_bb;
 
             // Consider adding new attackers/defenders, now that
             // `orig_square_bb` is vacant.
@@ -726,7 +713,8 @@ impl Position {
                 };
             }
 
-            // Find the next piece to enter the exchange.
+            // Find the next piece to enter the exchange. (The least
+            // valuable piece belonging to the side to move.)
             let candidates = attackers_and_defenders & color[us];
             for p in (KING..NO_PIECE).rev() {
                 let bb = candidates & piece_type[p];
@@ -739,13 +727,15 @@ impl Position {
             break 'exchange;
         }
 
-        // Discard the speculative store -- the last attacker can
-        // never be captured.
+        // Discard the speculative store -- the last attacker can not
+        // be captured.
         depth -= 1;
 
-        // Collapse all values to one. Again, exploit the fact that
-        // the side to move can back off from further exchange if it
-        // is not favorable (negamax).
+        // The `gain` array (an unary tree since there are no branches
+        // but just a series of captures) is negamaxed for a final
+        // static exchange evaluation. (Using the fact that the side
+        // to move can back off from further exchange if it is not
+        // favorable.)
         unsafe {
             while depth > 0 {
                 *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
@@ -753,7 +743,6 @@ impl Position {
                 depth -= 1;
             }
         }
-
         gain[0]
     }
 
@@ -762,6 +751,9 @@ impl Position {
     /// encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
         let state = *self.state();
+        self.repeated_or_rule50 = false;
+
+        // Find the set of repeated, still reachable boards.
         let repeated_boards = {
             // Forget all encountered boards before the last
             // irreversible move.
@@ -776,13 +768,12 @@ impl Position {
             set_non_repeated_values(&mut self.encountered_boards, 0)
         };
 
-        // We calculate a single hash value representing the set
-        // of all previously repeated, still reachable boards. We
-        // will XOR that value with the board hash each time we
-        // calculate position's hash. That way we guarantee that
-        // two positions that have the same boards, but differ in
-        // their set of previously repeated, still reachable
-        // boards will have different hashes.
+        // Calculate a single hash value representing the set of
+        // repeated, still reachable boards. (We will XOR this value
+        // with board's hash to obtain position's hash. That way, we
+        // guarantee that two positions that differ only in their set
+        // of repeated, still reachable boards will have different
+        // hashes.)
         self.repeated_boards_hash = if repeated_boards.is_empty() {
             0
         } else {
@@ -792,7 +783,6 @@ impl Position {
             }
             hasher.finish()
         };
-        self.repeated_or_rule50 = false;
 
         // Remove all states but the last one from `state_stack`.
         self.state_stack = vec![state];
@@ -899,10 +889,9 @@ const SSE_EXCHANGE_MAX_PLY: u8 = 2;
 const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
 
 
-/// Helper function for `Position::from_history`. It sets all unique
-/// (non-repeated) values in `slice` to `value`, and returns a sorted
-/// vector containing a single value for each duplicated value in
-/// `slice`.
+/// A helper function. It sets all unique (non-repeated) values in
+/// `slice` to `value`, and returns a sorted vector containing a
+/// single value for each duplicated value in `slice`.
 fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
     where T: Copy + Ord
 {
