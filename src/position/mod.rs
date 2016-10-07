@@ -217,9 +217,14 @@ impl Position {
     #[inline]
     pub fn hash(&self) -> u64 {
         if self.repeated_or_rule50 {
-            // Repeated and rule-50 positions are evaluated as a draw,
-            // so for our purposes they can be considered equal, and
-            // therefore we generate the same hash for them.
+            // All repeated and rule-50 positions are a draw, so for
+            // practical purposes they can be considered to be the
+            // exact same position, and therefore we can generate the
+            // same hash value for all of them. This has the important
+            // practical advantage that we get two separate records in
+            // the transposition table for the first and the second
+            // occurrence of the same position. (The second occurrence
+            // being deemed as a draw.)
             1
         } else {
             let hash = if self.root_is_unreachable() {
