@@ -270,12 +270,17 @@ impl Position {
     /// properties of the position. If the position is dynamic, with
     /// pending tactical threats, this function will return a grossly
     /// incorrect evaluation. The returned value will be between
-    /// `-19999` and `19999`.
+    /// `-19999` and `19999`. For repeated and rule-50 positions `0`
+    /// is returned.
     #[inline]
     pub fn evaluate_static(&self) -> Value {
-        let v = evaluate_board(self.board());
-        debug_assert!(v >= -19999 && v <= 19999);
-        v
+        if self.repeated_or_rule50 {
+            0
+        } else {
+            let v = evaluate_board(self.board());
+            debug_assert!(v >= -19999 && v <= 19999);
+            v
+        }
     }
 
     /// Performs a "quiescence search" and returns an evaluation.
