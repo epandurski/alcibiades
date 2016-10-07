@@ -508,6 +508,8 @@ impl Position {
                searched_nodes: &mut NodeCount)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
+        debug_assert!(static_evaluation == VALUE_UNKNOWN ||
+                      static_evaluation > -20000 && static_evaluation < 20000);
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
@@ -520,7 +522,6 @@ impl Position {
         // all possible check evasions will be tried.)
         let stand_pat = if not_in_check {
             if static_evaluation != VALUE_UNKNOWN {
-                debug_assert!(static_evaluation > -20000 && static_evaluation < 20000);
                 static_evaluation
             } else {
                 let v = eval_func(self.board());
