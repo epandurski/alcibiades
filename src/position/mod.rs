@@ -7,7 +7,7 @@ mod evaluation;
 
 use std::u16;
 use std::mem::uninitialized;
-use std::cmp::max;
+use std::cmp::{min, max};
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
@@ -98,28 +98,20 @@ impl Position {
     pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(parse_fen(fen).map_err(|_| IllegalPosition));
-        let mut p = Position {
-            board: UnsafeCell::new(try!(Board::create(placement,
-                                                      to_move,
-                                                      castling,
-                                                      en_passant_square)
-                                            .map_err(|_| IllegalPosition))),
-            board_hash: 0,
+        let board = try!(Board::create(placement, to_move, castling, en_passant_square)
+                             .map_err(|_| IllegalPosition));
+        Ok(Position {
+            board_hash: board.calc_hash(),
+            board: UnsafeCell::new(board),
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
             repeated_or_rule50: false,
             repeated_boards_hash: 0,
             encountered_boards: vec![0; halfmove_clock as usize],
             state_stack: vec![PositionInfo {
-                                  halfmove_clock: if halfmove_clock < 99 {
-                                      halfmove_clock
-                                  } else {
-                                      99
-                                  },
+                                  halfmove_clock: min(halfmove_clock, 99),
                                   last_move: Move::invalid(),
                               }],
-        };
-        p.board_hash = p.board().calc_hash();
-        Ok(p)
+        })
     }
 
     /// Creates a new instance.
