@@ -619,9 +619,10 @@ impl Position {
         move_stack.restore();
 
         // We should make sure that the returned value is between
-        // -19999 and 19999, otherwise the engine might decline to
-        // checkmate the opponent seeking the huge material gain that
-        // `qsearch` had promised.
+        // -19999 and 19999, otherwise the engine may avoid to
+        // checkmate the opponent, seeking the huge material gain that
+        // `qsearch` promised. (The problem occurs when `qsearch` is
+        // called with an extreme `lower_bound`/`upper_bound`.)
         match lower_bound {
             x if x < -19999 => -19999,
             x if x > 19999 => 19999,
@@ -718,7 +719,7 @@ impl Position {
         }
 
         // Negamax the `gain` array for the final static exchange
-        // evaluation. (The `gain` array actually represents a unary
+        // evaluation. (The `gain` array actually represents an unary
         // tree, at each node of which the player can either continue
         // the exchange or back off.)
         unsafe {
