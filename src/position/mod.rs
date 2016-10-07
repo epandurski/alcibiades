@@ -281,13 +281,13 @@ impl Position {
     /// Performs a "quiescence search" and returns an evaluation.
     ///
     /// The "quiescence search" is a restricted search which considers
-    /// only a limited set of moves (for example: winning captures,
-    /// pawn promotions to queen, check evasions). The goal is to
-    /// statically evaluate only "quiet" positions (positions where
-    /// there are no winning tactical moves to be made). Although this
-    /// search can cheaply and correctly resolve many tactical issues,
-    /// it is blind to other simple tactical threads like most kinds
-    /// of forks, checks, even a checkmate in one move.
+    /// only a limited set of moves (winning captures, pawn promotions
+    /// to queen, check evasions). The goal is to statically evaluate
+    /// only "quiet" positions (positions where there are no winning
+    /// tactical moves to be made). Although this search can cheaply
+    /// and correctly resolve many tactical issues, it is blind to
+    /// other simple tactical threads like most kinds of forks,
+    /// checks, even a checkmate in one move.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
