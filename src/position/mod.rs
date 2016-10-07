@@ -588,9 +588,9 @@ impl Position {
                 }
             }
 
-            // Recursively call `qsearch` for the next move and update
-            // the lower bound according to the recursively calculated
-            // value.
+            // Recursively call `qsearch` for the current move and
+            // update the lower bound according to the recursively
+            // calculated value.
             unsafe {
                 if self.board_mut().do_move(m).is_some() {
                     *searched_nodes += 1;
