@@ -363,9 +363,9 @@ impl Position {
             // `calc_see` does not handle pawn promotions very well,
             // so for them we simply return some positive value. We
             // could differentiate wining and losing promotions, but
-            // this makes no significant difference and may cause
-            // funny move ordering, resulting in sometimes promoting
-            // rooks and knights for no good reason.
+            // this makes no pracical difference and may cause funny
+            // move ordering, resulting in sometimes promoting rooks
+            // or knights for no good reason.
             PIECE_VALUES[PAWN]
         } else {
             self.calc_see(m)
