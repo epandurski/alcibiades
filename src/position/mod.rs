@@ -515,8 +515,9 @@ impl Position {
         // (`stand_pat`). We assume that even if none of the capturing
         // moves can improve over the stand pat, there will be at
         // least one "quiet" move that will at least preserve the
-        // stand pat value. (Note that this is not true if the the
-        // side to move is in check.)
+        // stand pat value. (Note that this assumption is not true if
+        // the the side to move is in check, because in this case the
+        // all possible check evasions will be tried.)
         let stand_pat = if not_in_check {
             if static_evaluation != VALUE_UNKNOWN {
                 debug_assert!(static_evaluation > -20000 && static_evaluation < 20000);
@@ -535,21 +536,21 @@ impl Position {
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
         }
-
         let obligatory_material_gain = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
 
         // Generate all non-quiet moves.
         move_stack.save();
         self.board().generate_moves(false, move_stack);
 
-        // Try all generated moves one by one. Moves with higher
-        // scores are tried before moves with lower scores.
+        // Consider the generated moves one by one. See if any of them
+        // can raise the lower bound.
         while let Some(m) = move_stack.remove_best_move() {
-            // Check if the immediate material gain from this move is
-            // big enough to warrant trying the move (no less than
-            // `obligatory_material_gain`).
             let move_type = m.move_type();
+            let dest_square_bb = 1 << m.dest_square();
             let captured_piece = m.captured_piece();
+
+            // Ensure that the immediate material gain from this move
+            // is big enough.
             let material_gain = if move_type == MOVE_PROMOTION {
                 PIECE_VALUES[captured_piece] +
                 PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
@@ -561,36 +562,30 @@ impl Position {
                 continue;
             }
 
-            let dest_square = m.dest_square();
-            let dest_square_bb = 1 << dest_square;
+            // Decide whether to try the move. Check evasions, pawn
+            // promotions, en-passant captures, and mandatory
+            // recaptures are always tried. For all other moves, a
+            // static exchange evaluation is performed to decide if
+            // the move should be tried. (In order to correct SEE
+            // errors due to pinned and overloaded pieces, at least
+            // one mandatory recapture is always tried at squares of
+            // previous captures.)
+            if not_in_check && move_type == MOVE_NORMAL && recapture_squares & dest_square_bb == 0 {
+                match self.calc_see(m) {
+                    // This is a losing move -- do not try it.
+                    x if x < 0 => continue,
 
-            // Calculate the static exchange evaluation and decide
-            // whether to try the move. (This applies only to "normal"
-            // captures -- check evasions, castlings, pawn promotions,
-            // and en-passant captures are exempt.)
-            if not_in_check && move_type == MOVE_NORMAL {
-                // Verify if this is a mandatory recapture. (In order
-                // to correct SEE errors due to pinned and overloaded
-                // pieces, at least one recapture is always tried at
-                // squares of previous captures.)
-                if recapture_squares & dest_square_bb == 0 {
-                    match self.calc_see(m) {
-                        // This is a losing move -- do not try it.
-                        x if x < 0 => continue,
+                    // This is an even exchange -- try it only
+                    // during the first few plys.
+                    0 if ply >= SEE_EXCHANGE_MAX_PLY => continue,
 
-                        // This is an even exchange -- try it only
-                        // during the first few plys.
-                        0 if ply >= SEE_EXCHANGE_MAX_PLY => continue,
-
-                        // A winning move -- try it always.
-                        _ => (),
-                    }
+                    // A winning move -- try it always.
+                    _ => (),
                 }
             }
 
-            // Recursively call `qsearch` for the current move and
-            // update the lower bound according to the recursively
-            // calculated value.
+            // Recursively call `qsearch` after playing the move
+            // (`m`). Update the lower bound accordingly.
             unsafe {
                 if self.board_mut().do_move(m).is_some() {
                     *searched_nodes += 1;
@@ -611,18 +606,19 @@ impl Position {
                         lower_bound = value;
                     }
 
-                    // Mark that a recapture at this field had been tried.
+                    // Mark that a recapture at this square has been tried.
                     recapture_squares &= !dest_square_bb;
                 }
             }
         }
         move_stack.restore();
 
-        // We should make sure that the returned value is between
-        // -19999 and 19999, otherwise the engine may avoid to
-        // checkmate the opponent, seeking the huge material gain that
-        // `qsearch` promised. (The problem occurs when `qsearch` is
-        // called with an extreme `lower_bound`/`upper_bound`.)
+        // Return the determined lower bound. (We should make sure
+        // that the returned value is between -19999 and 19999,
+        // regardless of the initial bounds passed to `qsearch`. If we
+        // do not take this precautions, the search algorithm will
+        // abstain from checkmating the opponent, seeking the huge
+        // material gain that `qsearch` promised.)
         match lower_bound {
             x if x < -19999 => -19999,
             x if x > 19999 => 19999,
