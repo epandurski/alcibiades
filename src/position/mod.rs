@@ -755,8 +755,8 @@ impl Position {
         // previously repeated, still reachable boards. (We will XOR
         // this value with board's hash to obtain position's
         // hash. That way, we guarantee that two positions that differ
-        // only in their set of previously repeated, still reachable
-        // boards will have different hashes.)
+        // in their set of previously repeated, still reachable boards
+        // will have different hashes.)
         self.repeated_boards_hash = if repeated_boards.is_empty() {
             0
         } else {
