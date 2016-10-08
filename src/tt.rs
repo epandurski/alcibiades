@@ -235,7 +235,7 @@ impl Tt {
         // the key is stored XOR-ed with data, while data is stored
         // additionally as usual.
 
-        // Set the entry's generation.
+        // Set entry's generation.
         data.gen_bound |= self.generation.get();
 
         // Choose a slot to which to write the data. (Each cluster has
@@ -278,6 +278,11 @@ impl Tt {
     /// (for example, to update the generation of the entry).
     #[inline]
     pub fn probe(&self, key: u64) -> Option<TtEntry> {
+        // `store` and `probe` jointly implement a clever lock-less
+        // hashing strategy. Rather than storing two disjoint items,
+        // the key is stored XOR-ed with data, while data is stored
+        // additionally as usual.
+
         let cluster = unsafe { self.cluster_mut(key) };
         for record in cluster.iter_mut() {
             if record.key ^ record.data.as_u64() == key {
