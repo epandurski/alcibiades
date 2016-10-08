@@ -483,7 +483,7 @@ impl Position {
         }
 
         // This is an illegal move.
-        false;
+        false
     }
 
     /// Takes back the last played move.
