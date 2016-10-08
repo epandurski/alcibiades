@@ -507,25 +507,25 @@ impl MoveStack {
         debug_assert!(self.moves.len() >= self.first_move_index);
         let moves = &mut self.moves;
         if moves.len() > self.first_move_index {
-            let i = moves.len() - 1;
+            let last = moves.len() - 1;
             unsafe {
-                let mut m = *moves.get_unchecked(i);
-                let mut j = i;
+                let mut best_move = *moves.get_unchecked(last);
+                let mut curr = last;
                 loop {
-                    // The current best move candidate is moved to index
-                    // `i` (swapped with the previous candidate).
-                    if *moves.get_unchecked(j) > m {
-                        *moves.get_unchecked_mut(i) = *moves.get_unchecked_mut(j);
-                        *moves.get_unchecked_mut(j) = m;
-                        m = *moves.get_unchecked(i);
+                    if *moves.get_unchecked(curr) > best_move {
+                        // Swap the new best move candidate (`curr`)
+                        // with the previous candidate (`last`).
+                        *moves.get_unchecked_mut(last) = *moves.get_unchecked_mut(curr);
+                        *moves.get_unchecked_mut(curr) = best_move;
+                        best_move = *moves.get_unchecked(last);
                     }
-                    if j == self.first_move_index {
+                    if curr == self.first_move_index {
                         break;
                     }
-                    j -= 1;
+                    curr -= 1;
                 }
                 moves.pop();
-                return Some(m);
+                return Some(best_move);
             }
         }
         None
