@@ -473,11 +473,15 @@ impl MoveStack {
     #[inline]
     pub fn remove_move(&mut self, move_digest: MoveDigest) -> Option<Move> {
         debug_assert!(self.moves.len() >= self.first_move_index);
+
+        // The last move in `self.moves` will take the place of the
+        // removed move.
         let last_move = if let Some(last) = self.moves.last() {
             *last
         } else {
             return None;
         };
+
         let m;
         'moves: loop {
             for curr in self.iter_mut() {
