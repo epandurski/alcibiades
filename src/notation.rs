@@ -75,8 +75,8 @@ pub fn parse_fen
             try!(parse_fen_enpassant_square(fileds[3])),
             try!(fileds[4].parse::<u8>().map_err(|_| ParseError)),
             match try!(fileds[5].parse::<u16>().map_err(|_| ParseError)) {
-            x if x == 0 || x > 9000 => return Err(ParseError),
-            x => x,
+            x @ 1...9000 => x,
+            _ => return Err(ParseError),
         }))
     } else {
         Err(ParseError)
@@ -206,7 +206,6 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
         }
     }
 
-    // Successfully parsed.
     Ok(rights)
 }
 
