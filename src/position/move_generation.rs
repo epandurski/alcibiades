@@ -577,7 +577,7 @@ impl Board {
             });
 
             // Initialize `old_hash`, which will be used to assert
-            // that `h` is calculated correctly.
+            // that the returned value (`h`) is calculated correctly.
             old_hash = self.calc_hash();
         }
 
