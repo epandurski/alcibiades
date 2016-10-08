@@ -475,17 +475,15 @@ impl Position {
                 }
             }
 
-            // The move is OK.
             self.state_stack.push(PositionInfo {
                 halfmove_clock: halfmove_clock,
                 last_move: m,
             });
-            true
-
-        } else {
-            // The move is not OK.
-            false
+            return true;
         }
+
+        // This is an illegal move.
+        return false;
     }
 
     /// Takes back the last played move.
