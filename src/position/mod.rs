@@ -322,10 +322,8 @@ impl Position {
                                -> (Value, NodeCount) {
         debug_assert!(lower_bound < upper_bound);
         if self.repeated_or_rule50 {
-            // This is a final position -- a draw.
             (0, 0)
         } else {
-            // Perform `qsearch`.
             let mut searched_nodes = 0;
             let value = MOVE_STACK.with(|s| unsafe {
                 self.qsearch(lower_bound,
