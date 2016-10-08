@@ -86,13 +86,6 @@ pub fn parse_fen
 
 fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
 
-    // We start with an empty board. FEN describes the board
-    // starting at A8 and going toward H1.
-    let mut piece_type = [0u64; 6];
-    let mut color = [0u64; 2];
-    let mut file = 0;
-    let mut rank = 7;
-
     // These are the possible productions in the grammar.
     enum Token {
         Piece(Color, PieceType),
@@ -100,9 +93,19 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
         Separator,
     }
 
+    // FEN describes the board starting from A8 and going toward H1.
+    let mut file = FILE_A;
+    let mut rank = RANK_8;
+
+    // We start with an empty board.
+    let mut pieces = PiecesPlacement {
+        piece_type: [0u64; 6],
+        color: [0u64; 2],
+    };
+
+    // Parse `s` character by character, updating `pieces` accordingly.
     for c in s.chars() {
 
-        // Parse the next character.
         let token = match c {
             'K' => Token::Piece(WHITE, KING),
             'Q' => Token::Piece(WHITE, QUEEN),
@@ -121,15 +124,14 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
             _ => return Err(ParseError),
         };
 
-        // Update the board accordting to the token.
         match token {
-            Token::Piece(_color, _piece) => {
+            Token::Piece(color, piece_type) => {
                 if file > 7 {
                     return Err(ParseError);
                 }
                 let mask = 1 << square(file, rank);
-                piece_type[_piece] |= mask;
-                color[_color] |= mask;
+                pieces.piece_type[piece_type] |= mask;
+                pieces.color[color] |= mask;
                 file += 1;
             }
             Token::EmptySquares(n) => {
@@ -149,15 +151,12 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
         }
     }
 
-    // Ensure the piece placement field had the right length.
-    if file == 8 && rank == 0 {
-        Ok(PiecesPlacement {
-            piece_type: piece_type,
-            color: color,
-        })
-    } else {
-        Err(ParseError)
+    // Ensure that the piece placement field had the exact length.
+    if file != 8 || rank != 0 {
+        return Err(ParseError);
     }
+
+    Ok(pieces)
 }
 
 
@@ -175,7 +174,7 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
     // We start with no caltling allowed.
     let mut rights = CastlingRights::new(0);
 
-    // Then we parse the content and update the castling rights.
+    // Then we parse the content and grant the castling rights.
     if s != "-" {
         for c in s.chars() {
             match c {
