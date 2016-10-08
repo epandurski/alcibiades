@@ -258,7 +258,7 @@ impl<F, E> Server<F, E>
                     Ok(_) => parse_uci_command(line.as_str()),
                 } {
                     if let UciCommand::Quit = cmd {
-                        // Quit.
+                        // Stop the thread.
                         return Ok(());
                     }
                     if tx.send(cmd).is_err() {
@@ -272,8 +272,7 @@ impl<F, E> Server<F, E>
 
         'mainloop: loop {
 
-            // Try to read a command from the GUI, fetch it to the
-            // engine.
+            // Try to read a command from the GUI, fetch it to the engine.
             while let Some(cmd) = match rx.try_recv() {
                 Ok(cmd) => Some(cmd),
                 Err(TryRecvError::Empty) => None,
@@ -356,7 +355,7 @@ impl<F, E> Server<F, E>
                 }
             }
 
-            // If the engine is instantiated -- try to read replies.
+            // If the engine is instantiated already -- try to get replies.
             if let Some(ref mut engine) = self.engine {
                 let mut count = 0;
                 while let Some(reply) = engine.get_reply() {
@@ -398,7 +397,7 @@ impl<F, E> Server<F, E>
             thread::sleep(time::Duration::from_millis(25));
         }
 
-        // End of the UCI session.
+        // This is the end of the UCI session.
         if let Some(ref mut engine) = self.engine {
             engine.exit();
         }
