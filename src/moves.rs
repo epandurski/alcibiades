@@ -528,7 +528,7 @@ impl MoveStack {
                 return Some(m);
             }
         }
-        return None;
+        None
     }
 
     /// Returns an iterator over each move in the current move list.
