@@ -132,7 +132,7 @@ impl Move {
     ///
     /// The initial move score for the new move will be:
     ///
-    /// * `0` for pawn promotions to pieces other than queen.
+    /// * `0` for all pawn promotions to pieces other than queen.
     ///
     /// * `Move::max_score()` for captures and pawn promotions to
     ///   queen.
