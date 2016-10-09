@@ -159,6 +159,8 @@ impl Board {
         if self._checkers.get() == BB_UNIVERSAL_SET {
             self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
         }
+        debug_assert_eq!(self._checkers.get(),
+                         self.attacks_to(1 ^ self.to_move, self.king_square()));
         self._checkers.get()
     }
 
