@@ -579,7 +579,7 @@ impl Position {
             // errors due to pinned and overloaded pieces, at least
             // one mandatory recapture is always tried at squares of
             // previous captures.)
-            if not_in_check && move_type == MOVE_NORMAL && recapture_squares & dest_square_bb == 0 {
+            if recapture_squares & dest_square_bb == 0 && not_in_check && move_type == MOVE_NORMAL {
                 match self.calc_see(m) {
                     // This is a losing move -- do not try it.
                     x if x < 0 => continue,
