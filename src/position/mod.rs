@@ -463,15 +463,17 @@ impl Position {
 
             // Figure out if the new position is repeated.
             if halfmove_clock >= 4 {
-                let last_irrev =
-                    (self.encountered_boards.len() - (halfmove_clock as usize)) as isize;
-                let mut i = (self.encountered_boards.len() - 4) as isize;
-                while i >= last_irrev {
-                    if self.board_hash == self.encountered_boards[i as usize] {
-                        self.repeated_or_rule50 = true;
-                        break;
+                unsafe {
+                    let last_irrev =
+                        (self.encountered_boards.len() - (halfmove_clock as usize)) as isize;
+                    let mut i = (self.encountered_boards.len() - 4) as isize;
+                    while i >= last_irrev {
+                        if self.board_hash == *self.encountered_boards.get_unchecked(i as usize) {
+                            self.repeated_or_rule50 = true;
+                            break;
+                        }
+                        i -= 2;
                     }
-                    i -= 2;
                 }
             }
 
