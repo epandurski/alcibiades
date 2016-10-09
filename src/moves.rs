@@ -240,7 +240,7 @@ impl Move {
 
     /// Returns the played piece type.
     ///
-    /// Castling is considered as a king's move.
+    /// Castling is considered as king's move.
     #[inline(always)]
     pub fn piece(&self) -> PieceType {
         (self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE
