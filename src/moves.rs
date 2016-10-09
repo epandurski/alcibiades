@@ -122,13 +122,13 @@ pub struct Move(usize);
 impl Move {
     /// Creates a new instance.
     ///
-    /// `us` is the side that makes the move. `castling` are the
-    /// castling rights before the move was played. `en_passant_file`
-    /// is the file on which there were a passing pawn before the move
-    /// was played (a value between 0 and 7), or a value between 8 and
-    /// 15 if there was no passing pawn. `promoted_piece_code` should
-    /// be a number between 0 and 3 and is used only when the
-    /// `move_type` is a pawn promotion, otherwise it is ignored.
+    /// `castling` are the castling rights before the move was
+    /// played. `en_passant_file` is the file on which there were a
+    /// passing pawn before the move was played (a value between 0 and
+    /// 7), or a value between 8 and 15 if there was no passing
+    /// pawn. `promoted_piece_code` should be a number between 0 and 3
+    /// and is used only when the `move_type` is a pawn promotion,
+    /// otherwise it is ignored.
     ///
     /// The initial move score for the new move will be:
     ///
@@ -139,8 +139,7 @@ impl Move {
     /// 
     /// * `0` for all other moves.
     #[inline(always)]
-    pub fn new(us: Color,
-               move_type: MoveType,
+    pub fn new(move_type: MoveType,
                piece: PieceType,
                orig_square: Square,
                dest_square: Square,
@@ -149,7 +148,6 @@ impl Move {
                castling: CastlingRights,
                promoted_piece_code: usize)
                -> Move {
-        debug_assert!(us <= 1);
         debug_assert!(move_type <= 0x11);
         debug_assert!(piece < NO_PIECE);
         debug_assert!(orig_square <= 63);
@@ -580,8 +578,7 @@ mod tests {
     fn test_move() {
         assert!(MAX_MOVE_SCORE >= 3);
         let cr = CastlingRights::new(0b1011);
-        let mut m = Move::new(WHITE,
-                              MOVE_NORMAL,
+        let mut m = Move::new(MOVE_NORMAL,
                               PAWN,
                               E2,
                               E4,
@@ -589,8 +586,7 @@ mod tests {
                               NO_ENPASSANT_FILE,
                               cr,
                               0);
-        let n1 = Move::new(WHITE,
-                           MOVE_NORMAL,
+        let n1 = Move::new(MOVE_NORMAL,
                            PAWN,
                            F3,
                            E4,
@@ -598,8 +594,7 @@ mod tests {
                            NO_ENPASSANT_FILE,
                            CastlingRights::new(0),
                            0);
-        let n2 = Move::new(WHITE,
-                           MOVE_NORMAL,
+        let n2 = Move::new(MOVE_NORMAL,
                            KING,
                            F3,
                            E4,
@@ -607,8 +602,7 @@ mod tests {
                            NO_ENPASSANT_FILE,
                            CastlingRights::new(0),
                            0);
-        let n3 = Move::new(BLACK,
-                           MOVE_PROMOTION,
+        let n3 = Move::new(MOVE_PROMOTION,
                            PAWN,
                            F2,
                            F1,
@@ -616,8 +610,7 @@ mod tests {
                            NO_ENPASSANT_FILE,
                            CastlingRights::new(0),
                            1);
-        let n4 = Move::new(WHITE,
-                           MOVE_NORMAL,
+        let n4 = Move::new(MOVE_NORMAL,
                            BISHOP,
                            F2,
                            E3,
@@ -625,8 +618,7 @@ mod tests {
                            NO_ENPASSANT_FILE,
                            CastlingRights::new(0),
                            0);
-        let n5 = Move::new(WHITE,
-                           MOVE_NORMAL,
+        let n5 = Move::new(MOVE_NORMAL,
                            PAWN,
                            F2,
                            E3,
@@ -664,8 +656,7 @@ mod tests {
 
     #[test]
     fn test_move_stack() {
-        let m = Move::new(WHITE,
-                          MOVE_NORMAL,
+        let m = Move::new(MOVE_NORMAL,
                           PAWN,
                           E2,
                           E4,

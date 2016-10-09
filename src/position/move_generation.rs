@@ -314,8 +314,7 @@ impl Board {
             if checkers == 0 {
                 for side in 0..2 {
                     if self.castling_obstacles(side) == 0 {
-                        move_stack.push(Move::new(self.to_move,
-                                                  MOVE_CASTLING,
+                        move_stack.push(Move::new(MOVE_CASTLING,
                                                   KING,
                                                   king_square,
                                                   [[C1, C8], [G1, G8]][side][self.to_move],
@@ -344,8 +343,7 @@ impl Board {
         // Null moves are represented as king's moves for which the
         // destination square equals the origin square.
         let king_square = self.king_square();
-        Move::new(self.to_move,
-                  MOVE_NORMAL,
+        Move::new(MOVE_NORMAL,
                   KING,
                   king_square,
                   king_square,
@@ -407,8 +405,7 @@ impl Board {
                 debug_assert!(generated_move.is_none());
                 return None;
             }
-            let m = Move::new(self.to_move,
-                              MOVE_CASTLING,
+            let m = Move::new(MOVE_CASTLING,
                               KING,
                               orig_square,
                               dest_square,
@@ -522,8 +519,7 @@ impl Board {
             }
         }
 
-        let m = Move::new(self.to_move,
-                          move_type,
+        let m = Move::new(move_type,
                           piece,
                           orig_square,
                           dest_square,
@@ -922,8 +918,7 @@ impl Board {
         while piece_legal_dests != 0 {
             let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
-            move_stack.push(Move::new(self.to_move,
-                                      MOVE_NORMAL,
+            move_stack.push(Move::new(MOVE_NORMAL,
                                       piece,
                                       orig_square,
                                       dest_square,
@@ -967,8 +962,7 @@ impl Board {
                     // en-passant capture
                     x if x == en_passant_bb => {
                         if self.en_passant_special_check_ok(orig_square, dest_square) {
-                            move_stack.push(Move::new(self.to_move,
-                                                      MOVE_ENPASSANT,
+                            move_stack.push(Move::new(MOVE_ENPASSANT,
                                                       PAWN,
                                                       orig_square,
                                                       dest_square,
@@ -982,8 +976,7 @@ impl Board {
                     // pawn promotion
                     x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
-                            move_stack.push(Move::new(self.to_move,
-                                                      MOVE_PROMOTION,
+                            move_stack.push(Move::new(MOVE_PROMOTION,
                                                       PAWN,
                                                       orig_square,
                                                       dest_square,
@@ -999,8 +992,7 @@ impl Board {
 
                     // normal move
                     _ => {
-                        move_stack.push(Move::new(self.to_move,
-                                                  MOVE_NORMAL,
+                        move_stack.push(Move::new(MOVE_NORMAL,
                                                   PAWN,
                                                   orig_square,
                                                   dest_square,
