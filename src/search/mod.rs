@@ -56,6 +56,8 @@ pub struct SearchStatus {
     /// The reached search depth.
     pub depth: u8,
 
+    /// The best variations found so far. The first move in each
+    /// variation will be different.
     pub variations: Vec<Variation>,
 
     /// The duration of the search in milliseconds.
