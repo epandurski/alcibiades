@@ -358,7 +358,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
 trait SearchRefinement {
     fn run_slave(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>);
     fn new(tt: Arc<Tt>,
-           slave_commands_tx: &Sender<Command>,
+           slave_commands_tx: Sender<Command>,
            slave_reports_rx: Receiver<Report>,
            reports: Sender<Report>)
            -> Self;
@@ -384,7 +384,7 @@ fn serve<T: SearchRefinement>(tt: Arc<Tt>, commands: Receiver<Command>, reports:
 
     // Create a master object that will send commands to the slave,
     // receive slave's reports and write to `reports`.
-    let mut master = T::new(tt, &slave_commands_tx, slave_reports_rx, reports);
+    let mut master = T::new(tt, slave_commands_tx.clone(), slave_reports_rx, reports);
 
     // Orchestrate the work of the master and the slave.
     let mut pending_command = None;
