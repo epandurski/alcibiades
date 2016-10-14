@@ -53,7 +53,8 @@ pub struct Report {
     /// The search depth completed so far.
     pub depth: u8,
 
-    /// The evaluation of the root position so far.
+    /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
+    /// if not available.
     pub value: Value,
 
     /// `true` if the search is finished or has been stopped, `false`
