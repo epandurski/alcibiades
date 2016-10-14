@@ -435,31 +435,29 @@ struct AspirationSearch {
     reports: Sender<Report>,
     search_id: usize,
     position: Position,
+    searched_nodes: NodeCount,
     depth: u8,
     lower_bound: Value,
     upper_bound: Value,
     value: Value,
 
-    searched_nodes: NodeCount,
-
-    /// The half-width of the window, that will be exponentially
-    /// increased each time the search failed. We use `isize` type to
-    /// avoid overflows.
+    /// The aspiration window will be widened by this value if the
+    /// aspirated search fails. We use `isize` to avoid overflows.
     delta: isize,
 
-    /// The aspirated lower bound.     
+    /// The lower bound of the aspiration window.     
     alpha: Value,
 
-    /// The aspirated upper bound.     
+    /// The upper bound of the aspiration window.
     beta: Value,
 }
 
 impl AspirationSearch {
-    /// A helper mehtod. It commands the slave thread to run a search.
+    /// A helper mehtod. It commands the slave thread to run a new search.
     fn start_aspirated_search(&mut self) {
         self.slave_commands_tx
             .send(Command::Search {
-                search_id: self.search_id,
+                search_id: 0,
                 position: self.position.clone(),
                 depth: self.depth,
                 lower_bound: self.alpha,
@@ -469,8 +467,7 @@ impl AspirationSearch {
             .unwrap();
     }
 
-    /// A helper method. It increases the value with which the
-    /// aspiration window will be widened if the next search fails.
+    /// A helper method. It increases `self.delta` exponentially.
     fn increase_delta(&mut self) {
         self.delta += 3 * self.delta / 8;
         if self.delta > 1500 {
@@ -479,7 +476,7 @@ impl AspirationSearch {
     }
 
     /// A helper method. It widens the aspiration window if necessary.
-    fn update_aspiration_window(&mut self) -> bool {
+    fn widen_aspiration_window(&mut self) -> bool {
         let v = self.value as isize;
         if self.value <= self.alpha && self.lower_bound < self.alpha {
             // Set smaller alpha.
@@ -501,6 +498,7 @@ impl SearchRefinement for AspirationSearch {
         serve_simple(tt, commands, reports);
     }
 
+    #[allow(unused_variables)]
     fn new(tt: Arc<Tt>,
            slave_commands_tx: Sender<Command>,
            slave_reports_rx: Receiver<Report>,
@@ -562,7 +560,7 @@ impl SearchRefinement for AspirationSearch {
         let depth = if done && !search_is_terminated {
             self.searched_nodes = searched_nodes;
             self.value = value;
-            if self.update_aspiration_window() {
+            if self.widen_aspiration_window() {
                 // `value` is outside the aspiration window and we
                 // must start another search.
                 self.start_aspirated_search();
