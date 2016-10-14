@@ -353,3 +353,69 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
     }
     slave.join().unwrap();
 }
+
+
+trait SearchRefinement {
+    fn run_slave(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>);
+    fn new(tt: Arc<Tt>,
+           slave_commands_tx: &Sender<Command>,
+           slave_reports_rx: Receiver<Report>,
+           reports: Sender<Report>)
+           -> Self;
+    fn start_search(&mut self,
+                    search_id: usize,
+                    position: Position,
+                    depth: u8,
+                    lower_bound: Value,
+                    upper_bound: Value,
+                    value: Value);
+    fn progress(&mut self, search_is_terminated: bool) -> bool;
+}
+
+
+fn serve<T: SearchRefinement>(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
+    // Start a slave thread that we will send commands to.
+    let slave_tt = tt.clone();
+    let (slave_commands_tx, slave_commands_rx) = channel();
+    let (slave_reports_tx, slave_reports_rx) = channel();
+    let slave = thread::spawn(move || {
+        T::run_slave(slave_tt, slave_commands_rx, slave_reports_tx);
+    });
+
+    // Create a master object that will send commands to the slave,
+    // receive slave's reports and write to `reports`.
+    let mut master = T::new(tt, &slave_commands_tx, slave_reports_rx, reports);
+
+    // Orchestrate the work of the master and the slave.
+    let mut pending_command = None;
+    loop {
+        match pending_command.take() {
+            Some(Command::Search { search_id,
+                                   position,
+                                   depth,
+                                   lower_bound,
+                                   upper_bound,
+                                   value }) => {
+                master.start_search(search_id, position, depth, lower_bound, upper_bound, value);
+                while !master.progress(pending_command.is_some()) {
+                    if pending_command.is_none() {
+                        if let Ok(cmd) = commands.try_recv() {
+                            slave_commands_tx.send(Command::Stop).unwrap();
+                            pending_command = Some(cmd);
+                        }
+                    }
+                }
+            }
+            Some(Command::Stop) => {
+                slave_commands_tx.send(Command::Stop).unwrap();
+                continue;
+            }
+            Some(Command::Exit) => {
+                slave_commands_tx.send(Command::Exit).unwrap();
+                break;
+            }
+            None => pending_command = commands.recv().or::<RecvError>(Ok(Command::Exit)).ok(),
+        }
+    }
+    slave.join().unwrap();
+}
