@@ -46,7 +46,7 @@ pub enum Command {
 }
 
 
-/// Represents progress report from a search thread.
+/// Represents a progress report from a search.
 pub struct Report {
     /// The ID passed with the search command.
     pub search_id: usize,
@@ -61,8 +61,7 @@ pub struct Report {
     /// if not available.
     pub value: Value,
 
-    /// `true` if the search is finished or has been stopped, `false`
-    /// otherwise.
+    /// `true` if the search is done, `false` otherwise.
     pub done: bool,
 }
 
@@ -358,12 +357,26 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
 
 
 
-
-trait Searcher {
+/// The `Searcher` trait is used to execute consecutive searches in
+/// different starting positions.
+pub trait Searcher {
     /// Creates a new instance.
     fn new(tt: Arc<Tt>) -> Self;
 
     /// Starts a new search.
+    ///
+    /// * `search_id`: a number identifying the new search;
+    /// 
+    /// * `position`: the root position;
+    /// 
+    /// * `depth`: the requested search depth;
+    /// 
+    /// * `lower_bound`: the lower bound for the new search;
+    /// 
+    /// * `upper_bound`: the upper bound for the new search;
+    /// 
+    /// * `value`: the evaluation of the root position so far, or
+    ///   `VALUE_UNKNOWN` if not available.
     ///
     /// After calling `start_search`, `wait_for_report` must be called
     /// periodically until the returned report indicates that the
@@ -386,12 +399,6 @@ trait Searcher {
     /// be called periodically until the returned report indicates
     /// that the search is done.
     fn terminate_search(&mut self);
-
-    /// Terminates the current search and retires the instance.
-    ///
-    /// After calling `join`, no other methods on this instance should
-    /// be called.
-    fn join(&mut self);
 }
 
 
@@ -440,13 +447,14 @@ impl Searcher for SimpleSearcher {
     fn terminate_search(&mut self) {
         self.thread_commands.send(Command::Stop).unwrap();
     }
+}
 
-    fn join(&mut self) {
+impl Drop for SimpleSearcher {
+    fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread.take().unwrap().join().unwrap();
     }
 }
-
 
 
 /// Aspiration windows are a way to reduce the search space in the
@@ -572,15 +580,6 @@ impl Searcher for AspirationSearcher {
         self.start_aspirated_search();
     }
 
-    fn terminate_search(&mut self) {
-        self.search_is_terminated = true;
-        self.simple_searcher.terminate_search();
-    }
-
-    fn join(&mut self) {
-        self.simple_searcher.join();
-    }
-
     fn wait_for_report(&mut self) -> Report {
         loop {
             let Report { searched_nodes, depth, value, done, .. } = self.simple_searcher
@@ -608,5 +607,10 @@ impl Searcher for AspirationSearcher {
                 done: done,
             };
         }
+    }
+
+    fn terminate_search(&mut self) {
+        self.search_is_terminated = true;
+        self.simple_searcher.terminate_search();
     }
 }
