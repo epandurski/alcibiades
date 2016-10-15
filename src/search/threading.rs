@@ -9,7 +9,7 @@ use basetypes::*;
 use moves::*;
 use position::Position;
 use tt::*;
-use search::INITIAL_ASPIRATION_WINDOW;
+use search::{MAX_DEPTH, INITIAL_ASPIRATION_WINDOW};
 use search::alpha_beta::Search;
 
 
@@ -436,9 +436,11 @@ impl SearchExecutor for SimpleSearcher {
                     value: Value,
                     searchmoves: Option<Vec<Move>>,
                     variation_count: usize) {
+        debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);
-        assert!(searchmoves.is_none(), "searchmoves is not supported");
-        assert!(variation_count == 1, "variation_count is not supported");
+        debug_assert!(lower_bound != VALUE_UNKNOWN);
+        debug_assert!(searchmoves.is_none());
+        debug_assert_eq!(variation_count, 1);
         self.thread_commands
             .send(Command::Search {
                 search_id: search_id,
@@ -574,9 +576,11 @@ impl SearchExecutor for AspirationSearcher {
                     value: Value,
                     searchmoves: Option<Vec<Move>>,
                     variation_count: usize) {
+        debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);
-        assert!(searchmoves.is_none(), "searchmoves is not supported");
-        assert!(variation_count == 1, "variation_count is not supported");
+        debug_assert!(lower_bound != VALUE_UNKNOWN);
+        debug_assert!(searchmoves.is_none());
+        debug_assert_eq!(variation_count, 1);
         self.search_id = search_id;
         self.position = position;
         self.depth = depth;
