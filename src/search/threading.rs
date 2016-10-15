@@ -355,13 +355,20 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
 }
 
 
-trait SearchRefinement {
-    fn run_slave(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>);
-    fn new(tt: Arc<Tt>,
-           slave_commands_tx: Sender<Command>,
-           slave_reports_rx: Receiver<Report>,
-           reports: Sender<Report>)
-           -> Self;
+
+
+
+
+trait Searcher {
+    /// Creates a new instance.
+    fn new(tt: Arc<Tt>) -> Self;
+
+    /// Starts a new search.
+    ///
+    /// After calling `start_search`, `wait_for_report` must be called
+    /// periodically until the returned report indicates that the
+    /// search is done. A new search must not be started until the
+    /// previous search is done.
     fn start_search(&mut self,
                     search_id: usize,
                     position: Position,
@@ -369,56 +376,77 @@ trait SearchRefinement {
                     lower_bound: Value,
                     upper_bound: Value,
                     value: Value);
-    fn progress(&mut self, search_is_terminated: bool) -> bool;
+
+    /// Blocks and waits for a search report.
+    fn wait_for_report(&mut self) -> Report;
+
+    /// Requests the termination of the current search.
+    ///
+    /// After calling `terminate`, `wait_for_report` must continue to
+    /// be called periodically until the returned report indicates
+    /// that the search is done.
+    fn terminate_search(&mut self);
+
+    /// Terminates the current search and retires the instance.
+    ///
+    /// After calling `join`, no other methods on this instance should
+    /// be called.
+    fn join(&mut self);
 }
 
 
-fn serve<T: SearchRefinement>(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
-    // Start a slave thread that we will send commands to.
-    let slave_tt = tt.clone();
-    let (slave_commands_tx, slave_commands_rx) = channel();
-    let (slave_reports_tx, slave_reports_rx) = channel();
-    let slave = thread::spawn(move || {
-        T::run_slave(slave_tt, slave_commands_rx, slave_reports_tx);
-    });
+struct SimpleSearcher {
+    thread: Option<thread::JoinHandle<()>>,
+    thread_commands: Sender<Command>,
+    thread_reports: Receiver<Report>,
+}
 
-    // Create a master object that will send commands to the slave,
-    // receive slave's reports and write to `reports`.
-    let mut master = T::new(tt, slave_commands_tx.clone(), slave_reports_rx, reports);
-
-    // Orchestrate the work of the master and the slave.
-    let mut pending_command = None;
-    loop {
-        match pending_command.take() {
-            Some(Command::Search { search_id,
-                                   position,
-                                   depth,
-                                   lower_bound,
-                                   upper_bound,
-                                   value }) => {
-                master.start_search(search_id, position, depth, lower_bound, upper_bound, value);
-                while !master.progress(pending_command.is_some()) {
-                    if pending_command.is_none() {
-                        if let Ok(cmd) = commands.try_recv() {
-                            slave_commands_tx.send(Command::Stop).unwrap();
-                            pending_command = Some(cmd);
-                        }
-                    }
-                }
-            }
-            Some(Command::Stop) => {
-                slave_commands_tx.send(Command::Stop).unwrap();
-                continue;
-            }
-            Some(Command::Exit) => {
-                slave_commands_tx.send(Command::Exit).unwrap();
-                break;
-            }
-            None => pending_command = commands.recv().or::<RecvError>(Ok(Command::Exit)).ok(),
+impl Searcher for SimpleSearcher {
+    fn new(tt: Arc<Tt>) -> SimpleSearcher {
+        let (commands_tx, commands_rx) = channel();
+        let (reports_tx, reports_rx) = channel();
+        SimpleSearcher {
+            thread: Some(thread::spawn(move || {
+                serve_simple(tt, commands_rx, reports_tx);
+            })),
+            thread_commands: commands_tx,
+            thread_reports: reports_rx,
         }
     }
-    slave.join().unwrap();
+
+    fn start_search(&mut self,
+                    search_id: usize,
+                    position: Position,
+                    depth: u8,
+                    lower_bound: Value,
+                    upper_bound: Value,
+                    value: Value) {
+        self.thread_commands
+            .send(Command::Search {
+                search_id: search_id,
+                position: position,
+                depth: depth,
+                lower_bound: lower_bound,
+                upper_bound: upper_bound,
+                value: value,
+            })
+            .unwrap();
+    }
+
+    fn wait_for_report(&mut self) -> Report {
+        self.thread_reports.recv().unwrap()
+    }
+
+    fn terminate_search(&mut self) {
+        self.thread_commands.send(Command::Stop).unwrap();
+    }
+
+    fn join(&mut self) {
+        self.thread_commands.send(Command::Exit).unwrap();
+        self.thread.take().unwrap().join().unwrap();
+    }
 }
+
 
 
 /// Aspiration windows are a way to reduce the search space in the
@@ -429,17 +457,18 @@ fn serve<T: SearchRefinement>(tt: Arc<Tt>, commands: Receiver<Command>, reports:
 /// this window, then a costly re-search must be made. But then most
 /// probably the re-search will be much faster, because many positions
 /// will be remembered from the TT.
-struct AspirationSearch {
-    slave_commands_tx: Sender<Command>,
-    slave_reports_rx: Receiver<Report>,
-    reports: Sender<Report>,
+struct AspirationSearcher {
     search_id: usize,
     position: Position,
-    searched_nodes: NodeCount,
     depth: u8,
     lower_bound: Value,
     upper_bound: Value,
     value: Value,
+
+    search_is_terminated: bool,
+
+    /// The number of positions searched during previous searches.
+    searched_nodes: NodeCount,
 
     /// The aspiration window will be widened by this value if the
     /// aspirated search fails. We use `isize` to avoid overflows.
@@ -450,21 +479,21 @@ struct AspirationSearch {
 
     /// The upper bound of the aspiration window.
     beta: Value,
+
+    /// `AspirationSearcher` will hand over the real work to
+    /// `SimpleSearcher`.
+    simple_searcher: SimpleSearcher,
 }
 
-impl AspirationSearch {
+impl AspirationSearcher {
     /// A helper mehtod. It commands the slave thread to run a new search.
     fn start_aspirated_search(&mut self) {
-        self.slave_commands_tx
-            .send(Command::Search {
-                search_id: 0,
-                position: self.position.clone(),
-                depth: self.depth,
-                lower_bound: self.alpha,
-                upper_bound: self.beta,
-                value: self.value,
-            })
-            .unwrap();
+        self.simple_searcher.start_search(0,
+                                          self.position.clone(),
+                                          self.depth,
+                                          self.alpha,
+                                          self.beta,
+                                          self.value);
     }
 
     /// A helper method. It increases `self.delta` exponentially.
@@ -479,12 +508,12 @@ impl AspirationSearch {
     fn widen_aspiration_window(&mut self) -> bool {
         let v = self.value as isize;
         if self.value <= self.alpha && self.lower_bound < self.alpha {
-            // Set smaller alpha.
+            // Set smaller `self.alpha`.
             self.alpha = max(v - self.delta, self.lower_bound as isize) as Value;
             self.increase_delta();
             return true;
         } else if self.value >= self.beta && self.upper_bound > self.beta {
-            // Set bigger beta.
+            // Set bigger `self.beta`.
             self.beta = min(v + self.delta, self.upper_bound as isize) as Value;
             self.increase_delta();
             return true;
@@ -493,31 +522,21 @@ impl AspirationSearch {
     }
 }
 
-impl SearchRefinement for AspirationSearch {
-    fn run_slave(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
-        serve_simple(tt, commands, reports);
-    }
-
-    #[allow(unused_variables)]
-    fn new(tt: Arc<Tt>,
-           slave_commands_tx: Sender<Command>,
-           slave_reports_rx: Receiver<Report>,
-           reports: Sender<Report>)
-           -> AspirationSearch {
-        AspirationSearch {
-            slave_commands_tx: slave_commands_tx,
-            slave_reports_rx: slave_reports_rx,
-            reports: reports,
+impl Searcher for AspirationSearcher {
+    fn new(tt: Arc<Tt>) -> AspirationSearcher {
+        AspirationSearcher {
             search_id: 0,
             position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
-            searched_nodes: 0,
             depth: 0,
             lower_bound: -29999,
             upper_bound: 29999,
             value: VALUE_UNKNOWN,
+            search_is_terminated: false,
+            searched_nodes: 0,
             delta: INITIAL_ASPIRATION_WINDOW as isize,
             alpha: -29999,
             beta: 29999,
+            simple_searcher: SimpleSearcher::new(tt),
         }
     }
 
@@ -531,11 +550,12 @@ impl SearchRefinement for AspirationSearch {
         debug_assert!(lower_bound < upper_bound);
         self.search_id = search_id;
         self.position = position;
-        self.searched_nodes = 0;
         self.depth = depth;
         self.lower_bound = lower_bound;
         self.upper_bound = upper_bound;
         self.value = value;
+        self.search_is_terminated = false;
+        self.searched_nodes = 0;
         self.delta = INITIAL_ASPIRATION_WINDOW as isize;
 
         // Set the initial aspiration window (`self.alpha`, `self.beta`).
@@ -552,35 +572,41 @@ impl SearchRefinement for AspirationSearch {
         self.start_aspirated_search();
     }
 
-    fn progress(&mut self, search_is_terminated: bool) -> bool {
-        let Report { searched_nodes, depth, value, done, .. } = self.slave_reports_rx
-                                                                    .recv()
-                                                                    .unwrap();
-        let searched_nodes = self.searched_nodes + searched_nodes;
-        let depth = if done && !search_is_terminated {
-            self.searched_nodes = searched_nodes;
-            self.value = value;
-            if self.widen_aspiration_window() {
-                // `value` is outside the aspiration window and we
-                // must start another search.
-                self.start_aspirated_search();
-                return false;
-            }
-            depth
-        } else {
-            0
-        };
+    fn terminate_search(&mut self) {
+        self.search_is_terminated = true;
+        self.simple_searcher.terminate_search();
+    }
 
-        self.reports
-            .send(Report {
+    fn join(&mut self) {
+        self.simple_searcher.join();
+    }
+
+    fn wait_for_report(&mut self) -> Report {
+        loop {
+            let Report { searched_nodes, depth, value, done, .. } = self.simple_searcher
+                                                                        .wait_for_report();
+            let searched_nodes = self.searched_nodes + searched_nodes;
+            let depth = if done && !self.search_is_terminated {
+                self.searched_nodes = searched_nodes;
+                self.value = value;
+                if self.widen_aspiration_window() {
+                    // `value` is outside the aspiration window and we
+                    // must start another search.
+                    self.start_aspirated_search();
+                    continue;
+                }
+                depth
+            } else {
+                0
+            };
+
+            return Report {
                 search_id: self.search_id,
                 searched_nodes: searched_nodes,
                 depth: depth,
                 value: self.value,
                 done: done,
-            })
-            .ok();
-
-        done
+            };
+        }
     }
 }
