@@ -151,7 +151,6 @@ impl SearchThread {
                 depth: MAX_DEPTH,
                 lower_bound: -29999,
                 upper_bound: 29999,
-                value: VALUE_UNKNOWN,
             })
             .unwrap();
         self.status = SearchStatus {

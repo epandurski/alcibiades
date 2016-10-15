@@ -31,10 +31,6 @@ pub enum Command {
 
         /// The upper bound for the new search.
         upper_bound: Value,
-
-        /// The evaluation of the root position so far, or
-        /// `VALUE_UNKNOWN` if not available.
-        value: Value,
     },
 
     /// Stops the currently running search.
@@ -116,7 +112,7 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
             };
 
             match command {
-                Command::Search { search_id, position, depth, lower_bound, upper_bound, .. } => {
+                Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                     debug_assert!(lower_bound < upper_bound);
                     let mut report = |searched_nodes| {
                         reports.send(Report {
@@ -215,7 +211,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
         };
 
         match command {
-            Command::Search { search_id, position, depth, lower_bound, upper_bound, .. } => {
+            Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
                 debug_assert!(lower_bound < upper_bound);
                 let mut current_searched_nodes = 0;
                 let mut current_value = VALUE_UNKNOWN;
@@ -259,7 +255,6 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                                              depth: current_depth,
                                              lower_bound: alpha,
                                              upper_bound: beta,
-                                             value: VALUE_UNKNOWN,
                                          })
                                          .unwrap();
 
@@ -447,7 +442,6 @@ impl Searcher for SimpleSearcher {
                 depth: depth,
                 lower_bound: lower_bound,
                 upper_bound: upper_bound,
-                value: value,
             })
             .unwrap();
     }
