@@ -378,6 +378,13 @@ pub trait Searcher {
     /// * `value`: the evaluation of the root position so far, or
     ///   `VALUE_UNKNOWN` if not available.
     ///
+    /// * `searchmoves`: may restrict the analysis to the supplied
+    ///   subset of moves only;
+    ///
+    /// * `variation_count`: specifies how many best lines to
+    ///   calculate (the first move in each best line will be
+    ///   different).
+    /// 
     /// After calling `start_search`, `wait_for_report` must be called
     /// periodically until the returned report indicates that the
     /// search is done. A new search must not be started until the
@@ -388,7 +395,9 @@ pub trait Searcher {
                     depth: u8,
                     lower_bound: Value,
                     upper_bound: Value,
-                    value: Value);
+                    value: Value,
+                    searchmoves: Option<Vec<Move>>,
+                    variation_count: usize);
 
     /// Blocks and waits for a search report.
     fn wait_for_report(&mut self) -> Report;
@@ -421,13 +430,16 @@ impl Searcher for SimpleSearcher {
         }
     }
 
+    #[allow(unused_variables)]
     fn start_search(&mut self,
                     search_id: usize,
                     position: Position,
                     depth: u8,
                     lower_bound: Value,
                     upper_bound: Value,
-                    value: Value) {
+                    value: Value,
+                    searchmoves: Option<Vec<Move>>,
+                    variation_count: usize) {
         self.thread_commands
             .send(Command::Search {
                 search_id: search_id,
@@ -501,7 +513,9 @@ impl AspirationSearcher {
                                           self.depth,
                                           self.alpha,
                                           self.beta,
-                                          self.value);
+                                          self.value,
+                                          None,
+                                          1);
     }
 
     /// A helper method. It increases `self.delta` exponentially.
@@ -548,13 +562,16 @@ impl Searcher for AspirationSearcher {
         }
     }
 
+    #[allow(unused_variables)]
     fn start_search(&mut self,
                     search_id: usize,
                     position: Position,
                     depth: u8,
                     lower_bound: Value,
                     upper_bound: Value,
-                    value: Value) {
+                    value: Value,
+                    searchmoves: Option<Vec<Move>>,
+                    variation_count: usize) {
         debug_assert!(lower_bound < upper_bound);
         self.search_id = search_id;
         self.position = position;
