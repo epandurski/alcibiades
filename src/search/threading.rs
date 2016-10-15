@@ -436,6 +436,9 @@ impl SearchExecutor for SimpleSearcher {
                     value: Value,
                     searchmoves: Option<Vec<Move>>,
                     variation_count: usize) {
+        debug_assert!(lower_bound < upper_bound);
+        assert!(searchmoves.is_none(), "searchmoves is not supported");
+        assert!(variation_count == 1, "variation_count is not supported");
         self.thread_commands
             .send(Command::Search {
                 search_id: search_id,
@@ -562,7 +565,6 @@ impl SearchExecutor for AspirationSearcher {
         }
     }
 
-    #[allow(unused_variables)]
     fn start_search(&mut self,
                     search_id: usize,
                     position: Position,
@@ -573,6 +575,8 @@ impl SearchExecutor for AspirationSearcher {
                     searchmoves: Option<Vec<Move>>,
                     variation_count: usize) {
         debug_assert!(lower_bound < upper_bound);
+        assert!(searchmoves.is_none(), "searchmoves is not supported");
+        assert!(variation_count == 1, "variation_count is not supported");
         self.search_id = search_id;
         self.position = position;
         self.depth = depth;
