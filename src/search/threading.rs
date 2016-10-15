@@ -352,9 +352,9 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
 
 
 
-/// The `Searcher` trait is used to execute consecutive searches in
-/// different starting positions.
-pub trait Searcher {
+/// The `SearchExecutor` trait is used to execute consecutive searches
+/// in different starting positions.
+pub trait SearchExecutor {
     /// Creates a new instance.
     fn new(tt: Arc<Tt>) -> Self;
 
@@ -406,13 +406,14 @@ pub trait Searcher {
 }
 
 
-struct SimpleSearcher {
+/// Executes searches to a fixed depth.
+pub struct SimpleSearcher {
     thread: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<Report>,
 }
 
-impl Searcher for SimpleSearcher {
+impl SearchExecutor for SimpleSearcher {
     fn new(tt: Arc<Tt>) -> SimpleSearcher {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
@@ -463,15 +464,20 @@ impl Drop for SimpleSearcher {
 }
 
 
+/// Executes searches to a fixed depth with intelligently reduced
+/// bounds (aspiration window).
+/// 
 /// Aspiration windows are a way to reduce the search space in the
-/// search. We use the value from the last iteration and calculate a
-/// window around this as the alpha-beta bounds. Because the window is
-/// narrower, more beta cutoffs are achieved, and the search takes a
-/// shorter time. The drawback is that if the true score is outside
-/// this window, then a costly re-search must be made. But then most
-/// probably the re-search will be much faster, because many positions
-/// will be remembered from the TT.
-struct AspirationSearcher {
+/// search. The way it works is that we get the value from the last
+/// search iteration (the `value` parameter to the `start_search`
+/// method), calculate a window around it, and use this as alpha-beta
+/// bounds for the search. Because the window is narrower, more beta
+/// cutoffs are achieved, and the search takes a shorter time. The
+/// drawback is that if the true score is outside this window, then a
+/// costly re-search must be made. But then most probably the
+/// re-search will be much faster, because many positions will be
+/// remembered from the TT.
+pub struct AspirationSearcher {
     search_id: usize,
     position: Position,
     depth: u8,
@@ -538,7 +544,7 @@ impl AspirationSearcher {
     }
 }
 
-impl Searcher for AspirationSearcher {
+impl SearchExecutor for AspirationSearcher {
     fn new(tt: Arc<Tt>) -> AspirationSearcher {
         AspirationSearcher {
             search_id: 0,
