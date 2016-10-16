@@ -250,11 +250,11 @@ impl Position {
     /// Evaluates a final position.
     ///
     /// In final positions this method will return the correct value
-    /// of the position (`0` for a draw, `-29999` for a checkmate). A
-    /// position is guaranteed to be final if `generate_moves` method
-    /// generates no legal moves. (It may generate some pseudo-legal
-    /// moves, but if none of them is legal, then the position is
-    /// final.)
+    /// of the position (`0` for a draw, `VALUE_MIN` for a
+    /// checkmate). A position is guaranteed to be final if
+    /// `generate_moves` method generates no legal moves. (It may
+    /// generate some pseudo-legal moves, but if none of them is
+    /// legal, then the position is final.)
     ///
     /// **Important note:** Repeated and rule-50 positions are
     /// considered final (a draw).
@@ -265,7 +265,7 @@ impl Position {
             0
         } else {
             // Checkmated.
-            -29999
+            VALUE_MIN
         }
     }
 

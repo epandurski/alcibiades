@@ -150,8 +150,8 @@ impl SearchThread {
                 search_id: 0,
                 position: position.clone(),
                 depth: MAX_DEPTH,
-                lower_bound: -29999,
-                upper_bound: 29999,
+                lower_bound: VALUE_MIN,
+                upper_bound: VALUE_MAX,
             })
             .unwrap();
         self.status = SearchStatus {

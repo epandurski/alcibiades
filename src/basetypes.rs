@@ -152,8 +152,9 @@ pub type Bitboard = u64;
 /// the special meaning of "unknown value".
 pub type Value = i16;
 
-pub const VALUE_UNKNOWN: Value = ::std::i16::MIN;
-
+pub const VALUE_MAX: Value = ::std::i16::MAX;
+pub const VALUE_MIN: Value = -VALUE_MAX;
+pub const VALUE_UNKNOWN: Value = VALUE_MIN - 1;
 
 
 /// `QUEENSIDE` or `KINGSIDE`.
