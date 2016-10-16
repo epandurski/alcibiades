@@ -93,8 +93,8 @@ pub struct Report {
 ///     search_id: 0,
 ///     position: Position::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
 ///     depth: 5,
-///     lower_bound: -29999,
-///     upper_bound: 29999,
+///     lower_bound: VALUE_MIN,
+///     upper_bound: VALUE_MAX,
 /// }).unwrap();
 /// ```
 ///
@@ -190,8 +190,8 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
 ///     search_id: 0,
 ///     position: Position::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
 ///     depth: 5,
-///     lower_bound: -29999,
-///     upper_bound: 29999,
+///     lower_bound: VALUE_MIN,
+///     upper_bound: VALUE_MAX,
 /// }).unwrap();
 /// ```
 ///
@@ -563,14 +563,14 @@ impl SearchExecutor for AspirationSearcher {
             search_id: 0,
             position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
             depth: 0,
-            lower_bound: -29999,
-            upper_bound: 29999,
+            lower_bound: VALUE_MIN,
+            upper_bound: VALUE_MAX,
             value: VALUE_UNKNOWN,
             search_is_terminated: false,
             searched_nodes: 0,
             delta: INITIAL_ASPIRATION_WINDOW as isize,
-            alpha: -29999,
-            beta: 29999,
+            alpha: VALUE_MIN,
+            beta: VALUE_MAX,
             simple_searcher: SimpleSearcher::new(tt),
         }
     }

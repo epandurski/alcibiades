@@ -5,7 +5,7 @@ use std::cmp::max;
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::Position;
+use position::{Position, VALUE_STATIC_MAX, VALUE_STATIC_MIN};
 use search::{MAX_DEPTH, NODE_COUNT_REPORT_INTERVAL};
 
 
@@ -142,9 +142,9 @@ impl<'a> Search<'a> {
                 // Increase/decrease the value for a checkmate by one
                 // on every half-move. This way the engine will seek
                 // for the fastest checkmate possible.
-                if v < -20000 {
+                if v < VALUE_STATIC_MIN - 1 {
                     v += 1;
-                } else if v > 20000 {
+                } else if v > VALUE_STATIC_MAX + 1 {
                     v -= 1;
                 }
 
@@ -683,9 +683,10 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
+    use basetypes::*;
     use tt::*;
     use moves::*;
-    use position::Position;
+    use position::{Position, VALUE_STATIC_MAX};
 
     #[test]
     fn test_search() {
@@ -695,15 +696,15 @@ mod tests {
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
-        let value = search.run(-30000, 30000, 2, Move::invalid())
+        let value = search.run(VALUE_MIN, VALUE_MAX, 2, Move::invalid())
                           .ok()
                           .unwrap();
         assert!(value < -300);
         search.reset();
-        let value = search.run(-30000, 30000, 8, Move::invalid())
+        let value = search.run(VALUE_MIN, VALUE_MAX, 8, Move::invalid())
                           .ok()
                           .unwrap();
-        assert!(value >= 20000);
+        assert!(value > VALUE_STATIC_MAX);
     }
 
     #[test]

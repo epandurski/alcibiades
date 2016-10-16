@@ -18,6 +18,15 @@ use self::move_generation::Board;
 use self::evaluation::evaluate_board;
 
 
+/// Values bigger then `VALUE_STATIC_MAX` designate a win by
+/// checkmate.
+pub const VALUE_STATIC_MAX: Value = 19999;
+
+/// Values smaller than `VALUE_STATIC_MIN` designate a loss by
+/// checkmate.
+pub const VALUE_STATIC_MIN: Value = -VALUE_STATIC_MAX;
+
+
 /// Represents an illegal possiton error.
 pub struct IllegalPosition;
 
@@ -250,11 +259,11 @@ impl Position {
     /// Evaluates a final position.
     ///
     /// In final positions this method will return the correct value
-    /// of the position (`0` for a draw, `-29999` for a checkmate). A
-    /// position is guaranteed to be final if `generate_moves` method
-    /// generates no legal moves. (It may generate some pseudo-legal
-    /// moves, but if none of them is legal, then the position is
-    /// final.)
+    /// of the position (`0` for a draw, `VALUE_MIN` for a
+    /// checkmate). A position is guaranteed to be final if
+    /// `generate_moves` method generates no legal moves. (It may
+    /// generate some pseudo-legal moves, but if none of them is
+    /// legal, then the position is final.)
     ///
     /// **Important note:** Repeated and rule-50 positions are
     /// considered final (a draw).
@@ -265,7 +274,7 @@ impl Position {
             0
         } else {
             // Checkmated.
-            -29999
+            VALUE_MIN
         }
     }
 
@@ -275,15 +284,15 @@ impl Position {
     /// properties of the position. If the position is dynamic, with
     /// pending tactical threats, this function will return a grossly
     /// incorrect evaluation. The returned value will be between
-    /// `-19999` and `19999`. For repeated and rule-50 positions `0`
-    /// is returned.
+    /// `VALUE_STATIC_MIN` and `VALUE_STATIC_MAX`. For repeated and
+    /// rule-50 positions `0` is returned.
     #[inline]
     pub fn evaluate_static(&self) -> Value {
         if self.repeated_or_rule50 {
             0
         } else {
             let v = evaluate_board(self.board());
-            debug_assert!(v >= -19999 && v <= 19999);
+            debug_assert!(v >= VALUE_STATIC_MIN && v <= VALUE_STATIC_MAX);
             v
         }
     }
@@ -307,8 +316,9 @@ impl Position {
     /// the exact evaluation, but always staying on the correct side
     /// of the interval. `static_evaluation` should be the value
     /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
-    /// returned value will be between `-19999` and `19999`. For
-    /// repeated and rule-50 positions `0` is returned.
+    /// returned value will be between `VALUE_STATIC_MIN` and
+    /// `VALUE_STATIC_MAX`. For repeated and rule-50 positions `0` is
+    /// returned.
     ///
     /// **Note:** This method will return a reliable result even when
     /// the side to move is in check. In this case it will try all
@@ -517,7 +527,8 @@ impl Position {
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(static_evaluation == VALUE_UNKNOWN ||
-                      static_evaluation > -20000 && static_evaluation < 20000);
+                      static_evaluation >= VALUE_STATIC_MIN &&
+                      static_evaluation <= VALUE_STATIC_MAX);
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
@@ -533,7 +544,7 @@ impl Position {
                 static_evaluation
             } else {
                 let v = eval_func(self.board());
-                debug_assert!(v > -20000 && v < 20000);
+                debug_assert!(v >= VALUE_STATIC_MIN && v <= VALUE_STATIC_MAX);
                 v
             }
         } else {
@@ -545,7 +556,8 @@ impl Position {
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
         }
-        let obligatory_material_gain = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
+        let obligatory_material_gain = (lower_bound as isize) - (stand_pat as isize) -
+                                       2 * (PIECE_VALUES[PAWN] as isize);
 
         // Generate all non-quiet moves.
         move_stack.save();
@@ -567,7 +579,7 @@ impl Position {
             } else {
                 PIECE_VALUES[captured_piece]
             };
-            if material_gain < obligatory_material_gain {
+            if (material_gain as isize) < obligatory_material_gain {
                 continue;
             }
 
@@ -623,14 +635,15 @@ impl Position {
         move_stack.restore();
 
         // Return the determined lower bound. (We should make sure
-        // that the returned value is between -19999 and 19999,
-        // regardless of the initial bounds passed to `qsearch`. If we
-        // do not take this precautions, the search algorithm will
-        // abstain from checkmating the opponent, seeking the huge
-        // material gain that `qsearch` promised.)
+        // that the returned value is between `VALUE_STATIC_MIN` and
+        // `VALUE_STATIC_MAX`, regardless of the initial bounds passed
+        // to `qsearch`. If we do not take this precautions, the
+        // search algorithm will abstain from checkmating the
+        // opponent, seeking the huge material gain that `qsearch`
+        // promised.)
         match lower_bound {
-            x if x < -19999 => -19999,
-            x if x > 19999 => 19999,
+            x if x < VALUE_STATIC_MIN => VALUE_STATIC_MIN,
+            x if x > VALUE_STATIC_MAX => VALUE_STATIC_MAX,
             x => x,
         }
     }
