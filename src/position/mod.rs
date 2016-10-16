@@ -18,7 +18,7 @@ use self::move_generation::Board;
 use self::evaluation::evaluate_board;
 
 
-/// Values bigger then `VALUE_STATIC_MAX` designate a win by
+/// Values bigger than `VALUE_STATIC_MAX` designate a win by
 /// inevitable checkmate.
 pub const VALUE_STATIC_MAX: Value = 19999;
 
