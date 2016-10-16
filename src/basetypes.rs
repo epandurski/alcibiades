@@ -2,6 +2,7 @@
 //! colors, squares, files, and ranks.
 //!
 //! This module also defines few simple functions.
+use std::fmt;
 
 
 /// `WHITE` or `BLACK`.
@@ -166,7 +167,7 @@ pub const KINGSIDE: CastlingSide = 1;
 
 
 /// Describes how pieces are placed on the board.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct PiecesPlacement {
     /// An array of occupation bitboards indexed by piece type.  For
     /// example, `piece_placement.piece_type[PAWN]` gives the set of
@@ -179,12 +180,11 @@ pub struct PiecesPlacement {
     pub color: [Bitboard; 2],
 }
 
-impl PiecesPlacement {
-    /// Returns a human-readable representation of the placement of
-    /// pieces.
-    pub fn pretty_string(&self) -> String {
+impl fmt::Display for PiecesPlacement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         for rank in (0..8).rev() {
+            s.push('\n');
             for file in 0..8 {
                 let square = square(file, rank);
                 let bb = 1 << square;
@@ -203,9 +203,8 @@ impl PiecesPlacement {
                     s.push(piece);
                 }
             }
-            s.push('\n');
         }
-        s
+        writeln!(f, "{}", s)
     }
 }
 
@@ -230,7 +229,7 @@ impl PiecesPlacement {
 ///  bit 2 -- if set, black can castle on queen-side;
 ///  bit 3 -- if set, black can castle on king-side.
 /// ```
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct CastlingRights(usize);
 
 impl CastlingRights {
@@ -304,6 +303,20 @@ impl CastlingRights {
         (1 << (player << 1) << side) & self.0 != 0
     }
 }
+
+impl fmt::Display for CastlingRights {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut value = self.value();
+        for s in ["Q", "K", "q", "k"].iter() {
+            if value & 1 == 1 {
+                try!(f.write_str(s));
+            }
+            value >>= 1;
+        }
+        Ok(())
+    }
+}
+
 
 
 /// Returns the square on given file and rank.
