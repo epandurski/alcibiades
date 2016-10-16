@@ -1,3 +1,26 @@
+//! Implements iterative deepening, aspiration windows, multi-PV.
+//!
+//! Iterative deepening works as follows: the program starts with a
+//! one ply search, then increments the search depth and does another
+//! search. This process is repeated until the time allocated for the
+//! search is exhausted. In case of an unfinished search, the program
+//! always has the option to fall back to the move selected in the
+//! last iteration of the search.
+//!
+//! Aspiration windows are a way to reduce the search space in the
+//! search. The way it works is that we get the value from the last
+//! search iteration, calculate a window around it, and use this as
+//! alpha-beta bounds for the next search. Because the window is
+//! narrower, more beta cutoffs are achieved, and the search takes a
+//! shorter time. The drawback is that if the true score is outside
+//! this window, then a costly re-search must be made. But then most
+//! probably the re-search will be much faster, because many positions
+//! will be remembered from the transposition table.
+//!
+//! In multi-PV mode the engine calculates and sends to the GUI
+//! several principal variations (PV), each one starting with a
+//! different first move.
+
 use std::cmp::{min, max};
 use std::thread;
 use std::sync::Arc;
@@ -68,7 +91,8 @@ pub trait SearchExecutor {
 }
 
 
-/// Executes searches to a fixed depth.
+
+/// Executes bare alpha-beta searches to a fixed depth.
 pub struct SimpleSearcher {
     thread: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
@@ -130,19 +154,13 @@ impl Drop for SimpleSearcher {
 }
 
 
-/// Executes searches to a fixed depth with intelligently reduced
-/// bounds (aspiration window).
-/// 
-/// Aspiration windows are a way to reduce the search space in the
-/// search. The way it works is that we get the value from the last
-/// search iteration (the `value` parameter to the `start_search`
-/// method), calculate a window around it, and use this as alpha-beta
-/// bounds for the search. Because the window is narrower, more beta
-/// cutoffs are achieved, and the search takes a shorter time. The
-/// drawback is that if the true score is outside this window, then a
-/// costly re-search must be made. But then most probably the
-/// re-search will be much faster, because many positions will be
-/// remembered from the TT.
+
+/// Executes multi-PV searches to a fixed depth.
+pub struct MultipvSearcher;
+
+
+
+/// Executes multi-PV searches to a fixed depth with aspiration.
 pub struct AspirationSearcher {
     search_id: usize,
     position: Position,
@@ -300,3 +318,8 @@ impl SearchExecutor for AspirationSearcher {
         self.simple_searcher.terminate_search();
     }
 }
+
+
+
+/// Executes deepeing multi-PV searches with aspiration.
+pub struct DeepeningSearcher;
