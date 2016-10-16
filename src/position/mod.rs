@@ -19,11 +19,11 @@ use self::evaluation::evaluate_board;
 
 
 /// Values bigger then `VALUE_STATIC_MAX` designate a win by
-/// checkmate.
+/// inevitable checkmate.
 pub const VALUE_STATIC_MAX: Value = 19999;
 
 /// Values smaller than `VALUE_STATIC_MIN` designate a loss by
-/// checkmate.
+/// inevitable checkmate.
 pub const VALUE_STATIC_MIN: Value = -VALUE_STATIC_MAX;
 
 
