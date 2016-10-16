@@ -16,14 +16,7 @@ use self::threading::*;
 
 
 /// The maximum search depth in half-moves.
-const MAX_DEPTH: u8 = 63; // Should be less than 127.
-
-/// The number of nodes that will be searched without reporting search
-/// progress.
-///
-/// If this value is too small the engine may become slow, if this
-/// value is too big the engine may become unresponsive.
-const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
+pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 
 /// A sequence of moves from some starting position, together with the

@@ -29,12 +29,12 @@ use basetypes::*;
 use moves::*;
 use tt::*;
 use position::Position;
-use search::threading::{Command, Report, serve_simple};
 use search::MAX_DEPTH;
+use search::threading::{Command, Report, serve_simple};
 
 
 /// The half-with of the initial aspiration window.
-pub const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
+const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 
 
 /// The `SearchExecutor` trait is used to execute consecutive searches

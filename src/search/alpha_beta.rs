@@ -6,7 +6,7 @@ use basetypes::*;
 use moves::*;
 use tt::*;
 use position::{Position, VALUE_STATIC_MAX, VALUE_STATIC_MIN};
-use search::{MAX_DEPTH, NODE_COUNT_REPORT_INTERVAL};
+use search::MAX_DEPTH;
 
 
 /// Represents a terminated search condition.
@@ -516,6 +516,14 @@ impl<'a> Search<'a> {
         self.killers.register(self.state_stack.len() - 1, m);
     }
 }
+
+
+/// The number of nodes that will be searched without reporting search
+/// progress.
+///
+/// If this value is too small the engine may become slow, if this
+/// value is too big the engine may become unresponsive.
+const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
 
 
 /// The number of half-moves with which the search depth will be
