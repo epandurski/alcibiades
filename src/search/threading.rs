@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, RecvError};
 use basetypes::*;
 use moves::*;
-use position::Position;
 use tt::*;
+use position::Position;
 use search::alpha_beta::Search;
 
 
