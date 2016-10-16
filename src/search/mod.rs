@@ -270,13 +270,13 @@ fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
             // `VALUE_STATIC_MAX` carry information about in how many
             // moves is the inevitable checkmate. However, do not show
             // this to the user, because it is sometimes incorrect.
-            if leaf_value >= 20000 {
+            if leaf_value > VALUE_STATIC_MAX {
                 leaf_value = VALUE_STATIC_MAX;
                 if bound == BOUND_LOWER {
                     bound = BOUND_EXACT
                 }
             }
-            if leaf_value <= -20000 {
+            if leaf_value < VALUE_STATIC_MIN {
                 leaf_value = VALUE_STATIC_MIN;
                 if bound == BOUND_UPPER {
                     bound = BOUND_EXACT

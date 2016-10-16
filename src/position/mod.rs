@@ -527,7 +527,8 @@ impl Position {
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(static_evaluation == VALUE_UNKNOWN ||
-                      static_evaluation > -20000 && static_evaluation < 20000);
+                      static_evaluation >= VALUE_STATIC_MIN &&
+                      static_evaluation <= VALUE_STATIC_MAX);
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
@@ -543,7 +544,7 @@ impl Position {
                 static_evaluation
             } else {
                 let v = eval_func(self.board());
-                debug_assert!(v > -20000 && v < 20000);
+                debug_assert!(v >= VALUE_STATIC_MIN && v <= VALUE_STATIC_MAX);
                 v
             }
         } else {
@@ -555,7 +556,8 @@ impl Position {
         if stand_pat > lower_bound {
             lower_bound = stand_pat;
         }
-        let obligatory_material_gain = lower_bound - stand_pat - 2 * PIECE_VALUES[PAWN];
+        let obligatory_material_gain = (lower_bound as isize) - (stand_pat as isize) -
+                                       2 * (PIECE_VALUES[PAWN] as isize);
 
         // Generate all non-quiet moves.
         move_stack.save();
@@ -577,7 +579,7 @@ impl Position {
             } else {
                 PIECE_VALUES[captured_piece]
             };
-            if material_gain < obligatory_material_gain {
+            if (material_gain as isize) < obligatory_material_gain {
                 continue;
             }
 
