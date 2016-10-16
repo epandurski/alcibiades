@@ -707,7 +707,8 @@ mod tests {
                       "infinite wtime 22000",
                       "wtime 22000 infinite btime 11000",
                       "wtime fdfee / 22000 infinite btime 11000 fdfds",
-                      "wtime 22000 infinite btime 11000 ponder"];
+                      "wtime 22000 infinite btime 11000 ponder",
+                      "searchmoves"];
         for (i, s) in params.iter().enumerate() {
             if let Some(UciCommand::Go(p)) = parse_go_params(s).ok() {
                 match i {
@@ -756,6 +757,9 @@ mod tests {
                         assert_eq!(p.wtime, Some(22000));
                         assert_eq!(p.btime, Some(11000));
                         assert_eq!(p.ponder, true);
+                    }
+                    12 => {
+                        assert_eq!(p.searchmoves, None);
                     }
                     _ => (),
                 }
