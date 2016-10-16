@@ -46,7 +46,7 @@ pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 
 
 /// Contains information about a particular position.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct TtEntry {
     move16: MoveDigest,
     value: Value,
