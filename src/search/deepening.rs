@@ -10,8 +10,8 @@ use search::threading::{Command, Report, serve_simple};
 use search::MAX_DEPTH;
 
 
-/// The half-with of the initial aspiration window in centipawns.
-const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
+/// The half-with of the initial aspiration window.
+pub const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 
 
 /// The `SearchExecutor` trait is used to execute consecutive searches

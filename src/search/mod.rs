@@ -2,6 +2,7 @@
 
 pub mod alpha_beta;
 pub mod threading;
+pub mod deepening;
 
 use std::thread;
 use std::sync::Arc;
@@ -16,9 +17,6 @@ use self::threading::*;
 
 /// The maximum search depth in half-moves.
 const MAX_DEPTH: u8 = 63; // Should be less than 127.
-
-/// The half-with of the initial aspiration window in centipawns.
-const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
 
 /// The number of nodes that will be searched without reporting search
 /// progress.
