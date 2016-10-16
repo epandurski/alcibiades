@@ -44,7 +44,7 @@ pub enum Command {
 
 /// Represents a progress report from a search.
 pub struct Report {
-    /// The ID passed with the search command.
+    /// The ID assigned to search.
     pub search_id: usize,
 
     /// The number of positions searched so far.
@@ -56,6 +56,10 @@ pub struct Report {
     /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
     /// if not available.
     pub value: Value,
+
+    /// The best moves found so far (sorted by strength), or an empty
+    /// list if not available.
+    pub best_moves: Vec<Move>,
 
     /// `true` if the search is done, `false` otherwise.
     pub done: bool,
@@ -120,6 +124,7 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                                    searched_nodes: searched_nodes,
                                    depth: 0,
                                    value: VALUE_UNKNOWN,
+                                   best_moves: vec![],
                                    done: false,
                                })
                                .ok();
@@ -142,6 +147,7 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                                    depth
                                },
                                value: value,
+                               best_moves: vec![],
                                done: true,
                            })
                            .ok();
@@ -270,6 +276,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                                        searched_nodes: current_searched_nodes + searched_nodes,
                                        depth: current_depth - 1,
                                        value: current_value,
+                                       best_moves: vec![],
                                        done: false,
                                    })
                                    .ok();
@@ -316,6 +323,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                                searched_nodes: current_searched_nodes,
                                depth: current_depth,
                                value: current_value,
+                               best_moves: vec![],
                                done: false,
                            })
                            .ok();
@@ -329,6 +337,7 @@ pub fn serve_deepening(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender
                            searched_nodes: current_searched_nodes,
                            depth: current_depth - 1,
                            value: current_value,
+                           best_moves: vec![],
                            done: true,
                        })
                        .ok();
@@ -376,9 +385,8 @@ pub trait SearchExecutor {
     /// * `searchmoves`: may restrict the analysis to the supplied
     ///   subset of moves only;
     ///
-    /// * `variation_count`: specifies how many best lines to
-    ///   calculate (the first move in each best line will be
-    ///   different).
+    /// * `variation_count`: specifies how many best lines of play to
+    ///   calculate (the first move in each line will be different).
     /// 
     /// After calling `start_search`, `wait_for_report` must be called
     /// periodically until the returned report indicates that the
@@ -440,7 +448,6 @@ impl SearchExecutor for SimpleSearcher {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(lower_bound != VALUE_UNKNOWN);
         debug_assert!(searchmoves.is_none());
-        debug_assert_eq!(variation_count, 1);
         self.thread_commands
             .send(Command::Search {
                 search_id: search_id,
@@ -579,8 +586,7 @@ impl SearchExecutor for AspirationSearcher {
         debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(lower_bound != VALUE_UNKNOWN);
-        debug_assert!(searchmoves.is_none());
-        debug_assert_eq!(variation_count, 1);
+        debug_assert!(variation_count > 0);
         self.search_id = search_id;
         self.position = position;
         self.depth = depth;
@@ -629,6 +635,7 @@ impl SearchExecutor for AspirationSearcher {
                 searched_nodes: searched_nodes,
                 depth: depth,
                 value: self.value,
+                best_moves: vec![],
                 done: done,
             };
         }

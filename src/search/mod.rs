@@ -126,8 +126,8 @@ impl SearchThread {
     /// status.
     ///
     /// `position` is the starting position for the new
-    /// search. `variation_count` specifies how many best lines to
-    /// calculate (the first move in each best line will be
+    /// search. `variation_count` specifies how many best lines of
+    /// play to calculate (the first move in each line will be
     /// different). `searchmoves` may restrict the analysis to the
     /// supplied subset of moves only. The move format is long
     /// algebraic notation. Examples: e2e4, e7e5, e1g1 (white short
