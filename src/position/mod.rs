@@ -18,11 +18,11 @@ use self::move_generation::Board;
 use self::evaluation::evaluate_board;
 
 
-/// Values bigger than `VALUE_STATIC_MAX` designate a win by
+/// Evaluations bigger than `VALUE_STATIC_MAX` designate a win by
 /// inevitable checkmate.
 pub const VALUE_STATIC_MAX: Value = 19999;
 
-/// Values smaller than `VALUE_STATIC_MIN` designate a loss by
+/// Evaluations smaller than `VALUE_STATIC_MIN` designate a loss by
 /// inevitable checkmate.
 pub const VALUE_STATIC_MIN: Value = -VALUE_STATIC_MAX;
 
