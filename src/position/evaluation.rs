@@ -2,7 +2,6 @@
 
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
-use position::VALUE_STATIC_MIN; 
 use position::bitsets::*;
 use position::move_generation::Board;
 
@@ -26,7 +25,7 @@ pub fn evaluate_board(board: &Board) -> Value {
     if board.checkers() != 0 {
         // In positions under check we can be vastly incorrect with no
         // negative consequences.
-        return VALUE_STATIC_MIN;
+        return 0;
     }
 
     let piece_type = board.pieces().piece_type;
