@@ -57,8 +57,8 @@ pub struct Report {
     /// if not available.
     pub value: Value,
 
-    /// The best moves found so far (sorted by strength), or an empty
-    /// list if not available.
+    /// The best moves found so far (sorted by descending strength),
+    /// or an empty list if not available.
     pub best_moves: Vec<Move>,
 
     /// `true` if the search is done, `false` otherwise.
