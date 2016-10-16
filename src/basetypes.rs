@@ -156,6 +156,7 @@ pub const VALUE_MIN: Value = -VALUE_MAX;
 pub const VALUE_UNKNOWN: Value = VALUE_MIN - 1;
 
 
+
 /// `QUEENSIDE` or `KINGSIDE`.
 pub type CastlingSide = usize; // 0 or 1
 
