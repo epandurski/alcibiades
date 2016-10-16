@@ -305,7 +305,7 @@ impl Position {
     /// only "quiet" positions (positions where there are no winning
     /// tactical moves to be made). Although this search can cheaply
     /// and correctly resolve many tactical issues, it is blind to
-    /// other simple tactical threads like most kinds of forks,
+    /// other simple tactical threats like most kinds of forks,
     /// checks, even a checkmate in one move.
     /// 
     /// `lower_bound` and `upper_bound` together give the interval
