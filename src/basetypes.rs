@@ -2,6 +2,7 @@
 //! colors, squares, files, and ranks.
 //!
 //! This module also defines few simple functions.
+
 use std::fmt;
 
 

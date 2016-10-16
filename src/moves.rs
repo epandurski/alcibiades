@@ -1,5 +1,6 @@
 //! Defines data structures related to chess moves.
 
+use std::fmt;
 use std::slice;
 use basetypes::*;
 
@@ -332,6 +333,13 @@ impl Move {
         debug_assert!(self.orig_square() != self.dest_square() ||
                       self.captured_piece() == NO_PIECE);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
+    }
+}
+
+
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.notation())
     }
 }
 
