@@ -190,7 +190,7 @@ pub struct AspirationSearcher {
 }
 
 impl AspirationSearcher {
-    /// A helper mehtod. It commands the slave thread to run a new search.
+    /// A helper method. It commands the slave searcher to run a new search.
     fn start_aspirated_search(&mut self) {
         self.simple_searcher.start_search(0,
                                           self.position.clone(),

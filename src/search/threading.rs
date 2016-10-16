@@ -1,4 +1,4 @@
-//! Implements search parallelization facilities.
+//! Implements search parallelization.
 
 use std::thread;
 use std::cmp::{min, max};
