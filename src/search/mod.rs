@@ -128,15 +128,16 @@ impl SearchThread {
     /// `position` is the starting position for the new
     /// search. `variation_count` specifies how many best lines of
     /// play to calculate (the first move in each line will be
-    /// different). `searchmoves` may restrict the analysis to the
-    /// supplied subset of moves only. The move format is long
-    /// algebraic notation. Examples: e2e4, e7e5, e1g1 (white short
-    /// castling), e7e8q (for promotion).
+    /// different). `searchmoves` restricts the analysis to the
+    /// supplied list of moves only (no restrictions if the suppied
+    /// list is empty). The move format is long algebraic
+    /// notation. Examples: e2e4, e7e5, e1g1 (white short castling),
+    /// e7e8q (for promotion).
     #[allow(unused_variables)]
     pub fn search(&mut self,
                   position: &Position,
                   variation_count: usize,
-                  searchmoves: Option<Vec<String>>) {
+                  searchmoves: Vec<String>) {
         // TODO: We ignore the "variation_count" parameter.
 
         // TODO: We ignore the "searchmoves" parameter.

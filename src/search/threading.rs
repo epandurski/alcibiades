@@ -382,8 +382,9 @@ pub trait SearchExecutor {
     /// * `value`: the evaluation of the root position so far, or
     ///   `VALUE_UNKNOWN` if not available.
     ///
-    /// * `searchmoves`: may restrict the analysis to the supplied
-    ///   subset of moves only;
+    /// * `searchmoves`: restricts the analysis to the supplied list
+    ///   of moves only (no restrictions if the suppied list is
+    ///   empty);
     ///
     /// * `variation_count`: specifies how many best lines of play to
     ///   calculate (the first move in each line will be different).
@@ -399,7 +400,7 @@ pub trait SearchExecutor {
                     lower_bound: Value,
                     upper_bound: Value,
                     value: Value,
-                    searchmoves: Option<Vec<Move>>,
+                    searchmoves: Vec<Move>,
                     variation_count: usize);
 
     /// Blocks and waits for a search report.
@@ -442,12 +443,12 @@ impl SearchExecutor for SimpleSearcher {
                     lower_bound: Value,
                     upper_bound: Value,
                     value: Value,
-                    searchmoves: Option<Vec<Move>>,
+                    searchmoves: Vec<Move>,
                     variation_count: usize) {
         debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(lower_bound != VALUE_UNKNOWN);
-        debug_assert!(searchmoves.is_none());
+        debug_assert!(searchmoves.is_empty());
         self.thread_commands
             .send(Command::Search {
                 search_id: search_id,
@@ -526,7 +527,7 @@ impl AspirationSearcher {
                                           self.alpha,
                                           self.beta,
                                           self.value,
-                                          None,
+                                          vec![],
                                           1);
     }
 
@@ -581,7 +582,7 @@ impl SearchExecutor for AspirationSearcher {
                     lower_bound: Value,
                     upper_bound: Value,
                     value: Value,
-                    searchmoves: Option<Vec<Move>>,
+                    searchmoves: Vec<Move>,
                     variation_count: usize) {
         debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);

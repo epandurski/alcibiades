@@ -495,7 +495,7 @@ pub trait UciEngine {
     /// * *infinite:* Search until the `stop()` command. Do not exit
     ///   the search without being told so in this mode!
     fn go(&mut self,
-          searchmoves: Option<Vec<String>>,
+          searchmoves: Vec<String>,
           ponder: bool,
           wtime: Option<u64>,
           btime: Option<u64>,
@@ -537,7 +537,7 @@ pub trait UciEngine {
 
 /// Parameters for `UciCommand::Go`.
 struct GoParams {
-    searchmoves: Option<Vec<String>>,
+    searchmoves: Vec<String>,
     ponder: bool,
     wtime: Option<u64>,
     btime: Option<u64>,
@@ -639,7 +639,7 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
         ).unwrap();
     }
     let mut params = GoParams {
-        searchmoves: None,
+        searchmoves: vec![],
         ponder: false,
         wtime: None,
         btime: None,
@@ -657,9 +657,9 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
         match keyword {
             "searchmoves" => {
                 if let Some(moves) = captures.name("moves") {
-                    params.searchmoves = Some(moves.split_whitespace()
-                                                   .map(|x| x.to_string())
-                                                   .collect());
+                    params.searchmoves = moves.split_whitespace()
+                                              .map(|x| x.to_string())
+                                              .collect();
                 }
             }
             "infinite" => {
@@ -729,14 +729,13 @@ mod tests {
                         assert_eq!(p.infinite, false);
                     }
                     5 => {
-                        assert_eq!(p.searchmoves,
-                                   Some(vec!["e2e4".to_string(), "c7c8q".to_string()]));
+                        assert_eq!(p.searchmoves, vec!["e2e4".to_string(), "c7c8q".to_string()]);
                     }
                     6 => {
-                        assert_eq!(p.searchmoves, Some(vec!["e2e4".to_string()]));
+                        assert_eq!(p.searchmoves, vec!["e2e4".to_string()]);
                     }
                     7 => {
-                        assert_eq!(p.searchmoves, None);
+                        assert!(p.searchmoves.is_empty());
                     }
                     8 => {
                         assert_eq!(p.wtime, Some(22000));
@@ -757,10 +756,10 @@ mod tests {
                         assert_eq!(p.wtime, Some(22000));
                         assert_eq!(p.btime, Some(11000));
                         assert_eq!(p.ponder, true);
-                        assert_eq!(p.searchmoves, None);
+                        assert!(p.searchmoves.is_empty());
                     }
                     12 => {
-                        assert_eq!(p.searchmoves, None);
+                        assert!(p.searchmoves.is_empty());
                     }
                     _ => (),
                 }

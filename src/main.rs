@@ -196,7 +196,7 @@ impl UciEngine for Engine {
 
     #[allow(unused_variables)]
     fn go(&mut self,
-          searchmoves: Option<Vec<String>>,
+          searchmoves: Vec<String>,
           ponder: bool,
           wtime: Option<u64>,
           btime: Option<u64>,
