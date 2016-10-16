@@ -757,6 +757,7 @@ mod tests {
                         assert_eq!(p.wtime, Some(22000));
                         assert_eq!(p.btime, Some(11000));
                         assert_eq!(p.ponder, true);
+                        assert_eq!(p.searchmoves, None);
                     }
                     12 => {
                         assert_eq!(p.searchmoves, None);
