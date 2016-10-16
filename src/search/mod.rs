@@ -10,7 +10,7 @@ use std::time::SystemTime;
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::Position;
+use position::{Position, VALUE_STATIC_MAX, VALUE_STATIC_MIN};
 use self::threading::*;
 
 
@@ -111,7 +111,7 @@ impl SearchThread {
                 done: true,
                 depth: 0,
                 variations: vec![Variation {
-                                     value: -19999,
+                                     value: VALUE_STATIC_MIN,
                                      bound: BOUND_LOWER,
                                      moves: vec![],
                                  }],
@@ -160,7 +160,7 @@ impl SearchThread {
             done: false,
             depth: 0,
             variations: vec![Variation {
-                                 value: -19999,
+                                 value: VALUE_STATIC_MIN,
                                  bound: BOUND_LOWER,
                                  moves: vec![],
                              }], // TODO: Set good initial value (vec![best_move]).
@@ -246,7 +246,7 @@ fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
     let mut our_turn = true;
     let mut prev_move = None;
     let mut moves = Vec::new();
-    let mut leaf_value = -19999;
+    let mut leaf_value = VALUE_STATIC_MIN;
     let mut root_value = leaf_value;
     let mut bound = BOUND_LOWER;
     while let Some(entry) = tt.peek(p.hash()) {
@@ -266,18 +266,18 @@ fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
                 };
             }
 
-            // The values under -19999 and over 19999 carry
-            // information about in how many moves is the
-            // inevitable checkmate. However, do not show this to
-            // the user, because it is sometimes incorrect.
+            // The values under `VALUE_STATIC_MIN` and over
+            // `VALUE_STATIC_MAX` carry information about in how many
+            // moves is the inevitable checkmate. However, do not show
+            // this to the user, because it is sometimes incorrect.
             if leaf_value >= 20000 {
-                leaf_value = 19999;
+                leaf_value = VALUE_STATIC_MAX;
                 if bound == BOUND_LOWER {
                     bound = BOUND_EXACT
                 }
             }
             if leaf_value <= -20000 {
-                leaf_value = -19999;
+                leaf_value = VALUE_STATIC_MIN;
                 if bound == BOUND_UPPER {
                     bound = BOUND_EXACT
                 }

@@ -18,6 +18,15 @@ use self::move_generation::Board;
 use self::evaluation::evaluate_board;
 
 
+/// Values bigger then `VALUE_STATIC_MAX` designate a win by
+/// checkmate.
+pub const VALUE_STATIC_MAX: Value = 19999;
+
+/// Values smaller than `VALUE_STATIC_MIN` designate a loss by
+/// checkmate.
+pub const VALUE_STATIC_MIN: Value = -VALUE_STATIC_MAX;
+
+
 /// Represents an illegal possiton error.
 pub struct IllegalPosition;
 
@@ -275,15 +284,15 @@ impl Position {
     /// properties of the position. If the position is dynamic, with
     /// pending tactical threats, this function will return a grossly
     /// incorrect evaluation. The returned value will be between
-    /// `-19999` and `19999`. For repeated and rule-50 positions `0`
-    /// is returned.
+    /// `VALUE_STATIC_MIN` and `VALUE_STATIC_MAX`. For repeated and
+    /// rule-50 positions `0` is returned.
     #[inline]
     pub fn evaluate_static(&self) -> Value {
         if self.repeated_or_rule50 {
             0
         } else {
             let v = evaluate_board(self.board());
-            debug_assert!(v >= -19999 && v <= 19999);
+            debug_assert!(v >= VALUE_STATIC_MIN && v <= VALUE_STATIC_MAX);
             v
         }
     }
@@ -307,8 +316,9 @@ impl Position {
     /// the exact evaluation, but always staying on the correct side
     /// of the interval. `static_evaluation` should be the value
     /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
-    /// returned value will be between `-19999` and `19999`. For
-    /// repeated and rule-50 positions `0` is returned.
+    /// returned value will be between `VALUE_STATIC_MIN` and
+    /// `VALUE_STATIC_MAX`. For repeated and rule-50 positions `0` is
+    /// returned.
     ///
     /// **Note:** This method will return a reliable result even when
     /// the side to move is in check. In this case it will try all
@@ -623,14 +633,15 @@ impl Position {
         move_stack.restore();
 
         // Return the determined lower bound. (We should make sure
-        // that the returned value is between -19999 and 19999,
-        // regardless of the initial bounds passed to `qsearch`. If we
-        // do not take this precautions, the search algorithm will
-        // abstain from checkmating the opponent, seeking the huge
-        // material gain that `qsearch` promised.)
+        // that the returned value is between `VALUE_STATIC_MIN` and
+        // `VALUE_STATIC_MAX`, regardless of the initial bounds passed
+        // to `qsearch`. If we do not take this precautions, the
+        // search algorithm will abstain from checkmating the
+        // opponent, seeking the huge material gain that `qsearch`
+        // promised.)
         match lower_bound {
-            x if x < -19999 => -19999,
-            x if x > 19999 => 19999,
+            x if x < VALUE_STATIC_MIN => VALUE_STATIC_MIN,
+            x if x > VALUE_STATIC_MAX => VALUE_STATIC_MAX,
             x => x,
         }
     }

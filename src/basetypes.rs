@@ -147,9 +147,8 @@ pub type Bitboard = u64;
 /// are equal. For example: a value of `100` might mean that the side
 /// to move is a pawn ahead.
 ///
-/// Values over `19999` and under `-19999` designate a certain
-/// win/loss. The constant `VALUE_UNKNOWN` equals to `-32768`, and has
-/// the special meaning of "unknown value".
+/// The constant `VALUE_UNKNOWN` equals to `-32768`, and has the
+/// special meaning of "unknown value".
 pub type Value = i16;
 
 pub const VALUE_MAX: Value = ::std::i16::MAX;

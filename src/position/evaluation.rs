@@ -2,6 +2,7 @@
 
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
+use position::VALUE_STATIC_MIN; 
 use position::bitsets::*;
 use position::move_generation::Board;
 
@@ -14,7 +15,8 @@ use position::move_generation::Board;
 /// incorrect evaluation. Therefore, it should be relied upon only
 /// for reasonably "quiet" positions.
 /// 
-/// The returned value will always be between -19999 and 19999.
+/// The returned value will always be between `VALUE_STATIC_MIN` and
+/// `VALUE_STATIC_MAX`.
 #[inline]
 pub fn evaluate_board(board: &Board) -> Value {
     // TODO: Implement a real evaluation.
@@ -24,7 +26,7 @@ pub fn evaluate_board(board: &Board) -> Value {
     if board.checkers() != 0 {
         // In positions under check we can be vastly incorrect with no
         // negative consequences.
-        return -19999;
+        return VALUE_STATIC_MIN;
     }
 
     let piece_type = board.pieces().piece_type;
