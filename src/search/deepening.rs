@@ -351,7 +351,6 @@ impl SearchExecutor for DeepeningSearcher {
         debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(lower_bound != VALUE_UNKNOWN);
-        debug_assert!(searchmoves.is_empty());
         self.thread_commands
             .send(Command::Search {
                 search_id: search_id,

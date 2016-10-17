@@ -6,13 +6,13 @@ pub mod deepening;
 
 use std::thread;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender, Receiver};
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 use basetypes::*;
 use moves::*;
 use tt::*;
 use position::Position;
 use self::threading::*;
+use self::deepening::{SearchExecutor, DeepeningSearcher};
 
 
 /// The maximum search depth in half-moves.
@@ -47,6 +47,9 @@ pub struct SearchStatus {
     /// The reached search depth.
     pub depth: u8,
 
+    /// The number of legal moves in the starting position.
+    pub legal_moves_count: usize,
+
     /// The best variations found so far. The first move in each
     /// variation will be different.
     pub variations: Vec<Variation>,
@@ -67,35 +70,15 @@ pub struct SearchStatus {
 pub struct SearchThread {
     tt: Arc<Tt>,
     status: SearchStatus,
-
-    /// A handle to the search thread.
-    search_thread: Option<thread::JoinHandle<()>>,
-
-    /// A channel for sending commands to the search thread.
-    commands: Sender<Command>,
-
-    /// A channel for receiving reports from the search thread.
-    reports: Receiver<Report>,
+    searcher: DeepeningSearcher,
 }
 
 
 impl SearchThread {
     /// Creates a new instance.
     pub fn new(tt: Arc<Tt>) -> SearchThread {
-
-        // Spawn the search thread.
-        let (commands_tx, commands_rx) = channel();
-        let (reports_tx, reports_rx) = channel();
-        let tt_clone = tt.clone();
-        let search_thread = thread::spawn(move || {
-            serve_deepening(tt_clone, commands_rx, reports_tx);
-        });
-
         SearchThread {
-            tt: tt,
-            search_thread: Some(search_thread),
-            commands: commands_tx,
-            reports: reports_rx,
+            tt: tt.clone(),
             status: SearchStatus {
                 started_at: SystemTime::now(),
                 position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
@@ -106,10 +89,12 @@ impl SearchThread {
                                      bound: BOUND_LOWER,
                                      moves: vec![],
                                  }],
+                legal_moves_count: 20,
                 searched_nodes: 0,
                 duration_millis: 0,
                 nps: 0,
             },
+            searcher: DeepeningSearcher::new(tt),
         }
     }
 
@@ -128,28 +113,51 @@ impl SearchThread {
     pub fn search(&mut self,
                   position: &Position,
                   variation_count: usize,
-                  searchmoves: Vec<String>) {
-        // TODO: We ignore the "variation_count" parameter.
+                  mut searchmoves: Vec<String>) {
+        // Find all legal moves.
+        let mut legal_moves = vec![];
+        let mut move_stack = MoveStack::new();
+        let mut p = position.clone();
+        p.generate_moves(&mut move_stack);
+        while let Some(m) = move_stack.pop() {
+            if p.do_move(m) {
+                legal_moves.push(m);
+                p.undo_move();
+            }
+        }
 
-        // TODO: We ignore the "searchmoves" parameter.
+        let legal_moves_count = legal_moves.len();
 
-        // TODO: Add `self.legal_moves_count` filed.
+        // Remove all legal moves not allowed by `searchmoves`.
+        if !searchmoves.is_empty() {
+            searchmoves.sort();
+            let mut moves = vec![];
+            for m in legal_moves.iter() {
+                if searchmoves.binary_search(&m.notation()).is_ok() {
+                    moves.push(*m);
+                }
+            }
+            if !moves.is_empty() {
+                legal_moves = moves;
+            }
+        };
 
         self.stop();
-        self.commands
-            .send(Command::Search {
-                search_id: 0,
-                position: position.clone(),
-                depth: MAX_DEPTH,
-                lower_bound: VALUE_MIN,
-                upper_bound: VALUE_MAX,
-            })
-            .unwrap();
+        self.searcher.start_search(0,
+                                   position.clone(),
+                                   MAX_DEPTH,
+                                   VALUE_MIN,
+                                   VALUE_MAX,
+                                   VALUE_UNKNOWN,
+                                   legal_moves,
+                                   variation_count);
+
         self.status = SearchStatus {
             started_at: SystemTime::now(),
-            position: position.clone(),
+            position: p,
             done: false,
             depth: 0,
+            legal_moves_count: legal_moves_count,
             variations: vec![Variation {
                                  value: VALUE_MIN,
                                  bound: BOUND_LOWER,
@@ -165,16 +173,21 @@ impl SearchThread {
     ///
     /// Does nothing if the current search is already stopped.
     pub fn stop(&mut self) {
-        self.commands.send(Command::Stop).unwrap();
+        self.searcher.terminate_search();
         while !self.status().done {
-            let r = self.reports.recv().unwrap();
-            self.process_report(r);
+            if let Ok(r) = self.searcher.try_recv_report() {
+                self.process_report(r);
+            } else {
+                thread::sleep(Duration::from_millis(1));
+            }
         }
     }
 
+
     /// Updates the status of the current search.
     pub fn update_status(&mut self) {
-        while let Ok(r) = self.reports.try_recv() {
+        // TODO: handle `TryRecvError::Disconnected`.
+        while let Ok(r) = self.searcher.try_recv_report() {
             self.process_report(r)
         }
     }
@@ -196,8 +209,6 @@ impl SearchThread {
     /// be called.
     pub fn join(&mut self) {
         self.stop();
-        self.commands.send(Command::Exit).unwrap();
-        self.search_thread.take().unwrap().join().unwrap();
     }
 
     /// A helper method. It updates the current status according to
