@@ -24,13 +24,13 @@
 use std::cmp::{min, max};
 use std::thread;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use basetypes::*;
 use moves::*;
 use tt::*;
 use position::Position;
 use search::MAX_DEPTH;
-use search::threading::{Command, Report, serve_simple};
+use search::threading::{Command, Report, serve_simple, serve_deepening};
 
 
 /// The half-with of the initial aspiration window.
@@ -65,7 +65,7 @@ pub trait SearchExecutor {
     /// * `variation_count`: specifies how many best lines of play to
     ///   calculate (the first move in each line will be different).
     /// 
-    /// After calling `start_search`, `wait_for_report` must be called
+    /// After calling `start_search`, `try_recv_report` must be called
     /// periodically until the returned report indicates that the
     /// search is done. A new search must not be started until the
     /// previous search is done.
@@ -79,12 +79,12 @@ pub trait SearchExecutor {
                     searchmoves: Vec<Move>,
                     variation_count: usize);
 
-    /// Blocks and waits for a search report.
-    fn wait_for_report(&mut self) -> Report;
+    /// Attempts to return a search report without blocking.
+    fn try_recv_report(&mut self) -> Result<Report, TryRecvError>;
 
     /// Requests the termination of the current search.
     ///
-    /// After calling `terminate`, `wait_for_report` must continue to
+    /// After calling `terminate`, `try_recv_report` must continue to
     /// be called periodically until the returned report indicates
     /// that the search is done.
     fn terminate_search(&mut self);
@@ -137,8 +137,8 @@ impl SearchExecutor for SimpleSearcher {
             .unwrap();
     }
 
-    fn wait_for_report(&mut self) -> Report {
-        self.thread_reports.recv().unwrap()
+    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+        self.thread_reports.try_recv()
     }
 
     fn terminate_search(&mut self) {
@@ -283,34 +283,31 @@ impl SearchExecutor for AspirationSearcher {
         self.start_aspirated_search();
     }
 
-    fn wait_for_report(&mut self) -> Report {
-        loop {
-            let Report { searched_nodes, depth, value, done, .. } = self.simple_searcher
-                                                                        .wait_for_report();
-            let searched_nodes = self.searched_nodes + searched_nodes;
-            let depth = if done && !self.search_is_terminated {
-                self.searched_nodes = searched_nodes;
-                self.value = value;
-                if self.widen_aspiration_window() {
-                    // `value` is outside the aspiration window and we
-                    // must start another search.
-                    self.start_aspirated_search();
-                    continue;
-                }
-                depth
-            } else {
-                0
-            };
+    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+        let Report { searched_nodes, depth, value, best_moves, done, .. } =
+            try!(self.simple_searcher.try_recv_report());
+        let searched_nodes = self.searched_nodes + searched_nodes;
+        let depth = if done && !self.search_is_terminated {
+            self.searched_nodes = searched_nodes;
+            self.value = value;
+            if self.widen_aspiration_window() {
+                // Start a re-search.
+                self.start_aspirated_search();
+                return Err(TryRecvError::Empty);
+            }
+            depth
+        } else {
+            0
+        };
 
-            return Report {
-                search_id: self.search_id,
-                searched_nodes: searched_nodes,
-                depth: depth,
-                value: self.value,
-                best_moves: vec![],
-                done: done,
-            };
-        }
+        return Ok(Report {
+            search_id: self.search_id,
+            searched_nodes: searched_nodes,
+            depth: depth,
+            value: self.value,
+            best_moves: best_moves,
+            done: done,
+        });
     }
 
     fn terminate_search(&mut self) {
@@ -322,4 +319,62 @@ impl SearchExecutor for AspirationSearcher {
 
 
 /// Executes deepeing multi-PV searches with aspiration.
-pub struct DeepeningSearcher;
+pub struct DeepeningSearcher {
+    thread: Option<thread::JoinHandle<()>>,
+    thread_commands: Sender<Command>,
+    thread_reports: Receiver<Report>,
+}
+
+impl SearchExecutor for DeepeningSearcher {
+    fn new(tt: Arc<Tt>) -> DeepeningSearcher {
+        let (commands_tx, commands_rx) = channel();
+        let (reports_tx, reports_rx) = channel();
+        DeepeningSearcher {
+            thread: Some(thread::spawn(move || {
+                serve_deepening(tt, commands_rx, reports_tx);
+            })),
+            thread_commands: commands_tx,
+            thread_reports: reports_rx,
+        }
+    }
+
+    #[allow(unused_variables)]
+    fn start_search(&mut self,
+                    search_id: usize,
+                    position: Position,
+                    depth: u8,
+                    lower_bound: Value,
+                    upper_bound: Value,
+                    value: Value,
+                    searchmoves: Vec<Move>,
+                    variation_count: usize) {
+        debug_assert!(depth <= MAX_DEPTH);
+        debug_assert!(lower_bound < upper_bound);
+        debug_assert!(lower_bound != VALUE_UNKNOWN);
+        debug_assert!(searchmoves.is_empty());
+        self.thread_commands
+            .send(Command::Search {
+                search_id: search_id,
+                position: position,
+                depth: depth,
+                lower_bound: lower_bound,
+                upper_bound: upper_bound,
+            })
+            .unwrap();
+    }
+
+    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+        self.thread_reports.try_recv()
+    }
+
+    fn terminate_search(&mut self) {
+        self.thread_commands.send(Command::Stop).unwrap();
+    }
+}
+
+impl Drop for DeepeningSearcher {
+    fn drop(&mut self) {
+        self.thread_commands.send(Command::Exit).unwrap();
+        self.thread.take().unwrap().join().unwrap();
+    }
+}
