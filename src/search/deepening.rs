@@ -90,8 +90,11 @@ pub trait SearchExecutor {
 
 
 /// Executes bare alpha-beta searches to a fixed depth.
+///
+/// `SimpleSearcher::new` will spawn a separate thread to do the
+/// computational heavy lifting.
 pub struct SimpleSearcher {
-    thread: Option<thread::JoinHandle<()>>,
+    thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<Report>,
 }
@@ -101,7 +104,7 @@ impl SearchExecutor for SimpleSearcher {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         SimpleSearcher {
-            thread: Some(thread::spawn(move || {
+            thread_join_handle: Some(thread::spawn(move || {
                 serve_simple(tt, commands_rx, reports_tx);
             })),
             thread_commands: commands_tx,
@@ -146,18 +149,24 @@ impl SearchExecutor for SimpleSearcher {
 impl Drop for SimpleSearcher {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
-        self.thread.take().unwrap().join().unwrap();
+        self.thread_join_handle.take().unwrap().join().unwrap();
     }
 }
 
 
 
 /// Executes multi-PV searches to a fixed depth.
+///
+/// `MultipvSearcher::new` will spawn a separate thread to do the
+/// computational heavy lifting.
 pub struct MultipvSearcher;
 
 
 
 /// Executes multi-PV searches to a fixed depth with aspiration.
+///
+/// `AspirationSearcher::new` will spawn a separate thread to do the
+/// computational heavy lifting.
 pub struct AspirationSearcher {
     search_id: usize,
     position: Position,
@@ -311,6 +320,9 @@ impl SearchExecutor for AspirationSearcher {
 
 
 /// Executes deepeing multi-PV searches with aspiration.
+///
+/// `DeepeningSearcher::new` will spawn a separate thread to do the
+/// computational heavy lifting.
 pub struct DeepeningSearcher {
     thread: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
