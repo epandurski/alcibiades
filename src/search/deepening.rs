@@ -188,20 +188,20 @@ pub struct AspirationSearcher {
 
     /// `AspirationSearcher` will hand over the real work to
     /// `SimpleSearcher`.
-    simple_searcher: SimpleSearcher,
+    searcher: SimpleSearcher,
 }
 
 impl AspirationSearcher {
     /// A helper method. It commands the slave searcher to run a new search.
     fn start_aspirated_search(&mut self) {
-        self.simple_searcher.start_search(0,
-                                          self.position.clone(),
-                                          self.depth,
-                                          self.alpha,
-                                          self.beta,
-                                          self.value,
-                                          self.searchmoves.clone(), // TODO: pass ref or Arc?
-                                          self.variation_count);
+        self.searcher.start_search(0,
+                                   self.position.clone(),
+                                   self.depth,
+                                   self.alpha,
+                                   self.beta,
+                                   self.value,
+                                   self.searchmoves.clone(), // TODO: pass ref or Arc?
+                                   self.variation_count);
     }
 
     /// A helper method. It increases `self.delta` exponentially.
@@ -246,7 +246,7 @@ impl SearchExecutor for AspirationSearcher {
             delta: INITIAL_ASPIRATION_WINDOW as isize,
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
-            simple_searcher: SimpleSearcher::new(tt),
+            searcher: SimpleSearcher::new(tt),
         }
     }
 
@@ -290,7 +290,7 @@ impl SearchExecutor for AspirationSearcher {
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
         let Report { searched_nodes, depth, value, best_moves, done, .. } =
-            try!(self.simple_searcher.try_recv_report());
+            try!(self.searcher.try_recv_report());
         let searched_nodes = self.searched_nodes + searched_nodes;
         let depth = if done && !self.search_is_terminated {
             self.searched_nodes = searched_nodes;
@@ -317,7 +317,7 @@ impl SearchExecutor for AspirationSearcher {
 
     fn terminate_search(&mut self) {
         self.search_is_terminated = true;
-        self.simple_searcher.terminate_search();
+        self.searcher.terminate_search();
     }
 }
 
