@@ -38,7 +38,7 @@ pub struct SearchStatus {
     /// The starting time for the search.
     pub started_at: SystemTime,
 
-    /// The starting position for the search.
+    /// The starting (root) position for the search.
     pub position: Position,
 
     /// `true` if the search has stopped, `false` otherwise.
@@ -47,7 +47,7 @@ pub struct SearchStatus {
     /// The reached search depth.
     pub depth: u8,
 
-    /// The number of legal moves in the starting position.
+    /// The number of legal moves in the starting (root) position.
     pub legal_moves_count: usize,
 
     /// The best variations found so far. The first move in each

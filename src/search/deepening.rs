@@ -22,6 +22,7 @@
 //! different first move.
 
 use std::cmp::{min, max};
+use std::mem;
 use std::thread;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
@@ -171,13 +172,14 @@ pub struct AspirationSearcher {
     searchmoves: Vec<Move>,
     variation_count: usize,
 
+    /// `true` if the current search has been terminated.
     search_is_terminated: bool,
 
-    /// The number of positions searched during previous searches.
-    searched_nodes: NodeCount,
+    /// The number of positions analyzed during previous (failed) searches.
+    previously_searched_nodes: NodeCount,
 
     /// The aspiration window will be widened by this value if the
-    /// aspirated search fails. We use `isize` to avoid overflows.
+    /// search fails. (We use `isize` to avoid overflows.)
     delta: isize,
 
     /// The lower bound of the aspiration window.     
@@ -186,13 +188,12 @@ pub struct AspirationSearcher {
     /// The upper bound of the aspiration window.
     beta: Value,
 
-    /// `AspirationSearcher` will hand over the real work to
-    /// `SimpleSearcher`.
+    /// The real work will be handed over to `SimpleSearcher`.
     searcher: SimpleSearcher,
 }
 
 impl AspirationSearcher {
-    /// A helper method. It commands the slave searcher to run a new search.
+    /// A helper method. It tells `self.searcher` to run a new search.
     fn start_aspirated_search(&mut self) {
         self.searcher.start_search(0,
                                    self.position.clone(),
@@ -204,7 +205,7 @@ impl AspirationSearcher {
                                    self.variation_count);
     }
 
-    /// A helper method. It increases `self.delta` exponentially.
+    /// A helper method. It multiplies `self.delta` by a constant.
     fn increase_delta(&mut self) {
         self.delta += 3 * self.delta / 8;
         if self.delta > 1500 {
@@ -232,22 +233,9 @@ impl AspirationSearcher {
 
 impl SearchExecutor for AspirationSearcher {
     fn new(tt: Arc<Tt>) -> AspirationSearcher {
-        AspirationSearcher {
-            search_id: 0,
-            position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
-            depth: 0,
-            lower_bound: VALUE_MIN,
-            upper_bound: VALUE_MAX,
-            value: VALUE_UNKNOWN,
-            searchmoves: vec![],
-            variation_count: 1,
-            search_is_terminated: false,
-            searched_nodes: 0,
-            delta: INITIAL_ASPIRATION_WINDOW as isize,
-            alpha: VALUE_MIN,
-            beta: VALUE_MAX,
-            searcher: SimpleSearcher::new(tt),
-        }
+        let mut this: AspirationSearcher = unsafe { mem::uninitialized() };
+        this.searcher = SimpleSearcher::new(tt);
+        this
     }
 
     fn start_search(&mut self,
@@ -271,7 +259,7 @@ impl SearchExecutor for AspirationSearcher {
         self.searchmoves = searchmoves;
         self.variation_count = variation_count;
         self.search_is_terminated = false;
-        self.searched_nodes = 0;
+        self.previously_searched_nodes = 0;
         self.delta = INITIAL_ASPIRATION_WINDOW as isize;
 
         // Set the initial aspiration window (`self.alpha`, `self.beta`).
@@ -291,9 +279,9 @@ impl SearchExecutor for AspirationSearcher {
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
         let Report { searched_nodes, depth, value, best_moves, done, .. } =
             try!(self.searcher.try_recv_report());
-        let searched_nodes = self.searched_nodes + searched_nodes;
+        let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let depth = if done && !self.search_is_terminated {
-            self.searched_nodes = searched_nodes;
+            self.previously_searched_nodes = searched_nodes;
             self.value = value;
             if self.widen_aspiration_window() {
                 // Start a re-search.
