@@ -168,6 +168,8 @@ pub struct AspirationSearcher {
     lower_bound: Value,
     upper_bound: Value,
     value: Value,
+    searchmoves: Vec<Move>,
+    variation_count: usize,
 
     search_is_terminated: bool,
 
@@ -198,8 +200,8 @@ impl AspirationSearcher {
                                           self.alpha,
                                           self.beta,
                                           self.value,
-                                          vec![],
-                                          1);
+                                          self.searchmoves.clone(), // TODO: pass ref or Arc?
+                                          self.variation_count);
     }
 
     /// A helper method. It increases `self.delta` exponentially.
@@ -237,6 +239,8 @@ impl SearchExecutor for AspirationSearcher {
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
             value: VALUE_UNKNOWN,
+            searchmoves: vec![],
+            variation_count: 1,
             search_is_terminated: false,
             searched_nodes: 0,
             delta: INITIAL_ASPIRATION_WINDOW as isize,
@@ -258,13 +262,14 @@ impl SearchExecutor for AspirationSearcher {
         debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(lower_bound != VALUE_UNKNOWN);
-        debug_assert!(variation_count > 0);
         self.search_id = search_id;
         self.position = position;
         self.depth = depth;
         self.lower_bound = lower_bound;
         self.upper_bound = upper_bound;
         self.value = value;
+        self.searchmoves = searchmoves;
+        self.variation_count = variation_count;
         self.search_is_terminated = false;
         self.searched_nodes = 0;
         self.delta = INITIAL_ASPIRATION_WINDOW as isize;
