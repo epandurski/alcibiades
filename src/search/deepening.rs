@@ -201,7 +201,7 @@ impl AspirationSearcher {
                                    self.alpha,
                                    self.beta,
                                    self.value,
-                                   self.searchmoves.clone(), // TODO: pass ref or Arc?
+                                   self.searchmoves.clone(),
                                    self.variation_count);
     }
 
