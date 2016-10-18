@@ -34,8 +34,8 @@ use search::MAX_DEPTH;
 use search::threading::{Command, Report, serve_simple, serve_deepening};
 
 
-/// The half-with of the initial aspiration window.
-const INITIAL_ASPIRATION_WINDOW: Value = 17; // 16;
+/// The half-width of the initial aspiration window.
+const INITIAL_ASPIRATION_HALFWIDTH: Value = 17; // 16;
 
 
 /// The `SearchExecutor` trait is used to execute consecutive searches
@@ -260,7 +260,7 @@ impl SearchExecutor for AspirationSearcher {
         self.variation_count = variation_count;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.delta = INITIAL_ASPIRATION_WINDOW as isize;
+        self.delta = INITIAL_ASPIRATION_HALFWIDTH as isize;
 
         // Set the initial aspiration window (`self.alpha`, `self.beta`).
         let (a, b) = if value == VALUE_UNKNOWN || value < lower_bound || value > upper_bound {
