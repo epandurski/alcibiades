@@ -194,7 +194,7 @@ pub struct AspirationSearcher {
     beta: Value,
 
     /// The real work will be handed over to `SimpleSearcher`.
-    searcher: SimpleSearcher,
+    searcher: SimpleSearcher, // TODO: should be `MultipvSearcher`
 }
 
 impl AspirationSearcher {
@@ -206,7 +206,7 @@ impl AspirationSearcher {
                                    self.alpha,
                                    self.beta,
                                    self.value,
-                                   self.searchmoves.clone(),
+                                   vec![], // TODO: should be `self.searchmoves.clone(),`
                                    self.variation_count);
     }
 
