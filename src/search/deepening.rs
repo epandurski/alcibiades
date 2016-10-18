@@ -22,7 +22,6 @@
 //! different first move.
 
 use std::cmp::{min, max};
-use std::mem;
 use std::thread;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
@@ -31,7 +30,7 @@ use moves::*;
 use tt::*;
 use position::Position;
 use search::MAX_DEPTH;
-use search::threading::{Command, Report, serve_simple, serve_deepening};
+use search::threading::{Command, Report, serve_simple};
 
 
 /// The `SearchExecutor` trait is used to execute consecutive searches
@@ -238,9 +237,22 @@ impl AspirationSearcher {
 
 impl SearchExecutor for AspirationSearcher {
     fn new(tt: Arc<Tt>) -> AspirationSearcher {
-        let mut this: AspirationSearcher = unsafe { mem::uninitialized() };
-        this.searcher = SimpleSearcher::new(tt);
-        this
+        AspirationSearcher {
+            search_id: 0,
+            position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
+            depth: 0,
+            lower_bound: VALUE_MIN,
+            upper_bound: VALUE_MAX,
+            value: VALUE_UNKNOWN,
+            searchmoves: vec![],
+            variation_count: 1,
+            search_is_terminated: false,
+            previously_searched_nodes: 0,
+            delta: 1_000_000,
+            alpha: VALUE_MIN,
+            beta: VALUE_MAX,
+            searcher: SimpleSearcher::new(tt),
+        }
     }
 
     fn start_search(&mut self,
@@ -324,25 +336,67 @@ impl SearchExecutor for AspirationSearcher {
 /// `DeepeningSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
 pub struct DeepeningSearcher {
-    thread: Option<thread::JoinHandle<()>>,
-    thread_commands: Sender<Command>,
-    thread_reports: Receiver<Report>,
+    search_id: usize,
+    position: Position,
+    depth: u8,
+    lower_bound: Value,
+    upper_bound: Value,
+    value: Value,
+    searchmoves: Vec<Move>,
+    variation_count: usize,
+
+    /// `true` if the current search has been terminated.
+    search_is_terminated: bool,
+
+    /// The number of positions analyzed during previous (shallower)
+    /// searches.
+    previously_searched_nodes: NodeCount,
+
+    /// The depth of the currently executing search.
+    current_depth: u8,
+
+    /// The real work will be handed over to `AspirationSearcher`.
+    searcher: AspirationSearcher,
+}
+
+impl DeepeningSearcher {
+    /// A helper method. It tells `self.searcher` to run a new search.
+    fn start_deeper_search(&mut self) {
+        self.current_depth += 1;
+        let value = if self.current_depth < 5 {
+            VALUE_UNKNOWN
+        } else {
+            self.value
+        };
+        self.searcher.start_search(0,
+                                   self.position.clone(),
+                                   self.current_depth,
+                                   self.lower_bound,
+                                   self.upper_bound,
+                                   value,
+                                   self.searchmoves.clone(),
+                                   self.variation_count);
+    }
 }
 
 impl SearchExecutor for DeepeningSearcher {
     fn new(tt: Arc<Tt>) -> DeepeningSearcher {
-        let (commands_tx, commands_rx) = channel();
-        let (reports_tx, reports_rx) = channel();
         DeepeningSearcher {
-            thread: Some(thread::spawn(move || {
-                serve_deepening(tt, commands_rx, reports_tx);
-            })),
-            thread_commands: commands_tx,
-            thread_reports: reports_rx,
+            search_id: 0,
+            position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
+            depth: 0,
+            lower_bound: VALUE_MIN,
+            upper_bound: VALUE_MAX,
+            value: VALUE_UNKNOWN,
+            searchmoves: vec![],
+            variation_count: 1,
+            search_is_terminated: false,
+            previously_searched_nodes: 0,
+            current_depth: 0,
+            searcher: AspirationSearcher::new(tt),
         }
     }
 
-    #[allow(unused_variables)]
     fn start_search(&mut self,
                     search_id: usize,
                     position: Position,
@@ -355,29 +409,51 @@ impl SearchExecutor for DeepeningSearcher {
         debug_assert!(depth <= MAX_DEPTH);
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(lower_bound != VALUE_UNKNOWN);
-        self.thread_commands
-            .send(Command::Search {
-                search_id: search_id,
-                position: position,
-                depth: depth,
-                lower_bound: lower_bound,
-                upper_bound: upper_bound,
-            })
-            .unwrap();
+
+        self.search_id = search_id;
+        self.position = position;
+        self.depth = depth;
+        self.lower_bound = lower_bound;
+        self.upper_bound = upper_bound;
+        self.value = value;
+        self.searchmoves = searchmoves;
+        self.variation_count = variation_count;
+        self.search_is_terminated = false;
+        self.previously_searched_nodes = 0;
+        self.current_depth = 0;
+
+        self.start_deeper_search();
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        self.thread_reports.try_recv()
+        let Report { searched_nodes, depth, value, best_moves, done, .. } =
+            try!(self.searcher.try_recv_report());
+        let searched_nodes = self.previously_searched_nodes + searched_nodes;
+        let depth = if done && !self.search_is_terminated {
+            debug_assert_eq!(depth, self.current_depth);
+            self.previously_searched_nodes = searched_nodes;
+            self.value = value;
+            if depth < self.depth {
+                self.start_deeper_search();
+                return Err(TryRecvError::Empty);
+            }
+            depth
+        } else {
+            self.current_depth - 1
+        };
+
+        return Ok(Report {
+            search_id: self.search_id,
+            searched_nodes: searched_nodes,
+            depth: depth,
+            value: self.value,
+            best_moves: best_moves,
+            done: done,
+        });
     }
 
     fn terminate_search(&mut self) {
-        self.thread_commands.send(Command::Stop).unwrap();
-    }
-}
-
-impl Drop for DeepeningSearcher {
-    fn drop(&mut self) {
-        self.thread_commands.send(Command::Exit).unwrap();
-        self.thread.take().unwrap().join().unwrap();
+        self.search_is_terminated = true;
+        self.searcher.terminate_search();
     }
 }
