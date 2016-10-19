@@ -79,16 +79,16 @@ pub trait SearchExecutor {
     /// Attempts to return a search report without blocking.
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError>;
 
+    /// Waits until a search report is available, timing out after a
+    /// specified duration or earlier.
+    fn wait_report(&self, duration: Duration);
+
     /// Requests the termination of the current search.
     ///
     /// After calling `terminate`, `try_recv_report` must continue to
     /// be called periodically until the returned report indicates
     /// that the search is done.
     fn terminate_search(&mut self);
-
-    /// Waits until a search report is available, timing out after a
-    /// specified duration or earlier.
-    fn wait_report(&self, duration: Duration);
 }
 
 
