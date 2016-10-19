@@ -3,7 +3,7 @@
 use std::cmp::min;
 use basetypes::WHITE;
 use position::Position;
-use search::SearchStatus;
+use utils::SearchStatus;
 
 
 /// Decides when the search must be terminated.

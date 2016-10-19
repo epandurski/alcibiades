@@ -11,6 +11,7 @@ pub mod uci;
 pub mod tt;
 pub mod time_manager;
 pub mod notation;
+pub mod utils;
 
 use std::process::exit;
 use std::sync::Arc;
@@ -20,7 +21,7 @@ use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::Position;
 use uci::{UciEngine, UciEngineFactory};
-use search::{Variation, SearchStatus, SearchThread};
+use utils::{Variation, SearchStatus, SearchThread};
 use time_manager::TimeManager;
 
 

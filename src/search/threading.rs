@@ -7,6 +7,7 @@ use basetypes::*;
 use moves::*;
 use tt::*;
 use position::Position;
+use search::Report;
 use search::alpha_beta::Search;
 
 
@@ -36,30 +37,6 @@ pub enum Command {
     /// Stops the currently running search and exits the search
     /// thread.
     Exit,
-}
-
-
-/// Represents a progress report from a search.
-pub struct Report {
-    /// The ID assigned to search.
-    pub search_id: usize,
-
-    /// The number of positions searched so far.
-    pub searched_nodes: NodeCount,
-
-    /// The search depth completed so far.
-    pub depth: u8,
-
-    /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
-    /// if not available.
-    pub value: Value,
-
-    /// The best moves found so far (sorted by descending strength),
-    /// or an empty list if not available.
-    pub best_moves: Vec<Move>,
-
-    /// `true` if the search is done, `false` otherwise.
-    pub done: bool,
 }
 
 
