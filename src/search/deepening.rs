@@ -22,8 +22,9 @@
 //! different first move.
 
 use std::cmp::{min, max};
+use std::time::Duration;
 use std::thread;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use basetypes::*;
 use moves::*;
@@ -84,6 +85,10 @@ pub trait SearchExecutor {
     /// be called periodically until the returned report indicates
     /// that the search is done.
     fn terminate_search(&mut self);
+
+    /// Waits until a search report is available, timing out after a
+    /// specified duration or earlier.
+    fn wait_report(&self, duration: Duration);
 }
 
 
@@ -96,18 +101,21 @@ pub struct SimpleSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<Report>,
+    has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
 impl SearchExecutor for SimpleSearcher {
     fn new(tt: Arc<Tt>) -> SimpleSearcher {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
+        let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
         SimpleSearcher {
-            thread_join_handle: Some(thread::spawn(move || {
-                serve_simple(tt, commands_rx, reports_tx);
-            })),
             thread_commands: commands_tx,
             thread_reports: reports_rx,
+            has_reports_condition: has_reports_condition.clone(),
+            thread_join_handle: Some(thread::spawn(move || {
+                serve_simple(tt, commands_rx, reports_tx, has_reports_condition);
+            })),
         }
     }
 
@@ -137,7 +145,19 @@ impl SearchExecutor for SimpleSearcher {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        self.thread_reports.try_recv()
+        let result = self.thread_reports.try_recv();
+        if result.is_err() {
+            *self.has_reports_condition.0.lock().unwrap() = false;
+        }
+        result
+    }
+
+    fn wait_report(&self, duration: Duration) {
+        let &(ref has_reports, ref condition) = &*self.has_reports_condition;
+        let has_reports = has_reports.lock().unwrap();
+        if !*has_reports {
+            condition.wait_timeout(has_reports, duration).unwrap();
+        }
     }
 
     fn terminate_search(&mut self) {
@@ -323,6 +343,10 @@ impl SearchExecutor for AspirationSearcher {
         });
     }
 
+    fn wait_report(&self, duration: Duration) {
+        self.searcher.wait_report(duration);
+    }
+
     fn terminate_search(&mut self) {
         self.search_is_terminated = true;
         self.searcher.terminate_search();
@@ -450,6 +474,10 @@ impl SearchExecutor for DeepeningSearcher {
             best_moves: best_moves,
             done: done,
         });
+    }
+
+    fn wait_report(&self, duration: Duration) {
+        self.searcher.wait_report(duration);
     }
 
     fn terminate_search(&mut self) {

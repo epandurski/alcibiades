@@ -34,8 +34,8 @@
 //! }
 //! ```
 
-use std::time;
-use std::thread;
+use std::time::Duration;
+use std::thread::{spawn, sleep};
 use std::io;
 use std::io::{Write, BufWriter, BufRead, ErrorKind};
 use std::sync::mpsc::{channel, TryRecvError};
@@ -247,7 +247,7 @@ impl<F, E> Server<F, E>
         let (tx, rx) = channel();
 
         // Spawn a thread that reads from `stdin` and writes to `tx`.
-        let read_thread = thread::spawn(move || -> io::Result<()> {
+        let read_thread = spawn(move || -> io::Result<()> {
             let stdin = io::stdin();
             let mut reader = stdin.lock();
             let mut line = String::new();
@@ -271,9 +271,8 @@ impl<F, E> Server<F, E>
         });
 
         'mainloop: loop {
-
-            // Try to read a command from the GUI, fetch it to the engine.
-            while let Some(cmd) = match rx.try_recv() {
+            // Read commands from the GUI, pass them to the engine.
+            'read_command: while let Some(cmd) = match rx.try_recv() {
                 Ok(cmd) => Some(cmd),
                 Err(TryRecvError::Empty) => None,
                 Err(TryRecvError::Disconnected) => break 'mainloop,
@@ -288,7 +287,7 @@ impl<F, E> Server<F, E>
                             if name == "Hash" {
                                 self.engine = Some(self.engine_factory
                                                        .create(value.parse::<usize>().ok()));
-                                continue;
+                                continue 'read_command;
                             }
                         }
                         self.engine = Some(self.engine_factory.create(None));
@@ -297,11 +296,10 @@ impl<F, E> Server<F, E>
                     Some(ref mut x) => x,
                 };
 
-                // Fetch the received command to the engine. (Except
-                // for the "isready" command, to which we can reply
-                // directly.)
+                // Pass the command to the engine.
                 match cmd {
                     UciCommand::IsReady => {
+                        // We can reply to "isready" directly.
                         try!(write!(writer, "readyok\n"));
                         try!(writer.flush());
                     }
@@ -315,10 +313,8 @@ impl<F, E> Server<F, E>
                         engine.stop();
 
                         // The "stop" command requires the engine to
-                        // send the best move. Here we break the
-                        // read-command cycle so that the engine can
-                        // reply before the next command.
-                        break;
+                        // reply with a move immediately.
+                        break 'read_command;
                     }
                     UciCommand::UciNewGame => {
                         engine.new_game();
@@ -353,14 +349,15 @@ impl<F, E> Server<F, E>
                     }
                     UciCommand::Quit => panic!("This should never happen!"),
                 }
-            }
+            } // 'read_command
 
-            // If the engine is instantiated already -- try to get replies.
+            // Give the engine an opportunity to reply.
             if let Some(ref mut engine) = self.engine {
-                let mut count = 0;
-                while let Some(reply) = engine.get_reply() {
+                let mut reply_count = 0;
 
-                    // Fetch the reply to `stdout`.
+                // Fetch engine replies to `stdout`.
+                while let Some(reply) = engine.get_reply() {
+                    reply_count += 1;
                     match reply {
                         EngineReply::BestMove { best_move, ponder_move } => {
                             try!(write!(writer,
@@ -381,23 +378,23 @@ impl<F, E> Server<F, E>
                             }
                         }
                     }
-
-                    // Make sure a crazy engine can not block the
-                    // mainloop with too many replies.
-                    if count >= 50 {
-                        break;
-                    } else {
-                        count += 1;
+                    if reply_count >= 50 {
+                        break; // the engine have gone mad
                     }
                 }
                 try!(writer.flush());
+
+                // Give the engine some time to think.
+                engine.think(Duration::from_millis(25));
+
+            } else {
+                // The engine is not initialized yet.
+                sleep(Duration::from_millis(25));
             }
 
-            // Yield to another thread.
-            thread::sleep(time::Duration::from_millis(25));
-        }
+        } // 'mainloop
 
-        // This is the end of the UCI session.
+        // End the UCI session.
         if let Some(ref mut engine) = self.engine {
             engine.exit();
         }
@@ -432,9 +429,8 @@ pub trait UciEngineFactory<E: UciEngine> {
 
 /// UCI-compatible chess engine.
 ///
-/// Methods in this trait **must not block** the current thread. This
-/// means that all the engine calculations should be done in a
-/// separate thread(s).
+/// Except the method `think`, the methods in this trait **must not**
+/// block the current thread.
 pub trait UciEngine {
     /// Sets a new value for a given configuration option.
     fn set_option(&mut self, name: &str, value: &str);
@@ -526,6 +522,10 @@ pub trait UciEngine {
     /// indicating the best move found, or `EngineReply::Info`
     /// indicating a new/updated information item.
     fn get_reply(&mut self) -> Option<EngineReply>;
+
+    /// Waits while the engine is thinking, timing out after a
+    /// specified duration or earlier.
+    fn think(&self, duration: Duration);
 
     /// Terminates the engine permanently.
     ///

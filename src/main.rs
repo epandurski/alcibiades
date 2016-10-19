@@ -14,7 +14,7 @@ pub mod notation;
 
 use std::process::exit;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 use std::collections::VecDeque;
 use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
@@ -285,6 +285,10 @@ impl UciEngine for Engine {
         }
 
         self.queue.pop_front()
+    }
+
+    fn think(&self, duration: Duration) {
+        self.search_thread.wait_status_change(duration);
     }
 
     fn exit(&mut self) {

@@ -1,7 +1,7 @@
 //! Implements search parallelization.
 
 use std::cell::UnsafeCell;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{Sender, Receiver, RecvError};
 use basetypes::*;
 use moves::*;
@@ -97,11 +97,15 @@ pub struct Report {
 ///
 /// This function executes sequential (non-parallel) search to a fixed
 /// depth.
-pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Report>) {
+pub fn serve_simple(tt: Arc<Tt>,
+                    commands: Receiver<Command>,
+                    reports: Sender<Report>,
+                    has_reports_condition: Arc<(Mutex<bool>, Condvar)>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
     MOVE_STACK.with(|s| {
+        let &(ref has_reports, ref condition) = &*has_reports_condition;
         let mut move_stack = unsafe { &mut *s.get() };
         let mut pending_command = None;
         loop {
@@ -125,6 +129,10 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                                    done: false,
                                })
                                .ok();
+                        let mut has_reports = has_reports.lock().unwrap();
+                        *has_reports = true;
+                        condition.notify_one();
+
                         if let Ok(cmd) = commands.try_recv() {
                             pending_command = Some(cmd);
                             true
@@ -135,6 +143,7 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
                     let value = search.run(lower_bound, upper_bound, depth, Move::invalid())
                                       .unwrap_or(VALUE_UNKNOWN);
+
                     reports.send(Report {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
@@ -148,6 +157,10 @@ pub fn serve_simple(tt: Arc<Tt>, commands: Receiver<Command>, reports: Sender<Re
                                done: true,
                            })
                            .ok();
+                    let mut has_reports = has_reports.lock().unwrap();
+                    *has_reports = true;
+                    condition.notify_one();
+
                     search.reset();
                 }
 

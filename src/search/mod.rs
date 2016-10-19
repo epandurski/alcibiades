@@ -203,6 +203,12 @@ impl SearchThread {
         &self.status
     }
 
+    /// Waits until there is a pending search status update, timing
+    /// out after a specified duration or earlier.
+    pub fn wait_status_change(&self, duration: Duration) {
+        self.searcher.wait_report(duration);
+    }
+    
     /// Stops the current search and joins the search thread.
     ///
     /// After calling `join`, no other methods on this instance should
