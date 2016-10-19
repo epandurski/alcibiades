@@ -3,38 +3,21 @@
 use std::cell::UnsafeCell;
 use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{Sender, Receiver, RecvError};
-use basetypes::*;
 use moves::*;
 use tt::*;
-use position::Position;
-use search::Report;
+use search::{Report, SearchParams};
 use search::alpha_beta::Search;
 
 
 /// Represents a command to a search thread.
 pub enum Command {
-    /// Requests a new search.
-    Search {
-        /// A number identifying the new search.
-        search_id: usize,
+    /// Starts a new search.
+    Start(SearchParams),
 
-        /// The root position.
-        position: Position,
+    /// Terminates the currently running search.
+    Terminate,
 
-        /// The requested search depth.
-        depth: u8,
-
-        /// The lower bound for the new search.
-        lower_bound: Value,
-
-        /// The upper bound for the new search.
-        upper_bound: Value,
-    },
-
-    /// Stops the currently running search.
-    Stop,
-
-    /// Stops the currently running search and exits the search
+    /// Terminates the currently running search and exits the search
     /// thread.
     Exit,
 }
@@ -94,14 +77,20 @@ pub fn serve_simple(tt: Arc<Tt>,
             };
 
             match command {
-                Command::Search { search_id, position, depth, lower_bound, upper_bound } => {
+                Command::Start(SearchParams { search_id,
+                                              position,
+                                              depth,
+                                              lower_bound,
+                                              upper_bound,
+                                              value,
+                                              .. }) => {
                     debug_assert!(lower_bound < upper_bound);
                     let mut report = |searched_nodes| {
                         reports.send(Report {
                                    search_id: search_id,
                                    searched_nodes: searched_nodes,
                                    depth: 0,
-                                   value: VALUE_UNKNOWN,
+                                   value: value,
                                    best_moves: vec![],
                                    done: false,
                                })
@@ -118,17 +107,19 @@ pub fn serve_simple(tt: Arc<Tt>,
                         }
                     };
                     let mut search = Search::new(position, &tt, move_stack, &mut report);
-                    let value = search.run(lower_bound, upper_bound, depth, Move::invalid())
-                                      .unwrap_or(VALUE_UNKNOWN);
+                    let (depth, value) = if let Ok(v) = search.run(lower_bound,
+                                                                   upper_bound,
+                                                                   depth,
+                                                                   Move::invalid()) {
+                        (depth, v)
+                    } else {
+                        (0, value)
+                    };
 
                     reports.send(Report {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
-                               depth: if value == VALUE_UNKNOWN {
-                                   0
-                               } else {
-                                   depth
-                               },
+                               depth: depth,
                                value: value,
                                best_moves: vec![],
                                done: true,
@@ -141,7 +132,7 @@ pub fn serve_simple(tt: Arc<Tt>,
                     search.reset();
                 }
 
-                Command::Stop => continue,
+                Command::Terminate => continue,
 
                 Command::Exit => break,
             }

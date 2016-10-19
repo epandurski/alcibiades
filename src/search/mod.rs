@@ -41,6 +41,38 @@ use self::threading::*;
 pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 
+/// Parameters describing a new search.
+pub struct SearchParams {
+    /// A number identifying the new search.
+    pub search_id: usize,
+
+    /// The root position for the new search.
+    pub position: Position,
+
+    /// The requested search depth.
+    pub depth: u8,
+
+    /// The lower bound for the new search.
+    pub lower_bound: Value,
+
+    /// The upper bound for the new search.
+    pub upper_bound: Value,
+
+    /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
+    /// if not available.
+    pub value: Value,
+
+    /// Restricts the analysis of the root position to the supplied
+    /// list of moves only. No restrictions if the supplied list is
+    /// empty.
+    pub searchmoves: Vec<Move>,
+
+    /// Specifies how many best lines of play to calculate. (The first
+    /// move in each line will be different.)
+    pub variation_count: usize,
+}
+
+
 /// Represents a progress report from a search.
 pub struct Report {
     /// The ID assigned to search.
@@ -165,13 +197,16 @@ impl SearchExecutor for SimpleSearcher {
         debug_assert!(lower_bound != VALUE_UNKNOWN);
         debug_assert!(searchmoves.is_empty());
         self.thread_commands
-            .send(Command::Search {
+            .send(Command::Start(SearchParams {
                 search_id: search_id,
                 position: position,
                 depth: depth,
                 lower_bound: lower_bound,
                 upper_bound: upper_bound,
-            })
+                value: value,
+                searchmoves: searchmoves,
+                variation_count: 1,
+            }))
             .unwrap();
     }
 
@@ -192,7 +227,7 @@ impl SearchExecutor for SimpleSearcher {
     }
 
     fn terminate_search(&mut self) {
-        self.thread_commands.send(Command::Stop).unwrap();
+        self.thread_commands.send(Command::Terminate).unwrap();
     }
 }
 
