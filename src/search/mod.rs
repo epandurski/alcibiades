@@ -4,7 +4,6 @@ pub mod alpha_beta;
 pub mod threading;
 pub mod deepening;
 
-use std::thread;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use basetypes::*;
@@ -175,11 +174,7 @@ impl SearchThread {
     pub fn stop(&mut self) {
         self.searcher.terminate_search();
         while !self.status().done {
-            if let Ok(r) = self.searcher.try_recv_report() {
-                self.process_report(r);
-            } else {
-                thread::sleep(Duration::from_millis(1));
-            }
+            self.wait_status_update(Duration::from_millis(1000));
         }
     }
 
