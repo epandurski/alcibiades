@@ -198,14 +198,6 @@ impl SearchThread {
         }
     }
 
-    /// Stops the current search and joins the search thread.
-    ///
-    /// After calling `join`, no other methods on this instance should
-    /// be called.
-    pub fn join(&mut self) {
-        self.stop();
-    }
-
     /// A helper method. It updates the current status according to
     /// the received report message.
     fn process_report(&mut self, report: Report) {

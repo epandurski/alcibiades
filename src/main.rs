@@ -296,7 +296,7 @@ impl UciEngine for Engine {
     }
 
     fn exit(&mut self) {
-        self.search_thread.join();
+        self.search_thread.stop();
     }
 }
 
