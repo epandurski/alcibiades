@@ -351,12 +351,10 @@ impl<F, E> Server<F, E>
                 }
             } // 'read_command
 
-            // Give the engine an opportunity to reply.
+            // Fetch engine replies to `stdout`.
             if let Some(ref mut engine) = self.engine {
                 let mut reply_count = 0;
-
-                // Fetch engine replies to `stdout`.
-                while let Some(reply) = engine.get_reply() {
+                while let Some(reply) = engine.wait_for_reply(Duration::from_millis(25)) {
                     reply_count += 1;
                     match reply {
                         EngineReply::BestMove { best_move, ponder_move } => {
@@ -379,13 +377,11 @@ impl<F, E> Server<F, E>
                         }
                     }
                     if reply_count >= 50 {
-                        break; // the engine have gone mad
+                        // The engine have gone mad.
+                        break;
                     }
                 }
                 try!(writer.flush());
-
-                // Give the engine some time to think.
-                engine.think(Duration::from_millis(25));
 
             } else {
                 // The engine is not initialized yet.
@@ -429,8 +425,8 @@ pub trait UciEngineFactory<E: UciEngine> {
 
 /// UCI-compatible chess engine.
 ///
-/// Except the method `think`, the methods in this trait **must not**
-/// block the current thread.
+/// Except the method `wait_for_reply`, the methods in this trait
+/// **must not** block the current thread.
 pub trait UciEngine {
     /// Sets a new value for a given configuration option.
     fn set_option(&mut self, name: &str, value: &str);
@@ -516,16 +512,9 @@ pub trait UciEngine {
     /// it is our turn to move.
     fn ponder_hit(&mut self);
 
-    /// Checks if there is an engine reply available.
-    ///
-    /// The engine reply can be either `EngineReply::BestMove`
-    /// indicating the best move found, or `EngineReply::Info`
-    /// indicating a new/updated information item.
-    fn get_reply(&mut self) -> Option<EngineReply>;
-
-    /// Waits while the engine is thinking, timing out after a
-    /// specified duration or earlier.
-    fn think(&self, duration: Duration);
+    /// Waits for an engine reply, timing out after a specified
+    /// duration or earlier.
+    fn wait_for_reply(&mut self, duration: Duration) -> Option<EngineReply>;
 
     /// Terminates the engine permanently.
     ///

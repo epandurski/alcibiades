@@ -248,47 +248,51 @@ impl UciEngine for Engine {
         self.queue_best_move();
     }
 
-    fn get_reply(&mut self) -> Option<uci::EngineReply> {
-        if !self.search_thread.status().done {
-            // Update the search status.
-            self.search_thread.update_status();
-            let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
-                self.search_thread.status();
+    fn wait_for_reply(&mut self, duration: Duration) -> Option<uci::EngineReply> {
+        if self.queue.is_empty() {
+            let done = self.search_thread.status().done;
 
-            // Send the (multi)PV for each newly reached depth.
-            if depth > self.current_depth {
-                self.current_depth = depth;
-                self.queue_pv();
-            }
+            // Wait for `search_thread` to do some work, and hopefully
+            // update its status. (We must do this even when the
+            // search is done -- in that case the next line will just
+            // yield the CPU to another process.)
+            self.search_thread.wait_status_update(duration);
 
-            // Send a progress report periodically.
-            if self.silent_since.elapsed().unwrap().as_secs() > 10 {
-                self.queue_progress_report();
-            }
+            if !done {
+                let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
+                    self.search_thread.status();
 
-            // Register the search status with the time manager.
-            if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-                tm.update_status(self.search_thread.status());
-            }
+                // Send the (multi)PV for each newly reached depth.
+                if depth > self.current_depth {
+                    self.current_depth = depth;
+                    self.queue_pv();
+                }
 
-            // Check if we must play now.
-            if !self.is_pondering &&
-               match self.play_when {
-                PlayWhen::TimeManagement(ref tm) => done || tm.must_play(),
-                PlayWhen::MoveTime(t) => done || duration_millis >= t,
-                PlayWhen::Nodes(n) => done || searched_nodes >= n,
-                PlayWhen::Depth(d) => done || depth >= d,
-                PlayWhen::Never => false,
-            } {
-                self.stop();
+                // Send a progress report periodically.
+                if self.silent_since.elapsed().unwrap().as_secs() > 10 {
+                    self.queue_progress_report();
+                }
+
+                // Register the search status with the time manager.
+                if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
+                    tm.update_status(self.search_thread.status());
+                }
+
+                // Check if we must play now.
+                if !self.is_pondering &&
+                   match self.play_when {
+                    PlayWhen::TimeManagement(ref tm) => done || tm.must_play(),
+                    PlayWhen::MoveTime(t) => done || duration_millis >= t,
+                    PlayWhen::Nodes(n) => done || searched_nodes >= n,
+                    PlayWhen::Depth(d) => done || depth >= d,
+                    PlayWhen::Never => false,
+                } {
+                    self.stop();
+                }
             }
         }
 
         self.queue.pop_front()
-    }
-
-    fn think(&self, duration: Duration) {
-        self.search_thread.wait_status_change(duration);
     }
 
     fn exit(&mut self) {

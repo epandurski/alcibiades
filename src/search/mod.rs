@@ -183,32 +183,26 @@ impl SearchThread {
         }
     }
 
-
-    /// Updates the status of the current search.
-    pub fn update_status(&mut self) {
-        // TODO: handle `TryRecvError::Disconnected`.
-        while let Ok(r) = self.searcher.try_recv_report() {
-            self.process_report(r)
-        }
-    }
-
     /// Returns the status of the current search.
     ///
     /// **Important note:** Consecutive calls to this method will
     /// return the same unchanged result. Only after calling `search`,
-    /// `stop`, or `update_status`, the result returned by `status`
-    /// may change.
+    /// `stop`, or `wait_status_update`, the result returned by
+    /// `status` may change.
     #[inline(always)]
     pub fn status(&self) -> &SearchStatus {
         &self.status
     }
 
-    /// Waits until there is a pending search status update, timing
-    /// out after a specified duration or earlier.
-    pub fn wait_status_change(&self, duration: Duration) {
+    /// Waits for a search status update, timing out after a specified
+    /// duration or earlier.
+    pub fn wait_status_update(&mut self, duration: Duration) {
         self.searcher.wait_report(duration);
+        while let Ok(r) = self.searcher.try_recv_report() {
+            self.process_report(r)
+        }
     }
-    
+
     /// Stops the current search and joins the search thread.
     ///
     /// After calling `join`, no other methods on this instance should
