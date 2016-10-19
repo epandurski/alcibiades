@@ -128,7 +128,7 @@ pub trait SearchExecutor {
 ///
 /// `SimpleSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
-pub struct SimpleSearcher {
+struct SimpleSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<Report>,
