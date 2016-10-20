@@ -298,7 +298,6 @@ impl SearchExecutor for AspirationSearcher {
     }
 
     fn start_search(&mut self, params: SearchParams) {
-        debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         self.params = params;
@@ -432,8 +431,6 @@ impl SearchExecutor for DeepeningSearcher {
 
     fn start_search(&mut self, params: SearchParams) {
         debug_assert!(params.depth <= MAX_DEPTH);
-        debug_assert!(params.lower_bound < params.upper_bound);
-        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
