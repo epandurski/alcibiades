@@ -391,6 +391,9 @@ impl DeepeningSearcher {
     fn start_deeper_search(&mut self) {
         self.depth += 1;
         let value = if self.depth < 5 {
+            // During the first few iterations the evaluation is
+            // unreliable, and therefore we should not pass it to the
+            // aspiration searcher.
             VALUE_UNKNOWN
         } else {
             self.value
