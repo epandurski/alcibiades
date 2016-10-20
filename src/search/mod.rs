@@ -54,10 +54,10 @@ pub struct SearchParams {
     /// The requested search depth.
     pub depth: u8,
 
-    /// The lower bound for the new search.
+    /// The lower bound for the new search (alpha).
     pub lower_bound: Value,
 
-    /// The upper bound for the new search.
+    /// The upper bound for the new search (beta).
     pub upper_bound: Value,
 
     /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
@@ -67,11 +67,11 @@ pub struct SearchParams {
     /// Restricts the analysis to the supplied list of moves only.
     ///
     /// The behavior of the search is undefined if `searchmoves` is
-    /// empty, but the root position is not final.
+    /// empty, but the supplied root position is not final.
     pub searchmoves: Vec<Move>,
 
-    /// Specifies how many best lines of play to calculate (multi-PV
-    /// mode).
+    /// Specifies how many best lines of play to calculate (for the
+    /// multi-PV mode).
     ///
     /// Must be greater than zero.
     pub variation_count: usize,
