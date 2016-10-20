@@ -133,10 +133,11 @@ pub trait SearchExecutor {
 }
 
 
-/// Executes alpha-beta searches.
+/// Executes searches.
 ///
-/// `SimpleSearcher::new` will spawn a separate thread to do the
-/// computational heavy lifting.
+/// **Important note:** `SimpleSearcher` always considers all legal
+/// moves in the root position, and supplies no `best_moves` in its
+/// progress reports.
 struct SimpleSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
@@ -160,11 +161,12 @@ impl SearchExecutor for SimpleSearcher {
     }
 
     fn start_search(&mut self, params: SearchParams) {
+        assert!(params.searchmoves.is_empty(),
+                "SimpleSearcher can not handle non-empty searchmoves");
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
-        debug_assert!(params.searchmoves.is_empty());
-        debug_assert_eq!(params.variation_count, 1);
+        debug_assert!(params.variation_count != 0);
         self.thread_commands.send(Command::Start(params)).unwrap();
     }
 
