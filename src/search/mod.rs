@@ -205,7 +205,7 @@ pub struct MultipvSearcher {
     /// `true` if the current search has been terminated.
     search_is_terminated: bool,
 
-    /// The number of positions analyzed during previous failed searches.
+    /// The number of positions analyzed during previous sub-searches.
     previously_searched_nodes: NodeCount,
 
     /// The evaluation of the root position so far.
