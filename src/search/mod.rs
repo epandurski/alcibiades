@@ -42,6 +42,7 @@ pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 
 /// Parameters describing a new search.
+#[derive(Clone)]
 pub struct SearchParams {
     /// A number identifying the new search.
     pub search_id: usize,
@@ -74,6 +75,7 @@ pub struct SearchParams {
 
 
 /// Represents a progress report from a search.
+#[derive(Clone)]
 pub struct Report {
     /// The ID assigned to search.
     pub search_id: usize,
@@ -129,15 +131,7 @@ pub trait SearchExecutor {
     /// periodically until the returned report indicates that the
     /// search is done. A new search must not be started until the
     /// previous search is done.
-    fn start_search(&mut self,
-                    search_id: usize,
-                    position: Position,
-                    depth: u8,
-                    lower_bound: Value,
-                    upper_bound: Value,
-                    value: Value,
-                    searchmoves: Vec<Move>,
-                    variation_count: usize);
+    fn start_search(&mut self, params: SearchParams);
 
     /// Attempts to return a search report without blocking.
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError>;
@@ -183,31 +177,13 @@ impl SearchExecutor for SimpleSearcher {
     }
 
     #[allow(unused_variables)]
-    fn start_search(&mut self,
-                    search_id: usize,
-                    position: Position,
-                    depth: u8,
-                    lower_bound: Value,
-                    upper_bound: Value,
-                    value: Value,
-                    searchmoves: Vec<Move>,
-                    variation_count: usize) {
-        debug_assert!(depth <= MAX_DEPTH);
-        debug_assert!(lower_bound < upper_bound);
-        debug_assert!(lower_bound != VALUE_UNKNOWN);
-        debug_assert!(searchmoves.is_empty());
-        self.thread_commands
-            .send(Command::Start(SearchParams {
-                search_id: search_id,
-                position: position,
-                depth: depth,
-                lower_bound: lower_bound,
-                upper_bound: upper_bound,
-                value: value,
-                searchmoves: searchmoves,
-                variation_count: 1,
-            }))
-            .unwrap();
+    fn start_search(&mut self, params: SearchParams) {
+        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.lower_bound < params.upper_bound);
+        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(params.searchmoves.is_empty());
+        debug_assert_eq!(params.variation_count, 1);
+        self.thread_commands.send(Command::Start(params)).unwrap();
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
@@ -253,20 +229,16 @@ pub struct MultipvSearcher;
 /// `AspirationSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
 pub struct AspirationSearcher {
-    search_id: usize,
-    position: Position,
-    depth: u8,
-    lower_bound: Value,
-    upper_bound: Value,
-    value: Value,
-    searchmoves: Vec<Move>,
-    variation_count: usize,
+    params: SearchParams,
 
     /// `true` if the current search has been terminated.
     search_is_terminated: bool,
 
     /// The number of positions analyzed during previous (failed) searches.
     previously_searched_nodes: NodeCount,
+
+    /// The evaluation of the root position so far.
+    value: Value,
 
     /// The aspiration window will be widened by this value if the
     /// search fails. (We use `isize` to avoid overflows.)
@@ -285,14 +257,15 @@ pub struct AspirationSearcher {
 impl AspirationSearcher {
     /// A helper method. It tells `self.searcher` to run a new search.
     fn start_aspirated_search(&mut self) {
-        self.searcher.start_search(0,
-                                   self.position.clone(),
-                                   self.depth,
-                                   self.alpha,
-                                   self.beta,
-                                   self.value,
-                                   vec![], // TODO: should be `self.searchmoves.clone(),`
-                                   self.variation_count);
+        self.searcher.start_search(SearchParams {
+            search_id: 0,
+            lower_bound: self.alpha,
+            upper_bound: self.beta,
+            value: self.value,
+            searchmoves: vec![], // TODO: should be `self.searchmoves.clone(),`
+            variation_count: 1, // TODO: should be  `self.variation_count,`
+            ..self.params.clone()
+        });
     }
 
     /// A helper method. It multiplies `self.delta` by a constant.
@@ -305,15 +278,18 @@ impl AspirationSearcher {
 
     /// A helper method. It widens the aspiration window if necessary.
     fn widen_aspiration_window(&mut self) -> bool {
+        let SearchParams { lower_bound, upper_bound, .. } = self.params;
         let v = self.value as isize;
-        if self.value <= self.alpha && self.lower_bound < self.alpha {
+        if self.value <= self.alpha && lower_bound < self.alpha {
             // Set smaller `self.alpha`.
-            self.alpha = max(v - self.delta, self.lower_bound as isize) as Value;
+            //
+            // TODO: may be we do not need re-search if value <= lower_bound?
+            self.alpha = max(v - self.delta, lower_bound as isize) as Value;
             self.increase_delta();
             return true;
-        } else if self.value >= self.beta && self.upper_bound > self.beta {
+        } else if self.value >= self.beta && upper_bound > self.beta {
             // Set bigger `self.beta`.
-            self.beta = min(v + self.delta, self.upper_bound as isize) as Value;
+            self.beta = min(v + self.delta, upper_bound as isize) as Value;
             self.increase_delta();
             return true;
         }
@@ -324,16 +300,19 @@ impl AspirationSearcher {
 impl SearchExecutor for AspirationSearcher {
     fn new(tt: Arc<Tt>) -> AspirationSearcher {
         AspirationSearcher {
-            search_id: 0,
-            position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
-            depth: 0,
-            lower_bound: VALUE_MIN,
-            upper_bound: VALUE_MAX,
-            value: VALUE_UNKNOWN,
-            searchmoves: vec![],
-            variation_count: 1,
+            params: SearchParams {
+                search_id: 0,
+                position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
+                depth: 0,
+                lower_bound: VALUE_MIN,
+                upper_bound: VALUE_MAX,
+                value: VALUE_UNKNOWN,
+                searchmoves: vec![],
+                variation_count: 1,
+            },
             search_is_terminated: false,
             previously_searched_nodes: 0,
+            value: VALUE_UNKNOWN,
             delta: 1_000_000,
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
@@ -341,34 +320,20 @@ impl SearchExecutor for AspirationSearcher {
         }
     }
 
-    fn start_search(&mut self,
-                    search_id: usize,
-                    position: Position,
-                    depth: u8,
-                    lower_bound: Value,
-                    upper_bound: Value,
-                    value: Value,
-                    searchmoves: Vec<Move>,
-                    variation_count: usize) {
-        debug_assert!(depth <= MAX_DEPTH);
-        debug_assert!(lower_bound < upper_bound);
-        debug_assert!(lower_bound != VALUE_UNKNOWN);
-
-        self.search_id = search_id;
-        self.position = position;
-        self.depth = depth;
-        self.lower_bound = lower_bound;
-        self.upper_bound = upper_bound;
-        self.value = value;
-        self.searchmoves = searchmoves;
-        self.variation_count = variation_count;
+    fn start_search(&mut self, params: SearchParams) {
+        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.lower_bound < params.upper_bound);
+        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
+        self.value = self.params.value;
 
         // The half-width of the initial aspiration window.
         self.delta = 17; // TODO: make this `16`?
 
         // Set the initial aspiration window (`self.alpha`, `self.beta`).
+        let SearchParams { value, lower_bound, upper_bound, .. } = self.params;
         let (a, b) = if value == VALUE_UNKNOWN || value < lower_bound || value > upper_bound {
             (lower_bound, upper_bound)
         } else {
@@ -400,7 +365,7 @@ impl SearchExecutor for AspirationSearcher {
         };
 
         return Ok(Report {
-            search_id: self.search_id,
+            search_id: self.params.search_id,
             searched_nodes: searched_nodes,
             depth: depth,
             value: self.value,
@@ -426,14 +391,7 @@ impl SearchExecutor for AspirationSearcher {
 /// `DeepeningSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
 pub struct DeepeningSearcher {
-    search_id: usize,
-    position: Position,
-    depth: u8,
-    lower_bound: Value,
-    upper_bound: Value,
-    value: Value,
-    searchmoves: Vec<Move>,
-    variation_count: usize,
+    params: SearchParams,
 
     /// `true` if the current search has been terminated.
     search_is_terminated: bool,
@@ -442,8 +400,11 @@ pub struct DeepeningSearcher {
     /// searches.
     previously_searched_nodes: NodeCount,
 
+    /// The evaluation of the root position so far.
+    value: Value,
+
     /// The depth of the currently executing search.
-    current_depth: u8,
+    depth: u8,
 
     /// The real work will be handed over to `AspirationSearcher`.
     searcher: AspirationSearcher,
@@ -452,65 +413,51 @@ pub struct DeepeningSearcher {
 impl DeepeningSearcher {
     /// A helper method. It tells `self.searcher` to run a new search.
     fn start_deeper_search(&mut self) {
-        self.current_depth += 1;
-        let value = if self.current_depth < 5 {
+        self.depth += 1;
+        let value = if self.depth < 5 {
             VALUE_UNKNOWN
         } else {
             self.value
         };
-        self.searcher.start_search(0,
-                                   self.position.clone(),
-                                   self.current_depth,
-                                   self.lower_bound,
-                                   self.upper_bound,
-                                   value,
-                                   self.searchmoves.clone(),
-                                   self.variation_count);
+        self.searcher.start_search(SearchParams {
+            search_id: 0,
+            depth: self.depth,
+            value: value,
+            ..self.params.clone()
+        });
     }
 }
 
 impl SearchExecutor for DeepeningSearcher {
     fn new(tt: Arc<Tt>) -> DeepeningSearcher {
         DeepeningSearcher {
-            search_id: 0,
-            position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
-            depth: 0,
-            lower_bound: VALUE_MIN,
-            upper_bound: VALUE_MAX,
-            value: VALUE_UNKNOWN,
-            searchmoves: vec![],
-            variation_count: 1,
+            params: SearchParams {
+                search_id: 0,
+                position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
+                depth: 0,
+                lower_bound: VALUE_MIN,
+                upper_bound: VALUE_MAX,
+                value: VALUE_UNKNOWN,
+                searchmoves: vec![],
+                variation_count: 1,
+            },
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            current_depth: 0,
+            value: VALUE_UNKNOWN,
+            depth: 0,
             searcher: AspirationSearcher::new(tt),
         }
     }
 
-    fn start_search(&mut self,
-                    search_id: usize,
-                    position: Position,
-                    depth: u8,
-                    lower_bound: Value,
-                    upper_bound: Value,
-                    value: Value,
-                    searchmoves: Vec<Move>,
-                    variation_count: usize) {
-        debug_assert!(depth <= MAX_DEPTH);
-        debug_assert!(lower_bound < upper_bound);
-        debug_assert!(lower_bound != VALUE_UNKNOWN);
-
-        self.search_id = search_id;
-        self.position = position;
-        self.depth = depth;
-        self.lower_bound = lower_bound;
-        self.upper_bound = upper_bound;
-        self.value = value;
-        self.searchmoves = searchmoves;
-        self.variation_count = variation_count;
+    fn start_search(&mut self, params: SearchParams) {
+        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.lower_bound < params.upper_bound);
+        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.current_depth = 0;
+        self.value = self.params.value;
+        self.depth = 0;
 
         self.start_deeper_search();
     }
@@ -523,19 +470,19 @@ impl SearchExecutor for DeepeningSearcher {
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let depth = if done && !self.search_is_terminated {
-            debug_assert_eq!(depth, self.current_depth);
+            debug_assert_eq!(depth, self.depth);
             self.previously_searched_nodes = searched_nodes;
-            if depth < self.depth {
+            if depth < self.params.depth {
                 self.start_deeper_search();
                 return Err(TryRecvError::Empty);
             }
             depth
         } else {
-            self.current_depth - 1
+            self.depth - 1
         };
 
         return Ok(Report {
-            search_id: self.search_id,
+            search_id: self.params.search_id,
             searched_nodes: searched_nodes,
             depth: depth,
             value: self.value,

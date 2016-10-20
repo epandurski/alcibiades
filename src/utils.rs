@@ -6,7 +6,7 @@ use basetypes::*;
 use moves::*;
 use tt::*;
 use position::Position;
-use search::{MAX_DEPTH, Report, SearchExecutor, DeepeningSearcher};
+use search::{MAX_DEPTH, SearchParams, Report, SearchExecutor, DeepeningSearcher};
 
 
 /// A sequence of moves from some starting position, together with the
@@ -133,14 +133,16 @@ impl SearchThread {
         };
 
         self.stop();
-        self.searcher.start_search(0,
-                                   position.clone(),
-                                   MAX_DEPTH,
-                                   VALUE_MIN,
-                                   VALUE_MAX,
-                                   VALUE_UNKNOWN,
-                                   legal_moves,
-                                   variation_count);
+        self.searcher.start_search(SearchParams {
+            search_id: 0,
+            position: position.clone(),
+            depth: MAX_DEPTH,
+            lower_bound: VALUE_MIN,
+            upper_bound: VALUE_MAX,
+            value: VALUE_UNKNOWN,
+            searchmoves: legal_moves,
+            variation_count: variation_count,
+        });
 
         self.status = SearchStatus {
             started_at: SystemTime::now(),
