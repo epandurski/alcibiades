@@ -367,6 +367,7 @@ impl SearchExecutor for AspirationSearcher {
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let depth = if done && !self.search_is_terminated {
+            debug_assert_eq!(depth, self.params.depth);
             self.previously_searched_nodes = searched_nodes;
             if self.widen_aspiration_window() {
                 // Start a re-search.
