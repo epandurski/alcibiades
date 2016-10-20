@@ -18,6 +18,10 @@ use self::move_generation::Board;
 use self::evaluation::evaluate_board;
 
 
+/// The chess starting position in Forsyth–Edwards notation (FEN).
+pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
+                                              - 0 1";
+
 /// Evaluations bigger than `VALUE_STATIC_MAX` designate a win by
 /// inevitable checkmate.
 pub const VALUE_STATIC_MAX: Value = 19999;

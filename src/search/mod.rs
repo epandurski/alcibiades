@@ -33,7 +33,7 @@ use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::Position;
+use position::{Position, START_POSITION_FEN};
 use self::threading::*;
 
 
@@ -300,7 +300,7 @@ impl SearchExecutor for AspirationSearcher {
         AspirationSearcher {
             params: SearchParams {
                 search_id: 0,
-                position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
+                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
                 depth: 0,
                 lower_bound: VALUE_MIN,
                 upper_bound: VALUE_MAX,
@@ -431,7 +431,7 @@ impl SearchExecutor for DeepeningSearcher {
         DeepeningSearcher {
             params: SearchParams {
                 search_id: 0,
-                position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
+                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
                 depth: 0,
                 lower_bound: VALUE_MIN,
                 upper_bound: VALUE_MAX,

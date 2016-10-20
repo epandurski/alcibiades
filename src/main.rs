@@ -19,7 +19,7 @@ use std::time::{SystemTime, Duration};
 use std::collections::VecDeque;
 use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
-use position::Position;
+use position::{Position, START_POSITION_FEN};
 use uci::{UciEngine, UciEngineFactory};
 use utils::{Variation, SearchStatus, SearchThread};
 use time_manager::TimeManager;
@@ -33,9 +33,6 @@ const NAME: &'static str = "Alcibiades";
 
 /// The author of the program.
 const AUTHOR: &'static str = "Evgeni Pandurski";
-
-/// The starting position in Forsyth–Edwards notation (FEN).
-const STARTING_POSITION: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
 
 
 /// Represents a condition for terminating the search.
@@ -96,7 +93,7 @@ impl Engine {
 
         Engine {
             tt: tt.clone(),
-            position: Position::from_fen(STARTING_POSITION).ok().unwrap(),
+            position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
             current_depth: 0,
             search_thread: SearchThread::new(tt),
             play_when: PlayWhen::Never,

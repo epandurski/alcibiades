@@ -5,7 +5,7 @@ use std::time::{SystemTime, Duration};
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::Position;
+use position::{Position, START_POSITION_FEN};
 use search::{MAX_DEPTH, SearchParams, Report, SearchExecutor, DeepeningSearcher};
 
 
@@ -71,7 +71,7 @@ impl SearchThread {
             tt: tt.clone(),
             status: SearchStatus {
                 started_at: SystemTime::now(),
-                position: Position::from_fen(::STARTING_POSITION).ok().unwrap(),
+                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
                 done: true,
                 depth: 0,
                 variations: vec![Variation {
