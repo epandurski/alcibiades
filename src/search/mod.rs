@@ -20,7 +20,8 @@
 //!
 //! In multi-PV mode the engine calculates and sends to the GUI
 //! several principal variations (PV), each one starting with a
-//! different first move.
+//! different first move. This mode makes the search slower, but it
+//! very useful for chess analysis.
 
 pub mod alpha_beta;
 pub mod threading;
@@ -222,7 +223,7 @@ pub struct MultipvSearcher;
 
 
 
-/// Executes multi-PV searches with aspiration.
+/// Executes multi-PV searches with aspiration windows.
 ///
 /// `AspirationSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
@@ -381,7 +382,8 @@ impl SearchExecutor for AspirationSearcher {
 }
 
 
-/// Executes deepeing multi-PV searches with aspiration.
+/// Executes multi-PV searches with aspiration windows and iterative
+/// deepening.
 ///
 /// `DeepeningSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
