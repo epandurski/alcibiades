@@ -133,7 +133,7 @@ pub trait SearchExecutor {
 }
 
 
-/// Executes searches.
+/// Executes alpha-beta searches to a fixed depth.
 ///
 /// **Important note:** `SimpleSearcher` always considers all legal
 /// moves in the root position, and supplies no `best_moves` in its
@@ -154,6 +154,8 @@ impl SearchExecutor for SimpleSearcher {
             thread_commands: commands_tx,
             thread_reports: reports_rx,
             has_reports_condition: has_reports_condition.clone(),
+
+            // Spawn a thread that will do the real work.
             thread_join_handle: Some(thread::spawn(move || {
                 serve_simple(tt, commands_rx, reports_tx, has_reports_condition);
             })),
