@@ -448,11 +448,11 @@ impl SearchExecutor for DeepeningSearcher {
         let depth = if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth);
             self.previously_searched_nodes = searched_nodes;
-            if depth < self.params.depth {
+            if self.depth < self.params.depth {
                 self.start_deeper_search();
                 return Err(TryRecvError::Empty);
             }
-            depth
+            self.depth
         } else {
             self.depth - 1
         };
