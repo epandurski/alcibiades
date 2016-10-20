@@ -213,7 +213,7 @@ pub struct AspirationSearcher {
     /// `true` if the current search has been terminated.
     search_is_terminated: bool,
 
-    /// The number of positions analyzed during previous (failed) searches.
+    /// The number of positions analyzed during previous failed searches.
     previously_searched_nodes: NodeCount,
 
     /// The evaluation of the root position so far.
@@ -258,15 +258,14 @@ impl AspirationSearcher {
     /// A helper method. It widens the aspiration window if necessary.
     fn widen_aspiration_window(&mut self) -> bool {
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        let v = self.value as isize;
         if lower_bound < self.alpha && lower_bound < self.value && self.value <= self.alpha {
             // Set smaller `self.alpha`.
-            self.alpha = max(v - self.delta, lower_bound as isize) as Value;
+            self.alpha = max(self.value as isize - self.delta, lower_bound as isize) as Value;
             self.increase_delta();
             return true;
         } else if self.beta < upper_bound && self.beta <= self.value && self.value < upper_bound {
             // Set bigger `self.beta`.
-            self.beta = min(v + self.delta, upper_bound as isize) as Value;
+            self.beta = min(self.value as isize + self.delta, upper_bound as isize) as Value;
             self.increase_delta();
             return true;
         }
@@ -290,7 +289,7 @@ impl SearchExecutor for AspirationSearcher {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
-            delta: 1_000_000,
+            delta: 0,
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
             searcher: SimpleSearcher::new(tt),
