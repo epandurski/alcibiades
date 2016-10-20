@@ -234,7 +234,8 @@ pub struct AspirationSearcher {
 }
 
 impl AspirationSearcher {
-    /// A helper method. It tells `self.searcher` to run a new search.
+    /// A helper method. It tells the multi-PV searcher to run a new
+    /// search.
     fn start_aspirated_search(&mut self) {
         self.searcher.start_search(SearchParams {
             search_id: 0,
@@ -387,7 +388,8 @@ pub struct DeepeningSearcher {
 }
 
 impl DeepeningSearcher {
-    /// A helper method. It tells `self.searcher` to run a new search.
+    /// A helper method. It tells the aspiration searcher to run a new
+    /// search.
     fn start_deeper_search(&mut self) {
         self.depth += 1;
         let value = if self.depth < 5 {
