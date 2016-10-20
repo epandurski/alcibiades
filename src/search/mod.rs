@@ -241,7 +241,6 @@ impl SearchExecutor for MultipvSearcher {
 
         self.searcher.start_search(SearchParams {
             searchmoves: vec![],
-            variation_count: 1,
             ..self.params.clone()
         });
     }
