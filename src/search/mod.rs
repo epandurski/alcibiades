@@ -218,16 +218,7 @@ pub struct MultipvSearcher {
 impl SearchExecutor for MultipvSearcher {
     fn new(tt: Arc<Tt>) -> MultipvSearcher {
         MultipvSearcher {
-            params: SearchParams {
-                search_id: 0,
-                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
-                depth: 0,
-                lower_bound: VALUE_MIN,
-                upper_bound: VALUE_MAX,
-                value: VALUE_UNKNOWN,
-                searchmoves: vec![],
-                variation_count: 1,
-            },
+            params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
@@ -338,16 +329,7 @@ impl AspirationSearcher {
 impl SearchExecutor for AspirationSearcher {
     fn new(tt: Arc<Tt>) -> AspirationSearcher {
         AspirationSearcher {
-            params: SearchParams {
-                search_id: 0,
-                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
-                depth: 0,
-                lower_bound: VALUE_MIN,
-                upper_bound: VALUE_MAX,
-                value: VALUE_UNKNOWN,
-                searchmoves: vec![],
-                variation_count: 1,
-            },
+            params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
@@ -473,16 +455,7 @@ impl DeepeningSearcher {
 impl SearchExecutor for DeepeningSearcher {
     fn new(tt: Arc<Tt>) -> DeepeningSearcher {
         DeepeningSearcher {
-            params: SearchParams {
-                search_id: 0,
-                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
-                depth: 0,
-                lower_bound: VALUE_MIN,
-                upper_bound: VALUE_MAX,
-                value: VALUE_UNKNOWN,
-                searchmoves: vec![],
-                variation_count: 1,
-            },
+            params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
@@ -540,5 +513,20 @@ impl SearchExecutor for DeepeningSearcher {
     fn terminate_search(&mut self) {
         self.search_is_terminated = true;
         self.searcher.terminate_search();
+    }
+}
+
+
+/// A helper function. It returns bogus search parameters.
+fn bogus_params() -> SearchParams {
+    SearchParams {
+        search_id: 0,
+        position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
+        depth: 0,
+        lower_bound: VALUE_MIN,
+        upper_bound: VALUE_MAX,
+        value: VALUE_UNKNOWN,
+        searchmoves: vec![],
+        variation_count: 1,
     }
 }
