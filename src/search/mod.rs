@@ -205,16 +205,16 @@ impl Drop for SimpleSearcher {
 pub struct MultipvSearcher {
     params: SearchParams,
 
-    /// `true` if the current search has been terminated.
+    // `true` if the current search has been terminated.
     search_is_terminated: bool,
 
-    /// The number of positions analyzed during previous sub-searches.
+    // The number of positions analyzed during previous sub-searches.
     previously_searched_nodes: NodeCount,
 
-    /// The evaluation of the root position so far.
+    // The evaluation of the root position so far.
     value: Value,
 
-    /// The real work will be handed over to `SimpleSearcher`.
+    // The real work will be handed over to `SimpleSearcher`.
     searcher: SimpleSearcher,
 }
 
@@ -239,10 +239,7 @@ impl SearchExecutor for MultipvSearcher {
         self.previously_searched_nodes = 0;
         self.value = self.params.value;
 
-        self.searcher.start_search(SearchParams {
-            searchmoves: vec![],
-            ..self.params.clone()
-        });
+        self.searcher.start_search(SearchParams { searchmoves: vec![], ..self.params.clone() });
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
@@ -263,27 +260,21 @@ impl SearchExecutor for MultipvSearcher {
 /// Executes multi-PV searches with aspiration windows.
 pub struct AspirationSearcher {
     params: SearchParams,
-
-    /// `true` if the current search has been terminated.
     search_is_terminated: bool,
-
-    /// The number of positions analyzed during previous failed searches.
     previously_searched_nodes: NodeCount,
-
-    /// The evaluation of the root position so far.
     value: Value,
 
-    /// The aspiration window will be widened by this value if the
-    /// search fails. (We use `isize` to avoid overflows.)
+    // The aspiration window will be widened by this value if the
+    // search fails. (We use `isize` to avoid overflows.)
     delta: isize,
 
-    /// The lower bound of the aspiration window.     
+    // The lower bound of the aspiration window.
     alpha: Value,
 
-    /// The upper bound of the aspiration window.
+    // The upper bound of the aspiration window.
     beta: Value,
 
-    /// The real work will be handed over to `MultipvSearcher`.
+    // The real work will be handed over to `MultipvSearcher`.
     searcher: MultipvSearcher,
 }
 
@@ -412,21 +403,14 @@ impl SearchExecutor for AspirationSearcher {
 /// deepening.
 pub struct DeepeningSearcher {
     params: SearchParams,
-
-    /// `true` if the current search has been terminated.
     search_is_terminated: bool,
-
-    /// The number of positions analyzed during previous (shallower)
-    /// searches.
     previously_searched_nodes: NodeCount,
-
-    /// The evaluation of the root position so far.
     value: Value,
 
-    /// The depth of the currently executing search.
+    // The depth of the currently executing search.
     depth: u8,
 
-    /// The real work will be handed over to `AspirationSearcher`.
+    // The real work will be handed over to `AspirationSearcher`.
     searcher: AspirationSearcher,
 }
 
