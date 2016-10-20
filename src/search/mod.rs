@@ -156,7 +156,6 @@ impl SearchExecutor for SimpleSearcher {
         }
     }
 
-    #[allow(unused_variables)]
     fn start_search(&mut self, params: SearchParams) {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
