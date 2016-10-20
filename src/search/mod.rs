@@ -20,7 +20,7 @@
 //!
 //! In multi-PV mode the engine calculates and sends to the GUI
 //! several principal variations (PV), each one starting with a
-//! different first move. This mode makes the search slower, but it is
+//! different first move. This mode makes the search slower, but is
 //! very useful for chess analysis.
 
 pub mod alpha_beta;
@@ -64,13 +64,16 @@ pub struct SearchParams {
     /// if not available.
     pub value: Value,
 
-    /// Restricts the analysis of the root position to the supplied
-    /// list of moves only. No restrictions if the supplied list is
-    /// empty.
+    /// Restricts the analysis to the supplied list of moves only.
+    ///
+    /// The behavior of the search is undefined if `searchmoves` is
+    /// empty, but the root position is not final.
     pub searchmoves: Vec<Move>,
 
-    /// Specifies how many best lines of play to calculate. (The first
-    /// move in each line will be different.)
+    /// Specifies how many best lines of play to calculate (multi-PV
+    /// mode).
+    ///
+    /// Must be greater than zero.
     pub variation_count: usize,
 }
 
@@ -226,6 +229,7 @@ impl SearchExecutor for MultipvSearcher {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
@@ -337,6 +341,7 @@ impl SearchExecutor for AspirationSearcher {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
@@ -460,6 +465,7 @@ impl SearchExecutor for DeepeningSearcher {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
