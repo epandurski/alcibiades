@@ -75,7 +75,7 @@ pub struct SearchParams {
 }
 
 
-/// Represents a progress report from a search.
+/// Progress report from a search.
 #[derive(Clone)]
 pub struct Report {
     /// The ID assigned to search.
@@ -134,11 +134,11 @@ pub trait SearchExecutor {
     /// previous search is done.
     fn start_search(&mut self, params: SearchParams);
 
-    /// Attempts to return a search report without blocking.
+    /// Attempts to return a search progress report without blocking.
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError>;
 
-    /// Waits until a search report is available, timing out after a
-    /// specified duration or earlier.
+    /// Waits until a search progress report is available, timing out
+    /// after a specified duration or earlier.
     fn wait_report(&self, duration: Duration);
 
     /// Requests the termination of the current search.
