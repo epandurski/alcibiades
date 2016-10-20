@@ -195,9 +195,6 @@ impl Drop for SimpleSearcher {
 
 
 /// Executes multi-PV searches.
-///
-/// `MultipvSearcher::new` will spawn a separate thread to do the
-/// computational heavy lifting.
 pub struct MultipvSearcher {
     params: SearchParams,
 
@@ -257,9 +254,6 @@ impl SearchExecutor for MultipvSearcher {
 
 
 /// Executes multi-PV searches with aspiration windows.
-///
-/// `AspirationSearcher::new` will spawn a separate thread to do the
-/// computational heavy lifting.
 pub struct AspirationSearcher {
     params: SearchParams,
 
@@ -408,9 +402,6 @@ impl SearchExecutor for AspirationSearcher {
 
 /// Executes multi-PV searches with aspiration windows and iterative
 /// deepening.
-///
-/// `DeepeningSearcher::new` will spawn a separate thread to do the
-/// computational heavy lifting.
 pub struct DeepeningSearcher {
     params: SearchParams,
 
