@@ -360,7 +360,7 @@ impl SearchExecutor for AspirationSearcher {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, best_moves, done, .. } =
+        let Report { searched_nodes, depth, value, best_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
         if value != VALUE_UNKNOWN {
             self.value = value;
@@ -372,9 +372,11 @@ impl SearchExecutor for AspirationSearcher {
             if self.widen_aspiration_window() {
                 // Start a re-search.
                 self.start_aspirated_search();
-                return Err(TryRecvError::Empty);
+                done = false;
+                0
+            } else {
+                depth
             }
-            depth
         } else {
             0
         };
@@ -464,7 +466,7 @@ impl SearchExecutor for DeepeningSearcher {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, best_moves, done, .. } =
+        let Report { searched_nodes, depth, value, best_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
         if value != VALUE_UNKNOWN {
             self.value = value;
@@ -475,9 +477,9 @@ impl SearchExecutor for DeepeningSearcher {
             self.previously_searched_nodes = searched_nodes;
             if self.depth < self.params.depth {
                 self.start_deeper_search();
-                return Err(TryRecvError::Empty);
+                done = false;
             }
-            self.depth
+            depth
         } else {
             self.depth - 1
         };
