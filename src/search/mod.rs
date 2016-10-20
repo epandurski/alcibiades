@@ -280,14 +280,12 @@ impl AspirationSearcher {
     fn widen_aspiration_window(&mut self) -> bool {
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
         let v = self.value as isize;
-        if self.value <= self.alpha && lower_bound < self.alpha {
+        if lower_bound < self.alpha && lower_bound < self.value && self.value <= self.alpha {
             // Set smaller `self.alpha`.
-            //
-            // TODO: may be we do not need re-search if value <= lower_bound?
             self.alpha = max(v - self.delta, lower_bound as isize) as Value;
             self.increase_delta();
             return true;
-        } else if self.value >= self.beta && upper_bound > self.beta {
+        } else if self.beta < upper_bound && self.beta <= self.value && self.value < upper_bound {
             // Set bigger `self.beta`.
             self.beta = min(v + self.delta, upper_bound as isize) as Value;
             self.increase_delta();
