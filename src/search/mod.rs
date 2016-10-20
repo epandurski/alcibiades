@@ -149,8 +149,7 @@ pub trait SearchExecutor {
 }
 
 
-
-/// Executes bare alpha-beta searches to a fixed depth.
+/// Executes alpha-beta searches.
 ///
 /// `SimpleSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
@@ -215,8 +214,7 @@ impl Drop for SimpleSearcher {
 }
 
 
-
-/// Executes multi-PV searches to a fixed depth.
+/// Executes multi-PV searches.
 ///
 /// `MultipvSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
@@ -224,7 +222,7 @@ pub struct MultipvSearcher;
 
 
 
-/// Executes multi-PV searches to a fixed depth with aspiration.
+/// Executes multi-PV searches with aspiration.
 ///
 /// `AspirationSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
@@ -381,7 +379,6 @@ impl SearchExecutor for AspirationSearcher {
         self.searcher.terminate_search();
     }
 }
-
 
 
 /// Executes deepeing multi-PV searches with aspiration.
