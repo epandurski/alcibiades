@@ -4,9 +4,9 @@
 //! Iterative deepening works as follows: the program starts with a
 //! one ply search, then increments the search depth and does another
 //! search. This process is repeated until the time allocated for the
-//! search is exhausted. In case of an unfinished search, the program
-//! always has the option to fall back to the move selected in the
-//! last iteration of the search.
+//! search is exhausted or the maximum search depth is reached. In
+//! case of an unfinished search, the program can always fall back to
+//! the move selected in the last iteration of the search.
 //!
 //! Aspiration windows are a way to reduce the search space in the
 //! search. The way it works is that we get the value from the last
@@ -20,7 +20,7 @@
 //!
 //! In multi-PV mode the engine calculates and sends to the GUI
 //! several principal variations (PV), each one starting with a
-//! different first move. This mode makes the search slower, but it
+//! different first move. This mode makes the search slower, but it is
 //! very useful for chess analysis.
 
 pub mod alpha_beta;
