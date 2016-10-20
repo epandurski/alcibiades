@@ -108,26 +108,6 @@ pub trait SearchExecutor {
 
     /// Starts a new search.
     ///
-    /// * `search_id`: a number identifying the new search;
-    /// 
-    /// * `position`: the root position;
-    /// 
-    /// * `depth`: the requested search depth;
-    /// 
-    /// * `lower_bound`: the lower bound for the new search;
-    /// 
-    /// * `upper_bound`: the upper bound for the new search;
-    /// 
-    /// * `value`: the evaluation of the root position so far, or
-    ///   `VALUE_UNKNOWN` if not available.
-    ///
-    /// * `searchmoves`: restricts the analysis to the supplied list
-    ///   of moves only (no restrictions if the suppied list is
-    ///   empty);
-    ///
-    /// * `variation_count`: specifies how many best lines of play to
-    ///   calculate (the first move in each line will be different).
-    /// 
     /// After calling `start_search`, `try_recv_report` must be called
     /// periodically until the returned report indicates that the
     /// search is done. A new search must not be started until the
