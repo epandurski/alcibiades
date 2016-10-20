@@ -75,7 +75,7 @@ pub struct SearchParams {
 }
 
 
-/// Progress report from a search.
+/// A progress report from a search.
 #[derive(Clone)]
 pub struct Report {
     /// The ID assigned to search.
