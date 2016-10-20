@@ -199,8 +199,68 @@ impl Drop for SimpleSearcher {
 ///
 /// `MultipvSearcher::new` will spawn a separate thread to do the
 /// computational heavy lifting.
-pub struct MultipvSearcher;
+pub struct MultipvSearcher {
+    params: SearchParams,
 
+    /// `true` if the current search has been terminated.
+    search_is_terminated: bool,
+
+    /// The number of positions analyzed during previous failed searches.
+    previously_searched_nodes: NodeCount,
+
+    /// The evaluation of the root position so far.
+    value: Value,
+
+    /// The real work will be handed over to `SimpleSearcher`.
+    searcher: SimpleSearcher,
+}
+
+impl SearchExecutor for MultipvSearcher {
+    fn new(tt: Arc<Tt>) -> MultipvSearcher {
+        MultipvSearcher {
+            params: SearchParams {
+                search_id: 0,
+                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
+                depth: 0,
+                lower_bound: VALUE_MIN,
+                upper_bound: VALUE_MAX,
+                value: VALUE_UNKNOWN,
+                searchmoves: vec![],
+                variation_count: 1,
+            },
+            search_is_terminated: false,
+            previously_searched_nodes: 0,
+            value: VALUE_UNKNOWN,
+            searcher: SimpleSearcher::new(tt),
+        }
+    }
+
+    fn start_search(&mut self, params: SearchParams) {
+        self.params = params;
+        self.search_is_terminated = false;
+        self.previously_searched_nodes = 0;
+        self.value = self.params.value;
+
+        self.searcher.start_search(SearchParams {
+            searchmoves: vec![],
+            variation_count: 1,
+            ..self.params.clone()
+        });
+    }
+
+    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+        self.searcher.try_recv_report()
+    }
+
+    fn wait_report(&self, duration: Duration) {
+        self.searcher.wait_report(duration);
+    }
+
+    fn terminate_search(&mut self) {
+        self.search_is_terminated = true;
+        self.searcher.terminate_search();
+    }
+}
 
 
 /// Executes multi-PV searches with aspiration windows.
@@ -229,8 +289,8 @@ pub struct AspirationSearcher {
     /// The upper bound of the aspiration window.
     beta: Value,
 
-    /// The real work will be handed over to `SimpleSearcher`.
-    searcher: SimpleSearcher, // TODO: should be `MultipvSearcher`
+    /// The real work will be handed over to `MultipvSearcher`.
+    searcher: MultipvSearcher,
 }
 
 impl AspirationSearcher {
@@ -242,8 +302,6 @@ impl AspirationSearcher {
             lower_bound: self.alpha,
             upper_bound: self.beta,
             value: self.value,
-            searchmoves: vec![], // TODO: should be `self.searchmoves.clone(),`
-            variation_count: 1, // TODO: should be  `self.variation_count,`
             ..self.params.clone()
         });
     }
@@ -293,7 +351,7 @@ impl SearchExecutor for AspirationSearcher {
             delta: 0,
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
-            searcher: SimpleSearcher::new(tt),
+            searcher: MultipvSearcher::new(tt),
         }
     }
 
