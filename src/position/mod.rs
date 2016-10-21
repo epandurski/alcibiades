@@ -23,11 +23,11 @@ pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP
                                               - 0 1";
 
 /// Evaluations bigger than `STATIC_EVAL_MAX` designate a win by
-/// inevitable checkmate.
+/// forced checkmate.
 pub const STATIC_EVAL_MAX: Value = 19999;
 
 /// Evaluations smaller than `STATIC_EVAL_MIN` designate a loss by
-/// inevitable checkmate.
+/// forced checkmate.
 pub const STATIC_EVAL_MIN: Value = -STATIC_EVAL_MAX;
 
 
