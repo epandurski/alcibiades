@@ -133,7 +133,7 @@ pub trait SearchExecutor {
 }
 
 
-/// Executes alpha-beta searches to a fixed depth.
+/// Executes bare alpha-beta searches.
 ///
 /// **Important note:** `SimpleSearcher` always considers all legal
 /// moves in the root position, and supplies no `best_moves` in its
@@ -366,11 +366,11 @@ impl SearchExecutor for AspirationSearcher {
             self.value = value;
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
-        let depth = if done && !self.search_is_terminated {
+        let completed_depth = if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.params.depth);
             self.previously_searched_nodes = searched_nodes;
             if self.widen_aspiration_window() {
-                // Start a re-search.
+                // A re-search is necessary.
                 self.start_aspirated_search();
                 done = false;
                 0
@@ -384,7 +384,7 @@ impl SearchExecutor for AspirationSearcher {
         return Ok(Report {
             search_id: self.params.search_id,
             searched_nodes: searched_nodes,
-            depth: depth,
+            depth: completed_depth,
             value: self.value,
             best_moves: best_moves,
             done: done,
@@ -472,7 +472,7 @@ impl SearchExecutor for DeepeningSearcher {
             self.value = value;
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
-        let depth = if done && !self.search_is_terminated {
+        let completed_depth = if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth);
             self.previously_searched_nodes = searched_nodes;
             if self.depth < self.params.depth {
@@ -487,7 +487,7 @@ impl SearchExecutor for DeepeningSearcher {
         return Ok(Report {
             search_id: self.params.search_id,
             searched_nodes: searched_nodes,
-            depth: depth,
+            depth: completed_depth,
             value: self.value,
             best_moves: best_moves,
             done: done,
