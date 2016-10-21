@@ -296,17 +296,18 @@ impl SearchExecutor for AspirationSearcher {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.value = match self.tt.probe(self.params.position.hash()) {
-            Some(e) if e.depth() >= self.params.depth - 1 && e.depth() > 3 => e.value(),
-            _ => VALUE_UNKNOWN,
-        };
+        self.value = VALUE_UNKNOWN;
 
         // This is the half-width of the initial aspiration window.
         self.delta = 17; // TODO: make this `16`?
 
         // Set the initial aspiration window (`self.alpha`, `self.beta`).
+        let v = match self.tt.probe(self.params.position.hash()) {
+            Some(e) if e.depth() == self.params.depth - 1 && e.depth() > 3 &&
+                       e.bound() == BOUND_EXACT => e.value(),
+            _ => VALUE_UNKNOWN,
+        };
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        let v = self.value;
         let (a, b) = if v == VALUE_UNKNOWN || v < lower_bound || v > upper_bound {
             (lower_bound, upper_bound)
         } else {
