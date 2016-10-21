@@ -3,6 +3,7 @@
 use std::cell::UnsafeCell;
 use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{Sender, Receiver, RecvError};
+use basetypes::*;
 use moves::*;
 use tt::*;
 use search::{Report, SearchParams};
@@ -82,7 +83,6 @@ pub fn serve_simple(tt: Arc<Tt>,
                                               depth,
                                               lower_bound,
                                               upper_bound,
-                                              value,
                                               .. }) => {
                     debug_assert!(lower_bound < upper_bound);
                     let mut report = |searched_nodes| {
@@ -90,7 +90,7 @@ pub fn serve_simple(tt: Arc<Tt>,
                                    search_id: search_id,
                                    searched_nodes: searched_nodes,
                                    depth: 0,
-                                   value: value,
+                                   value: VALUE_UNKNOWN,
                                    best_moves: vec![],
                                    done: false,
                                })
@@ -113,7 +113,7 @@ pub fn serve_simple(tt: Arc<Tt>,
                                                                    Move::invalid()) {
                         (depth, v)
                     } else {
-                        (0, value)
+                        (0, VALUE_UNKNOWN)
                     };
 
                     reports.send(Report {
