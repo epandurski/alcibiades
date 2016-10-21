@@ -1,4 +1,4 @@
-//! Generates look-up tables and implements look-up methods.
+//! Look-up tables and look-up methods.
 
 use rand::{Rng, thread_rng};
 use basetypes::*;

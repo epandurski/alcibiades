@@ -1,5 +1,4 @@
-//! Implements useful constants and functions for manipulating
-//! bit-sets.
+//! Functions and constants for working with bit-sets.
 //!
 //! **Note:** The term "LS1B" used in the code means "least
 //! significant `1` bit".
