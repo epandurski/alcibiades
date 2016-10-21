@@ -297,7 +297,7 @@ impl SearchExecutor for AspirationSearcher {
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
         self.value = match self.tt.probe(self.params.position.hash()) {
-            Some(e) if e.depth() > 3 => e.value(),
+            Some(e) if e.depth() >= self.params.depth - 1 && e.depth() > 3 => e.value(),
             _ => VALUE_UNKNOWN,
         };
 
