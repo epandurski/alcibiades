@@ -179,9 +179,10 @@ impl SearchExecutor for SimpleSearcher {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+        let mut has_reports = self.has_reports_condition.0.lock().unwrap();
         let result = self.thread_reports.try_recv();
         if result.is_err() {
-            *self.has_reports_condition.0.lock().unwrap() = false;
+            *has_reports = false;
         }
         result
     }
