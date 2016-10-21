@@ -22,13 +22,13 @@ use self::evaluation::evaluate_board;
 pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
                                               - 0 1";
 
-/// Evaluations bigger than `VALUE_STATIC_MAX` designate a win by
+/// Evaluations bigger than `STATIC_EVAL_MAX` designate a win by
 /// inevitable checkmate.
-pub const VALUE_STATIC_MAX: Value = 19999;
+pub const STATIC_EVAL_MAX: Value = 19999;
 
-/// Evaluations smaller than `VALUE_STATIC_MIN` designate a loss by
+/// Evaluations smaller than `STATIC_EVAL_MIN` designate a loss by
 /// inevitable checkmate.
-pub const VALUE_STATIC_MIN: Value = -VALUE_STATIC_MAX;
+pub const STATIC_EVAL_MIN: Value = -STATIC_EVAL_MAX;
 
 
 /// Represents an illegal possiton error.
@@ -288,7 +288,7 @@ impl Position {
     /// properties of the position. If the position is dynamic, with
     /// pending tactical threats, this function will return a grossly
     /// incorrect evaluation. The returned value will be between
-    /// `VALUE_STATIC_MIN` and `VALUE_STATIC_MAX`. For repeated and
+    /// `STATIC_EVAL_MIN` and `STATIC_EVAL_MAX`. For repeated and
     /// rule-50 positions `0` is returned.
     #[inline]
     pub fn evaluate_static(&self) -> Value {
@@ -296,7 +296,7 @@ impl Position {
             0
         } else {
             let v = evaluate_board(self.board());
-            debug_assert!(v >= VALUE_STATIC_MIN && v <= VALUE_STATIC_MAX);
+            debug_assert!(v >= STATIC_EVAL_MIN && v <= STATIC_EVAL_MAX);
             v
         }
     }
@@ -320,8 +320,8 @@ impl Position {
     /// the exact evaluation, but always staying on the correct side
     /// of the interval. `static_evaluation` should be the value
     /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
-    /// returned value will be between `VALUE_STATIC_MIN` and
-    /// `VALUE_STATIC_MAX`. For repeated and rule-50 positions `0` is
+    /// returned value will be between `STATIC_EVAL_MIN` and
+    /// `STATIC_EVAL_MAX`. For repeated and rule-50 positions `0` is
     /// returned.
     ///
     /// **Note:** This method will return a reliable result even when
@@ -531,8 +531,8 @@ impl Position {
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(static_evaluation == VALUE_UNKNOWN ||
-                      static_evaluation >= VALUE_STATIC_MIN &&
-                      static_evaluation <= VALUE_STATIC_MAX);
+                      static_evaluation >= STATIC_EVAL_MIN &&
+                      static_evaluation <= STATIC_EVAL_MAX);
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
@@ -548,7 +548,7 @@ impl Position {
                 static_evaluation
             } else {
                 let v = eval_func(self.board());
-                debug_assert!(v >= VALUE_STATIC_MIN && v <= VALUE_STATIC_MAX);
+                debug_assert!(v >= STATIC_EVAL_MIN && v <= STATIC_EVAL_MAX);
                 v
             }
         } else {
@@ -639,15 +639,15 @@ impl Position {
         move_stack.restore();
 
         // Return the determined lower bound. (We should make sure
-        // that the returned value is between `VALUE_STATIC_MIN` and
-        // `VALUE_STATIC_MAX`, regardless of the initial bounds passed
+        // that the returned value is between `STATIC_EVAL_MIN` and
+        // `STATIC_EVAL_MAX`, regardless of the initial bounds passed
         // to `qsearch`. If we do not take this precautions, the
         // search algorithm will abstain from checkmating the
         // opponent, seeking the huge material gain that `qsearch`
         // promised.)
         match lower_bound {
-            x if x < VALUE_STATIC_MIN => VALUE_STATIC_MIN,
-            x if x > VALUE_STATIC_MAX => VALUE_STATIC_MAX,
+            x if x < STATIC_EVAL_MIN => STATIC_EVAL_MIN,
+            x if x > STATIC_EVAL_MAX => STATIC_EVAL_MAX,
             x => x,
         }
     }

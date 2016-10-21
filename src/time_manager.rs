@@ -1,8 +1,8 @@
 //! Implements efficient management of thinking time.
 
 use std::cmp::min;
-use basetypes::WHITE;
-use position::Position;
+use basetypes::*;
+use position::*;
 use utils::SearchStatus;
 
 

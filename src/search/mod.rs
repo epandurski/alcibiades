@@ -40,7 +40,7 @@ use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::{Position, START_POSITION_FEN};
+use position::*;
 use self::threading::*;
 
 

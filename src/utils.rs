@@ -5,8 +5,8 @@ use std::time::{SystemTime, Duration};
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::{Position, START_POSITION_FEN};
-use search::{MAX_DEPTH, SearchParams, Report, SearchExecutor, DeepeningSearcher};
+use position::*;
+use search::*;
 
 
 /// A sequence of moves from some starting position, together with the
