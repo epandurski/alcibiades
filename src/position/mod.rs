@@ -38,17 +38,6 @@ pub struct IllegalPosition;
 /// Holds the current position, knows the rules of chess, can evaluate
 /// the odds.
 ///
-/// `Position` improves on the features of `Board` adding the the
-/// following important functionality:
-///
-/// 1. Threefold/twofold repetition detection.
-/// 2. Draw by the 50 moves rule detection.
-/// 3. Fast calculation of position's hash value.
-/// 4. Exact evaluation of final positions.
-/// 5. Static position evaluation.
-/// 6. Static exchange evaluation.
-/// 7. Quiescence search.
-///
 /// `Position` presents a convenient interface to the tree-searching
 /// algorithm. It encapsulates most of the chess-specific knowledge
 /// like the values of pieces, king safety, pawn structure
@@ -58,6 +47,17 @@ pub struct IllegalPosition;
 /// evaluate the chances of the sides, so that the tree-searching
 /// algorithm can use this evaluation to assign realistic game
 /// outcomes to its leaf nodes.
+///
+/// `Position` improves on the features of `Board` adding the the
+/// following important functionality:
+///
+/// 1. Fast position hashing.
+/// 2. Exact evaluation of final positions.
+/// 3. Static position evaluation.
+/// 4. Static exchange evaluation.
+/// 5. Quiescence search.
+/// 6. 50 move rule awareness.
+/// 7. Threefold/twofold repetition detection.
 ///
 /// **Important note:** Repeating positions are considered a draw
 /// after the first repetition, not after the second one as the
