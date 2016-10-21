@@ -1,4 +1,4 @@
-//! Implements search parallelization.
+//! Implements search parallelization (not yet).
 
 use std::cell::UnsafeCell;
 use std::sync::{Arc, Mutex, Condvar};
