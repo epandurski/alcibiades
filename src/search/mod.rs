@@ -1,5 +1,11 @@
-//! Implements the searching of the game tree -- iterative deepening,
-//! aspiration windows, multi-PV.
+//! Implements alpha-beta searching with iterative deepening,
+//! aspiration windows, and multi-PV.
+//!
+//! The alpha-beta algorithm is an enhancement to the minimax search
+//! algorithm. It maintains two values, alpha and beta. They represent
+//! the minimum score that the maximizing player is assured of (lower
+//! bound) and the maximum score that the minimizing player is assured
+//! of (upper bound) respectively.
 //!
 //! Iterative deepening works as follows: the program starts with a
 //! one ply search, then increments the search depth and does another
@@ -202,7 +208,7 @@ impl Drop for SimpleSearcher {
 
 
 /// Executes multi-PV searches.
-pub struct MultipvSearcher {
+struct MultipvSearcher {
     params: SearchParams,
 
     // `true` if the current search has been terminated.
@@ -258,7 +264,7 @@ impl SearchExecutor for MultipvSearcher {
 
 
 /// Executes multi-PV searches with aspiration windows.
-pub struct AspirationSearcher {
+struct AspirationSearcher {
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,

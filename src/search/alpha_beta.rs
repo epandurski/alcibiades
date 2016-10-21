@@ -1,4 +1,4 @@
-//! Implements single-threaded game tree search.
+//! Implements single-threaded alpha-beta searching.
 
 use std::mem;
 use std::cmp::max;
