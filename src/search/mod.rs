@@ -325,14 +325,15 @@ impl AspirationSearcher {
     /// A helper method. It widens the aspiration window if necessary.
     fn widen_aspiration_window(&mut self) -> bool {
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        if lower_bound < self.alpha && lower_bound < self.value && self.value <= self.alpha {
+        let v = self.value;
+        if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
             // Set smaller `self.alpha`.
-            self.alpha = max(self.value as isize - self.delta, lower_bound as isize) as Value;
+            self.alpha = max(v as isize - self.delta, lower_bound as isize) as Value;
             self.increase_delta();
             return true;
-        } else if self.beta < upper_bound && self.beta <= self.value && self.value < upper_bound {
+        } else if self.beta < upper_bound && self.beta <= v && v < upper_bound {
             // Set bigger `self.beta`.
-            self.beta = min(self.value as isize + self.delta, upper_bound as isize) as Value;
+            self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
             self.increase_delta();
             return true;
         }
@@ -351,7 +352,7 @@ impl SearchExecutor for AspirationSearcher {
         self.previously_searched_nodes = 0;
         self.value = self.params.value;
 
-        // The half-width of the initial aspiration window.
+        // This is the half-width of the initial aspiration window.
         self.delta = 17; // TODO: make this `16`?
 
         // Set the initial aspiration window (`self.alpha`, `self.beta`).
