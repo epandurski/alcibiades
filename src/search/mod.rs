@@ -205,65 +205,6 @@ impl Drop for SimpleSearcher {
 }
 
 
-/// Executes multi-PV searches with aspiration windows.
-struct MultipvSearcher {
-    params: SearchParams,
-
-    // `true` if the current search has been terminated.
-    search_is_terminated: bool,
-
-    // The number of positions analyzed during previous sub-searches.
-    previously_searched_nodes: NodeCount,
-
-    // The evaluation of the root position so far.
-    value: Value,
-
-    // The real work will be handed over to `AspirationSearcher`.
-    searcher: AspirationSearcher,
-}
-
-impl MultipvSearcher {
-    /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> MultipvSearcher {
-        MultipvSearcher {
-            params: bogus_params(),
-            search_is_terminated: false,
-            previously_searched_nodes: 0,
-            value: VALUE_UNKNOWN,
-            searcher: AspirationSearcher::new(tt),
-        }
-    }
-}
-
-impl SearchExecutor for MultipvSearcher {
-    fn start_search(&mut self, params: SearchParams) {
-        debug_assert!(params.depth <= MAX_DEPTH);
-        debug_assert!(params.lower_bound < params.upper_bound);
-        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
-        debug_assert!(params.variation_count != 0);
-        self.params = params;
-        self.search_is_terminated = false;
-        self.previously_searched_nodes = 0;
-        self.value = VALUE_UNKNOWN;
-
-        self.searcher.start_search(SearchParams { searchmoves: vec![], ..self.params.clone() });
-    }
-
-    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        self.searcher.try_recv_report()
-    }
-
-    fn wait_report(&self, duration: Duration) {
-        self.searcher.wait_report(duration);
-    }
-
-    fn terminate_search(&mut self) {
-        self.search_is_terminated = true;
-        self.searcher.terminate_search();
-    }
-}
-
-
 /// Executes alpha-beta searches with aspiration windows.
 ///
 /// **Important note:** `AspirationSearcher` always considers all
@@ -408,6 +349,65 @@ impl SearchExecutor for AspirationSearcher {
             best_moves: best_moves,
             done: done,
         });
+    }
+
+    fn wait_report(&self, duration: Duration) {
+        self.searcher.wait_report(duration);
+    }
+
+    fn terminate_search(&mut self) {
+        self.search_is_terminated = true;
+        self.searcher.terminate_search();
+    }
+}
+
+
+/// Executes multi-PV searches with aspiration windows.
+struct MultipvSearcher {
+    params: SearchParams,
+
+    // `true` if the current search has been terminated.
+    search_is_terminated: bool,
+
+    // The number of positions analyzed during previous sub-searches.
+    previously_searched_nodes: NodeCount,
+
+    // The evaluation of the root position so far.
+    value: Value,
+
+    // The real work will be handed over to `AspirationSearcher`.
+    searcher: AspirationSearcher,
+}
+
+impl MultipvSearcher {
+    /// Creates a new instance.
+    pub fn new(tt: Arc<Tt>) -> MultipvSearcher {
+        MultipvSearcher {
+            params: bogus_params(),
+            search_is_terminated: false,
+            previously_searched_nodes: 0,
+            value: VALUE_UNKNOWN,
+            searcher: AspirationSearcher::new(tt),
+        }
+    }
+}
+
+impl SearchExecutor for MultipvSearcher {
+    fn start_search(&mut self, params: SearchParams) {
+        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.lower_bound < params.upper_bound);
+        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(params.variation_count != 0);
+        self.params = params;
+        self.search_is_terminated = false;
+        self.previously_searched_nodes = 0;
+        self.value = VALUE_UNKNOWN;
+
+        self.searcher.start_search(SearchParams { searchmoves: vec![], ..self.params.clone() });
+    }
+
+    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+        self.searcher.try_recv_report()
     }
 
     fn wait_report(&self, duration: Duration) {
