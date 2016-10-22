@@ -236,10 +236,10 @@ impl AspirationSearcher {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
+            searcher: SimpleSearcher::new(tt),
             delta: 0,
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
-            searcher: SimpleSearcher::new(tt),
         }
     }
 
@@ -435,8 +435,8 @@ impl DeepeningSearcher {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
-            depth: 0,
             searcher: AspirationSearcher::new(tt),
+            depth: 0,
         }
     }
 
