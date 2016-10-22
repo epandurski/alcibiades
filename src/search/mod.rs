@@ -252,13 +252,6 @@ impl AspirationSearcher {
         });
     }
 
-    fn increase_delta(&mut self) {
-        self.delta += 3 * self.delta / 8;
-        if self.delta > 1500 {
-            self.delta = 1_000_000;
-        }
-    }
-
     fn calc_initial_aspiration_window(&mut self) {
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
         let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
@@ -302,6 +295,13 @@ impl AspirationSearcher {
             return true;
         }
         false
+    }
+    
+    fn increase_delta(&mut self) {
+        self.delta += 3 * self.delta / 8;
+        if self.delta > 1500 {
+            self.delta = 1_000_000;
+        }
     }
 }
 
