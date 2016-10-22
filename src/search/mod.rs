@@ -138,23 +138,23 @@ pub trait SearchExecutor {
 
 /// Executes alpha-beta searches.
 ///
-/// **Important note:** `SimpleSearcher` ignores the `searchmoves`
+/// **Important note:** `AlphabetaSearcher` ignores the `searchmoves`
 /// search parameter. It always analyses all legal moves in the root
 /// position, and always supplies an empty list of `sorted_moves` in
 /// its progress reports.
-pub struct SimpleSearcher {
+pub struct AlphabetaSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<Report>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl SearchExecutor for SimpleSearcher {
-    fn new(tt: Arc<Tt>) -> SimpleSearcher {
+impl SearchExecutor for AlphabetaSearcher {
+    fn new(tt: Arc<Tt>) -> AlphabetaSearcher {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
-        SimpleSearcher {
+        AlphabetaSearcher {
             thread_commands: commands_tx,
             thread_reports: reports_rx,
             has_reports_condition: has_reports_condition.clone(),
@@ -196,7 +196,7 @@ impl SearchExecutor for SimpleSearcher {
     }
 }
 
-impl Drop for SimpleSearcher {
+impl Drop for AlphabetaSearcher {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();
