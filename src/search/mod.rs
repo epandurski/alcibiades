@@ -243,8 +243,6 @@ impl AspirationSearcher {
         }
     }
 
-    /// A helper method. It tells the alpha-beta searcher to run a new
-    /// search.
     fn start_aspirated_search(&mut self) {
         self.searcher.start_search(SearchParams {
             search_id: 0,
@@ -254,7 +252,6 @@ impl AspirationSearcher {
         });
     }
 
-    /// A helper method. It multiplies `self.delta` by a constant.
     fn increase_delta(&mut self) {
         self.delta += 3 * self.delta / 8;
         if self.delta > 1500 {
@@ -262,7 +259,34 @@ impl AspirationSearcher {
         }
     }
 
-    /// A helper method. It widens the aspiration window if necessary.
+    fn calc_initaial_aspiration_window(&mut self) {
+        let SearchParams { lower_bound, upper_bound, .. } = self.params;
+        let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
+        if let Some(e) = self.tt.probe(self.params.position.hash()) {
+            if e.depth() >= 4 && e.depth() + 2 >= self.params.depth {
+                let v = e.value() as isize;
+                if e.bound() & BOUND_LOWER != 0 {
+                    a = max(v - self.delta, VALUE_MIN as isize) as Value;
+                }
+                if e.bound() & BOUND_UPPER != 0 {
+                    b = min(v + self.delta, VALUE_MAX as isize) as Value;
+                }
+                debug_assert!(a < b);
+                if a >= upper_bound {
+                    a = upper_bound - 1;
+                    self.delta = v - a as isize;
+                }
+                if b <= lower_bound {
+                    b = lower_bound + 1;
+                    self.delta = b as isize - v;
+                }
+            }
+        }
+        self.alpha = max(a, lower_bound);
+        self.beta = min(b, upper_bound);
+        debug_assert!(self.alpha < self.beta);
+    }
+
     fn widen_aspiration_window(&mut self, v: Value) -> bool {
         debug_assert!(self.delta > 0);
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
@@ -292,34 +316,7 @@ impl SearchExecutor for AspirationSearcher {
         self.previously_searched_nodes = 0;
         self.value = VALUE_UNKNOWN;
         self.delta = 17; // TODO: make this `16`?
-
-        // Calculate the initial aspiration window (`self.alpha`, `self.beta`).
-        let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
-        if let Some(e) = self.tt.probe(self.params.position.hash()) {
-            if e.depth() >= 4 && e.depth() + 2 >= self.params.depth {
-                let v = e.value() as isize;
-                if e.bound() & BOUND_LOWER != 0 {
-                    a = max(v - self.delta, VALUE_MIN as isize) as Value;
-                }
-                if e.bound() & BOUND_UPPER != 0 {
-                    b = min(v + self.delta, VALUE_MAX as isize) as Value;
-                }
-                debug_assert!(a < b);
-                if a >= upper_bound {
-                    a = upper_bound - 1;
-                    self.delta = v - a as isize;
-                }
-                if b <= lower_bound {
-                    b = lower_bound + 1;
-                    self.delta = b as isize - v;
-                }
-            }
-        }
-        self.alpha = max(a, lower_bound);
-        self.beta = min(b, upper_bound);
-        debug_assert!(self.alpha < self.beta);
-
+        self.calc_initaial_aspiration_window();
         self.start_aspirated_search();
     }
 
@@ -450,8 +447,6 @@ impl DeepeningSearcher {
         }
     }
 
-    /// A helper method. It tells the aspiration searcher to run a new
-    /// search.
     fn start_deeper_search(&mut self) {
         self.depth += 1;
         self.searcher.start_search(SearchParams {
@@ -474,7 +469,6 @@ impl SearchExecutor for DeepeningSearcher {
         self.previously_searched_nodes = 0;
         self.value = VALUE_UNKNOWN;
         self.depth = 0;
-
         self.start_deeper_search();
     }
 
