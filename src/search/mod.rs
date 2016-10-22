@@ -253,6 +253,7 @@ impl AspirationSearcher {
     }
 
     fn calc_initial_aspiration_window(&mut self) {
+        self.delta = 17; // TODO: make this `16`?
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
         let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
         if let Some(e) = self.tt.probe(self.params.position.hash()) {
@@ -296,7 +297,7 @@ impl AspirationSearcher {
         }
         false
     }
-    
+
     fn increase_delta(&mut self) {
         self.delta += 3 * self.delta / 8;
         if self.delta > 1500 {
@@ -315,7 +316,6 @@ impl SearchExecutor for AspirationSearcher {
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
         self.value = VALUE_UNKNOWN;
-        self.delta = 17; // TODO: make this `16`?
         self.calc_initial_aspiration_window();
         self.start_aspirated_search();
     }
