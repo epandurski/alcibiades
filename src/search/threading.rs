@@ -91,7 +91,7 @@ pub fn serve_simple(tt: Arc<Tt>,
                                    searched_nodes: searched_nodes,
                                    depth: 0,
                                    value: VALUE_UNKNOWN,
-                                   best_moves: vec![],
+                                   sorted_moves: vec![],
                                    done: false,
                                })
                                .ok();
@@ -121,7 +121,7 @@ pub fn serve_simple(tt: Arc<Tt>,
                                searched_nodes: search.node_count(),
                                depth: depth,
                                value: value,
-                               best_moves: vec![],
+                               sorted_moves: vec![],
                                done: true,
                            })
                            .ok();

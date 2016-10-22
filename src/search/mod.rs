@@ -97,9 +97,9 @@ pub struct Report {
     /// if not available.
     pub value: Value,
 
-    /// The best moves found so far (sorted by descending strength),
-    /// or an empty list if not available.
-    pub best_moves: Vec<Move>,
+    /// The `searchmoves` list sorted by descending move strength (see
+    /// `SearchParams`), or an empty list.
+    pub sorted_moves: Vec<Move>,
 
     /// `true` if the search is done, `false` otherwise.
     pub done: bool,
@@ -135,9 +135,10 @@ pub trait SearchExecutor {
 
 /// Executes alpha-beta searches.
 ///
-/// **Important note:** `SimpleSearcher` always considers all legal
-/// moves in the root position, and supplies no `best_moves` in its
-/// progress reports.
+/// **Important note:** `SimpleSearcher` can not handle non-empty
+/// `searchmoves` (see `SearchParams`). It always analyses all legal
+/// moves in the root position, and always supplies an empty list of
+/// `sorted_moves` in its progress reports.
 struct SimpleSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
@@ -321,7 +322,7 @@ impl SearchExecutor for AspirationSearcher {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, best_moves, mut done, .. } =
+        let Report { searched_nodes, depth, value, sorted_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let completed_depth = if done && !self.search_is_terminated {
@@ -346,7 +347,7 @@ impl SearchExecutor for AspirationSearcher {
             searched_nodes: searched_nodes,
             depth: completed_depth,
             value: self.value,
-            best_moves: best_moves,
+            sorted_moves: sorted_moves,
             done: done,
         });
     }
@@ -473,8 +474,18 @@ impl SearchExecutor for DeepeningSearcher {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, best_moves, mut done, .. } =
+        let Report { searched_nodes, depth, value, sorted_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
+        if !sorted_moves.is_empty() {
+            debug_assert!({
+                let mut old_list = self.params.searchmoves.clone();
+                let mut new_list = sorted_moves.clone();
+                old_list.sort();
+                new_list.sort();
+                old_list == new_list
+            });
+            self.params.searchmoves = sorted_moves.clone();
+        }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let completed_depth = if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth);
@@ -494,7 +505,7 @@ impl SearchExecutor for DeepeningSearcher {
             searched_nodes: searched_nodes,
             depth: completed_depth,
             value: self.value,
-            best_moves: best_moves,
+            sorted_moves: sorted_moves,
             done: done,
         });
     }
