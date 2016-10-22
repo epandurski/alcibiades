@@ -206,10 +206,6 @@ impl Drop for SimpleSearcher {
 
 
 /// Executes alpha-beta searches with aspiration windows.
-///
-/// **Important note:** `AspirationSearcher` always considers all
-/// legal moves in the root position, and supplies no `best_moves` in
-/// its progress reports.
 struct AspirationSearcher {
     tt: Arc<Tt>,
     params: SearchParams,
@@ -286,8 +282,6 @@ impl AspirationSearcher {
 
 impl SearchExecutor for AspirationSearcher {
     fn start_search(&mut self, params: SearchParams) {
-        assert!(params.searchmoves.is_empty(),
-                "AspirationSearcher can not handle non-empty searchmoves");
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
