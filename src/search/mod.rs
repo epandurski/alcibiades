@@ -291,25 +291,34 @@ impl SearchExecutor for AspirationSearcher {
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
         self.value = VALUE_UNKNOWN;
-
-        // This is the half-width of the initial aspiration window.
         self.delta = 17; // TODO: make this `16`?
 
-        // Set the initial aspiration window (`self.alpha`, `self.beta`).
-        let v = match self.tt.probe(self.params.position.hash()) {
-            Some(e) if e.depth() == self.params.depth - 1 && e.depth() > 3 &&
-                       e.bound() == BOUND_EXACT => e.value(),
-            _ => VALUE_UNKNOWN,
-        };
+        // Calculate the initial aspiration window (`self.alpha`, `self.beta`).
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        let (a, b) = if v == VALUE_UNKNOWN || v < lower_bound || v > upper_bound {
-            (lower_bound, upper_bound)
-        } else {
-            (max(v as isize - self.delta, lower_bound as isize) as Value,
-             min(v as isize + self.delta, upper_bound as isize) as Value)
-        };
-        self.alpha = a;
-        self.beta = b;
+        let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
+        if let Some(e) = self.tt.probe(self.params.position.hash()) {
+            if e.depth() >= 4 && e.depth() + 2 >= self.params.depth {
+                let v = e.value() as isize;
+                if e.bound() & BOUND_LOWER != 0 {
+                    a = max(v - self.delta, VALUE_MIN as isize) as Value;
+                }
+                if e.bound() & BOUND_UPPER != 0 {
+                    b = min(v + self.delta, VALUE_MAX as isize) as Value;
+                }
+                debug_assert!(a < b);
+                if a >= upper_bound {
+                    a = upper_bound - 1;
+                    self.delta = v - a as isize;
+                }
+                if b <= lower_bound {
+                    b = lower_bound + 1;
+                    self.delta = b as isize - v;
+                }
+            }
+        }
+        self.alpha = max(a, lower_bound);
+        self.beta = min(b, upper_bound);
+        debug_assert!(self.alpha < self.beta);
 
         self.start_aspirated_search();
     }
