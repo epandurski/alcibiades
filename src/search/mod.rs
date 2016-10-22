@@ -227,7 +227,7 @@ struct AspirationSearcher {
     // The upper bound of the aspiration window.
     beta: Value,
 
-    // The real work will be handed over to `SimpleSearcher`.
+    // The real work will be handed over to `searcher`.
     searcher: SimpleSearcher,
 }
 
@@ -267,9 +267,8 @@ impl AspirationSearcher {
     }
 
     /// A helper method. It widens the aspiration window if necessary.
-    fn widen_aspiration_window(&mut self) -> bool {
+    fn widen_aspiration_window(&mut self, v: Value) -> bool {
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        let v = self.value;
         if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
             // Set smaller `self.alpha`.
             self.alpha = max(v as isize - self.delta, lower_bound as isize) as Value;
@@ -323,19 +322,18 @@ impl SearchExecutor for AspirationSearcher {
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
         let Report { searched_nodes, depth, value, best_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
-        if value != VALUE_UNKNOWN {
-            self.value = value;
-        }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let completed_depth = if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.params.depth);
             self.previously_searched_nodes = searched_nodes;
-            if self.widen_aspiration_window() {
+            if self.widen_aspiration_window(value) {
                 // A re-search is necessary.
                 self.start_aspirated_search();
                 done = false;
                 0
             } else {
+                // The search is done.
+                self.value = value;
                 depth
             }
         } else {
@@ -376,7 +374,7 @@ struct MultipvSearcher {
     // The evaluation of the root position so far.
     value: Value,
 
-    // The real work will be handed over to `AspirationSearcher`.
+    // The real work will be handed over to `searcher`.
     searcher: AspirationSearcher,
 }
 
@@ -433,8 +431,8 @@ pub struct DeepeningSearcher {
     // The depth of the currently executing search.
     depth: u8,
 
-    // The real work will be handed over to `AspirationSearcher`.
-    searcher: MultipvSearcher,
+    // The real work will be handed over to `searcher`.
+    searcher: AspirationSearcher, // TODO: Use MultipvSearcher.
 }
 
 impl DeepeningSearcher {
@@ -446,7 +444,7 @@ impl DeepeningSearcher {
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
             depth: 0,
-            searcher: MultipvSearcher::new(tt),
+            searcher: AspirationSearcher::new(tt),
         }
     }
 
@@ -457,6 +455,7 @@ impl DeepeningSearcher {
         self.searcher.start_search(SearchParams {
             search_id: 0,
             depth: self.depth,
+            searchmoves: vec![], // TODO: Remove this, use MultipvSearcher
             ..self.params.clone()
         });
     }
@@ -480,12 +479,10 @@ impl SearchExecutor for DeepeningSearcher {
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
         let Report { searched_nodes, depth, value, best_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
-        if value != VALUE_UNKNOWN {
-            self.value = value;
-        }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let completed_depth = if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth);
+            self.value = value;
             self.previously_searched_nodes = searched_nodes;
             if self.depth < self.params.depth {
                 self.start_deeper_search();
