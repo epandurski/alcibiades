@@ -217,6 +217,9 @@ struct AspirationSearcher {
     previously_searched_nodes: NodeCount,
     value: Value,
 
+    // The real work will be handed over to `searcher`.
+    searcher: SimpleSearcher,
+
     // The aspiration window will be widened by this value if the
     // search fails. (We use `isize` to avoid overflows.)
     delta: isize,
@@ -226,9 +229,6 @@ struct AspirationSearcher {
 
     // The upper bound of the aspiration window.
     beta: Value,
-
-    // The real work will be handed over to `searcher`.
-    searcher: SimpleSearcher,
 }
 
 impl AspirationSearcher {
@@ -427,12 +427,10 @@ pub struct DeepeningSearcher {
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,
     value: Value,
+    searcher: AspirationSearcher, // TODO: Use MultipvSearcher.
 
     // The depth of the currently executing search.
     depth: u8,
-
-    // The real work will be handed over to `searcher`.
-    searcher: AspirationSearcher, // TODO: Use MultipvSearcher.
 }
 
 impl DeepeningSearcher {
