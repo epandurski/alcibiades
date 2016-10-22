@@ -324,6 +324,10 @@ impl SearchExecutor for AspirationSearcher {
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
         let Report { searched_nodes, depth, value, sorted_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
+        if !sorted_moves.is_empty() {
+            debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
+            self.params.searchmoves = sorted_moves.clone();
+        }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let completed_depth = if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.params.depth);
@@ -477,13 +481,7 @@ impl SearchExecutor for DeepeningSearcher {
         let Report { searched_nodes, depth, value, sorted_moves, mut done, .. } =
             try!(self.searcher.try_recv_report());
         if !sorted_moves.is_empty() {
-            debug_assert!({
-                let mut old_list = self.params.searchmoves.clone();
-                let mut new_list = sorted_moves.clone();
-                old_list.sort();
-                new_list.sort();
-                old_list == new_list
-            });
+            debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
             self.params.searchmoves = sorted_moves.clone();
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
@@ -532,4 +530,15 @@ fn bogus_params() -> SearchParams {
         searchmoves: vec![],
         variation_count: 1,
     }
+}
+
+
+/// A helper function. It checks if the two supplied lists of moves
+/// contain the same moves, possibly in different order.
+fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
+    let mut list1 = list1.clone();
+    let mut list2 = list2.clone();
+    list1.sort();
+    list2.sort();
+    list1 == list2
 }
