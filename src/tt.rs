@@ -14,7 +14,7 @@
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
-use basetypes::Value;
+use basetypes::{Value, VALUE_UNKNOWN};
 use moves::MoveDigest;
 
 
@@ -81,6 +81,7 @@ impl TtEntry {
                move16: MoveDigest,
                eval_value: Value)
                -> TtEntry {
+        debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
         debug_assert!(depth < 127);
         TtEntry {

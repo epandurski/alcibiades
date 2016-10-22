@@ -264,6 +264,7 @@ impl AspirationSearcher {
 
     /// A helper method. It widens the aspiration window if necessary.
     fn widen_aspiration_window(&mut self, v: Value) -> bool {
+        debug_assert!(self.delta > 0);
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
         if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
             // Set smaller `self.alpha`.
