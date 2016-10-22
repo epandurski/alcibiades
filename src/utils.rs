@@ -60,7 +60,7 @@ pub struct SearchStatus {
 pub struct SearchThread {
     tt: Arc<Tt>,
     status: SearchStatus,
-    searcher: DeepeningSearcher,
+    searcher: DeepeningSearcher<AspirationSearcher<SimpleSearcher>>,
 }
 
 

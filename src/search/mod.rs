@@ -1,5 +1,5 @@
-//! Implements alpha-beta searching with iterative deepening,
-//! aspiration windows, and multi-PV.
+//! Implements alpha-beta searching, iterative deepening, aspiration
+//! windows, multi-PV.
 //!
 //! The alpha-beta algorithm is an enhancement to the minimax search
 //! algorithm. It maintains two values, alpha and beta. They represent
@@ -109,6 +109,9 @@ pub struct Report {
 /// The `SearchExecutor` trait is used to execute consecutive searches
 /// in different starting positions.
 pub trait SearchExecutor {
+    /// Creates a new instance.
+    fn new(tt: Arc<Tt>) -> Self;
+
     /// Starts a new search.
     ///
     /// After calling `start_search`, `try_recv_report` must be called
@@ -135,20 +138,19 @@ pub trait SearchExecutor {
 
 /// Executes alpha-beta searches.
 ///
-/// **Important note:** `SimpleSearcher` can not handle non-empty
-/// `searchmoves` (see `SearchParams`). It always analyses all legal
-/// moves in the root position, and always supplies an empty list of
-/// `sorted_moves` in its progress reports.
-struct SimpleSearcher {
+/// **Important note:** `SimpleSearcher` ignores the `searchmoves`
+/// search parameter. It always analyses all legal moves in the root
+/// position, and always supplies an empty list of `sorted_moves` in
+/// its progress reports.
+pub struct SimpleSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<Report>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl SimpleSearcher {
-    /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> SimpleSearcher {
+impl SearchExecutor for SimpleSearcher {
+    fn new(tt: Arc<Tt>) -> SimpleSearcher {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
@@ -163,12 +165,8 @@ impl SimpleSearcher {
             })),
         }
     }
-}
 
-impl SearchExecutor for SimpleSearcher {
     fn start_search(&mut self, params: SearchParams) {
-        assert!(params.searchmoves.is_empty(),
-                "SimpleSearcher can not handle non-empty searchmoves");
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
@@ -206,8 +204,8 @@ impl Drop for SimpleSearcher {
 }
 
 
-/// Executes alpha-beta searches with aspiration windows.
-struct AspirationSearcher {
+/// Executes searches with aspiration windows.
+pub struct AspirationSearcher<T: SearchExecutor> {
     tt: Arc<Tt>,
     params: SearchParams,
     search_is_terminated: bool,
@@ -215,7 +213,7 @@ struct AspirationSearcher {
     value: Value,
 
     // The real work will be handed over to `searcher`.
-    searcher: SimpleSearcher,
+    searcher: T,
 
     // The aspiration window will be widened by this value if the
     // search fails. (We use `isize` to avoid overflows.)
@@ -228,22 +226,7 @@ struct AspirationSearcher {
     beta: Value,
 }
 
-impl AspirationSearcher {
-    /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> AspirationSearcher {
-        AspirationSearcher {
-            tt: tt.clone(),
-            params: bogus_params(),
-            search_is_terminated: false,
-            previously_searched_nodes: 0,
-            value: VALUE_UNKNOWN,
-            searcher: SimpleSearcher::new(tt),
-            delta: 0,
-            alpha: VALUE_MIN,
-            beta: VALUE_MAX,
-        }
-    }
-
+impl<T: SearchExecutor> AspirationSearcher<T> {
     fn start_aspirated_search(&mut self) {
         self.searcher.start_search(SearchParams {
             search_id: 0,
@@ -307,7 +290,21 @@ impl AspirationSearcher {
     }
 }
 
-impl SearchExecutor for AspirationSearcher {
+impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
+    fn new(tt: Arc<Tt>) -> AspirationSearcher<T> {
+        AspirationSearcher {
+            tt: tt.clone(),
+            params: bogus_params(),
+            search_is_terminated: false,
+            previously_searched_nodes: 0,
+            value: VALUE_UNKNOWN,
+            searcher: T::new(tt),
+            delta: 0,
+            alpha: VALUE_MIN,
+            beta: VALUE_MAX,
+        }
+    }
+
     fn start_search(&mut self, params: SearchParams) {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
@@ -367,103 +364,43 @@ impl SearchExecutor for AspirationSearcher {
 }
 
 
-/// Executes multi-PV searches with aspiration windows.
-struct MultipvSearcher {
+/// Executes searches with iterative deepening.
+pub struct DeepeningSearcher<T: SearchExecutor> {
     params: SearchParams,
-
-    // `true` if the current search has been terminated.
     search_is_terminated: bool,
-
-    // The number of positions analyzed during previous sub-searches.
     previously_searched_nodes: NodeCount,
-
-    // The evaluation of the root position so far.
     value: Value,
 
     // The real work will be handed over to `searcher`.
-    searcher: AspirationSearcher,
-}
-
-impl MultipvSearcher {
-    /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> MultipvSearcher {
-        MultipvSearcher {
-            params: bogus_params(),
-            search_is_terminated: false,
-            previously_searched_nodes: 0,
-            value: VALUE_UNKNOWN,
-            searcher: AspirationSearcher::new(tt),
-        }
-    }
-}
-
-impl SearchExecutor for MultipvSearcher {
-    fn start_search(&mut self, params: SearchParams) {
-        debug_assert!(params.depth <= MAX_DEPTH);
-        debug_assert!(params.lower_bound < params.upper_bound);
-        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
-        debug_assert!(params.variation_count != 0);
-        self.params = params;
-        self.search_is_terminated = false;
-        self.previously_searched_nodes = 0;
-        self.value = VALUE_UNKNOWN;
-
-        self.searcher.start_search(SearchParams { searchmoves: vec![], ..self.params.clone() });
-    }
-
-    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        self.searcher.try_recv_report()
-    }
-
-    fn wait_report(&self, duration: Duration) {
-        self.searcher.wait_report(duration);
-    }
-
-    fn terminate_search(&mut self) {
-        self.search_is_terminated = true;
-        self.searcher.terminate_search();
-    }
-}
-
-
-/// Executes multi-PV searches with aspiration windows and iterative
-/// deepening.
-pub struct DeepeningSearcher {
-    params: SearchParams,
-    search_is_terminated: bool,
-    previously_searched_nodes: NodeCount,
-    value: Value,
-    searcher: AspirationSearcher, // TODO: Use MultipvSearcher.
+    searcher: T,
 
     // The depth of the currently executing search.
     depth: u8,
 }
 
-impl DeepeningSearcher {
-    /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> DeepeningSearcher {
-        DeepeningSearcher {
-            params: bogus_params(),
-            search_is_terminated: false,
-            previously_searched_nodes: 0,
-            value: VALUE_UNKNOWN,
-            searcher: AspirationSearcher::new(tt),
-            depth: 0,
-        }
-    }
-
+impl<T: SearchExecutor> DeepeningSearcher<T> {
     fn start_deeper_search(&mut self) {
         self.depth += 1;
         self.searcher.start_search(SearchParams {
             search_id: 0,
             depth: self.depth,
-            searchmoves: vec![], // TODO: Remove this, use MultipvSearcher
             ..self.params.clone()
         });
     }
 }
 
-impl SearchExecutor for DeepeningSearcher {
+impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
+    fn new(tt: Arc<Tt>) -> DeepeningSearcher<T> {
+        DeepeningSearcher {
+            params: bogus_params(),
+            search_is_terminated: false,
+            previously_searched_nodes: 0,
+            value: VALUE_UNKNOWN,
+            searcher: T::new(tt),
+            depth: 0,
+        }
+    }
+
     fn start_search(&mut self, params: SearchParams) {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
