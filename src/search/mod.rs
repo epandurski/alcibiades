@@ -305,6 +305,8 @@ pub struct AspirationSearcher<T: SearchExecutor> {
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,
     value: Value,
+    multipv_mode: bool,
+    expected_to_fail_low: bool,
 
     // The real work will be handed over to `searcher`.
     searcher: T,
@@ -321,9 +323,22 @@ pub struct AspirationSearcher<T: SearchExecutor> {
 }
 
 impl<T: SearchExecutor> AspirationSearcher<T> {
+    fn multipv_mode(mut self) -> AspirationSearcher<T> {
+        self.multipv_mode = true;
+        self
+    }
+
     fn start_aspirated_search(&mut self) {
+        let depth = if self.multipv_mode && self.expected_to_fail_low && self.params.depth > 0 {
+            // `MultipvSearcher` implements late move reductions by
+            // using `AspirationSearcher` in a special mode.
+            self.params.depth - 1
+        } else {
+            self.params.depth
+        };
         self.searcher.start_search(SearchParams {
             search_id: 0,
+            depth: depth,
             lower_bound: self.alpha,
             upper_bound: self.beta,
             ..self.params.clone()
@@ -351,6 +366,7 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
                 if b <= lower_bound {
                     b = lower_bound + 1;
                     self.delta = b as isize - v;
+                    self.expected_to_fail_low = true;
                 }
             }
         }
@@ -362,18 +378,17 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
     fn widen_aspiration_window(&mut self, v: Value) -> bool {
         debug_assert!(self.delta > 0);
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
-            // Set smaller `self.alpha`.
-            self.alpha = max(v as isize - self.delta, lower_bound as isize) as Value;
-            self.increase_delta();
-            return true;
-        } else if self.beta < upper_bound && self.beta <= v && v < upper_bound {
-            // Set bigger `self.beta`.
+        if self.beta < upper_bound && self.beta <= v && v < upper_bound ||
+           self.multipv_mode && self.expected_to_fail_low && self.alpha < v {
             self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
-            self.increase_delta();
-            return true;
+        } else if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
+            self.alpha = max(v as isize - self.delta, lower_bound as isize) as Value;
+        } else {
+            return false;
         }
-        false
+        self.expected_to_fail_low = false;
+        self.increase_delta();
+        true
     }
 
     fn increase_delta(&mut self) {
@@ -392,6 +407,8 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
+            multipv_mode: false,
+            expected_to_fail_low: false,
             searcher: T::new(tt),
             delta: 0,
             alpha: VALUE_MIN,
@@ -408,6 +425,7 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
         self.value = VALUE_UNKNOWN;
+        self.expected_to_fail_low = false;
         self.calc_initial_aspiration_window();
         self.start_aspirated_search();
     }
@@ -421,7 +439,6 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let completed_depth = if done && !self.search_is_terminated {
-            debug_assert_eq!(depth, self.params.depth);
             self.previously_searched_nodes = searched_nodes;
             if self.widen_aspiration_window(value) {
                 // A re-search is necessary.
