@@ -305,7 +305,7 @@ pub struct AspirationSearcher<T: SearchExecutor> {
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,
     value: Value,
-    multipv_mode: bool,
+    lmr_mode: bool,
     expected_to_fail_low: bool,
 
     // The real work will be handed over to `searcher`.
@@ -323,13 +323,13 @@ pub struct AspirationSearcher<T: SearchExecutor> {
 }
 
 impl<T: SearchExecutor> AspirationSearcher<T> {
-    fn multipv_mode(mut self) -> AspirationSearcher<T> {
-        self.multipv_mode = true;
+    fn lmr_mode(mut self) -> AspirationSearcher<T> {
+        self.lmr_mode = true;
         self
     }
 
     fn start_aspirated_search(&mut self) {
-        let depth = if self.multipv_mode && self.expected_to_fail_low && self.params.depth > 0 {
+        let depth = if self.lmr_mode && self.expected_to_fail_low && self.params.depth > 0 {
             // `MultipvSearcher` implements late move reductions by
             // using `AspirationSearcher` in a special mode.
             self.params.depth - 1
@@ -378,9 +378,13 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
     fn widen_aspiration_window(&mut self, v: Value) -> bool {
         debug_assert!(self.delta > 0);
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        if self.beta < upper_bound && self.beta <= v && v < upper_bound ||
-           self.multipv_mode && self.expected_to_fail_low && self.alpha < v {
+        if self.lmr_mode && self.expected_to_fail_low && self.alpha < v {
             self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
+        } else if self.beta < upper_bound && self.beta <= v && v < upper_bound {
+            self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
+
+            // Report failing high as soon as possible.
+            self.value = v;
         } else if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
             self.alpha = max(v as isize - self.delta, lower_bound as isize) as Value;
         } else {
@@ -407,7 +411,7 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             value: VALUE_UNKNOWN,
-            multipv_mode: false,
+            lmr_mode: false,
             expected_to_fail_low: false,
             searcher: T::new(tt),
             delta: 0,
