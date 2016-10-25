@@ -104,18 +104,7 @@ impl SearchThread {
                   position: &Position,
                   variation_count: usize,
                   mut searchmoves: Vec<String>) {
-        // Find all legal moves.
-        let mut legal_moves = vec![];
-        let mut move_stack = MoveStack::new();
-        let mut p = position.clone();
-        p.generate_moves(&mut move_stack);
-        while let Some(m) = move_stack.pop() {
-            if p.do_move(m) {
-                legal_moves.push(m);
-                p.undo_move();
-            }
-        }
-
+        let mut legal_moves = position.legal_moves();
         let legal_moves_count = legal_moves.len();
 
         // Remove all legal moves not allowed by `searchmoves`.
@@ -145,7 +134,7 @@ impl SearchThread {
 
         self.status = SearchStatus {
             started_at: SystemTime::now(),
-            position: p,
+            position: position.clone(),
             done: false,
             depth: 0,
             legal_moves_count: legal_moves_count,

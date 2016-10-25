@@ -515,6 +515,21 @@ impl Position {
         self.state_stack.pop();
     }
 
+    /// Returns all legal moves in the position.
+    pub fn legal_moves(&self) -> Vec<Move> {
+        let mut legal_moves = vec![];
+        let mut board = unsafe { self.board_mut() };
+        let mut move_stack = MoveStack::new();
+        board.generate_moves(true, &mut move_stack);
+        while let Some(m) = move_stack.pop() {
+            if board.do_move(m).is_some() {
+                legal_moves.push(m);
+                board.undo_move(m);
+            }
+        }
+        legal_moves
+    }
+
     /// A helper method for `evaluate_quiescence`. It is needed
     /// because`qsearch` should be able to call itself recursively,
     /// which should not complicate `evaluate_quiescence`'s
@@ -531,8 +546,7 @@ impl Position {
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(static_evaluation == VALUE_UNKNOWN ||
-                      static_evaluation >= STATIC_EVAL_MIN &&
-                      static_evaluation <= STATIC_EVAL_MAX);
+                      static_evaluation >= STATIC_EVAL_MIN && static_evaluation <= STATIC_EVAL_MAX);
         let not_in_check = self.board().checkers() == 0;
 
         // At the beginning of quiescence, the position's evaluation
