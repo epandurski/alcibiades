@@ -386,11 +386,10 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
             // The search failed high.
             self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
             if self.lmr_mode {
-                // If in a special mode -- immediately report the
-                // current value when failing high. (Note that the
-                // reported depth for the value will be `0`. This
-                // cheating allows `MultipvSearcher` to update the TT
-                // record for the root position as soon as possible.)
+                // We did not reduce the search depth, and the search
+                // failed high. In this case we immediately report the
+                // value, allowing `MultipvSearcher` to update the TT
+                // record for the root position as soon as possible.
                 self.value = v;
             }
         } else if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
