@@ -488,6 +488,121 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
 
 
 
+/// Executes mulit-PV searches.
+pub struct MultipvSearcher<T: SearchExecutor> {
+    params: SearchParams,
+    search_is_terminated: bool,
+    previously_searched_nodes: NodeCount,
+    value: Value,
+
+    // The real work will be handed over to `searcher`.
+    searcher: AspirationSearcher<T>,
+
+    // Weather we are analyzing all legal moves or not.
+    all_moves: bool,
+
+    // The values for the analyzed moves (in the root position).
+    values: Vec<Value>,
+
+    // The index of the currently searched move .
+    curr_index: usize,
+
+    // The index of the move that will be searched next.
+    next_index: usize,
+}
+
+impl<T: SearchExecutor> MultipvSearcher<T> {
+    fn search_next_move(&mut self) -> bool {
+        if self.next_index >= self.params.searchmoves.len() {
+            return false;
+        }
+        self.curr_index = self.next_index;
+        self.next_index += 1;
+        assert!(self.params.position.do_move(self.params.searchmoves[self.curr_index]));
+        self.searcher.start_search(SearchParams {
+            search_id: 0,
+            depth: self.params.depth - 1,
+            lower_bound: max(self.params.lower_bound, self.values[0]),
+            searchmoves: vec![],
+            ..self.params.clone()
+        });
+        true
+    }
+}
+
+impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
+    fn new(tt: Arc<Tt>) -> MultipvSearcher<T> {
+        MultipvSearcher {
+            params: bogus_params(),
+            search_is_terminated: false,
+            previously_searched_nodes: 0,
+            value: VALUE_UNKNOWN,
+            searcher: AspirationSearcher::new(tt).lmr_mode(),
+            all_moves: true,
+            values: vec![],
+            curr_index: 0,
+            next_index: 0,
+        }
+    }
+
+    fn start_search(&mut self, params: SearchParams) {
+        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.lower_bound < params.upper_bound);
+        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(params.variation_count != 0);
+        self.params = params;
+        self.search_is_terminated = false;
+        self.previously_searched_nodes = 0;
+        self.all_moves = self.params.searchmoves.len() == self.params.position.legal_moves().len();
+        self.values = vec![VALUE_UNKNOWN; self.params.searchmoves.len()];
+        self.curr_index = 0;
+        self.next_index = 0;
+        if self.params.depth != 0 && self.search_next_move() {
+        }
+    }
+
+    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+        let Report { searched_nodes, depth, value, mut done, .. } =
+            try!(self.searcher.try_recv_report());
+        // Do something.
+        
+        let mut sorted_moves = vec![];
+        let searched_nodes = self.previously_searched_nodes + searched_nodes;
+        let completed_depth = if done && !self.search_is_terminated {
+            self.previously_searched_nodes = searched_nodes;
+            if self.search_next_move() {
+                done = false;
+                0
+            } else {
+                sorted_moves = self.params.searchmoves.clone();
+                self.params.depth
+            }
+        } else {
+            0
+        };
+
+        return Ok(Report {
+            search_id: self.params.search_id,
+            searched_nodes: searched_nodes,
+            depth: completed_depth,
+            value: self.values[0],
+            sorted_moves: sorted_moves,
+            done: done,
+        });
+    }
+
+    fn wait_report(&self, duration: Duration) {
+        self.searcher.wait_report(duration);
+    }
+
+    fn terminate_search(&mut self) {
+        self.search_is_terminated = true;
+        self.searcher.terminate_search();
+    }
+}
+
+
+
 /// A helper function. It returns bogus search parameters.
 fn bogus_params() -> SearchParams {
     SearchParams {
