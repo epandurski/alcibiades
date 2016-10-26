@@ -528,42 +528,44 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                                                    self.params.searchmoves.len()) -
                                                1],
                                    self.params.lower_bound);
-            if self.lower_bound >= self.params.upper_bound {
-                return false;
+            if self.lower_bound < self.params.upper_bound {
+                assert!(self.params
+                            .position
+                            .do_move(self.params.searchmoves[self.curr_move_index]));
+                self.searcher.start_search(SearchParams {
+                    search_id: 0,
+                    depth: self.params.depth - 1,
+                    lower_bound: -self.params.upper_bound,
+                    upper_bound: -self.lower_bound,
+                    searchmoves: vec![],
+                    ..self.params.clone()
+                });
+                return true;
             }
-            assert!(self.params.position.do_move(self.params.searchmoves[self.curr_move_index]));
-            self.searcher.start_search(SearchParams {
-                search_id: 0,
-                depth: self.params.depth - 1,
-                lower_bound: -self.params.upper_bound,
-                upper_bound: -self.lower_bound,
-                searchmoves: vec![],
-                ..self.params.clone()
-            });
-            true
-        } else {
-            // All moves have been searched.
-            if self.params.searchmoves.len() > 0 {
-                let all_moves_considered = self.params.searchmoves.len() ==
-                                           self.params.position.legal_moves().len();
-                let best_move = self.params.searchmoves[0];
-                let value = self.values[0];
-                let bound = match value {
-                    v if v <= self.params.lower_bound && !all_moves_considered => BOUND_NONE,
-                    v if v <= self.params.lower_bound => BOUND_UPPER,
-                    v if v >= self.params.upper_bound => BOUND_LOWER,
-                    _ if all_moves_considered => BOUND_EXACT,
-                    _ => BOUND_LOWER,
-                };
-                self.tt.store(self.position_hash,
-                              TtEntry::new(value,
-                                           bound,
-                                           self.params.depth,
-                                           best_move.digest(),
-                                           self.params.position.evaluate_static()));
-            }
-            false
+
         }
+
+        // No more moves to search -- write the result to the TT.
+        if self.params.searchmoves.len() > 0 {
+            let all_moves_were_considered = self.params.searchmoves.len() ==
+                                            self.params.position.legal_moves().len();
+            let best_move = self.params.searchmoves[0];
+            let value = self.values[0];
+            let bound = match value {
+                v if v <= self.params.lower_bound && !all_moves_were_considered => BOUND_NONE,
+                v if v <= self.params.lower_bound => BOUND_UPPER,
+                v if v >= self.params.upper_bound => BOUND_LOWER,
+                _ if all_moves_were_considered => BOUND_EXACT,
+                _ => BOUND_LOWER,
+            };
+            self.tt.store(self.position_hash,
+                          TtEntry::new(value,
+                                       bound,
+                                       self.params.depth,
+                                       best_move.digest(),
+                                       self.params.position.evaluate_static()));
+        }
+        false
     }
 
     fn update_searchmoves_order(&mut self, v: Value) {
@@ -581,6 +583,8 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
             self.params.searchmoves.insert(*i, m);
             if *i == 0 && v > self.lower_bound {
                 // We found a new best move.
+                //
+                // TODO: this stinks!
                 self.tt.store(self.position_hash,
                               TtEntry::new(v,
                                            BOUND_LOWER,
