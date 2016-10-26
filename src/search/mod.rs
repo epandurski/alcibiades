@@ -524,7 +524,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
         }
 
         // No more moves to search -- write the result to the TT.
-        if self.params.searchmoves.len() > 0 {
+        if !self.params.searchmoves.is_empty() {
             let all_moves_were_considered = self.params.searchmoves.len() ==
                                             self.params.position.legal_moves().len();
             let best_move = self.params.searchmoves[0];
@@ -532,9 +532,8 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
             let bound = match value {
                 v if v <= self.params.lower_bound && !all_moves_were_considered => BOUND_NONE,
                 v if v <= self.params.lower_bound => BOUND_UPPER,
-                v if v >= self.params.upper_bound => BOUND_LOWER,
-                _ if all_moves_were_considered => BOUND_EXACT,
-                _ => BOUND_LOWER,
+                v if v >= self.params.upper_bound || !all_moves_were_considered => BOUND_LOWER,
+                _ => BOUND_EXACT,
             };
             self.tt.store(self.position_hash,
                           TtEntry::new(value,
@@ -594,7 +593,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        if self.params.searchmoves.len() != 0 {
+        if !self.params.searchmoves.is_empty() {
             let Report { searched_nodes, value, mut done, .. } = try!(self.searcher
                                                                           .try_recv_report());
             if value != VALUE_UNKNOWN {
