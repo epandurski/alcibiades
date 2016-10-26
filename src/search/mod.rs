@@ -489,33 +489,29 @@ pub struct MultipvSearcher<T: SearchExecutor> {
     // The real work will be handed over to `searcher`.
     searcher: AspirationSearcher<T>,
 
-    // The lower bound for the currently running search.
-    lower_bound: Value,
-
-    // The calculated values for the corresponding moves in
-    // `self.params.searchmoves`.
-    values: Vec<Value>,
-
     // The index (in `self.params.searchmoves`) of the currently
-    // searched move.
+    // analyzed move.
     curr_move_index: usize,
 
     // The index (in `self.params.searchmoves`) of the move that will
-    // be searched next.
+    // be analyzed next.
     next_move_index: usize,
+
+    // The values for the corresponding moves in `self.params.searchmoves`.
+    values: Vec<Value>,
 }
 
 impl<T: SearchExecutor> MultipvSearcher<T> {
     fn search_next_move(&mut self) -> bool {
         if self.next_move_index < self.params.searchmoves.len() {
-            // Search the next move in `searchmoves`.
+            // Start a search for the next move in `searchmoves`.
             self.curr_move_index = self.next_move_index;
             self.next_move_index += 1;
-            self.lower_bound = max(self.values[min(self.params.variation_count,
-                                                   self.params.searchmoves.len()) -
-                                               1],
-                                   self.params.lower_bound);
-            if self.lower_bound < self.params.upper_bound {
+            let lower_bound = max(self.values[min(self.params.variation_count,
+                                                  self.params.searchmoves.len()) -
+                                              1],
+                                  self.params.lower_bound);
+            if lower_bound < self.params.upper_bound {
                 assert!(self.params
                             .position
                             .do_move(self.params.searchmoves[self.curr_move_index]));
@@ -523,7 +519,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                     search_id: 0,
                     depth: self.params.depth - 1,
                     lower_bound: -self.params.upper_bound,
-                    upper_bound: -self.lower_bound,
+                    upper_bound: -lower_bound,
                     searchmoves: vec![],
                     ..self.params.clone()
                 });
@@ -581,10 +577,9 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             previously_searched_nodes: 0,
             position_hash: 0,
             searcher: AspirationSearcher::new(tt).lmr_mode(),
-            lower_bound: VALUE_UNKNOWN,
-            values: vec![],
             curr_move_index: 0,
             next_move_index: 0,
+            values: vec![],
         }
     }
 
