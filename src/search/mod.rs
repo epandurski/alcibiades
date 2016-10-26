@@ -630,20 +630,18 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             if value != VALUE_UNKNOWN {
                 self.update_searchmoves_order(-value);
             }
-            let mut sorted_moves = vec![];
             let searched_nodes = self.previously_searched_nodes + searched_nodes;
-            let completed_depth = if done && !self.search_is_terminated {
+            let (completed_depth, sorted_moves) = if done && !self.search_is_terminated {
                 self.previously_searched_nodes = searched_nodes;
                 self.params.position.undo_move();
                 if self.search_next_move() {
                     done = false;
-                    0
+                    (0, vec![])
                 } else {
-                    sorted_moves = self.params.searchmoves.clone();
-                    self.params.depth
+                    (self.params.depth, self.params.searchmoves.clone())
                 }
             } else {
-                0
+                (0, vec![])
             };
 
             Ok(Report {
