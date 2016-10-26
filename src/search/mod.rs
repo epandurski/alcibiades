@@ -499,6 +499,9 @@ pub struct MultipvSearcher<T: SearchExecutor> {
     // The real work will be handed over to `searcher`.
     searcher: AspirationSearcher<T>,
 
+    // Root position's hash value.
+    position_hash: u64,
+
     // The lower bound for the currently running search.
     lower_bound: Value,
 
@@ -550,7 +553,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                     _ if all_moves_considered => BOUND_EXACT,
                     _ => BOUND_LOWER,
                 };
-                self.tt.store(self.params.position.hash(),
+                self.tt.store(self.position_hash,
                               TtEntry::new(value,
                                            bound,
                                            self.params.depth,
@@ -576,7 +579,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
             self.params.searchmoves.insert(*i, m);
             if *i == 0 && v > self.lower_bound {
                 // We found a new best move.
-                self.tt.store(self.params.position.hash(),
+                self.tt.store(self.position_hash,
                               TtEntry::new(v,
                                            BOUND_LOWER,
                                            self.params.depth,
@@ -595,6 +598,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             searcher: AspirationSearcher::new(tt).lmr_mode(),
+            position_hash: 0,
             lower_bound: VALUE_UNKNOWN,
             values: vec![],
             curr_move_index: 0,
@@ -611,6 +615,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
+        self.position_hash = self.params.position.hash();
         self.values = vec![VALUE_MIN; self.params.searchmoves.len()];
         self.next_move_index = 0;
         self.search_next_move();
