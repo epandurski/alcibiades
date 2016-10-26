@@ -304,7 +304,6 @@ pub struct AspirationSearcher<T: SearchExecutor> {
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,
-    value: Value,
     lmr_mode: bool,
     expected_to_fail_low: bool,
 
@@ -408,7 +407,6 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            value: VALUE_UNKNOWN,
             lmr_mode: false,
             expected_to_fail_low: false,
             searcher: T::new(tt),
@@ -426,7 +424,6 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.value = VALUE_UNKNOWN;
         self.expected_to_fail_low = false;
         self.calc_initial_aspiration_window();
         self.start_aspirated_search();
@@ -440,27 +437,26 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
             self.params.searchmoves = sorted_moves.clone();
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
-        let completed_depth = if done && !self.search_is_terminated {
+        let (completed_depth, value) = if done && !self.search_is_terminated {
             self.previously_searched_nodes = searched_nodes;
             if self.widen_aspiration_window(value) {
                 // A re-search is necessary.
                 self.start_aspirated_search();
                 done = false;
-                0
+                (0, VALUE_UNKNOWN)
             } else {
                 // The search is done.
-                self.value = value;
-                depth
+                (depth, value)
             }
         } else {
-            0
+            (0, VALUE_UNKNOWN)
         };
 
         return Ok(Report {
             search_id: self.params.search_id,
             searched_nodes: searched_nodes,
             depth: completed_depth,
-            value: self.value,
+            value: value,
             sorted_moves: sorted_moves,
             done: done,
         });
@@ -605,24 +601,25 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
                 self.update_moves_order(-value);
             }
             let searched_nodes = self.previously_searched_nodes + searched_nodes;
-            let (completed_depth, sorted_moves) = if done && !self.search_is_terminated {
+            let (completed_depth, value, sorted_moves) = if done && !self.search_is_terminated {
                 self.previously_searched_nodes = searched_nodes;
                 self.params.position.undo_move();
                 if self.search_next_move() {
                     done = false;
-                    (0, vec![])
+                    (0, VALUE_UNKNOWN, vec![])
                 } else {
-                    (self.params.depth, self.params.searchmoves.clone())
+                    // The search is done.
+                    (self.params.depth, self.values[0], self.params.searchmoves.clone())
                 }
             } else {
-                (0, vec![])
+                (0, VALUE_UNKNOWN, vec![])
             };
 
             Ok(Report {
                 search_id: self.params.search_id,
                 searched_nodes: searched_nodes,
                 depth: completed_depth,
-                value: self.values[0],
+                value: value,
                 sorted_moves: sorted_moves,
                 done: done,
             })
