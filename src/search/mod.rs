@@ -528,7 +528,9 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                                                    self.params.searchmoves.len()) -
                                                1],
                                    self.params.lower_bound);
-            self.lower_bound = self.params.lower_bound;
+            if self.lower_bound >= self.params.upper_bound {
+                return false;
+            }
             assert!(self.params.position.do_move(self.params.searchmoves[self.curr_move_index]));
             self.searcher.start_search(SearchParams {
                 search_id: 0,
