@@ -536,17 +536,21 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
             true
         } else {
             // All moves have been searched.
-            if self.params.searchmoves.len() == self.params.position.legal_moves().len() &&
-               self.params.searchmoves.len() > 0 {
+            if self.params.searchmoves.len() > 0 {
+                let all_moves_considered = self.params.searchmoves.len() ==
+                                           self.params.position.legal_moves().len();
                 let best_move = self.params.searchmoves[0];
                 let value = self.values[0];
+                let bound = match value {
+                    v if v <= self.params.lower_bound && !all_moves_considered => BOUND_NONE,
+                    v if v <= self.params.lower_bound => BOUND_UPPER,
+                    v if v >= self.params.upper_bound => BOUND_LOWER,
+                    _ if all_moves_considered => BOUND_EXACT,
+                    _ => BOUND_LOWER,
+                };
                 self.tt.store(self.params.position.hash(),
                               TtEntry::new(value,
-                                           match value {
-                                               v if v <= self.params.lower_bound => BOUND_UPPER,   
-                                               v if v >= self.params.upper_bound => BOUND_LOWER,   
-                                               _ => BOUND_EXACT,
-                                           },
+                                           bound,
                                            self.params.depth,
                                            best_move.digest(),
                                            self.params.position.evaluate_static()));
@@ -555,7 +559,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
         }
     }
 
-    fn update_move_order(&mut self, v: Value) {
+    fn update_searchmoves_order(&mut self, v: Value) {
         let i = &mut self.curr_move_index;
         if v != self.values[*i] && v != VALUE_UNKNOWN {
             self.values.remove(*i);
@@ -569,6 +573,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
             self.values.insert(*i, v);
             self.params.searchmoves.insert(*i, m);
             if *i == 0 && v > self.lower_bound {
+                // We found a new best move.
                 self.tt.store(self.params.position.hash(),
                               TtEntry::new(v,
                                            BOUND_LOWER,
@@ -613,8 +618,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         if self.params.searchmoves.len() != 0 {
             let Report { searched_nodes, depth, value, mut done, .. } = try!(self.searcher
                                                                              .try_recv_report());
-            self.update_move_order(value);
-
+            self.update_searchmoves_order(value);
             let mut sorted_moves = vec![];
             let searched_nodes = self.previously_searched_nodes + searched_nodes;
             let completed_depth = if done && !self.search_is_terminated {
@@ -640,10 +644,10 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             })
 
         } else {
-            // Make sure the next call to `try_recv_report` returns `Err`.
+            // `searchmoves` is empty -- we assume that this is a
+            // final position. (We also update `searchmoves` so that
+            // next calls to `try_recv_report` will return `Err`.)
             self.params.searchmoves = vec![Move::invalid()];
-
-            // Assume that we are in a final position.
             Ok(Report {
                 search_id: self.params.search_id,
                 searched_nodes: 0,
