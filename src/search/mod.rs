@@ -625,8 +625,8 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
         if self.params.searchmoves.len() != 0 {
-            let Report { searched_nodes, depth, value, mut done, .. } = try!(self.searcher
-                                                                             .try_recv_report());
+            let Report { searched_nodes, value, mut done, .. } = try!(self.searcher
+                                                                          .try_recv_report());
             if value != VALUE_UNKNOWN {
                 self.update_searchmoves_order(-value);
             }
