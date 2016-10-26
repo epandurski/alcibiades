@@ -525,7 +525,6 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                 });
                 return true;
             }
-
         }
 
         // No more moves to search -- write the result to the TT.
