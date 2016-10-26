@@ -516,11 +516,14 @@ impl Position {
     }
 
     /// Returns all legal moves in the position.
+    ///
+    /// This is slower than `generate_moves`, but returns only the
+    /// legal moves.
     pub fn legal_moves(&self) -> Vec<Move> {
         let mut legal_moves = vec![];
         let mut board = unsafe { self.board_mut() };
         let mut move_stack = MoveStack::new();
-        board.generate_moves(true, &mut move_stack);
+        self.generate_moves(&mut move_stack);
         while let Some(m) = move_stack.pop() {
             if board.do_move(m).is_some() {
                 legal_moves.push(m);

@@ -525,11 +525,13 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                                                    self.params.searchmoves.len()) -
                                                1],
                                    self.params.lower_bound);
+            self.lower_bound = self.params.lower_bound;
             assert!(self.params.position.do_move(self.params.searchmoves[self.curr_move_index]));
             self.searcher.start_search(SearchParams {
                 search_id: 0,
                 depth: self.params.depth - 1,
-                lower_bound: self.lower_bound,
+                lower_bound: -self.params.upper_bound,
+                upper_bound: -self.lower_bound,
                 searchmoves: vec![],
                 ..self.params.clone()
             });
@@ -561,10 +563,10 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
 
     fn update_searchmoves_order(&mut self, v: Value) {
         let i = &mut self.curr_move_index;
-        if v != self.values[*i] && v != VALUE_UNKNOWN {
+        if v != self.values[*i] {
             self.values.remove(*i);
             let m = self.params.searchmoves.remove(*i);
-            while v < self.values[*i] {
+            while *i < self.values.len() && v < self.values[*i] {
                 *i += 1;
             }
             while *i > 0 && v > self.values[*i - 1] {
@@ -609,7 +611,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.values = vec![VALUE_UNKNOWN; self.params.searchmoves.len()];
+        self.values = vec![VALUE_MIN; self.params.searchmoves.len()];
         self.next_move_index = 0;
         self.search_next_move();
     }
@@ -618,11 +620,14 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         if self.params.searchmoves.len() != 0 {
             let Report { searched_nodes, depth, value, mut done, .. } = try!(self.searcher
                                                                              .try_recv_report());
-            self.update_searchmoves_order(value);
+            if value != VALUE_UNKNOWN {
+                self.update_searchmoves_order(-value);
+            }
             let mut sorted_moves = vec![];
             let searched_nodes = self.previously_searched_nodes + searched_nodes;
             let completed_depth = if done && !self.search_is_terminated {
                 self.previously_searched_nodes = searched_nodes;
+                self.params.position.undo_move();
                 if self.search_next_move() {
                     done = false;
                     0
