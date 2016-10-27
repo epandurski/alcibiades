@@ -502,11 +502,9 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
             // Start a search for the next move in `searchmoves`.
             self.current_move_index = self.next_move_index;
             self.next_move_index += 1;
-            let lower_bound = max(self.values[min(self.params.variation_count,
-                                                  self.params.searchmoves.len()) -
-                                              1],
-                                  self.params.lower_bound);
-            if lower_bound < self.params.upper_bound {
+            let variation_count = min(self.params.variation_count, self.params.searchmoves.len());
+            let alpha = self.values[variation_count - 1];
+            if alpha < self.params.upper_bound {
                 assert!(self.params
                             .position
                             .do_move(self.params.searchmoves[self.current_move_index]));
@@ -514,7 +512,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                     search_id: 0,
                     depth: self.params.depth - 1,
                     lower_bound: -self.params.upper_bound,
-                    upper_bound: -lower_bound,
+                    upper_bound: -max(alpha, self.params.lower_bound),
                     searchmoves: vec![],
                     ..self.params.clone()
                 });
