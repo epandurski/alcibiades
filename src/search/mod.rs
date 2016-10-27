@@ -549,11 +549,9 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
 
         // We make sure that `self.values` remains sorted.
         if v != self.values[*i] {
+            assert!(v > self.values[*i]);
             self.values.remove(*i);
             let m = self.params.searchmoves.remove(*i);
-            while *i < self.values.len() && v < self.values[*i] {
-                *i += 1;
-            }
             while *i > 0 && v > self.values[*i - 1] {
                 *i -= 1;
             }
@@ -609,11 +607,11 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 
         let Report { searched_nodes, value, mut done, .. } = try!(self.searcher
                                                                       .try_recv_report());
-        if value != VALUE_UNKNOWN {
-            self.update_current_move_value(-value);
-        }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
-        let (completed_depth, value, sorted_moves) = if done && !self.search_is_terminated {
+        let (completed_depth, final_value, sorted_moves) = if done && !self.search_is_terminated {
+            if value != VALUE_UNKNOWN {
+                self.update_current_move_value(-value);
+            }
             self.previously_searched_nodes = searched_nodes;
             self.params.position.undo_move();
             if self.search_next_move() {
@@ -631,7 +629,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             search_id: self.params.search_id,
             searched_nodes: searched_nodes,
             depth: completed_depth,
-            value: value,
+            value: final_value,
             sorted_moves: sorted_moves,
             done: done,
         })
