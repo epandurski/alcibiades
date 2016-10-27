@@ -605,11 +605,9 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         let Report { searched_nodes, value, mut done, .. } = try!(self.searcher
                                                                       .try_recv_report());
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
-        let (completed_depth, final_value, sorted_moves) = if done && !self.search_is_terminated {
-            if value != VALUE_UNKNOWN {
-                self.update_current_move_value(-value);
-            }
+        let (completed_depth, reported_value, moves) = if done && !self.search_is_terminated {
             self.previously_searched_nodes = searched_nodes;
+            self.update_current_move_value(-value);
             self.params.position.undo_move();
             if self.search_next_move() {
                 done = false;
@@ -626,8 +624,8 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             search_id: self.params.search_id,
             searched_nodes: searched_nodes,
             depth: completed_depth,
-            value: final_value,
-            sorted_moves: sorted_moves,
+            value: reported_value,
+            sorted_moves: moves,
             done: done,
         })
     }
