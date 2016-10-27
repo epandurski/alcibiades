@@ -487,7 +487,7 @@ pub struct MultipvSearcher<T: SearchExecutor> {
 
     // The index (in `self.params.searchmoves`) of the currently
     // analyzed move.
-    curr_move_index: usize,
+    current_move_index: usize,
 
     // The index (in `self.params.searchmoves`) of the move that will
     // be analyzed next.
@@ -501,7 +501,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
     fn search_next_move(&mut self) -> bool {
         if self.next_move_index < self.params.searchmoves.len() {
             // Start a search for the next move in `searchmoves`.
-            self.curr_move_index = self.next_move_index;
+            self.current_move_index = self.next_move_index;
             self.next_move_index += 1;
             let lower_bound = max(self.values[min(self.params.variation_count,
                                                   self.params.searchmoves.len()) -
@@ -510,7 +510,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
             if lower_bound < self.params.upper_bound {
                 assert!(self.params
                             .position
-                            .do_move(self.params.searchmoves[self.curr_move_index]));
+                            .do_move(self.params.searchmoves[self.current_move_index]));
                 self.searcher.start_search(SearchParams {
                     search_id: 0,
                     depth: self.params.depth - 1,
@@ -545,8 +545,10 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
         false
     }
 
-    fn update_moves_order(&mut self, v: Value) {
-        let i = &mut self.curr_move_index;
+    fn update_current_move_value(&mut self, v: Value) {
+        let i = &mut self.current_move_index;
+
+        // We make sure that `self.values` remains sorted.
         if v != self.values[*i] {
             self.values.remove(*i);
             let m = self.params.searchmoves.remove(*i);
@@ -571,7 +573,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             previously_searched_nodes: 0,
             position_hash: 0,
             searcher: AspirationSearcher::new(tt).lmr_mode(),
-            curr_move_index: 0,
+            current_move_index: 0,
             next_move_index: 0,
             values: vec![],
         }
@@ -611,7 +613,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         let Report { searched_nodes, value, mut done, .. } = try!(self.searcher
                                                                       .try_recv_report());
         if value != VALUE_UNKNOWN {
-            self.update_moves_order(-value);
+            self.update_current_move_value(-value);
         }
         let searched_nodes = self.previously_searched_nodes + searched_nodes;
         let (completed_depth, value, sorted_moves) = if done && !self.search_is_terminated {
