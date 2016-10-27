@@ -545,18 +545,15 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
     }
 
     fn update_current_move_value(&mut self, v: Value) {
+        debug_assert!(v >= self.values[self.current_move_index]);
         let i = &mut self.current_move_index;
+        self.values[*i] = v;
 
-        // We make sure that `self.values` remains sorted.
-        if v != self.values[*i] {
-            assert!(v > self.values[*i]);
-            self.values.remove(*i);
-            let m = self.params.searchmoves.remove(*i);
-            while *i > 0 && v > self.values[*i - 1] {
-                *i -= 1;
-            }
-            self.values.insert(*i, v);
-            self.params.searchmoves.insert(*i, m);
+        // Make sure that `self.values` remains sorted.
+        while *i > 0 && v > self.values[*i - 1] {
+            self.values.swap(*i, *i - 1);
+            self.params.searchmoves.swap(*i, *i - 1);
+            *i -= 1;
         }
     }
 }
