@@ -480,7 +480,6 @@ pub struct MultipvSearcher<T: SearchExecutor> {
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,
-    position_hash: u64,
 
     // The real work will be handed over to `searcher`.
     searcher: AspirationSearcher<T>,
@@ -535,7 +534,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                 v if v >= self.params.upper_bound || !all_moves_were_considered => BOUND_LOWER,
                 _ => BOUND_EXACT,
             };
-            self.tt.store(self.position_hash,
+            self.tt.store(self.params.position.hash(),
                           TtEntry::new(value,
                                        bound,
                                        self.params.depth,
@@ -571,7 +570,6 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            position_hash: 0,
             searcher: AspirationSearcher::new(tt).lmr_mode(),
             current_move_index: 0,
             next_move_index: 0,
@@ -588,7 +586,6 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.position_hash = self.params.position.hash();
         self.values = vec![VALUE_MIN; self.params.searchmoves.len()];
         self.next_move_index = 0;
         self.search_next_move();
