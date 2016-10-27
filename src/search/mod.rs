@@ -588,43 +588,45 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
         if self.params.searchmoves.is_empty() {
-            // If `searchmoves` is empty, we assume that this is a
-            // final position. (We also update `searchmoves` so that
-            // next calls to `try_recv_report` will return `Err`.)
+            // `searchmoves` is empty -- we assume that the root
+            // position is final. (We also update `searchmoves` so
+            // that next calls to `try_recv_report` will return
+            // `Err`.)
             self.params.searchmoves = vec![Move::invalid()];
-            return Ok(Report {
+            Ok(Report {
                 search_id: self.params.search_id,
                 searched_nodes: 0,
                 depth: self.params.depth,
                 value: self.params.position.evaluate_final(),
                 sorted_moves: vec![],
                 done: true,
-            });
-        }
-
-        let Report { searched_nodes, value, done, .. } = try!(self.searcher.try_recv_report());
-        let mut report = Report {
-            search_id: self.params.search_id,
-            searched_nodes: self.previously_searched_nodes + searched_nodes,
-            depth: 0,
-            value: VALUE_UNKNOWN,
-            sorted_moves: vec![],
-            done: done,
-        };
-        if done && !self.search_is_terminated {
-            self.previously_searched_nodes = report.searched_nodes;
-            self.update_current_move_value(-value);
-            self.params.position.undo_move();
-            if self.search_next_move() {
-                report.done = false;
-            } else {
-                // The search is done.
-                report.depth = self.params.depth;
-                report.value = self.values[0];
-                report.sorted_moves = self.params.searchmoves.clone();
+            })
+        } else {
+            // `searchmoves` is not empty.
+            let Report { searched_nodes, value, done, .. } = try!(self.searcher.try_recv_report());
+            let mut report = Report {
+                search_id: self.params.search_id,
+                searched_nodes: self.previously_searched_nodes + searched_nodes,
+                depth: 0,
+                value: VALUE_UNKNOWN,
+                sorted_moves: vec![],
+                done: done,
+            };
+            if done && !self.search_is_terminated {
+                self.previously_searched_nodes = report.searched_nodes;
+                self.update_current_move_value(-value);
+                self.params.position.undo_move();
+                if self.search_next_move() {
+                    report.done = false;
+                } else {
+                    // The search is done.
+                    report.depth = self.params.depth;
+                    report.value = self.values[0];
+                    report.sorted_moves = self.params.searchmoves.clone();
+                }
             }
+            Ok(report)
         }
-        Ok(report)
     }
 
     fn wait_report(&self, duration: Duration) {
