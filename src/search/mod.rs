@@ -278,6 +278,7 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
                 report.done = false;
             }
             report.depth = depth;
+            report.value = value;
         }
         Ok(report)
     }
