@@ -209,13 +209,15 @@ pub struct DeepeningSearcher<T: SearchExecutor> {
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,
-    value: Value,
 
     // The real work will be handed over to `searcher`.
     searcher: T,
 
     // The depth of the currently executing search.
     depth: u8,
+
+    // The value for the root position so far.
+    value: Value,
 }
 
 impl<T: SearchExecutor> DeepeningSearcher<T> {
@@ -235,9 +237,9 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            value: VALUE_UNKNOWN,
             searcher: T::new(tt),
             depth: 0,
+            value: VALUE_UNKNOWN,
         }
     }
 
@@ -249,8 +251,8 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.value = VALUE_UNKNOWN;
         self.depth = 0;
+        self.value = VALUE_UNKNOWN;
         self.start_deeper_search();
     }
 
