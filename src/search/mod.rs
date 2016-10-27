@@ -136,7 +136,6 @@ pub trait SearchExecutor {
 }
 
 
-
 /// Executes alpha-beta searches.
 ///
 /// **Important note:** `AlphabetaSearcher` ignores the `searchmoves`
@@ -256,34 +255,31 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, sorted_moves, mut done, .. } =
+        let Report { searched_nodes, depth, value, sorted_moves, done, .. } =
             try!(self.searcher.try_recv_report());
         if !sorted_moves.is_empty() {
             debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
             self.params.searchmoves = sorted_moves.clone();
         }
-        let searched_nodes = self.previously_searched_nodes + searched_nodes;
-        let completed_depth = if done && !self.search_is_terminated {
-            debug_assert_eq!(depth, self.depth);
-            self.value = value;
-            self.previously_searched_nodes = searched_nodes;
-            if self.depth < self.params.depth {
-                self.start_deeper_search();
-                done = false;
-            }
-            depth
-        } else {
-            self.depth - 1
-        };
-
-        return Ok(Report {
+        let mut report = Report {
             search_id: self.params.search_id,
-            searched_nodes: searched_nodes,
-            depth: completed_depth,
+            searched_nodes: self.previously_searched_nodes + searched_nodes,
+            depth: self.depth - 1,
             value: self.value,
             sorted_moves: sorted_moves,
             done: done,
-        });
+        };
+        if done && !self.search_is_terminated {
+            debug_assert_eq!(depth, self.depth);
+            self.previously_searched_nodes = report.searched_nodes;
+            self.value = value;
+            if self.depth < self.params.depth {
+                self.start_deeper_search();
+                report.done = false;
+            }
+            report.depth = depth;
+        }
+        Ok(report)
     }
 
     fn wait_report(&self, duration: Duration) {
@@ -295,7 +291,6 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
         self.searcher.terminate_search();
     }
 }
-
 
 
 /// Executes searches with aspiration windows.
@@ -430,36 +425,33 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, sorted_moves, mut done, .. } =
+        let Report { searched_nodes, depth, value, sorted_moves, done, .. } =
             try!(self.searcher.try_recv_report());
         if !sorted_moves.is_empty() {
             debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
             self.params.searchmoves = sorted_moves.clone();
         }
-        let searched_nodes = self.previously_searched_nodes + searched_nodes;
-        let (completed_depth, value) = if done && !self.search_is_terminated {
-            self.previously_searched_nodes = searched_nodes;
+        let mut report = Report {
+            search_id: self.params.search_id,
+            searched_nodes: self.previously_searched_nodes + searched_nodes,
+            depth: 0,
+            value: VALUE_UNKNOWN,
+            sorted_moves: sorted_moves,
+            done: done,
+        };
+        if done && !self.search_is_terminated {
+            self.previously_searched_nodes = report.searched_nodes;
             if self.widen_aspiration_window(value) {
                 // A re-search is necessary.
                 self.start_aspirated_search();
-                done = false;
-                (0, VALUE_UNKNOWN)
+                report.done = false;
             } else {
                 // The search is done.
-                (depth, value)
+                report.depth = depth;
+                report.value = value;
             }
-        } else {
-            (0, VALUE_UNKNOWN)
-        };
-
-        return Ok(Report {
-            search_id: self.params.search_id,
-            searched_nodes: searched_nodes,
-            depth: completed_depth,
-            value: value,
-            sorted_moves: sorted_moves,
-            done: done,
-        });
+        }
+        Ok(report)
     }
 
     fn wait_report(&self, duration: Duration) {
@@ -471,7 +463,6 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         self.searcher.terminate_search();
     }
 }
-
 
 
 /// Executes mulit-PV searches.
@@ -636,7 +627,6 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         self.searcher.terminate_search();
     }
 }
-
 
 
 /// A helper function. It returns bogus search parameters.
