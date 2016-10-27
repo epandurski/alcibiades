@@ -500,6 +500,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                 assert!(self.params
                             .position
                             .do_move(self.params.searchmoves[self.current_move_index]));
+                self.previously_searched_nodes += 1;
                 self.searcher.start_search(SearchParams {
                     search_id: 0,
                     depth: self.params.depth - 1,
