@@ -493,7 +493,6 @@ pub struct MultipvSearcher<T: SearchExecutor> {
 impl<T: SearchExecutor> MultipvSearcher<T> {
     fn search_next_move(&mut self) -> bool {
         if self.next_move_index < self.params.searchmoves.len() {
-            // Start a search for the next move in `searchmoves`.
             self.current_move_index = self.next_move_index;
             self.next_move_index += 1;
             let variation_count = min(self.params.variation_count, self.params.searchmoves.len());
@@ -585,7 +584,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         if self.params.searchmoves.is_empty() {
             // `searchmoves` is empty -- we assume that the root
             // position is final. (We also update `searchmoves` so
-            // that next calls to `try_recv_report` will return
+            // that other calls to `try_recv_report` will return
             // `Err`.)
             self.params.searchmoves = vec![Move::invalid()];
             Ok(Report {
@@ -614,7 +613,6 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
                 if self.search_next_move() {
                     report.done = false;
                 } else {
-                    // The search is done.
                     report.depth = self.params.depth;
                     report.value = self.values[0];
                     report.sorted_moves = self.params.searchmoves.clone();
