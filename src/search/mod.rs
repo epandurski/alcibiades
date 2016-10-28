@@ -68,8 +68,9 @@ pub struct SearchParams {
 
     /// Restricts the analysis to the supplied list of moves only.
     ///
-    /// All passed moves must be legal and unique. The behavior of the
-    /// search is undefined if `searchmoves` is empty, but the
+    /// All moves in the list should be legal, and the same move
+    /// should not occur more than once in the list. The behavior of
+    /// the search is undefined if `searchmoves` is empty, but the
     /// supplied root position is not final.
     pub searchmoves: Vec<Move>,
 
@@ -170,6 +171,7 @@ impl SearchExecutor for AlphabetaSearcher {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(!contains_dups(&params.searchmoves));
         debug_assert!(params.variation_count != 0);
         self.thread_commands.send(Command::Start(params)).unwrap();
     }
@@ -246,6 +248,7 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(!contains_dups(&params.searchmoves));
         debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
@@ -418,6 +421,7 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(!contains_dups(&params.searchmoves));
         debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
@@ -571,6 +575,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
+        debug_assert!(!contains_dups(&params.searchmoves));
         debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
@@ -641,7 +646,7 @@ fn bogus_params() -> SearchParams {
         depth: 0,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,
-        searchmoves: vec![],
+        searchmoves: vec![Move::invalid()],
         variation_count: 1,
     }
 }
@@ -655,4 +660,14 @@ fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
     list1.sort();
     list2.sort();
     list1 == list2
+}
+
+
+/// A helper function. It checks if there are moves in the supplied
+/// list that occur more than once.
+fn contains_dups(list: &Vec<Move>) -> bool {
+    let mut l = list.clone();
+    l.sort();
+    l.dedup();
+    l.len() < list.len()
 }
