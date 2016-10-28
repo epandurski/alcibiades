@@ -514,8 +514,11 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                 return true;
             }
         }
-
-        // No more moves to search -- write the result to the TT.
+        self.write_reslut_to_tt();
+        false
+    }
+    
+    fn write_reslut_to_tt(&self) {
         if !self.params.searchmoves.is_empty() {
             let all_moves_were_considered = self.params.searchmoves.len() ==
                                             self.params.position.legal_moves().len();
@@ -534,7 +537,6 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
                                        best_move.digest(),
                                        self.params.position.evaluate_static()));
         }
-        false
     }
 
     fn update_current_move_value(&mut self, v: Value) {
