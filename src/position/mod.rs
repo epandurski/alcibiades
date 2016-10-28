@@ -518,7 +518,7 @@ impl Position {
     /// Returns all legal moves in the position.
     ///
     /// **Important note:** This method is slower than
-    /// `generate_moves`, because it ensures that all returned moves
+    /// `generate_moves` because it ensures that all returned moves
     /// are legal. (No moves are returned for repeated and rule-50
     /// positions.)
     pub fn legal_moves(&self) -> Vec<Move> {
