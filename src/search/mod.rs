@@ -213,7 +213,7 @@ pub struct DeepeningSearcher<T: SearchExecutor> {
     // The real work will be handed over to `searcher`.
     searcher: T,
 
-    // The depth of the currently executing search.
+    // The search depth completed so far.
     depth: u8,
 
     // The value for the root position so far.
@@ -221,11 +221,10 @@ pub struct DeepeningSearcher<T: SearchExecutor> {
 }
 
 impl<T: SearchExecutor> DeepeningSearcher<T> {
-    fn start_deeper_search(&mut self) {
-        self.depth += 1;
+    fn search_next_depth(&mut self) {
         self.searcher.start_search(SearchParams {
             search_id: 0,
-            depth: self.depth,
+            depth: self.depth + 1,
             ..self.params.clone()
         });
     }
@@ -253,7 +252,7 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
         self.previously_searched_nodes = 0;
         self.depth = 0;
         self.value = VALUE_UNKNOWN;
-        self.start_deeper_search();
+        self.search_next_depth();
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
@@ -266,17 +265,18 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
         let mut report = Report {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
-            depth: self.depth - 1,
+            depth: self.depth,
             value: self.value,
             sorted_moves: sorted_moves,
             done: done,
         };
         if done && !self.search_is_terminated {
-            debug_assert_eq!(depth, self.depth);
+            debug_assert_eq!(depth, self.depth + 1);
             self.previously_searched_nodes = report.searched_nodes;
+            self.depth = depth;
             self.value = value;
-            if self.depth < self.params.depth {
-                self.start_deeper_search();
+            if depth < self.params.depth {
+                self.search_next_depth();
                 report.done = false;
             }
             report.depth = depth;
@@ -516,7 +516,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
         self.write_reslut_to_tt();
         false
     }
-    
+
     fn write_reslut_to_tt(&self) {
         if !self.params.searchmoves.is_empty() {
             let all_moves_were_considered = self.params.searchmoves.len() ==
