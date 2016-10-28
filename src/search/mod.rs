@@ -68,10 +68,10 @@ pub struct SearchParams {
 
     /// Restricts the analysis to the supplied list of moves only.
     ///
-    /// All moves in the list should be legal, and the same move
-    /// should not occur more than once in the list. The behavior of
-    /// the search is undefined if `searchmoves` is empty, but the
-    /// supplied root position is not final.
+    /// The same move should not occur more than once, and all
+    /// supplied moves should be legal. The behavior of the new search
+    /// is undefined if `searchmoves` is empty, but the supplied root
+    /// position is not final.
     pub searchmoves: Vec<Move>,
 
     /// Specifies how many best lines of play to calculate (for the
