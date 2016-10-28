@@ -245,6 +245,7 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
     }
 
     fn start_search(&mut self, params: SearchParams) {
+        assert!(params.depth > 0);
         debug_assert!(params.depth <= MAX_DEPTH);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
