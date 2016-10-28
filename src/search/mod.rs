@@ -565,8 +565,8 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             previously_searched_nodes: 0,
             searcher: AspirationSearcher::new(tt).lmr_mode(),
             current_move_index: 0,
-            next_move_index: 0,
-            values: vec![],
+            next_move_index: 1,
+            values: vec![VALUE_MIN],
         }
     }
 
@@ -643,7 +643,7 @@ fn bogus_params() -> SearchParams {
     SearchParams {
         search_id: 0,
         position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
-        depth: 0,
+        depth: 1,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,
         searchmoves: vec![Move::invalid()],
