@@ -179,8 +179,8 @@ pub trait SearchExecutor {
 ///
 /// **Important note:** `AlphabetaSearcher` ignores the `searchmoves`
 /// search parameter. It always analyses all legal moves in the root
-/// position, and always supplies an empty list of `sorted_moves` in
-/// its progress reports.
+/// position, and always gives an empty list of `sorted_moves` in its
+/// progress reports.
 pub struct AlphabetaSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
