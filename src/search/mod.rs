@@ -359,8 +359,8 @@ pub struct AspirationSearcher<T: SearchExecutor> {
     // aspirated search fails. (We use `isize` to avoid overflows.)
     delta: isize,
 
-    // Indicates that the aspirated search will most probably fail low.
-    expected_to_fail_low: bool,
+    // Indicates that the aspirated search will most probably fail high.
+    expected_to_fail_high: bool,
 }
 
 impl<T: SearchExecutor> AspirationSearcher<T> {
@@ -370,7 +370,7 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
     }
 
     fn start_aspirated_search(&mut self) {
-        let depth = if self.lmr_mode && self.expected_to_fail_low && self.params.depth > 0 {
+        let depth = if self.lmr_mode && self.expected_to_fail_high && self.params.depth > 0 {
             // `MultipvSearcher` implements late move reductions by
             // using `AspirationSearcher` in a special mode.
             self.params.depth - 1
@@ -388,7 +388,7 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
 
     fn calc_initial_aspiration_window(&mut self) {
         self.delta = 16;
-        self.expected_to_fail_low = false;
+        self.expected_to_fail_high = false;
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
         let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
         if let Some(e) = self.tt.probe(self.params.position.hash()) {
@@ -404,11 +404,11 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
                 if a >= upper_bound {
                     a = upper_bound - 1;
                     self.delta = v - a as isize;
+                    self.expected_to_fail_high = true;
                 }
                 if b <= lower_bound {
                     b = lower_bound + 1;
                     self.delta = b as isize - v;
-                    self.expected_to_fail_low = true;
                 }
             }
         }
@@ -420,17 +420,17 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
     fn widen_aspiration_window(&mut self, v: Value) -> bool {
         debug_assert!(self.delta > 0);
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
-        if self.beta < upper_bound && self.beta <= v && v < upper_bound ||
-           self.lmr_mode && self.expected_to_fail_low && lower_bound < v {
-            // Failed high -- raise beta.
-            self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
-        } else if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
+        if lower_bound < self.alpha && lower_bound < v && v <= self.alpha ||
+           self.lmr_mode && self.expected_to_fail_high && v < upper_bound {
             // Failed low -- reduce alpha.
             self.alpha = max(v as isize - self.delta, lower_bound as isize) as Value;
+        } else if self.beta < upper_bound && self.beta <= v && v < upper_bound {
+            // Failed high -- raise beta.
+            self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
         } else {
             return false;
         }
-        self.expected_to_fail_low = false;
+        self.expected_to_fail_high = false;
         self.increase_delta();
         true
     }
@@ -455,7 +455,7 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
             delta: 0,
-            expected_to_fail_low: false,
+            expected_to_fail_high: false,
         }
     }
 
