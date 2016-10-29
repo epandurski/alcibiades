@@ -29,7 +29,7 @@
 //! different first move. This mode makes the search slower, but is
 //! very useful for chess analysis.
 //!
-//! Consumers of this module will probably use one of this types:
+//! Users of this module will probably need one of this types:
 //!
 //! * `DeepeningSearcher<AlphabetaSearcher>`
 //! * `DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>>`
