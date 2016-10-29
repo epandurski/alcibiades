@@ -64,6 +64,7 @@
 //!            break;
 //!        }
 //!    }
+//!    // Do something else here!
 //! }
 //! ```
 
