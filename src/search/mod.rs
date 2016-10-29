@@ -28,6 +28,44 @@
 //! several principal variations (PV), each one starting with a
 //! different first move. This mode makes the search slower, but is
 //! very useful for chess analysis.
+//!
+//! Consumers of this module will probably use one of this types:
+//!
+//! * `DeepeningSearcher<AlphabetaSearcher>`
+//! * `DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>>`
+//! * `DeepeningSearcher<MultipvSearcher<AlphabetaSearcher>>`
+//!
+//! # Example:
+//! ```rust
+//! use std::time::Duration;
+//! use tt::*;
+//! use search::*;
+//! use position::*;
+//!
+//! let mut tt = Tt::new();
+//! tt.resize(16);
+//! let position = Position::from_fen(START_POSITION_FEN).ok().unwrap();
+//! let mut searcher: DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>> =
+//!     DeepeningSearcher::new(Arc::new(tt));
+//! searcher.start_search(SearchParams {
+//!     search_id: 0,
+//!     depth: 10,
+//!     lower_bound: VALUE_MIN,
+//!     upper_bound: VALUE_MAX,
+//!     searchmoves: position.legal_moves(),
+//!     variation_count: 1,
+//!     position: position,
+//! });
+//! loop {
+//!    searcher.wait_report(Duration::from_millis(20));
+//!    if let Ok(report) = searcher.try_recv_report() {
+//!        // Process the report here!
+//!        if report.done {
+//!            break;
+//!        }
+//!    }
+//! }
+//! ```
 
 pub mod alpha_beta;
 pub mod threading;
