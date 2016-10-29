@@ -307,20 +307,22 @@ pub struct AspirationSearcher<T: SearchExecutor> {
     search_is_terminated: bool,
     previously_searched_nodes: NodeCount,
     lmr_mode: bool,
-    expected_to_fail_low: bool,
 
     // The real work will be handed over to `searcher`.
     searcher: T,
-
-    // The aspiration window will be widened by this value if the
-    // search fails. (We use `isize` to avoid overflows.)
-    delta: isize,
 
     // The lower bound of the aspiration window.
     alpha: Value,
 
     // The upper bound of the aspiration window.
     beta: Value,
+
+    // The aspiration window will be widened by this value if the
+    // aspirated search fails. (We use `isize` to avoid overflows.)
+    delta: isize,
+
+    // Indicates that the aspirated search will most probably fail low.
+    expected_to_fail_low: bool,
 }
 
 impl<T: SearchExecutor> AspirationSearcher<T> {
@@ -347,7 +349,8 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
     }
 
     fn calc_initial_aspiration_window(&mut self) {
-        self.delta = 17; // TODO: make this `16`?
+        self.delta = 16;
+        self.expected_to_fail_low = false;
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
         let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
         if let Some(e) = self.tt.probe(self.params.position.hash()) {
@@ -380,11 +383,11 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
         debug_assert!(self.delta > 0);
         let SearchParams { lower_bound, upper_bound, .. } = self.params;
         if self.beta < upper_bound && self.beta <= v && v < upper_bound ||
-           self.lmr_mode && self.expected_to_fail_low && self.alpha < v {
-            // The search failed high.
+           self.lmr_mode && self.expected_to_fail_low && lower_bound < v {
+            // Failed high -- raise beta.
             self.beta = min(v as isize + self.delta, upper_bound as isize) as Value;
         } else if lower_bound < self.alpha && lower_bound < v && v <= self.alpha {
-            // The search failed low.
+            // Failed low -- reduce alpha.
             self.alpha = max(v as isize - self.delta, lower_bound as isize) as Value;
         } else {
             return false;
@@ -410,11 +413,11 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             lmr_mode: false,
-            expected_to_fail_low: false,
             searcher: T::new(tt),
-            delta: 0,
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
+            delta: 0,
+            expected_to_fail_low: false,
         }
     }
 
@@ -427,7 +430,6 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.expected_to_fail_low = false;
         self.calc_initial_aspiration_window();
         self.start_aspirated_search();
     }
@@ -450,11 +452,9 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         if done && !self.search_is_terminated {
             self.previously_searched_nodes = report.searched_nodes;
             if self.widen_aspiration_window(value) {
-                // A re-search is necessary.
                 self.start_aspirated_search();
                 report.done = false;
             } else {
-                // The search is done.
                 report.depth = depth;
                 report.value = value;
             }
