@@ -40,7 +40,7 @@ pub fn evaluate_board(board: &Board) -> Value {
     }
     let mut hasher = SipHasher::new();
     hasher.write_u64(board.occupied());
-    result + (hasher.finish() >> 61) as i16
+    result + (hasher.finish() >> 59) as i16
 }
 
 
