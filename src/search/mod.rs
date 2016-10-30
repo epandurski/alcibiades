@@ -29,7 +29,9 @@
 //! different first move. This mode makes the search slower, but is
 //! very useful for chess analysis.
 //!
-//! Users of this module will probably need one of these types:
+//! # Usage
+//!
+//! To execute a game search, use one of the following types:
 //!
 //! * `DeepeningSearcher<AlphabetaSearcher>`
 //! * `DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>>`
@@ -67,6 +69,10 @@
 //!    // Do something else here!
 //! }
 //! ```
+//!
+//! Usually, when the search is completed or terminated, `extract_pv`
+//! will be called to obtain the primary variation from the
+//! transposition table.
 
 pub mod alpha_beta;
 mod threading;
