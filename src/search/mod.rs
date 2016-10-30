@@ -576,7 +576,7 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
         }
     }
 
-    fn update_current_move(&mut self, v: Value) {
+    fn change_current_move(&mut self, v: Value) {
         debug_assert!(v >= self.values[self.current_move_index]);
         let mut i = self.current_move_index;
         self.values[i] = v;
@@ -648,7 +648,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             if done && !self.search_is_terminated {
                 self.previously_searched_nodes = report.searched_nodes;
                 self.params.position.undo_move();
-                self.update_current_move(-value);
+                self.change_current_move(-value);
                 if self.search_current_move() {
                     report.done = false;
                 } else {
