@@ -522,8 +522,8 @@ pub struct MultipvSearcher<T: SearchExecutor> {
     // The real work will be handed over to `searcher`.
     searcher: AspirationSearcher<T>,
 
-    // The index (in `self.params.searchmoves`) of the currently
-    // analyzed move.
+    // The index in `self.params.searchmoves` of the currently
+    // considered move.
     current_move_index: usize,
 
     // The values for the corresponding moves in `self.params.searchmoves`.
@@ -647,8 +647,8 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             };
             if done && !self.search_is_terminated {
                 self.previously_searched_nodes = report.searched_nodes;
-                self.update_current_move(-value);
                 self.params.position.undo_move();
+                self.update_current_move(-value);
                 if self.search_current_move() {
                     report.done = false;
                 } else {
