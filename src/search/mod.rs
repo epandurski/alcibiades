@@ -69,7 +69,7 @@
 //! ```
 
 pub mod alpha_beta;
-pub mod threading;
+mod threading;
 
 use std::cmp::{min, max};
 use std::time::Duration;
