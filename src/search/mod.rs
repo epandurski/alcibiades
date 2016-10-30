@@ -526,19 +526,13 @@ pub struct MultipvSearcher<T: SearchExecutor> {
     // analyzed move.
     current_move_index: usize,
 
-    // The index (in `self.params.searchmoves`) of the move that will
-    // be analyzed next.
-    next_move_index: usize,
-
     // The values for the corresponding moves in `self.params.searchmoves`.
     values: Vec<Value>,
 }
 
 impl<T: SearchExecutor> MultipvSearcher<T> {
-    fn search_next_move(&mut self) -> bool {
-        if self.next_move_index < self.params.searchmoves.len() {
-            self.current_move_index = self.next_move_index;
-            self.next_move_index += 1;
+    fn search_current_move(&mut self) -> bool {
+        if self.current_move_index < self.params.searchmoves.len() {
             let variation_count = min(self.params.variation_count, self.params.searchmoves.len());
             let alpha = self.values[variation_count - 1];
             if alpha < self.params.upper_bound {
@@ -582,16 +576,17 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
         }
     }
 
-    fn update_current_move_value(&mut self, v: Value) {
+    fn update_current_move(&mut self, v: Value) {
         debug_assert!(v >= self.values[self.current_move_index]);
-        let i = &mut self.current_move_index;
-        self.values[*i] = v;
+        let mut i = self.current_move_index;
+        self.values[i] = v;
+        self.current_move_index += 1;
 
         // Make sure that `self.values` remains sorted.
-        while *i > 0 && v > self.values[*i - 1] {
-            self.values.swap(*i, *i - 1);
-            self.params.searchmoves.swap(*i, *i - 1);
-            *i -= 1;
+        while i > 0 && v > self.values[i - 1] {
+            self.values.swap(i, i - 1);
+            self.params.searchmoves.swap(i, i - 1);
+            i -= 1;
         }
     }
 }
@@ -605,7 +600,6 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             previously_searched_nodes: 0,
             searcher: AspirationSearcher::new(tt).lmr_mode(),
             current_move_index: 0,
-            next_move_index: 1,
             values: vec![VALUE_MIN],
         }
     }
@@ -621,8 +615,8 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
         self.values = vec![VALUE_MIN; self.params.searchmoves.len()];
-        self.next_move_index = 0;
-        self.search_next_move();
+        self.current_move_index = 0;
+        self.search_current_move();
     }
 
     fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
@@ -653,9 +647,9 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             };
             if done && !self.search_is_terminated {
                 self.previously_searched_nodes = report.searched_nodes;
-                self.update_current_move_value(-value);
+                self.update_current_move(-value);
                 self.params.position.undo_move();
-                if self.search_next_move() {
+                if self.search_current_move() {
                     report.done = false;
                 } else {
                     report.depth = self.params.depth;
