@@ -1,4 +1,4 @@
-//! Implements static board evaluation.
+//! Implements static board evaluation (not implemented yet).
 
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
