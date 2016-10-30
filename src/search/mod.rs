@@ -87,20 +87,6 @@ use self::threading::*;
 pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 
-/// A sequence of moves from some starting position, together with the
-/// value assigned to the final position.
-pub struct Variation {
-    /// A sequence of moves from some starting position.
-    pub moves: Vec<Move>,
-
-    /// The value assigned to the final position.
-    pub value: Value,
-
-    /// The accuracy of the assigned value.
-    pub bound: BoundType,
-}
-
-
 /// Parameters describing a new search.
 #[derive(Clone)]
 pub struct SearchParams {
@@ -686,11 +672,25 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 }
 
 
+/// A sequence of moves from some starting position, together with the
+/// value assigned to the final position.
+pub struct Variation {
+    /// A sequence of moves from some starting position.
+    pub moves: Vec<Move>,
+
+    /// The value assigned to the final position.
+    /// 
+    /// **Important note:** Values under `-9999` or over `9999` may be
+    /// chopped, because they often look ugly in GUIs.
+    pub value: Value,
+
+    /// The accuracy of the assigned value.
+    pub bound: BoundType,
+}
+
+
 /// Extracts the primary variation for a given position from the
 /// transposition table and returns it.
-///
-/// **Important note:** Evaluations under `-9999` or over `9999` will
-/// be chopped, because they often look ugly in GUIs.
 pub fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
     // A sufficiently small value (in centipawns).
     const EPSILON: Value = 8;
