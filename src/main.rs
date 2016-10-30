@@ -20,8 +20,9 @@ use std::collections::VecDeque;
 use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::{Position, START_POSITION_FEN};
+use search::Variation;
 use uci::{UciEngine, UciEngineFactory};
-use utils::{Variation, SearchStatus, SearchThread};
+use utils::{SearchStatus, SearchThread};
 use time_manager::TimeManager;
 
 

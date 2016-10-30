@@ -87,6 +87,20 @@ use self::threading::*;
 pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 
+/// A sequence of moves from some starting position, together with the
+/// value assigned to the final position.
+pub struct Variation {
+    /// A sequence of moves from some starting position.
+    pub moves: Vec<Move>,
+
+    /// The value assigned to the final position.
+    pub value: Value,
+
+    /// The accuracy of the assigned value.
+    pub bound: BoundType,
+}
+
+
 /// Parameters describing a new search.
 #[derive(Clone)]
 pub struct SearchParams {
@@ -668,6 +682,102 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
     fn terminate_search(&mut self) {
         self.search_is_terminated = true;
         self.searcher.terminate_search();
+    }
+}
+
+
+/// Extracts the primary variation for a given position from the
+/// transposition table and returns it.
+///
+/// **Important note:** Evaluations under `-9999` or over `9999` will
+/// be chopped, because they often look ugly in GUIs.
+pub fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
+    // A sufficiently small value (in centipawns).
+    const EPSILON: Value = 8;
+
+    let mut p = position.clone();
+    let mut our_turn = true;
+    let mut prev_move = None;
+    let mut leaf_value = -9999;
+    let mut root_value = leaf_value;
+    let mut bound = BOUND_LOWER;
+    let mut pv_moves = Vec::new();
+
+    'move_extraction: while let Some(entry) = tt.peek(p.hash()) {
+        if entry.bound() != BOUND_NONE {
+            // Get the value and the bound type. In half of the
+            // cases the value stored in `entry` is from other
+            // side's perspective.
+            if our_turn {
+                leaf_value = entry.value();
+                bound = entry.bound();
+            } else {
+                leaf_value = -entry.value();
+                bound = match entry.bound() {
+                    BOUND_UPPER => BOUND_LOWER,
+                    BOUND_LOWER => BOUND_UPPER,
+                    x => x,
+                };
+            }
+
+            // Chop values under -9999 or over 9999.
+            if leaf_value > 9999 {
+                leaf_value = 9999;
+                if bound == BOUND_LOWER {
+                    bound = BOUND_EXACT
+                }
+            }
+            if leaf_value < -9999 {
+                leaf_value = 9999;
+                if bound == BOUND_UPPER {
+                    bound = BOUND_EXACT
+                }
+            }
+
+            if let Some(m) = prev_move {
+                // Extend the PV with the move extracted during the
+                // previous iteration of the loop.
+                pv_moves.push(m);
+            } else {
+                // We are still at the root -- set the root value.
+                root_value = leaf_value;
+            }
+
+            // Continue the move extraction cycle until `depth` is
+            // reached or `leaf_value` has diverged too far from
+            // `root_value`. (We tolerate insignificant divergences,
+            // because the search usually continues to run in
+            // parallel.)
+            if pv_moves.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
+                if let Some(m) = p.try_move_digest(entry.move16()) {
+                    if p.do_move(m) {
+                        if bound == BOUND_EXACT {
+                            prev_move = Some(m);
+                            our_turn = !our_turn;
+                            continue 'move_extraction;
+                        } else {
+                            // This is the last move in the PV.
+                            pv_moves.push(m);
+                        }
+                    }
+                }
+            }
+        }
+        break 'move_extraction;
+    }
+
+    // Change the bound type if the value at the root of the PV
+    // differs from the value at the leaf by more than `EPSILON`.
+    bound = match leaf_value - root_value {
+        x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
+        x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
+        _ => bound,
+    };
+
+    Variation {
+        value: root_value,
+        bound: bound,
+        moves: pv_moves,
     }
 }
 

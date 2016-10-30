@@ -3,24 +3,9 @@
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use basetypes::*;
-use moves::*;
 use tt::*;
 use position::*;
 use search::*;
-
-
-/// A sequence of moves from some starting position, together with the
-/// value assigned to the final position.
-pub struct Variation {
-    /// A sequence of moves from some starting position.
-    pub moves: Vec<Move>,
-
-    /// The value assigned to the final position.
-    pub value: Value,
-
-    /// The accuracy of the assigned value.
-    pub bound: BoundType,
-}
 
 
 /// Contains information about the current progress of a search.
@@ -195,100 +180,5 @@ impl SearchThread {
                                                      report.depth)];
         }
         self.status.done = report.done;
-    }
-}
-
-
-/// A helper function. It extracts the primary variation (PV) from the
-/// transposition table (TT) and returns it.
-///
-/// **Note:** Because the PV is a moving target (the search continues
-/// to run in parallel), imperfections in the reported PVs are
-/// unavoidable. To deal with this, we turn a blind eye if the value
-/// at the root of the PV differs from the value at the leaf by no
-/// more than `EPSILON`.
-fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
-    const EPSILON: Value = 8; // A sufficiently small value (in centipawns).
-
-    // Extract the PV, the leaf value, the root value, and the bound
-    // type from the TT.
-    let mut p = position.clone();
-    let mut our_turn = true;
-    let mut prev_move = None;
-    let mut moves = Vec::new();
-    let mut leaf_value = -9999;
-    let mut root_value = leaf_value;
-    let mut bound = BOUND_LOWER;
-    while let Some(entry) = tt.peek(p.hash()) {
-        if entry.bound() != BOUND_NONE {
-            // Get the value and the bound type. In half of the
-            // cases the value stored in `entry` is from other
-            // side's perspective.
-            if our_turn {
-                leaf_value = entry.value();
-                bound = entry.bound();
-            } else {
-                leaf_value = -entry.value();
-                bound = match entry.bound() {
-                    BOUND_UPPER => BOUND_LOWER,
-                    BOUND_LOWER => BOUND_UPPER,
-                    x => x,
-                };
-            }
-
-            // The values under -9999 and over 9999 may look ugly in
-            // some GUIs, so we trim them.
-            if leaf_value > 9999 {
-                leaf_value = 9999;
-                if bound == BOUND_LOWER {
-                    bound = BOUND_EXACT
-                }
-            }
-            if leaf_value < -9999 {
-                leaf_value = 9999;
-                if bound == BOUND_UPPER {
-                    bound = BOUND_EXACT
-                }
-            }
-
-            if let Some(m) = prev_move {
-                // Extend the PV with the previous move.
-                moves.push(m);
-            } else {
-                // We are at the root -- set the root value.
-                root_value = leaf_value;
-            }
-
-            if moves.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
-                if let Some(m) = p.try_move_digest(entry.move16()) {
-                    if p.do_move(m) {
-                        if bound == BOUND_EXACT {
-                            // Extend the PV with one more move.
-                            prev_move = Some(m);
-                            our_turn = !our_turn;
-                            continue;
-                        } else {
-                            // This is the last move in the PV.
-                            moves.push(m);
-                        }
-                    }
-                }
-            }
-        }
-        break;
-    }
-
-    // Change the bound type if the leaf value in the PV differs too
-    // much from the root value.
-    bound = match leaf_value - root_value {
-        x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
-        x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
-        _ => bound,
-    };
-
-    Variation {
-        value: root_value,
-        bound: bound,
-        moves: moves,
     }
 }
