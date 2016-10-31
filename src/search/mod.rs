@@ -31,11 +31,22 @@
 //!
 //! # Usage
 //!
-//! To execute a game search, use one of the following types:
+//! To execute a game search, instantiate one of the following types:
 //!
 //! * `DeepeningSearcher<AlphabetaSearcher>`
 //! * `DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>>`
 //! * `DeepeningSearcher<MultipvSearcher<AlphabetaSearcher>>`
+//!
+//! then:
+//!
+//! 1. Call the `start_search` method.
+//!
+//! 2. Continue calling `wait_report` and `try_recv_report` methods
+//! periodically, until the search is done.
+//!
+//! 3. Usually, when the search is done (or at least partially
+//! completed), `extract_pv` will be called to obtain the primary
+//! variation from the transposition table.
 //!
 //! # Example:
 //! ```rust
@@ -46,34 +57,31 @@
 //!
 //! let mut tt = Tt::new();
 //! tt.resize(16);
+//! let tt = Arc::new(tt);
 //! let position = Position::from_fen(START_POSITION_FEN).ok().unwrap();
 //! let mut searcher: DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>> =
-//!     DeepeningSearcher::new(Arc::new(tt));
+//!     DeepeningSearcher::new(tt.clone());
 //! searcher.start_search(SearchParams {
 //!     search_id: 0,
+//!     position: position.clone(),
 //!     depth: 10,
 //!     lower_bound: VALUE_MIN,
 //!     upper_bound: VALUE_MAX,
 //!     searchmoves: position.legal_moves(),
 //!     variation_count: 1,
-//!     position: position,
 //! });
 //! loop {
-//!    searcher.wait_report(Duration::from_millis(20));
-//!    if let Ok(report) = searcher.try_recv_report() {
-//!        // Process the report here!
-//!        if report.done {
-//!            break;
-//!        }
-//!    }
-//!    // Do something else here!
+//!     searcher.wait_report(Duration::from_millis(20));
+//!     if let Ok(report) = searcher.try_recv_report() {
+//!         // Process the report here!
+//!         if report.done {
+//!             break;
+//!         }
+//!     }
+//!     // Do something else here!
 //! }
+//! let pv = extract_pv(&tt, &position, 10);
 //! ```
-//!
-//! Usually, when the search is completed or terminated, `extract_pv`
-//! will be called to obtain the primary variation from the
-//! transposition table.
-
 pub mod alpha_beta;
 mod threading;
 
