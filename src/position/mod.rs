@@ -550,7 +550,9 @@ impl Position {
                searched_nodes: &mut NodeCount)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
-        debug_assert!(stand_pat == VALUE_UNKNOWN || stand_pat == eval_func(self.board()));
+        debug_assert!(stand_pat == VALUE_UNKNOWN ||
+                      STATIC_EVAL_MIN <= stand_pat && stand_pat <= STATIC_EVAL_MAX &&
+                      stand_pat == eval_func(self.board()));
         let in_check = self.board().checkers() != 0;
 
         // At the beginning of quiescence, the position's static
@@ -566,6 +568,7 @@ impl Position {
             stand_pat = lower_bound
         } else if stand_pat == VALUE_UNKNOWN {
             stand_pat = eval_func(self.board());
+            debug_assert!(STATIC_EVAL_MIN <= stand_pat && stand_pat <= STATIC_EVAL_MAX);
         }
         if stand_pat >= upper_bound {
             return stand_pat;
