@@ -287,7 +287,6 @@ impl Board {
                 // Generate all free pawn moves at once.
                 if free_pawns != 0 {
                     self.push_pawn_moves_to_stack(free_pawns,
-                                                  en_passant_bb,
                                                   pawn_legal_dests,
                                                   !generate_all_moves,
                                                   move_stack);
@@ -301,7 +300,6 @@ impl Board {
                     let pawn_legal_dests = pawn_legal_dests &
                                            self.geometry.squares_at_line[king_square][pawn_square];
                     self.push_pawn_moves_to_stack(1 << pawn_square,
-                                                  en_passant_bb,
                                                   pawn_legal_dests,
                                                   !generate_all_moves,
                                                   move_stack);
@@ -864,7 +862,8 @@ impl Board {
 
     /// A helper method. It calculates the pseudo-legal destination
     /// squares for each pawn in `pawns` and stores them in the
-    /// `dest_sets` array.
+    /// `dest_sets` array. `en_passant_bb` represents the en-passant
+    /// target square.
     ///
     /// `dest_sets` is indexed by the sub-type of the pawn move: push,
     /// double push, west capture, east capture. The benefit of this
@@ -934,10 +933,10 @@ impl Board {
     /// `move_stack`.
     fn push_pawn_moves_to_stack(&self,
                                 pawns: Bitboard,
-                                en_passant_bb: Bitboard,
                                 legal_dests: Bitboard,
                                 only_queen_promotions: bool,
                                 move_stack: &mut MoveStack) {
+        let en_passant_bb = self.en_passant_bb();
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
         self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
