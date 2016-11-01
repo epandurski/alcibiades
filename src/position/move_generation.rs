@@ -279,6 +279,7 @@ impl Board {
                         legal_dests | en_passant_bb
                     }
                 } else {
+                    debug_assert_eq!(checkers, 0);
                     debug_assert_eq!(legal_dests, !occupied_by_us);
                     legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
                 };
@@ -364,14 +365,15 @@ impl Board {
     /// `None`. This is useful when playing moves from the
     /// transposition table, without calling `generate_moves`.
     pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
-        // The purpose of this method is to be able to check if a move
-        // is pseudo-legal *without* generating all moves.
-
+        // We will use `generated_move` to assert that our result is correct.
         let mut generated_move = unsafe { uninitialized() };
 
+        // The purpose of `try_move_digest` is to check if a move is
+        // pseudo-legal, without spending time to generate all
+        // pseudo-legal moves. Therefore, if we did not care about
+        // performace, the whole complex logic of this method could be
+        // substituted with the next few lines:
         if cfg!(debug_assertions) {
-            // Initialize `generated_move`, which will be used to
-            // assert that `try_move_digest` works correctly.
             generated_move = None;
             let mut move_stack = MoveStack::new();
             self.generate_moves(true, &mut move_stack);
@@ -502,7 +504,7 @@ impl Board {
                     }
                 }
                 _ => {
-                    // normal move
+                    // normal pawn move
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
                         debug_assert!(generated_move.is_none());
                         return None;
