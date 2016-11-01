@@ -445,17 +445,13 @@ impl Board {
         let mut pseudo_legal_dests = !occupied_by_us;
 
         if piece != KING {
+            // Verify if the king is in check.
             pseudo_legal_dests &= match ls1b(checkers) {
-                0 => {
-                    // We are not in check.
-                    BB_UNIVERSAL_SET
-                }
+                0 => BB_UNIVERSAL_SET,
                 x if x == checkers => {
-                    // We are in check.
                     x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)]
                 }
                 _ => {
-                    // We are in double check.
                     debug_assert!(generated_move.is_none());
                     return None;
                 } 
@@ -487,7 +483,6 @@ impl Board {
 
             match dest_square_bb {
                 x if x == en_passant_bb => {
-                    // en-passant capture
                     if move_type != MOVE_ENPASSANT ||
                        !self.en_passant_special_check_ok(orig_square, dest_square) ||
                        promoted_piece_code != 0 {
@@ -497,14 +492,12 @@ impl Board {
                     captured_piece = PAWN;
                 }
                 x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
-                    // pawn promotion
                     if move_type != MOVE_PROMOTION {
                         debug_assert!(generated_move.is_none());
                         return None;
                     }
                 }
                 _ => {
-                    // normal pawn move
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
                         debug_assert!(generated_move.is_none());
                         return None;
