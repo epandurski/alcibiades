@@ -206,19 +206,6 @@ impl Position {
         self.board().checkers() != 0
     }
 
-    /// Returns if the side to move is unlikely to be in zugzwang.
-    ///
-    /// In many endgame positions there is a relatively high
-    /// probability of zugzwang occurring. For such positions, this
-    /// method will return `false`. For all "normal" positions it will
-    /// return `true`. This is useful when deciding if it is safe to
-    /// try a "null move".
-    #[inline]
-    pub fn is_zugzwang_unlikely(&self) -> bool {
-        // TODO: Write a real implementation.
-        true
-    }
-
     /// Returns an almost unique hash value for the position.
     ///
     /// **Important notes:** 1) Two positions that differ in their
@@ -533,6 +520,19 @@ impl Position {
             }
         }
         legal_moves
+    }
+
+    /// Returns if the side to move is unlikely to be in zugzwang.
+    ///
+    /// In many endgame positions there is a relatively high
+    /// probability of zugzwang occurring. For such positions, this
+    /// method will return `false`. For all "normal" positions it will
+    /// return `true`. This is useful when deciding if it is safe to
+    /// try a "null move".
+    #[inline]
+    pub fn is_zugzwang_unlikely(&self) -> bool {
+        // TODO: Write a real implementation.
+        true
     }
 
     /// A helper method for `evaluate_quiescence`. It is needed
