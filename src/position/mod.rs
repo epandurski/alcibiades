@@ -542,7 +542,7 @@ impl Position {
     fn qsearch(&self,
                mut lower_bound: Value,
                upper_bound: Value,
-               static_evaluation: Value,
+               mut stand_pat: Value,
                mut recapture_squares: Bitboard,
                ply: u8,
                move_stack: &mut MoveStack,
@@ -550,29 +550,23 @@ impl Position {
                searched_nodes: &mut NodeCount)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
-        debug_assert!(static_evaluation == VALUE_UNKNOWN ||
-                      static_evaluation >= STATIC_EVAL_MIN && static_evaluation <= STATIC_EVAL_MAX);
-        let not_in_check = self.board().checkers() == 0;
+        debug_assert!(stand_pat == VALUE_UNKNOWN || stand_pat == eval_func(self.board()));
+        let in_check = self.board().checkers() != 0;
 
-        // At the beginning of quiescence, the position's evaluation
-        // is used to establish a lower bound on the score
-        // (`stand_pat`). We assume that even if none of the capturing
+        // At the beginning of quiescence, the position's static
+        // evaluation (`stand_pat`) is used to establish a lower bound
+        // on the result. We assume that even if none of the capturing
         // moves can improve over the stand pat, there will be at
         // least one "quiet" move that will at least preserve the
         // stand pat value. (Note that this assumption is not true if
-        // the the side to move is in check, because in this case the
-        // all possible check evasions will be tried.)
-        let stand_pat = if not_in_check {
-            if static_evaluation != VALUE_UNKNOWN {
-                static_evaluation
-            } else {
-                let v = eval_func(self.board());
-                debug_assert!(v >= STATIC_EVAL_MIN && v <= STATIC_EVAL_MAX);
-                v
-            }
-        } else {
-            lower_bound
-        };
+        // the the side to move is in check, because in this case all
+        // possible check evasions will be tried.)
+        if in_check {
+            // Position's static evaluation is useless when in check.
+            stand_pat = lower_bound
+        } else if stand_pat == VALUE_UNKNOWN {
+            stand_pat = eval_func(self.board());
+        }
         if stand_pat >= upper_bound {
             return stand_pat;
         }
@@ -594,7 +588,7 @@ impl Position {
             let captured_piece = m.captured_piece();
 
             // Ensure that the immediate material gain from this move
-            // is big enough.
+            // is big enough to warrant trying it.
             let material_gain = if move_type == MOVE_PROMOTION {
                 PIECE_VALUES[captured_piece] +
                 PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
@@ -614,7 +608,7 @@ impl Position {
             // errors due to pinned and overloaded pieces, at least
             // one mandatory recapture is always tried at squares of
             // previous captures.)
-            if recapture_squares & dest_square_bb == 0 && not_in_check && move_type == MOVE_NORMAL {
+            if !in_check && move_type == MOVE_NORMAL && recapture_squares & dest_square_bb == 0 {
                 match self.calc_see(m) {
                     // This is a losing move -- do not try it.
                     x if x < 0 => continue,
