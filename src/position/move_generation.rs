@@ -225,10 +225,10 @@ impl Board {
                 x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)],
             _ =>
                 // Double check -- no covering moves.
-                BB_EMPTY_SET,
+                0,
         };
 
-        if legal_dests != BB_EMPTY_SET {
+        if legal_dests != 0 {
             // This block is not executed when the king is in double
             // check.
 
@@ -470,7 +470,12 @@ impl Board {
             }
 
             let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
-            self.calc_pawn_dest_sets(orig_square_bb, en_passant_bb, &mut dest_sets);
+            calc_pawn_dest_sets(self.to_move,
+                                occupied_by_us,
+                                self.pieces.color[1 ^ self.to_move],
+                                en_passant_bb,
+                                orig_square_bb,
+                                &mut dest_sets);
             pseudo_legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
                                   dest_sets[PAWN_WEST_CAPTURE] |
                                   dest_sets[PAWN_EAST_CAPTURE];
@@ -859,43 +864,6 @@ impl Board {
         }
     }
 
-    /// A helper method. It calculates the pseudo-legal destination
-    /// squares for each pawn in `pawns` and stores them in the
-    /// `dest_sets` array. `en_passant_bb` represents the en-passant
-    /// target square.
-    ///
-    /// `dest_sets` is indexed by the sub-type of the pawn move: push,
-    /// double push, west capture, east capture. The benefit of this
-    /// separation is that knowing the destination square and the pawn
-    /// move sub-type (the index in the `dest_sets` array) is enough
-    /// to recover the origin square.
-    #[inline(always)]
-    fn calc_pawn_dest_sets(&self,
-                           pawns: Bitboard,
-                           en_passant_bb: Bitboard,
-                           dest_sets: &mut [Bitboard; 4]) {
-        debug_assert_eq!(ls1b(en_passant_bb), en_passant_bb);
-        const QUIET: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
-                                      BB_UNIVERSAL_SET, // double push
-                                      BB_EMPTY_SET, // west capture
-                                      BB_EMPTY_SET]; // east capture
-        const CANDIDATES: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                           BB_RANK_2 | BB_RANK_7,
-                                           !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                           !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
-        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
-        let capture_targets = self.pieces.color[1 ^ self.to_move] | en_passant_bb;
-        let not_occupied_by_us = !self.pieces.color[self.to_move];
-        for i in 0..4 {
-            dest_sets[i] = gen_shift(pawns & CANDIDATES[i], shifts[i]) &
-                           (capture_targets ^ QUIET[i]) &
-                           not_occupied_by_us;
-        }
-
-        // Double pushes are trickier.
-        dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
-    }
-
     /// A helper method for `generate_moves`. It finds all squares
     /// attacked by `piece` from square `orig_square`, and for each
     /// square that is within the `legal_dests` set pushes a new move
@@ -937,7 +905,12 @@ impl Board {
         let en_passant_bb = self.en_passant_bb();
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
-        self.calc_pawn_dest_sets(pawns, en_passant_bb, &mut dest_sets);
+        calc_pawn_dest_sets(self.to_move,
+                            self.pieces.color[self.to_move],
+                            self.pieces.color[1 ^ self.to_move],
+                            en_passant_bb,
+                            pawns,
+                            &mut dest_sets);
 
         // Process each pawn move sub-type (push, double push, west
         // capture, east capture).
@@ -1133,28 +1106,65 @@ impl Board {
 }
 
 
-// Pawn move sub-types:
-// ====================
-
-/// Pawn push move.
+/// Pawn move sub-type -- a single push.
 const PAWN_PUSH: usize = 0;
 
-/// Double pawn push move.
+/// Pawn move sub-type -- a double push.
 const PAWN_DOUBLE_PUSH: usize = 1;
 
-/// Pawn capture toward the queen-side.
+/// Pawn move sub-type -- a capture toward the queen-side.
 const PAWN_WEST_CAPTURE: usize = 2;
 
-/// Pawn capture toward the king-side.
+/// Pawn move sub-type -- a capture toward the king-side.
 const PAWN_EAST_CAPTURE: usize = 3;
 
 
-/// Pawn move shifts (one for each color and pawn move sub-type).
+/// Constants used for the generation of pawn moves (by bit shifting)
+/// -- one for each color and pawn move sub-type.
 ///
 /// Example: The bitboard for a white pawn on "e2" is `1 << E2`. If
 /// the pawn is pushed one square forward, the updated bitboard would
 /// be: `gen_shift(1 << E2, PAWN_MOVE_SHIFTS[WHITE][PAWN_PUSH])`
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
+
+
+/// A helper function. It calculates the pseudo-legal destinations
+/// for a given set of `pawns`, and writes them to the supplied
+/// `dest_sets` array.
+///
+/// `dest_sets` is indexed by the sub-type of the pawn move: push,
+/// double push, west capture, east capture. The benefit of this
+/// separation is that knowing the destination square and the pawn
+/// move sub-type (the index in the `dest_sets` array) is enough
+/// to recover the origin square.
+#[inline(always)]
+fn calc_pawn_dest_sets(us: Color,
+                       occupied_by_us: Bitboard,
+                       occupied_by_them: Bitboard,
+                       en_passant_bb: Bitboard,
+                       pawns: Bitboard,
+                       dest_sets: &mut [Bitboard; 4]) {
+    debug_assert!(pop_count(en_passant_bb) <= 1);
+    const NOT_CAPTURING: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
+                                          BB_UNIVERSAL_SET, // double push
+                                          0, // west capture
+                                          0]; // east capture
+    const PROPER_ORIGIN: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                          BB_RANK_2 | BB_RANK_7,
+                                          !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                          !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+    let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
+    let capture_targets = occupied_by_them | en_passant_bb;
+    for i in 0..4 {
+        dest_sets[i] = gen_shift(pawns & PROPER_ORIGIN[i], shifts[i]) &
+                       (capture_targets ^ NOT_CAPTURING[i]) &
+                       !occupied_by_us;
+    }
+
+    // Double pushes are trickier -- for a double push to be
+    // pseudo-legal, a single push must be pseudo-legal too.
+    dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+}
 
 
 /// Indicates that en-passant capture is not possible.
