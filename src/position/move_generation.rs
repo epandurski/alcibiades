@@ -1003,48 +1003,36 @@ impl Board {
     /// A helper method. It returns all pinned pieces belonging to the
     /// side to move.
     fn find_pinned(&self) -> Bitboard {
+        let mut pinned = 0;
         let king_square = self.king_square();
         let occupied_by_them = self.pieces.color[1 ^ self.to_move];
 
-        // To find all potential pinners, we remove all our pieces
-        // from the board, and all enemy pieces that can not slide in
-        // the particular manner (diagonally or straight). Then we
-        // calculate what enemy pieces a bishop or a rook placed on
-        // our king's square can attack. The attacked enemy pieces are
-        // the potential pinners.
-        let diag_sliders = occupied_by_them &
-                           (self.pieces.piece_type[QUEEN] | self.pieces.piece_type[BISHOP]);
-        let straight_sliders = occupied_by_them &
-                               (self.pieces.piece_type[QUEEN] | self.pieces.piece_type[ROOK]);
-        let mut pinners = (diag_sliders &
-                           self.geometry.attacks_from(BISHOP, king_square, diag_sliders)) |
-                          (straight_sliders &
-                           self.geometry.attacks_from(ROOK, king_square, straight_sliders));
+        // To find the pinners, we "remove" all our pieces from the
+        // board, and then verify if a bishop or a rook placed on our
+        // king's square can attack any enemy bishops, rooks, or
+        // queens.
+        let mut pinners = (self.geometry.attacks_from(ROOK, king_square, occupied_by_them) &
+                           (self.pieces.piece_type[QUEEN] | self.pieces.piece_type[ROOK]) &
+                           occupied_by_them) |
+                          (self.geometry.attacks_from(BISHOP, king_square, occupied_by_them) &
+                           (self.pieces.piece_type[QUEEN] | self.pieces.piece_type[BISHOP]) &
+                           occupied_by_them);
 
-        if pinners == 0 {
-            0
-        } else {
-            let occupied_by_us = self.pieces.color[self.to_move];
-            let potential_blockers = (occupied_by_us & !(1 << king_square)) |
-                                     (occupied_by_them & !pinners);
-            let mut pinned_or_discovered_checkers = 0;
-
-            // Scan all potential pinners and see if there is one and
-            // only one piece between our king and the pinner. (In
-            // this case the piece is either a pinned piece of ours or
-            // enemy's discovered checker.)
+        // Then, for each pinner we verify if there is exactly one
+        // defender between our king and the pinner.
+        if pinners != 0 {
+            let defenders = self.pieces.color[self.to_move] & !(1 << king_square);
             let between_our_king_and: &[Bitboard; 64] =
                 &self.geometry.squares_between_including[king_square];
             while pinners != 0 {
                 let pinner_square = bitscan_forward_and_reset(&mut pinners);
-                let blockers = potential_blockers & between_our_king_and[pinner_square];
-                if ls1b(blockers) == blockers {
-                    pinned_or_discovered_checkers |= blockers;
+                let bb = defenders & between_our_king_and[pinner_square];
+                if ls1b(bb) == bb {
+                    pinned |= bb;
                 }
             }
-
-            pinned_or_discovered_checkers & occupied_by_us
         }
+        pinned
     }
 
     /// A helper method. It returns a bitboard representing the
