@@ -171,13 +171,13 @@ impl Board {
         let square_bb = 1 << square;
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
 
-        (self.geometry.piece_attacks_from(ROOK, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(ROOK, square, self.occupied()) & occupied_by_us &
          (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) |
-        (self.geometry.piece_attacks_from(BISHOP, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(BISHOP, square, self.occupied()) & occupied_by_us &
          (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) |
-        (self.geometry.piece_attacks_from(KNIGHT, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(KNIGHT, square, self.occupied()) & occupied_by_us &
          self.pieces.piece_type[KNIGHT]) |
-        (self.geometry.piece_attacks_from(KING, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(KING, square, self.occupied()) & occupied_by_us &
          self.pieces.piece_type[KING]) |
         (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
          self.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
@@ -505,8 +505,7 @@ impl Board {
 
         } else {
             // This is not a pawn move, nor a castling move.
-            pseudo_legal_dests &= self.geometry
-                                      .piece_attacks_from(piece, orig_square, self.occupied());
+            pseudo_legal_dests &= self.geometry.attacks_from(piece, orig_square, self.occupied());
             if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 ||
                promoted_piece_code != 0 {
                 debug_assert!(generated_move.is_none());
@@ -842,11 +841,11 @@ impl Board {
                 let o_them = o_them ^ mask;
                 let occupied = occupied ^ mask;
                 0 ==
-                (self.geometry.piece_attacks_from(ROOK, our_king_square, occupied) & o_them &
+                (self.geometry.attacks_from(ROOK, our_king_square, occupied) & o_them &
                  (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) |
-                (self.geometry.piece_attacks_from(BISHOP, our_king_square, occupied) & o_them &
+                (self.geometry.attacks_from(BISHOP, our_king_square, occupied) & o_them &
                  (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) |
-                (self.geometry.piece_attacks_from(KNIGHT, our_king_square, occupied) & o_them &
+                (self.geometry.attacks_from(KNIGHT, our_king_square, occupied) & o_them &
                  self.pieces.piece_type[KNIGHT]) |
                 (gen_shift(our_king_bb, -shifts[PAWN_EAST_CAPTURE]) & o_them & pawns & !BB_FILE_H) |
                 (gen_shift(our_king_bb, -shifts[PAWN_WEST_CAPTURE]) & o_them & pawns & !BB_FILE_A)
@@ -909,8 +908,7 @@ impl Board {
                                  move_stack: &mut MoveStack) {
         debug_assert!(piece < PAWN);
         let mut piece_legal_dests = legal_dests &
-                                    self.geometry
-                                        .piece_attacks_from(piece, orig_square, self.occupied());
+                                    self.geometry.attacks_from(piece, orig_square, self.occupied());
         while piece_legal_dests != 0 {
             let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
@@ -1019,9 +1017,9 @@ impl Board {
         let straight_sliders = occupied_by_them &
                                (self.pieces.piece_type[QUEEN] | self.pieces.piece_type[ROOK]);
         let mut pinners = (diag_sliders &
-                           self.geometry.piece_attacks_from(BISHOP, king_square, diag_sliders)) |
+                           self.geometry.attacks_from(BISHOP, king_square, diag_sliders)) |
                           (straight_sliders &
-                           self.geometry.piece_attacks_from(ROOK, king_square, straight_sliders));
+                           self.geometry.attacks_from(ROOK, king_square, straight_sliders));
 
         if pinners == 0 {
             0
@@ -1076,13 +1074,13 @@ impl Board {
         let occupied = self.occupied() & !(1 << self.king_square());
         let occupied_by_them = self.pieces.color[them];
 
-        (self.geometry.piece_attacks_from(ROOK, square, occupied) & occupied_by_them &
+        (self.geometry.attacks_from(ROOK, square, occupied) & occupied_by_them &
          (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) != 0 ||
-        (self.geometry.piece_attacks_from(BISHOP, square, occupied) & occupied_by_them &
+        (self.geometry.attacks_from(BISHOP, square, occupied) & occupied_by_them &
          (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) != 0 ||
-        (self.geometry.piece_attacks_from(KNIGHT, square, occupied) & occupied_by_them &
+        (self.geometry.attacks_from(KNIGHT, square, occupied) & occupied_by_them &
          self.pieces.piece_type[KNIGHT]) != 0 ||
-        (self.geometry.piece_attacks_from(KING, square, occupied) & occupied_by_them &
+        (self.geometry.attacks_from(KING, square, occupied) & occupied_by_them &
          self.pieces.piece_type[KING]) != 0 ||
         {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
@@ -1123,7 +1121,7 @@ impl Board {
             let pawn2_bb = gen_shift(1 << dest_square, -PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
             let occupied = self.occupied() & !(pawn1_bb | pawn2_bb);
             return 0 ==
-                   self.geometry.piece_attacks_from(ROOK, king_square, occupied) &
+                   self.geometry.attacks_from(ROOK, king_square, occupied) &
                    self.pieces.color[1 ^ self.to_move] &
                    (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]);
         }
@@ -1192,11 +1190,11 @@ mod tests {
         use position::tables::*;
         let b = Board::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
         let g = BoardGeometry::get();
-        assert_eq!(g.piece_attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
+        assert_eq!(g.attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(g.piece_attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
+        assert_eq!(g.attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(g.piece_attacks_from(KNIGHT, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
+        assert_eq!(g.attacks_from(KNIGHT, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
                    1 << B3 | 1 << C2);
     }
 

@@ -303,20 +303,20 @@ impl BoardGeometry {
         }
     }
 
-    /// Returns the set of squares that are attacked by a piece (not a
-    /// pawn).
+    /// Returns the set of squares that are attacked by a piece from a
+    /// given square.
     ///
     /// This function returns the set of squares that are attacked by
     /// a piece of type `piece` from the square `from_square`, on a
     /// board which is occupied with pieces according to the
-    /// `occupied` bitboard. It does not matter if `from_square` is
-    /// occupied or not.
+    /// `occupied` bitboard. `piece` **must not** be `PAWN`. It does
+    /// not matter if `from_square` is occupied or not.
     #[inline(always)]
-    pub fn piece_attacks_from(&self,
-                              piece: PieceType,
-                              from_square: Square,
-                              occupied: Bitboard)
-                              -> Bitboard {
+    pub fn attacks_from(&self,
+                        piece: PieceType,
+                        from_square: Square,
+                        occupied: Bitboard)
+                        -> Bitboard {
         debug_assert!(piece < PAWN);
         debug_assert!(from_square <= 63);
         unsafe {
@@ -661,14 +661,14 @@ mod tests {
     }
 
     #[test]
-    fn test_piece_attacks_from() {
+    fn test_attacks_from() {
         let g = BoardGeometry::new();
         for piece in KING..PAWN {
             for square in 0..64 {
-                assert_eq!(g.piece_attacks_from(piece, square, 0),
-                           g.piece_attacks_from(piece, square, 1 << square));
-                assert_eq!(g.piece_attacks_from(piece, square, 1 << D4),
-                           g.piece_attacks_from(piece, square, 1 << D4 | 1 << square));
+                assert_eq!(g.attacks_from(piece, square, 0),
+                           g.attacks_from(piece, square, 1 << square));
+                assert_eq!(g.attacks_from(piece, square, 1 << D4),
+                           g.attacks_from(piece, square, 1 << D4 | 1 << square));
             }
         }
     }

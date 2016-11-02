@@ -724,15 +724,14 @@ impl Position {
             if orig_square_bb & may_xray != 0 {
                 attackers_and_defenders |= {
                     let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
-                    let bb = geometry.piece_attacks_from(ROOK, dest_square, candidates) &
-                             candidates &
+                    let bb = geometry.attacks_from(ROOK, dest_square, candidates) & candidates &
                              (piece_type[QUEEN] | piece_type[ROOK]);
                     if bb != 0 {
                         // a straight slider
                         bb
                     } else {
                         // a diagonal slider
-                        geometry.piece_attacks_from(BISHOP, dest_square, candidates) & candidates &
+                        geometry.attacks_from(BISHOP, dest_square, candidates) & candidates &
                         (piece_type[QUEEN] | piece_type[BISHOP])
                     }
                 };
