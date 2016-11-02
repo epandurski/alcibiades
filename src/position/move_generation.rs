@@ -1118,23 +1118,20 @@ impl Board {
     /// destination squares of the capturing pawn.
     fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
-        if rank(king_square) != [RANK_5, RANK_4][self.to_move] {
-            // The king is not on the 4/5-th rank.
-            true
-        } else {
-            let the_two_pawns = 1 << orig_square |
-                                gen_shift(1 << dest_square,
-                                          -PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
-            let occupied = self.occupied() & !the_two_pawns;
-
-            self.geometry.piece_attacks_from(ROOK, king_square, occupied) &
-            self.pieces.color[1 ^ self.to_move] &
-            (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]) == 0
+        if rank(king_square) == rank(orig_square) {
+            let pawn1_bb = 1 << orig_square;
+            let pawn2_bb = gen_shift(1 << dest_square, -PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
+            let occupied = self.occupied() & !(pawn1_bb | pawn2_bb);
+            return 0 ==
+                   self.geometry.piece_attacks_from(ROOK, king_square, occupied) &
+                   self.pieces.color[1 ^ self.to_move] &
+                   (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]);
         }
+        true
     }
 
     /// A helper method. It returns a bitboard with the set of pieces
-    /// between the king and the castling rook.
+    /// that prevent the side to move to castle on a given `side`.
     #[inline(always)]
     fn castling_obstacles(&self, side: CastlingSide) -> Bitboard {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
@@ -1142,10 +1139,9 @@ impl Board {
         if self.castling.can_castle(self.to_move, side) {
             self.occupied() & BETWEEN[self.to_move][side]
         } else {
-            // Castling is not possible, therefore every piece on
-            // every square on the board can be considered an
-            // obstacle.
-            BB_UNIVERSAL_SET
+            // The king or the rook has been moved, therefore every
+            // piece on the board can be considered an obstacle.
+            self.occupied()
         }
     }
 }
