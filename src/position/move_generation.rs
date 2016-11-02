@@ -33,9 +33,8 @@ pub struct Board {
     /// The castling rights for both players.
     castling: CastlingRights,
 
-    /// The file on which an en-passant pawn capture is
-    /// possible. Values between 8 and 15 indicate that en-passant
-    /// capture is not possible.
+    /// The file on which an en-passant pawn capture is possible. `8`
+    /// indicates that en-passant capture is not possible.
     en_passant_file: usize,
 
     /// This will always be equal to `self.pieces.color[WHITE] |
@@ -648,7 +647,8 @@ impl Board {
         // Update the en-passant file.
         h ^= self.zobrist.en_passant_file[self.en_passant_file];
         self.en_passant_file = if piece == PAWN &&
-                                  (dest_square as isize - orig_square as isize).abs() == 16 {
+                                  dest_square as isize - orig_square as isize ==
+                                  PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
             let file = file(dest_square);
             h ^= self.zobrist.en_passant_file[file];
             file
