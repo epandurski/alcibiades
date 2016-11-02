@@ -1144,7 +1144,10 @@ fn calc_pawn_dest_sets(us: Color,
                        en_passant_bb: Bitboard,
                        pawns: Bitboard,
                        dest_sets: &mut [Bitboard; 4]) {
-    debug_assert!(pop_count(en_passant_bb) <= 1);
+    debug_assert!(pawns & !occupied_by_us == 0);
+    debug_assert!(occupied_by_us & occupied_by_them == 0);
+    debug_assert!(gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) &
+                  !occupied_by_them == 0);
     const NOT_CAPTURING: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
                                           BB_UNIVERSAL_SET, // double push
                                           0, // west capture
