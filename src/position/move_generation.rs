@@ -899,7 +899,7 @@ impl Board {
     /// A helper method for `generate_moves`. It finds all squares
     /// attacked by `piece` from square `orig_square`, and for each
     /// square that is within the `legal_dests` set pushes a new move
-    /// to `move_stack`. `piece` must not be a pawn.
+    /// to `move_stack`. `piece` must not be `PAWN`.
     #[inline(always)]
     fn push_piece_moves_to_stack(&self,
                                  piece: PieceType,
