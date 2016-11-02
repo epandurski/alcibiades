@@ -64,7 +64,7 @@ impl Board {
             _ => return Err(IllegalPosition),
         };
         let en_passant_file = match en_passant_square {
-            None => NO_ENPASSANT_FILE,
+            None => 8,
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
             _ => return Err(IllegalPosition),
         };
@@ -647,17 +647,13 @@ impl Board {
 
         // Update the en-passant file.
         h ^= self.zobrist.en_passant_file[self.en_passant_file];
-        self.en_passant_file = if piece == PAWN {
-            match dest_square as isize - orig_square as isize {
-                16 | -16 => {
-                    let file = file(dest_square);
-                    h ^= self.zobrist.en_passant_file[file];
-                    file
-                }
-                _ => NO_ENPASSANT_FILE,
-            }
+        self.en_passant_file = if piece == PAWN &&
+                                  (dest_square as isize - orig_square as isize).abs() == 16 {
+            let file = file(dest_square);
+            h ^= self.zobrist.en_passant_file[file];
+            file
         } else {
-            NO_ENPASSANT_FILE
+            8
         };
 
         // Change the side to move.
@@ -690,7 +686,7 @@ impl Board {
         let piece = m.piece();
         let captured_piece = m.captured_piece();
         assert!(piece < NO_PIECE);
-        debug_assert!(m.en_passant_file() <= NO_ENPASSANT_FILE);
+        debug_assert!(m.en_passant_file() <= 8);
 
         // Change the side to move.
         self.to_move = us;
@@ -794,7 +790,7 @@ impl Board {
     /// en-passant square while the king would be in check if the
     /// passing pawn is moved back to its original position.
     fn is_legal(&self) -> bool {
-        if self.to_move > 1 || self.en_passant_file > NO_ENPASSANT_FILE {
+        if self.to_move > 1 || self.en_passant_file > 8 {
             return false;
         }
         let us = self.to_move;
@@ -1020,7 +1016,7 @@ impl Board {
     /// en-passant target square if there is one.
     #[inline(always)]
     fn en_passant_bb(&self) -> Bitboard {
-        if self.en_passant_file >= NO_ENPASSANT_FILE {
+        if self.en_passant_file >= 8 {
             0
         } else if self.to_move == WHITE {
             1 << self.en_passant_file << 40
@@ -1177,10 +1173,6 @@ fn calc_pawn_dest_sets(us: Color,
     // pseudo-legal, a single push must be pseudo-legal too.
     dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
 }
-
-
-/// Indicates that en-passant capture is not possible.
-const NO_ENPASSANT_FILE: usize = 8;
 
 
 /// Bitboards that describe how the castling rook moves during the
