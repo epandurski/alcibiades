@@ -167,6 +167,7 @@ impl Board {
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
+        debug_assert!(square <= 63);
         let occupied_by_us = self.pieces.color[us];
         let square_bb = 1 << square;
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
@@ -875,6 +876,9 @@ impl Board {
                                  legal_dests: Bitboard,
                                  move_stack: &mut MoveStack) {
         debug_assert!(piece < PAWN);
+        debug_assert!(orig_square <= 63);
+        debug_assert!(legal_dests & self.pieces.color[self.to_move] == 0);
+
         let mut piece_legal_dests = legal_dests &
                                     self.geometry.attacks_from(piece, orig_square, self.occupied());
         while piece_legal_dests != 0 {
@@ -902,9 +906,12 @@ impl Board {
                                 legal_dests: Bitboard,
                                 only_queen_promotions: bool,
                                 move_stack: &mut MoveStack) {
-        let en_passant_bb = self.en_passant_bb();
-        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
+        debug_assert!(pawns & !self.pieces.piece_type[PAWN] == 0);
+        debug_assert!(pawns & !self.pieces.color[self.to_move] == 0);
+        debug_assert!(legal_dests & self.pieces.color[self.to_move] == 0);
+
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
+        let en_passant_bb = self.en_passant_bb();
         calc_pawn_dest_sets(self.to_move,
                             self.pieces.color[self.to_move],
                             self.pieces.color[1 ^ self.to_move],
@@ -914,6 +921,7 @@ impl Board {
 
         // Process each pawn move sub-type (push, double push, west
         // capture, east capture).
+        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
         for i in 0..4 {
             let mut pawn_legal_dests = dest_sets[i] & legal_dests;
 
@@ -1031,6 +1039,7 @@ impl Board {
     /// A helper method for `do_move`. It returns if the king of the
     /// side to move would be in check if moved to `square`.
     fn king_would_be_in_check(&self, square: Square) -> bool {
+        debug_assert!(square <= 63);
         let them = 1 ^ self.to_move;
         let occupied = self.occupied() & !(1 << self.king_square());
         let occupied_by_them = self.pieces.color[them];
