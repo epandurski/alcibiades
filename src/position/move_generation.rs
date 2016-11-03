@@ -1020,8 +1020,8 @@ impl Board {
         bitscan_1bit(self.pieces.piece_type[KING] & self.pieces.color[self.to_move])
     }
 
-    /// A helper method for `do_move`. It returns if the king of the
-    /// side to move would be in check if moved to `square`.
+    /// A helper method. It returns if the king of the side to move
+    /// would be in check if moved to `square`.
     fn king_would_be_in_check(&self, square: Square) -> bool {
         debug_assert!(square <= 63);
         let them = 1 ^ self.to_move;
@@ -1039,7 +1039,6 @@ impl Board {
         {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
             let square_bb = 1 << square;
-
             gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
             self.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8) != 0 ||
             gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
