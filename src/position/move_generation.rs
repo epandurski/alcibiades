@@ -487,7 +487,7 @@ impl Board {
             match dest_square_bb {
                 x if x == en_passant_bb => {
                     if move_type != MOVE_ENPASSANT ||
-                       !self.en_passant_special_check_ok(orig_square, dest_square) ||
+                       !self.en_passant_special_check_is_ok(orig_square, dest_square) ||
                        promoted_piece_code != 0 {
                         debug_assert!(generated_move.is_none());
                         return None;
@@ -930,7 +930,7 @@ impl Board {
 
                     // en-passant capture
                     x if x == en_passant_bb => {
-                        if self.en_passant_special_check_ok(orig_square, dest_square) {
+                        if self.en_passant_special_check_is_ok(orig_square, dest_square) {
                             move_stack.push(Move::new(MOVE_ENPASSANT,
                                                       PAWN,
                                                       orig_square,
@@ -959,7 +959,7 @@ impl Board {
                         }
                     }
 
-                    // normal move
+                    // normal pawn move
                     _ => {
                         move_stack.push(Move::new(MOVE_NORMAL,
                                                   PAWN,
@@ -1016,10 +1016,8 @@ impl Board {
     fn en_passant_bb(&self) -> Bitboard {
         if self.en_passant_file >= 8 {
             0
-        } else if self.to_move == WHITE {
-            1 << self.en_passant_file << 40
         } else {
-            1 << self.en_passant_file << 16
+            [1 << A6, 1 << A3][self.to_move] << self.en_passant_file
         }
     }
 
@@ -1078,7 +1076,7 @@ impl Board {
     /// from the 4/5-th rank in one move, discover a check along this
     /// rank. `orig_square` and `dist_square` are the origin and
     /// destination squares of the capturing pawn.
-    fn en_passant_special_check_ok(&self, orig_square: Square, dest_square: Square) -> bool {
+    fn en_passant_special_check_is_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if rank(king_square) == rank(orig_square) {
             let pawn1_bb = 1 << orig_square;
