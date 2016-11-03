@@ -197,12 +197,11 @@ impl Board {
     pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
         // All generated moves with pieces other than the king will be
         // legal. It is possible that some of the king's moves are
-        // illegal because the destination square is under check, or
-        // when castling, king's passing square is attacked. This is
-        // so because verifying that these squares are not under
-        // attack is quite expensive, and therefore we hope that the
-        // alpha-beta pruning will eliminate the need for this
-        // verification at all.
+        // illegal because the destination square is under
+        // attack. This is so because verifying that this square is
+        // not under attack is quite expensive, and therefore we hope
+        // that the alpha-beta pruning will eliminate the need for
+        // this verification.
 
         let king_square = self.king_square();
         let checkers = self.checkers();
@@ -308,22 +307,19 @@ impl Board {
         }
 
         // Generate king moves (pseudo-legal, possibly moving into
-        // check or passing through an attacked square when
-        // castling). This is executed even when the king is in double
+        // check). This is executed even when the king is in double
         // check.
         let king_dests = if generate_all_moves {
-            if checkers == 0 {
-                for side in 0..2 {
-                    if self.castling_obstacles(side) == 0 {
-                        move_stack.push(Move::new(MOVE_CASTLING,
-                                                  KING,
-                                                  king_square,
-                                                  [[C1, C8], [G1, G8]][side][self.to_move],
-                                                  NO_PIECE,
-                                                  self.en_passant_file,
-                                                  self.castling,
-                                                  0));
-                    }
+            for side in 0..2 {
+                if self.can_castle(side) {
+                    move_stack.push(Move::new(MOVE_CASTLING,
+                                              KING,
+                                              king_square,
+                                              [[C1, C8], [G1, G8]][side][self.to_move],
+                                              NO_PIECE,
+                                              self.en_passant_file,
+                                              self.castling,
+                                              0));
                 }
             }
             !occupied_by_us
@@ -401,7 +397,7 @@ impl Board {
             } else {
                 KINGSIDE
             };
-            if checkers != 0 || self.castling_obstacles(side) != 0 || orig_square != king_square ||
+            if !self.can_castle(side) || orig_square != king_square ||
                dest_square != [[C1, C8], [G1, G8]][side][self.to_move] ||
                promoted_piece_code != 0 {
                 debug_assert!(generated_move.is_none());
@@ -590,10 +586,6 @@ impl Board {
 
         // Move the rook if the move is castling.
         if move_type == MOVE_CASTLING {
-            if self.king_would_be_in_check((orig_square + dest_square) >> 1) {
-                return None;  // king's passing square is attacked -- illegal move
-            }
-
             let side = if dest_square > orig_square {
                 KINGSIDE
             } else {
@@ -1090,19 +1082,15 @@ impl Board {
         true
     }
 
-    /// A helper method. It returns a bitboard with the set of pieces
-    /// that prevent the side to move to castle on a given `side`.
+    /// A helper method. It returns if castling on a given `side` is
+    /// pseudo-legal.
     #[inline(always)]
-    fn castling_obstacles(&self, side: CastlingSide) -> Bitboard {
+    fn can_castle(&self, side: CastlingSide) -> bool {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        if self.castling.can_castle(self.to_move, side) {
-            self.occupied() & BETWEEN[self.to_move][side]
-        } else {
-            // The king or the rook has been moved, therefore every
-            // piece on the board can be considered an obstacle.
-            self.occupied()
-        }
+        self.castling.can_castle(self.to_move, side) &&
+        self.occupied() & BETWEEN[self.to_move][side] == 0 && self.checkers() == 0 &&
+        !self.king_would_be_in_check([[D1, F1], [D8, F8]][self.to_move][side])
     }
 }
 
@@ -1381,7 +1369,7 @@ mod tests {
 
         let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
-        assert_eq!(stack.count(), 19 + 7);
+        assert_eq!(stack.count(), 19 + 5);
         stack.clear();
 
         let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1").ok().unwrap();
