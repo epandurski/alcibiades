@@ -764,23 +764,26 @@ impl Board {
     ///
     /// In addition to the obviously wrong boards (that for example
     /// declare some pieces having no or more than one color), there
-    /// are many chess boards that are impossible to create from the
-    /// starting chess position. Here we are interested to detect and
-    /// guard against only those of the cases that have a chance of
-    /// disturbing some of our explicit and unavoidably, implicit
-    /// presumptions about what a chess position is when writing the
-    /// code.
+    /// are many chess boards that are impossible to create by normal
+    /// play. Here we are interested only to guard against those of
+    /// the cases that can invalidate our assumptions about what a
+    /// "normal" chess position is when writing the code.
     ///
-    /// Invalid boards: 1. having more or less than 1 king from each
-    /// color; 2. having more than 8 pawns of a color; 3. having more
-    /// than 16 pieces (and pawns) of one color; 4. having the side
-    /// not to move in check; 5. having pawns on ranks 1 or 8;
+    /// Illegal boards:
+    ///
+    /// 1. having more or less than 1 king from each color;
+    /// 2. having more than 8 pawns of a color;
+    /// 3. having more than 16 pieces (and pawns) of one color;
+    /// 4. having the side not to move in check;
+    /// 5. having pawns on ranks 1 or 8;
     /// 6. having castling rights when the king or the corresponding
-    /// rook is not on its initial square; 7. having an en-passant
-    /// square that is not having a pawn of corresponding color
-    /// before, and an empty square on it and behind it; 8. having an
-    /// en-passant square while the king would be in check if the
-    /// passing pawn is moved back to its original position.
+    ///    rook is not on its initial square;
+    /// 7. having an en-passant square that is not having a pawn of
+    ///    corresponding color before, and an empty square on it and
+    ///    behind it;
+    /// 8. having an en-passant square while the king would be in
+    ///    check if the passing pawn is moved back to its original
+    ///    position.
     fn is_legal(&self) -> bool {
         if self.to_move > 1 || self.en_passant_file > 8 {
             return false;
