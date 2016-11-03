@@ -781,9 +781,9 @@ impl Board {
     /// 7. having an en-passant square that is not having a pawn of
     ///    corresponding color before, and an empty square on it and
     ///    behind it;
-    /// 8. having an en-passant square while the king would be in
-    ///    check if the passing pawn is moved back to its original
-    ///    position.
+    /// 8. having an en-passant square while the king of the side to
+    ///    move would be in check if the passing pawn is moved back to
+    ///    its original position.
     fn is_legal(&self) -> bool {
         if self.to_move > 1 || self.en_passant_file > 8 {
             return false;
