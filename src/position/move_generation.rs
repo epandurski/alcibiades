@@ -571,7 +571,9 @@ impl Board {
             old_hash = self.calc_hash();
         }
 
-        // Verify if the move will leave the king in check.
+        // Verify if the move will leave the king in check. (We are
+        // certain that all the moves that we generate with pieces
+        // other than the king do not leave the king in check.)
         if piece == KING {
             if orig_square != dest_square {
                 if self.king_would_be_in_check(dest_square) {
