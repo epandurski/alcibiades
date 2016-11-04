@@ -299,24 +299,6 @@ impl Tt {
         None
     }
 
-    /// Peeks for data by a specific key.
-    ///
-    /// This method does the same as `probe`, except it will never
-    /// write to the transposition table. This is useful, for example,
-    /// when we want to extract the primary variation from the the
-    /// transposition table, without affecting any entries in the
-    /// table.
-    #[inline]
-    pub fn peek(&self, key: u64) -> Option<TtEntry> {
-        let cluster = unsafe { self.cluster_mut(key) };
-        for record in cluster.iter_mut() {
-            if record.key ^ record.data.as_u64() == key {
-                return Some(record.data);
-            }
-        }
-        None
-    }
-
     /// Removes all entries in the table.
     pub fn clear(&self) {
         let table = unsafe { &mut *self.table.get() };

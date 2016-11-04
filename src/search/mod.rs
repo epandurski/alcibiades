@@ -713,7 +713,7 @@ pub fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
     let mut leaf_bound = BOUND_LOWER;
     let mut pv_moves = Vec::new();
 
-    'move_extraction: while let Some(entry) = tt.peek(p.hash()) {
+    'move_extraction: while let Some(entry) = tt.probe(p.hash()) {
         if entry.bound() != BOUND_NONE {
             // Get the next value and the bound type. (Note that in
             // half of the cases the value stored in `entry` is from
