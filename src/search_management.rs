@@ -14,20 +14,22 @@ pub struct SearchStatus {
     /// The starting time for the search.
     pub started_at: SystemTime,
 
-    /// The starting (root) position for the search.
+    /// The root position for the search.
     pub position: Position,
 
-    /// `true` if the search has stopped, `false` otherwise.
+    /// `true` if the search is done, `false` otherwise.
     pub done: bool,
 
-    /// The reached search depth.
+    /// The search depth completed so far.
     pub depth: u8,
 
-    /// The number of legal moves in the starting (root) position.
-    pub legal_moves_count: usize,
+    /// The number of first moves (from the root position) that are
+    /// being considered.
+    pub searchmoves_count: usize,
 
-    /// The best variations found so far. The first move in each
-    /// variation will be different.
+    /// The best variations found so far, sorted by descending first
+    /// move strength. (The first move in each variation will be
+    /// different.)
     pub variations: Vec<Variation>,
 
     /// The duration of the search in milliseconds.
@@ -64,7 +66,7 @@ impl SearchThread {
                                      bound: BOUND_LOWER,
                                      moves: vec![],
                                  }],
-                legal_moves_count: 20,
+                searchmoves_count: 20,
                 searched_nodes: 0,
                 duration_millis: 0,
                 nps: 0,
@@ -84,45 +86,49 @@ impl SearchThread {
     /// list is empty). The move format is long algebraic
     /// notation. Examples: e2e4, e7e5, e1g1 (white short castling),
     /// e7e8q (for promotion).
-    #[allow(unused_variables)]
     pub fn search(&mut self,
                   position: &Position,
                   variation_count: usize,
                   mut searchmoves: Vec<String>) {
-        let mut legal_moves = position.legal_moves();
-        let legal_moves_count = legal_moves.len();
-
-        // Remove all legal moves not allowed by `searchmoves`.
+        // Validate `searchmoves`.
+        let mut moves = vec![];
+        let legal_moves = position.legal_moves();
         if !searchmoves.is_empty() {
             searchmoves.sort();
-            let mut moves = vec![];
             for m in legal_moves.iter() {
                 if searchmoves.binary_search(&m.notation()).is_ok() {
                     moves.push(*m);
                 }
             }
-            if !moves.is_empty() {
-                legal_moves = moves;
-            }
         };
+        let searchmoves = if moves.is_empty() {
+            legal_moves
+        } else {
+            moves
+        };
+        let searchmoves_count = searchmoves.len();
 
+        // Terminate the currently running search.
         self.stop();
+
+        // Start a new search.
         self.searcher.start_search(SearchParams {
             search_id: 0,
             position: position.clone(),
             depth: MAX_DEPTH,
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
-            searchmoves: legal_moves,
+            searchmoves: searchmoves,
             variation_count: variation_count,
         });
 
+        // Update the status.
         self.status = SearchStatus {
             started_at: SystemTime::now(),
             position: position.clone(),
             done: false,
             depth: 0,
-            legal_moves_count: legal_moves_count,
+            searchmoves_count: searchmoves_count,
             variations: vec![Variation {
                                  value: VALUE_MIN,
                                  bound: BOUND_LOWER,
