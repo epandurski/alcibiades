@@ -11,23 +11,23 @@ use search::*;
 
 /// Contains information about the current progress of a search.
 pub struct SearchStatus {
-    /// The starting time for the search.
-    pub started_at: SystemTime,
-
     /// `true` if the search is done, `false` otherwise.
     pub done: bool,
 
     /// The search depth completed so far.
     pub depth: u8,
 
-    /// The number of different first moves (from the root position)
-    /// that are being considered.
+    /// The number of different first moves that are being considered
+    /// (from the root position).
     pub searchmoves_count: usize,
 
     /// The best variations found so far, sorted by descending first
-    /// move strength. (The first move in each variation will be
-    /// different.)
+    /// move strength. The first move in each variation will be
+    /// different.
     pub variations: Vec<Variation>,
+
+    /// The starting time for the search.
+    pub started_at: SystemTime,
 
     /// The duration of the search in milliseconds.
     pub duration_millis: u64,
@@ -56,7 +56,6 @@ impl SearchThread {
             tt: tt.clone(),
             position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
             status: SearchStatus {
-                started_at: SystemTime::now(),
                 done: true,
                 depth: 0,
                 variations: vec![Variation {
@@ -66,6 +65,7 @@ impl SearchThread {
                                  }],
                 searchmoves_count: 20,
                 searched_nodes: 0,
+                started_at: SystemTime::now(),
                 duration_millis: 0,
                 nps: 0,
             },
@@ -112,7 +112,6 @@ impl SearchThread {
 
         // Update the status.
         self.status = SearchStatus {
-            started_at: SystemTime::now(),
             done: false,
             depth: 0,
             searchmoves_count: searchmoves.len(),
@@ -122,6 +121,7 @@ impl SearchThread {
                                  moves: searchmoves.first().map_or(vec![], |m| vec![*m]),
                              }],
             searched_nodes: 0,
+            started_at: SystemTime::now(),
             duration_millis: 0,
             ..self.status
         };
