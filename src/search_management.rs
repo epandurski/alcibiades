@@ -74,8 +74,8 @@ impl SearchThread {
         }
     }
 
-    /// Stops the current search, starts a new search, updates the
-    /// status.
+    /// Terminates the currently running search (if any), starts a new
+    /// search, updates the status.
     ///
     /// `position` is the starting position for the new
     /// search. `variation_count` specifies how many best lines of
@@ -135,9 +135,8 @@ impl SearchThread {
         };
     }
 
-    /// Stops the current search, updates the status.
-    ///
-    /// Does nothing if the current search is already stopped.
+    /// Terminates the currently running search (if any), updates the
+    /// status.
     pub fn stop(&mut self) {
         self.searcher.terminate_search();
         while !self.status().done {
