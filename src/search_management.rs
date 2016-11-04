@@ -49,7 +49,6 @@ pub struct SearchThread {
     searcher: DeepeningSearcher<MultipvSearcher<AlphabetaSearcher>>,
 }
 
-
 impl SearchThread {
     /// Creates a new instance.
     pub fn new(tt: Arc<Tt>) -> SearchThread {
@@ -189,7 +188,6 @@ pub struct TimeManager {
     move_time_millis: u64, // move time in milliseconds
     must_play: bool,
 }
-
 
 impl TimeManager {
     /// Creates a new instance.
