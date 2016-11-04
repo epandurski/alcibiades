@@ -9,9 +9,8 @@ pub mod position;
 pub mod search;
 pub mod uci;
 pub mod tt;
-pub mod time_manager;
 pub mod notation;
-pub mod utils;
+pub mod search_management;
 
 use std::process::exit;
 use std::sync::Arc;
@@ -22,9 +21,7 @@ use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::{Position, START_POSITION_FEN};
 use search::Variation;
 use uci::{UciEngine, UciEngineFactory};
-use utils::{SearchStatus, SearchThread};
-use time_manager::TimeManager;
-
+use search_management::{SearchThread, SearchStatus, TimeManager};
 
 /// The version of the program.
 pub const VERSION: &'static str = "0.1";
