@@ -85,7 +85,7 @@
 pub mod alpha_beta;
 mod threading;
 
-use std::cmp::{min, max};
+use std::cmp::{min, max, Ordering};
 use std::time::Duration;
 use std::thread;
 use std::sync::{Arc, Mutex, Condvar};
@@ -706,72 +706,55 @@ pub struct Variation {
 /// Extracts the primary variation for a given position from the
 /// transposition table and returns it.
 pub fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
-    // A sufficiently small value (in centipawns).
-    const EPSILON: Value = 8;
-
     let mut p = position.clone();
     let mut our_turn = true;
-    let mut prev_move = None;
+    let mut root_value = VALUE_UNKNOWN;
     let mut leaf_value = -9999;
-    let mut root_value = leaf_value;
-    let mut bound = BOUND_LOWER;
+    let mut leaf_bound = BOUND_LOWER;
     let mut pv_moves = Vec::new();
 
     'move_extraction: while let Some(entry) = tt.peek(p.hash()) {
         if entry.bound() != BOUND_NONE {
-            // Get the value and the bound type. In half of the
-            // cases the value stored in `entry` is from other
-            // side's perspective.
+            // Get the next value and the bound type. (Note that in
+            // half of the cases the value stored in `entry` is from
+            // other side's perspective. Also, note that we chop
+            // values under -9999 or over 9999.)
             if our_turn {
                 leaf_value = entry.value();
-                bound = entry.bound();
+                leaf_bound = entry.bound();
             } else {
                 leaf_value = -entry.value();
-                bound = match entry.bound() {
+                leaf_bound = match entry.bound() {
                     BOUND_UPPER => BOUND_LOWER,
                     BOUND_LOWER => BOUND_UPPER,
                     x => x,
                 };
             }
-
-            // Chop values under -9999 or over 9999.
-            if leaf_value > 9999 {
+            debug_assert!(leaf_value != VALUE_UNKNOWN);
+            if leaf_value <= -9999 {
+                leaf_value = -9999;
+                if leaf_bound == BOUND_UPPER {
+                    leaf_bound = BOUND_EXACT
+                }
+            } else if leaf_value >= 9999 {
                 leaf_value = 9999;
-                if bound == BOUND_LOWER {
-                    bound = BOUND_EXACT
+                if leaf_bound == BOUND_LOWER {
+                    leaf_bound = BOUND_EXACT
                 }
             }
-            if leaf_value < -9999 {
-                leaf_value = 9999;
-                if bound == BOUND_UPPER {
-                    bound = BOUND_EXACT
-                }
-            }
-
-            if let Some(m) = prev_move {
-                // Extend the PV with the move extracted during the
-                // previous iteration of the loop.
-                pv_moves.push(m);
-            } else {
-                // We are still at the root -- set the root value.
+            if root_value == VALUE_UNKNOWN {
                 root_value = leaf_value;
             }
 
             // Continue the move extraction cycle until `depth` is
-            // reached or `leaf_value` has diverged too far from
-            // `root_value`. (We tolerate insignificant divergences,
-            // because the search usually continues to run in
-            // parallel.)
-            if pv_moves.len() < depth as usize && (leaf_value - root_value).abs() <= EPSILON {
+            // reached or `leaf_value` has diverged from `root_value`.
+            if pv_moves.len() < depth as usize && leaf_value == root_value {
                 if let Some(m) = p.try_move_digest(entry.move16()) {
                     if p.do_move(m) {
-                        if bound == BOUND_EXACT {
-                            prev_move = Some(m);
+                        pv_moves.push(m);
+                        if leaf_bound == BOUND_EXACT {
                             our_turn = !our_turn;
                             continue 'move_extraction;
-                        } else {
-                            // This is the last move in the PV.
-                            pv_moves.push(m);
                         }
                     }
                 }
@@ -780,17 +763,17 @@ pub fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
         break 'move_extraction;
     }
 
-    // Change the bound type if the value at the root of the PV
-    // differs from the value at the leaf by more than `EPSILON`.
-    bound = match leaf_value - root_value {
-        x if x > EPSILON && bound != BOUND_UPPER => BOUND_LOWER,
-        x if x < -EPSILON && bound != BOUND_LOWER => BOUND_UPPER,
-        _ => bound,
-    };
-
     Variation {
-        value: root_value,
-        bound: bound,
+        value: if root_value != VALUE_UNKNOWN {
+            root_value
+        } else {
+            leaf_value
+        },
+        bound: match leaf_value.cmp(&root_value) {
+            Ordering::Greater => BOUND_LOWER,
+            Ordering::Less => BOUND_UPPER,
+            Ordering::Equal => leaf_bound,
+        },
         moves: pv_moves,
     }
 }
