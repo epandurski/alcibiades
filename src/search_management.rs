@@ -106,10 +106,26 @@ impl SearchThread {
         } else {
             moves
         };
-        let searchmoves_count = searchmoves.len();
 
         // Terminate the currently running search.
         self.stop();
+
+        // Update the status.
+        self.status = SearchStatus {
+            started_at: SystemTime::now(),
+            position: position.clone(),
+            done: false,
+            depth: 0,
+            searchmoves_count: searchmoves.len(),
+            variations: vec![Variation {
+                                 value: VALUE_MIN,
+                                 bound: BOUND_LOWER,
+                                 moves: searchmoves.first().map_or(vec![], |m| vec![*m]),
+                             }],
+            searched_nodes: 0,
+            duration_millis: 0,
+            ..self.status
+        };
 
         // Start a new search.
         self.searcher.start_search(SearchParams {
@@ -121,23 +137,6 @@ impl SearchThread {
             searchmoves: searchmoves,
             variation_count: variation_count,
         });
-
-        // Update the status.
-        self.status = SearchStatus {
-            started_at: SystemTime::now(),
-            position: position.clone(),
-            done: false,
-            depth: 0,
-            searchmoves_count: searchmoves_count,
-            variations: vec![Variation {
-                                 value: VALUE_MIN,
-                                 bound: BOUND_LOWER,
-                                 moves: vec![],
-                             }], // TODO: Set good initial value (vec![best_move]).
-            searched_nodes: 0,
-            duration_millis: 0,
-            ..self.status
-        };
     }
 
     /// Terminates the currently running search (if any), updates the
