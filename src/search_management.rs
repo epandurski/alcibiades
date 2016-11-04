@@ -88,6 +88,8 @@ impl SearchThread {
                   position: &Position,
                   variation_count: usize,
                   mut searchmoves: Vec<String>) {
+        self.position = position.clone();
+
         // Validate `searchmoves`.
         let mut moves = vec![];
         let legal_moves = position.legal_moves();
@@ -176,9 +178,7 @@ impl SearchThread {
                           (1000 + self.status.duration_millis);
         if self.status.depth < report.depth {
             self.status.depth = report.depth;
-            self.status.variations = vec![extract_pv(&self.tt,
-                                                     &self.position,
-                                                     report.depth)];
+            self.status.variations = vec![extract_pv(&self.tt, &self.position, report.depth)];
         }
         self.status.done = report.done;
     }
