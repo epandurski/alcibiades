@@ -14,17 +14,14 @@ pub struct SearchStatus {
     /// The starting time for the search.
     pub started_at: SystemTime,
 
-    /// The root position for the search.
-    pub position: Position,
-
     /// `true` if the search is done, `false` otherwise.
     pub done: bool,
 
     /// The search depth completed so far.
     pub depth: u8,
 
-    /// The number of first moves (from the root position) that are
-    /// being considered.
+    /// The number of different first moves (from the root position)
+    /// that are being considered.
     pub searchmoves_count: usize,
 
     /// The best variations found so far, sorted by descending first
@@ -47,6 +44,7 @@ pub struct SearchStatus {
 /// positions.
 pub struct SearchThread {
     tt: Arc<Tt>,
+    position: Position,
     status: SearchStatus,
     searcher: DeepeningSearcher<MultipvSearcher<AlphabetaSearcher>>,
 }
@@ -56,9 +54,9 @@ impl SearchThread {
     pub fn new(tt: Arc<Tt>) -> SearchThread {
         SearchThread {
             tt: tt.clone(),
+            position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
             status: SearchStatus {
                 started_at: SystemTime::now(),
-                position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
                 done: true,
                 depth: 0,
                 variations: vec![Variation {
@@ -113,7 +111,6 @@ impl SearchThread {
         // Update the status.
         self.status = SearchStatus {
             started_at: SystemTime::now(),
-            position: position.clone(),
             done: false,
             depth: 0,
             searchmoves_count: searchmoves.len(),
@@ -180,7 +177,7 @@ impl SearchThread {
         if self.status.depth < report.depth {
             self.status.depth = report.depth;
             self.status.variations = vec![extract_pv(&self.tt,
-                                                     &self.status.position,
+                                                     &self.position,
                                                      report.depth)];
         }
         self.status.done = report.done;
