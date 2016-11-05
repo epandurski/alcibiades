@@ -164,6 +164,8 @@ impl Move {
         debug_assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         debug_assert!(en_passant_file <= 0b1111);
         debug_assert!(promoted_piece_code <= 0b11);
+        debug_assert!(orig_square != dest_square ||
+                      move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
 
         // Captures get higher move scores than quiet moves.
         let mut score_shifted = if captured_piece == NO_PIECE {
@@ -237,7 +239,6 @@ impl Move {
     /// Returns the assigned move score.
     #[inline(always)]
     pub fn score(&self) -> usize {
-        debug_assert!(self.0 >> M_SHIFT_SCORE <= MAX_MOVE_SCORE);
         self.0 >> M_SHIFT_SCORE
     }
 
@@ -338,8 +339,6 @@ impl Move {
     /// for which the origin and destination squares are the same.
     #[inline]
     pub fn is_null(&self) -> bool {
-        debug_assert!(self.orig_square() != self.dest_square() ||
-                      self.captured_piece() == NO_PIECE);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 }
