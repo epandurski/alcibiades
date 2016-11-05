@@ -381,27 +381,22 @@ impl<F, E> Server<F, E>
             let mut reader = stdin.lock();
             let mut line = String::new();
             loop {
-                if let Ok(cmd) = match reader.read_line(&mut line) {
-                    Err(x) => return Err(x),
-                    Ok(0) => return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF")),
-                    Ok(_) => parse_uci_command(line.as_str()),
+                if let Ok(cmd) = match try!(reader.read_line(&mut line)) {
+                    0 => return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF")),
+                    _ => parse_uci_command(line.as_str()),
                 } {
                     if let UciCommand::Quit = cmd {
-                        // Stop the thread.
                         return Ok(());
                     }
-                    if tx.send(cmd).is_err() {
-                        // Normally, this should not happen.
-                        return Err(io::Error::new(ErrorKind::Other, "broken channel"));
-                    }
+                    tx.send(cmd).unwrap();
                 }
                 line.clear();
             }
         });
 
         'mainloop: loop {
-            // Read commands from the GUI, pass them to the engine.
-            'read_command: while let Some(cmd) = match rx.try_recv() {
+            // Try to receive commands from the GUI, pass them to the engine.
+            'read_commands: while let Some(cmd) = match rx.try_recv() {
                 Ok(cmd) => Some(cmd),
                 Err(TryRecvError::Empty) => None,
                 Err(TryRecvError::Disconnected) => break 'mainloop,
@@ -409,25 +404,24 @@ impl<F, E> Server<F, E>
                 let engine = if let Some(ref mut e) = self.engine {
                     e
                 } else {
-                    // Initialize the engine.
+                    // Initialize the engine. (The UCI specification
+                    // states that the "Hash" "setoption" command
+                    // should be the first command passed to the
+                    // engine.)
                     if let UciCommand::SetOption { ref name, ref value } = cmd {
-                        // The UCI specification states that the
-                        // "Hash" "setoption" command, should be the
-                        // first command passed to the engine.
                         if name == "Hash" {
                             let hash_size_mb = value.parse::<usize>().ok();
                             self.engine = Some(self.engine_factory.create(hash_size_mb));
-                            continue 'read_command;
+                            continue 'read_commands;
                         }
                     }
                     self.engine = Some(self.engine_factory.create(None));
                     self.engine.as_mut().unwrap()
                 };
 
-                // Pass the command to the engine.
+                // Pass the received command to the engine.
                 match cmd {
                     UciCommand::IsReady => {
-                        // We can reply to "isready" directly.
                         try!(write!(writer, "readyok\n"));
                         try!(writer.flush());
                     }
@@ -442,7 +436,7 @@ impl<F, E> Server<F, E>
 
                         // The "stop" command requires the engine to
                         // reply with a move immediately.
-                        break 'read_command;
+                        break 'read_commands;
                     }
                     UciCommand::UciNewGame => {
                         engine.new_game();
@@ -455,7 +449,7 @@ impl<F, E> Server<F, E>
                     }
                     UciCommand::Quit => panic!("This should never happen!"),
                 }
-            } // 'read_command
+            } // 'read_commands
 
             // Fetch engine replies to `stdout`.
             if let Some(ref mut engine) = self.engine {
@@ -483,7 +477,9 @@ impl<F, E> Server<F, E>
                         }
                     }
                     if reply_count >= 50 {
-                        // The engine have gone mad.
+                        // The engine is sending lots of replies, but
+                        // we should not forget to process GUI
+                        // commands as well.
                         break;
                     }
                 }
