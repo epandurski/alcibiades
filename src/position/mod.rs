@@ -140,7 +140,7 @@ impl Position {
         let mut p = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
         'played_move: for played_move in moves {
-            move_stack.clear_all();
+            move_stack.clear();
             p.board().generate_moves(true, &mut move_stack);
             for m in move_stack.iter() {
                 if played_move == m.notation() {
