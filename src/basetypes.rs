@@ -251,16 +251,17 @@ impl CastlingRights {
 
     /// Grants a given player the right to castle on a given side.
     ///
-    /// This method returns `true` if the player had the right to
-    /// castle on the given side before this method was called, and
-    /// `false` otherwise.
+    /// This method returns `true` if the player did not have the
+    /// right to castle on the given side before this method was
+    /// called, and `false` otherwise.
     pub fn grant(&mut self, player: Color, side: CastlingSide) -> bool {
         assert!(player <= 1);
         assert!(side <= 1);
-        let before = self.0;
-        let mask = 1 << (player << 1) << side;
-        self.0 |= mask;
-        !before & mask == 0
+        let rights_before = self.0;
+        let granted = 1 << (player << 1) << side;
+        self.0 |= granted;
+
+        granted & !rights_before != 0
     }
 
     /// Updates the castling rights after played move.
@@ -270,27 +271,26 @@ impl CastlingRights {
     pub fn update(&mut self, orig_square: Square, dest_square: Square) {
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
-
-        const WQ: usize = 1 << 0;
-        const WK: usize = 1 << 1;
-        const WB: usize = WQ | WK;
-        const BQ: usize = 1 << 2;
-        const BK: usize = 1 << 3;
-        const BB: usize = BQ | BK;
+        const WQ: usize = (1 << (WHITE << 1) << QUEENSIDE);
+        const WK: usize = (1 << (WHITE << 1) << KINGSIDE);
+        const W: usize = WQ | WK;
+        const BQ: usize = (1 << (BLACK << 1) << QUEENSIDE);
+        const BK: usize = (1 << (BLACK << 1) << KINGSIDE);
+        const B: usize = BQ | BK;
 
         // On each move, the value of `CASTLING_RELATION` for the
         // origin and destination squares should be AND-ed with the
         // castling rights value, to derive the updated castling
         // rights.
         const CASTLING_RELATION: [usize; 64] = [
-            !WQ, !0,  !0,  !0,  !WB, !0,  !0,  !WK,
+            !WQ, !0,  !0,  !0,  !W,  !0,  !0,  !WK,
             !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
             !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
             !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
             !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
             !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
             !0,  !0,  !0,  !0,  !0,  !0,  !0,  !0,
-            !BQ, !0,  !0,  !0,  !BB, !0,  !0,  !BK,
+            !BQ, !0,  !0,  !0,  !B,  !0,  !0,  !BK,
         ];
         self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }

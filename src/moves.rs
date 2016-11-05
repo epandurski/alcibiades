@@ -577,9 +577,9 @@ mod tests {
         assert_eq!(c.can_castle(BLACK, KINGSIDE), false);
         assert_eq!(c.value(), 0b0110);
         let granted = c.grant(BLACK, KINGSIDE);
-        assert_eq!(granted, false);
-        let granted = c.grant(BLACK, KINGSIDE);
         assert_eq!(granted, true);
+        let granted = c.grant(BLACK, KINGSIDE);
+        assert_eq!(granted, false);
         assert_eq!(c.value(), 0b1110);
     }
 

@@ -13,7 +13,6 @@ pub fn parse_square(s: &str) -> Result<Square, ParseError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
     }
-
     if RE.is_match(s) {
         let mut chars = s.chars();
         let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
@@ -66,26 +65,24 @@ pub fn parse_square(s: &str) -> Result<Square, ParseError> {
 pub fn parse_fen
     (s: &str)
      -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), ParseError> {
-
     let fileds: Vec<_> = s.split_whitespace().collect();
     if fileds.len() == 6 {
-        Ok((try!(parse_fen_piece_placement(fileds[0])),
-            try!(parse_fen_active_color(fileds[1])),
-            try!(parse_fen_castling_rights(fileds[2])),
-            try!(parse_fen_enpassant_square(fileds[3])),
-            try!(fileds[4].parse::<u8>().map_err(|_| ParseError)),
-            match try!(fileds[5].parse::<u16>().map_err(|_| ParseError)) {
-            x @ 1...9000 => x,
-            _ => return Err(ParseError),
-        }))
-    } else {
-        Err(ParseError)
+        let halfmove_clock = try!(fileds[4].parse::<u8>().map_err(|_| ParseError));
+        let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| ParseError));
+        if let 1...9000 = fullmove_number {
+            return Ok((try!(parse_fen_piece_placement(fileds[0])),
+                       try!(parse_fen_active_color(fileds[1])),
+                       try!(parse_fen_castling_rights(fileds[2])),
+                       try!(parse_fen_enpassant_square(fileds[3])),
+                       halfmove_clock,
+                       fullmove_number));
+        }
     }
+    Err(ParseError)
 }
 
 
 fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
-
     // These are the possible productions in the grammar.
     enum Token {
         Piece(Color, PieceType),
@@ -103,9 +100,8 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
         color: [0u64; 2],
     };
 
-    // Parse `s` character by character, updating `pieces` accordingly.
+    // Then we read `s` character by character, updating `pieces`.
     for c in s.chars() {
-
         let token = match c {
             'K' => Token::Piece(WHITE, KING),
             'Q' => Token::Piece(WHITE, QUEEN),
@@ -123,7 +119,6 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
             '/' => Token::Separator,
             _ => return Err(ParseError),
         };
-
         match token {
             Token::Piece(color, piece_type) => {
                 if file > 7 {
@@ -151,7 +146,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
         }
     }
 
-    // Ensure that the piece placement field had the exact length.
+    // Make sure that all squares were initialized.
     if file != 8 || rank != 0 {
         return Err(ParseError);
     }
@@ -170,48 +165,29 @@ fn parse_fen_active_color(s: &str) -> Result<Color, ParseError> {
 
 
 fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
-
-    // We start with no caltling allowed.
     let mut rights = CastlingRights::new(0);
-
-    // Then we parse the content and grant the castling rights.
     if s != "-" {
         for c in s.chars() {
-            match c {
-                'K' => {
-                    if rights.grant(WHITE, KINGSIDE) {
-                        return Err(ParseError);
-                    }
-                }
-                'Q' => {
-                    if rights.grant(WHITE, QUEENSIDE) {
-                        return Err(ParseError);
-                    }
-                }
-                'k' => {
-                    if rights.grant(BLACK, KINGSIDE) {
-                        return Err(ParseError);
-                    }
-                }
-                'q' => {
-                    if rights.grant(BLACK, QUEENSIDE) {
-                        return Err(ParseError);
-                    }
-                }
-                _ => {
-                    return Err(ParseError);
-                }
+            let (color, side) = match c {
+                'K' => (WHITE, KINGSIDE),
+                'Q' => (WHITE, QUEENSIDE),
+                'k' => (BLACK, KINGSIDE),
+                'q' => (BLACK, QUEENSIDE),
+                _ => return Err(ParseError),
             };
+            if !rights.grant(color, side) {
+                return Err(ParseError);
+            }
         }
     }
-
     Ok(rights)
 }
 
 
 fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, ParseError> {
-    match s {
-        "-" => Ok(None),
-        _ => Ok(Some(try!(parse_square(s).map_err(|_| ParseError)))),
-    }
+    Ok(if s == "-" {
+        None
+    } else {
+        Some(try!(parse_square(s)))
+    })
 }
