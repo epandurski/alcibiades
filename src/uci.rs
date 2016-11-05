@@ -451,8 +451,8 @@ impl<F, E> Server<F, E>
                 }
             } // 'read_commands
 
-            // Fetch engine replies to `stdout`.
             if let Some(ref mut engine) = self.engine {
+                // Wait for engine replies, fetch them to `stdout`.
                 let mut reply_count = 0;
                 while let Some(reply) = engine.wait_for_reply(Duration::from_millis(25)) {
                     reply_count += 1;
@@ -476,7 +476,7 @@ impl<F, E> Server<F, E>
                             }
                         }
                     }
-                    if reply_count >= 50 {
+                    if reply_count >= 40 {
                         // The engine is sending lots of replies, but
                         // we should not forget to process GUI
                         // commands as well.
@@ -484,12 +484,10 @@ impl<F, E> Server<F, E>
                     }
                 }
                 try!(writer.flush());
-
             } else {
                 // The engine is not initialized yet.
                 sleep(Duration::from_millis(25));
             }
-
         } // 'mainloop
 
         // End the UCI session.
