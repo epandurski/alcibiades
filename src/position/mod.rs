@@ -139,16 +139,15 @@ impl Position {
                         -> Result<Position, IllegalPosition> {
         let mut p = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
-        'played_move: for played_move in moves {
+        'played_moves: for played_move in moves {
             move_stack.clear();
             p.board().generate_moves(true, &mut move_stack);
             for m in move_stack.iter() {
                 if played_move == m.notation() {
                     if p.do_move(*m) {
-                        continue 'played_move;
-                    } else {
-                        return Err(IllegalPosition);
+                        continue 'played_moves;
                     }
+                    break;
                 }
             }
             return Err(IllegalPosition);
