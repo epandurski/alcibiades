@@ -84,6 +84,58 @@ enum UciCommand {
 }
 
 
+/// Parameters for `UciCommand::Go`.
+struct GoParams {
+    /// Restricts the search to a subset of moves only. The move
+    /// format is long algebraic notation. Examples: `e2e4`, `e7e5`,
+    /// `e1g1` (white short castling), `e7e8q` (for promotion).
+    searchmoves: Vec<String>,
+
+    /// Starts searching in pondering mode. The last move sent in in
+    /// the `Position { moves, .. }` string is the ponder move. The
+    /// engine can do what it wants to do, but after a `PonderHit`
+    /// command it should execute the suggested move to ponder
+    /// on. This means that the ponder move sent by the GUI can be
+    /// interpreted as a recommendation about which move to
+    /// ponder. However, if the engine decides to ponder on a
+    /// different move, it should not display any mainlines as they
+    /// are likely to be misinterpreted by the GUI because the GUI
+    /// expects the engine to ponder on the suggested move.
+    ponder: bool,
+
+    /// Milliseconds left on white's clock.
+    wtime: Option<u64>,
+
+    /// Milliseconds left on black's clock.
+    btime: Option<u64>,
+
+    /// White increment per move in milliseconds.
+    winc: Option<u64>,
+
+    /// Black increment per move in milliseconds.
+    binc: Option<u64>,
+
+    /// The number of moves to the next time control.
+    movestogo: Option<u64>,
+
+    /// Search to this depth (plies) only.
+    depth: Option<u64>,
+
+    /// Search that many nodes only.
+    nodes: Option<u64>,
+
+    /// Search for a mate in that many moves.
+    mate: Option<u64>,
+
+    /// Search for exactly that many milliseconds.
+    movetime: Option<u64>,
+
+    /// Search until the `Stop` command. Do not exit the search
+    /// without being told so in this mode!
+    infinite: bool,
+}
+
+
 /// A reply from the engine to the GUI.
 ///
 /// The engine reply is either a best move found, or a new/updated
@@ -166,6 +218,131 @@ pub enum OptionDescription {
         default: String,
     },
     Button,
+}
+
+
+/// UCI-compatible chess engine factory.
+pub trait UciEngineFactory<E: UciEngine> {
+    /// Returns the name of the engine.
+    fn name(&self) -> String;
+
+    /// Returns the author of the engine.
+    fn author(&self) -> String;
+
+    /// Returns all configuration options supported by the engine.
+    ///
+    /// The GUI will use this information to configure the
+    /// engine. Most commonly it will build a dialog box according to
+    /// the received option names and descriptions so that GUI users
+    /// can configure the engine themselves.
+    fn options(&self) -> Vec<(OptionName, OptionDescription)>;
+
+    /// Returns a fully initialized engine.
+    ///
+    /// `hash_size_mb` is the preferred total size of the hash tables
+    /// in Mbytes.
+    fn create(&self, hash_size_mb: Option<usize>) -> E;
+}
+
+
+/// UCI-compatible chess engine.
+///
+/// Except the method `wait_for_reply`, the methods in this trait
+/// **must not** block the current thread.
+pub trait UciEngine {
+    /// Sets a new value for a given configuration option.
+    fn set_option(&mut self, name: &str, value: &str);
+
+    /// Tells the engine that the next position will be from a
+    /// different game.
+    ///
+    /// In practice, this method will clear the transposition tables.
+    fn new_game(&mut self);
+
+    /// Loads a new chess position.
+    /// 
+    /// `fen` will be the position represented in Forsyth–Edwards
+    /// notation. `moves` is an iterator over the moves played from
+    /// the given position. The move format is long algebraic
+    /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
+    /// castling), `e7e8q` (for promotion).
+    fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
+
+    /// Tells the engine to start thinking.
+    ///
+    /// Engine's thinking can be influenced by many parameters:
+    /// 
+    /// * *searchmoves:* Restricts the search to a subset of moves
+    ///   only. The move format is long algebraic notation. Examples:
+    ///   `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
+    ///   promotion).
+    /// 
+    /// * *ponder:* Starts searching in pondering mode. The last move
+    ///   sent in in the position string is the ponder move. The
+    ///   engine can do what it wants to do, but after a
+    ///   `ponder_hit()` command it should execute the suggested move
+    ///   to ponder on. This means that the ponder move sent by the
+    ///   GUI can be interpreted as a recommendation about which move
+    ///   to ponder. However, if the engine decides to ponder on a
+    ///   different move, it should not display any mainlines as they
+    ///   are likely to be misinterpreted by the GUI because the GUI
+    ///   expects the engine to ponder on the suggested move.
+    ///      
+    /// * *wtime:* Milliseconds left on the white's clock.
+    /// 
+    /// * *btime:* Milliseconds left on the black's clock.
+    /// 
+    /// * *winc:* White increment per move in milliseconds.
+    /// 
+    /// * *binc:* Black increment per move in milliseconds.
+    /// 
+    /// * *movestogo:* The number of moves to the next time control.
+    /// 
+    /// * *depth:* Search to this depth (plies) only.
+    /// 
+    /// * *nodes:* Search that many nodes only.
+    /// 
+    /// * *mate:* Search for a mate in that many moves.
+    /// 
+    /// * *movetime:* Search for exactly that many milliseconds.
+    /// 
+    /// * *infinite:* Search until the `stop()` command. Do not exit
+    ///   the search without being told so in this mode!
+    fn go(&mut self,
+          searchmoves: Vec<String>,
+          ponder: bool,
+          wtime: Option<u64>,
+          btime: Option<u64>,
+          winc: Option<u64>,
+          binc: Option<u64>,
+          movestogo: Option<u64>,
+          depth: Option<u64>,
+          nodes: Option<u64>,
+          mate: Option<u64>,
+          movetime: Option<u64>,
+          infinite: bool);
+
+    /// Forces the engine to stop thinking and reply with the best
+    /// move it had found.
+    fn stop(&mut self);
+
+    /// Tells the engine that the move it is pondering on was played
+    /// on the board.
+    ///
+    /// Pondering is using the opponent's move time to consider likely
+    /// opponent moves and thus gain a pre-processing advantage when
+    /// it is our turn to move.
+    fn ponder_hit(&mut self);
+
+    /// Waits for an engine reply, timing out after a specified
+    /// duration or earlier.
+    fn wait_for_reply(&mut self, duration: Duration) -> Option<EngineReply>;
+
+    /// Terminates the engine permanently.
+    ///
+    /// After calling `exit`, no other methods on this instance should
+    /// be called.
+    fn exit(&mut self);
 }
 
 
@@ -396,148 +573,6 @@ impl<F, E> Server<F, E>
         }
         read_thread.join().unwrap()
     }
-}
-
-
-/// UCI-compatible chess engine factory.
-pub trait UciEngineFactory<E: UciEngine> {
-    /// Returns the name of the engine.
-    fn name(&self) -> String;
-
-    /// Returns the author of the engine.
-    fn author(&self) -> String;
-
-    /// Returns all configuration options supported by the engine.
-    ///
-    /// The GUI will use this information to configure the
-    /// engine. Most commonly it will build a dialog box according to
-    /// the received option names and descriptions so that GUI users
-    /// can configure the engine themselves.
-    fn options(&self) -> Vec<(OptionName, OptionDescription)>;
-
-    /// Returns a fully initialized engine.
-    ///
-    /// `hash_size_mb` is the preferred total size of the hash tables
-    /// in Mbytes.
-    fn create(&self, hash_size_mb: Option<usize>) -> E;
-}
-
-
-/// UCI-compatible chess engine.
-///
-/// Except the method `wait_for_reply`, the methods in this trait
-/// **must not** block the current thread.
-pub trait UciEngine {
-    /// Sets a new value for a given configuration option.
-    fn set_option(&mut self, name: &str, value: &str);
-
-    /// Tells the engine that the next position will be from a
-    /// different game.
-    ///
-    /// In practice, this method will clear the transposition tables.
-    fn new_game(&mut self);
-
-    /// Loads a new chess position.
-    /// 
-    /// `fen` will be the position represented in Forsyth–Edwards
-    /// notation. `moves` is an iterator over the moves played from
-    /// the given position. The move format is long algebraic
-    /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
-    /// castling), `e7e8q` (for promotion).
-    fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
-
-    /// Tells the engine to start thinking.
-    ///
-    /// Engine's thinking can be influenced by many parameters:
-    /// 
-    /// * *searchmoves:* Restricts the search to a subset of moves
-    ///   only. The move format is long algebraic notation. Examples:
-    ///   `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
-    ///   promotion).
-    /// 
-    /// * *ponder:* Starts searching in pondering mode. The last move
-    ///   sent in in the position string is the ponder move. The
-    ///   engine can do what it wants to do, but after a
-    ///   `ponder_hit()` command it should execute the suggested move
-    ///   to ponder on. This means that the ponder move sent by the
-    ///   GUI can be interpreted as a recommendation about which move
-    ///   to ponder. However, if the engine decides to ponder on a
-    ///   different move, it should not display any mainlines as they
-    ///   are likely to be misinterpreted by the GUI because the GUI
-    ///   expects the engine to ponder on the suggested move.
-    ///      
-    /// * *wtime:* Milliseconds left on the white's clock.
-    /// 
-    /// * *btime:* Milliseconds left on the black's clock.
-    /// 
-    /// * *winc:* White increment per move in milliseconds.
-    /// 
-    /// * *binc:* Black increment per move in milliseconds.
-    /// 
-    /// * *movestogo:* The number of moves to the next time control.
-    /// 
-    /// * *depth:* Search to this depth (plies) only.
-    /// 
-    /// * *nodes:* Search that many nodes only.
-    /// 
-    /// * *mate:* Search for a mate in that many moves.
-    /// 
-    /// * *movetime:* Search for exactly that many milliseconds.
-    /// 
-    /// * *infinite:* Search until the `stop()` command. Do not exit
-    ///   the search without being told so in this mode!
-    fn go(&mut self,
-          searchmoves: Vec<String>,
-          ponder: bool,
-          wtime: Option<u64>,
-          btime: Option<u64>,
-          winc: Option<u64>,
-          binc: Option<u64>,
-          movestogo: Option<u64>,
-          depth: Option<u64>,
-          nodes: Option<u64>,
-          mate: Option<u64>,
-          movetime: Option<u64>,
-          infinite: bool);
-
-    /// Forces the engine to stop thinking and reply with the best
-    /// move it had found.
-    fn stop(&mut self);
-
-    /// Tells the engine that the move it is pondering on was played
-    /// on the board.
-    ///
-    /// Pondering is using the opponent's move time to consider likely
-    /// opponent moves and thus gain a pre-processing advantage when
-    /// it is our turn to move.
-    fn ponder_hit(&mut self);
-
-    /// Waits for an engine reply, timing out after a specified
-    /// duration or earlier.
-    fn wait_for_reply(&mut self, duration: Duration) -> Option<EngineReply>;
-
-    /// Terminates the engine permanently.
-    ///
-    /// After calling `exit`, no other methods on this instance should
-    /// be called.
-    fn exit(&mut self);
-}
-
-
-/// Parameters for `UciCommand::Go`.
-struct GoParams {
-    searchmoves: Vec<String>,
-    ponder: bool,
-    wtime: Option<u64>,
-    btime: Option<u64>,
-    winc: Option<u64>,
-    binc: Option<u64>,
-    movestogo: Option<u64>,
-    depth: Option<u64>,
-    nodes: Option<u64>,
-    mate: Option<u64>,
-    movetime: Option<u64>,
-    infinite: bool,
 }
 
 
