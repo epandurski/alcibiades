@@ -216,10 +216,10 @@ impl Tt {
             }
 
             if staled < N {
-                // We exit the loop only if the staled records from
-                // this generation are not too many. (We may get too
-                // many staled records if, for example, a very long
-                // search was executed long time ago.)
+                // Note that we will continue to increment
+                // `self.generation` if the staled records from this
+                // generation are too many. (This may happen if a very
+                // long search was executed long time ago.)
                 break;
             }
         }
@@ -237,7 +237,7 @@ impl Tt {
         // additionally as usual.
 
         // Set entry's generation.
-        data.gen_bound |= self.generation.get();
+        data.gen_bound = self.generation.get() | data.bound();
 
         // Choose a slot to which to write the data. (Each cluster has
         // 4 slots.)
