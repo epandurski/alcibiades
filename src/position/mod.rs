@@ -769,33 +769,26 @@ impl Position {
     }
 
     /// A helper method for `from_history`. It removes all states but
-    /// the current one from `state_stack`, and forgets all
+    /// the last (current) one from `state_stack`, and forgets all
     /// encountered boards before the last irreversible move.
     fn declare_as_root(&mut self) {
         let state = *self.state();
         self.repeated_or_rule50 = false;
 
-        // Find the set of previously repeated, still reachable boards.
+        // Calculate the set of previously repeated, still reachable boards.
         let repeated_boards = {
-            // Forget all encountered boards before the last
-            // irreversible move.
+            // Forget all boards before the last irreversible move.
             let last_irrev = self.encountered_boards.len() - state.halfmove_clock as usize;
             self.encountered_boards = self.encountered_boards.split_off(last_irrev);
             self.encountered_boards.reserve(32);
 
-            // Because we assign a draw on the first repetition of the
-            // same position, we have to remove from
-            // `self.encountered_boards` all positions that occurred
-            // only once.
+            // Forget all boards that occurred only once.
             set_non_repeated_values(&mut self.encountered_boards, 0)
         };
 
-        // Calculate a single hash value representing the set of
-        // previously repeated, still reachable boards. (We will XOR
-        // this value with board's hash to obtain position's
-        // hash. That way, we guarantee that two positions that differ
-        // in their set of previously repeated, still reachable boards
-        // will have different hashes.)
+        // Calculate a collective hash value representing the set of
+        // previously repeated, still reachable boards. (We will use
+        // this value when calculating position's hash.)
         self.repeated_boards_hash = if repeated_boards.is_empty() {
             0
         } else {
@@ -901,13 +894,13 @@ thread_local!(
 const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
 
-/// Do not try exchanges with SEE==0 in `qsearch` once this ply has
-/// been reached.
+/// Exchanges with SEE==0 will not be tried in `qsearch` once this ply
+/// has been reached.
 const SEE_EXCHANGE_MAX_PLY: u8 = 2;
 
 
-/// Do not blend `halfmove_clock` into position's hash until it gets
-/// greater or equal to this number.
+/// `halfmove_clock` will not be blended into position's hash until it
+/// gets greater or equal to this number.
 const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
 
 
