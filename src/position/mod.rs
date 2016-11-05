@@ -768,21 +768,21 @@ impl Position {
         gain[0]
     }
 
-    /// A helper method for `from_history`. It removes all states but
-    /// the last (current) one from `state_stack`, and forgets all
-    /// encountered boards before the last irreversible move.
+    /// A helper method for `from_history`. It "forgets" the previous
+    /// playing history, preserving only the set of previously
+    /// repeated, still reachable boards.
     fn declare_as_root(&mut self) {
         let state = *self.state();
         self.repeated_or_rule50 = false;
 
         // Calculate the set of previously repeated, still reachable boards.
         let repeated_boards = {
-            // Forget all boards before the last irreversible move.
+            // Forget all encountered boards before the last irreversible move.
             let last_irrev = self.encountered_boards.len() - state.halfmove_clock as usize;
             self.encountered_boards = self.encountered_boards.split_off(last_irrev);
             self.encountered_boards.reserve(32);
 
-            // Forget all boards that occurred only once.
+            // Forget all encountered boards that occurred only once.
             set_non_repeated_values(&mut self.encountered_boards, 0)
         };
 
@@ -799,7 +799,7 @@ impl Position {
             hasher.finish()
         };
 
-        // Remove all states but the last one from `state_stack`.
+        // Forget all previously played moves.
         self.state_stack = vec![state];
         self.state_stack.reserve(32);
     }
