@@ -406,23 +406,22 @@ impl<F, E> Server<F, E>
                 Err(TryRecvError::Empty) => None,
                 Err(TryRecvError::Disconnected) => break 'mainloop,
             } {
-                // Initialize the engine if necessery.
-                let engine = match self.engine {
-                    None => {
+                let engine = if let Some(ref mut e) = self.engine {
+                    e
+                } else {
+                    // Initialize the engine.
+                    if let UciCommand::SetOption { ref name, ref value } = cmd {
                         // The UCI specification states that the
-                        // "Hash" `setoption` command, should be the
+                        // "Hash" "setoption" command, should be the
                         // first command passed to the engine.
-                        if let UciCommand::SetOption { ref name, ref value } = cmd {
-                            if name == "Hash" {
-                                self.engine = Some(self.engine_factory
-                                                       .create(value.parse::<usize>().ok()));
-                                continue 'read_command;
-                            }
+                        if name == "Hash" {
+                            let hash_size_mb = value.parse::<usize>().ok();
+                            self.engine = Some(self.engine_factory.create(hash_size_mb));
+                            continue 'read_command;
                         }
-                        self.engine = Some(self.engine_factory.create(None));
-                        self.engine.as_mut().unwrap()
                     }
-                    Some(ref mut x) => x,
+                    self.engine = Some(self.engine_factory.create(None));
+                    self.engine.as_mut().unwrap()
                 };
 
                 // Pass the command to the engine.
