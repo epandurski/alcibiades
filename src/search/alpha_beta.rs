@@ -376,7 +376,7 @@ impl<'a> Search<'a> {
             // We should not forget to remove the already tried hash
             // move from the list.
             if state.entry.move16() != 0 {
-                self.moves.remove_move(state.entry.move16());
+                self.moves.remove(state.entry.move16());
             }
 
             // We set new move scores to all captures and promotions
@@ -405,7 +405,7 @@ impl<'a> Search<'a> {
             // important.
             self.moves.pop()
         } else {
-            self.moves.remove_best_move()
+            self.moves.remove_best()
         } {
             // First -- the winning and even captures and promotions
             // to queen.
@@ -433,7 +433,7 @@ impl<'a> Search<'a> {
                     k1
                 };
                 if killer != 0 {
-                    if let Some(mut m) = self.moves.remove_move(killer) {
+                    if let Some(mut m) = self.moves.remove(killer) {
                         if self.position.do_move(m) {
                             m.set_score(Move::max_score());
                             return Some(m);

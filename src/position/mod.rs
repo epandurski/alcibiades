@@ -140,7 +140,7 @@ impl Position {
         let mut p = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
         'played_move: for played_move in moves {
-            move_stack.clear();
+            move_stack.clear_all();
             p.board().generate_moves(true, &mut move_stack);
             for m in move_stack.iter() {
                 if played_move == m.notation() {
@@ -585,7 +585,7 @@ impl Position {
 
         // Consider the generated moves one by one. See if any of them
         // can raise the lower bound.
-        while let Some(m) = move_stack.remove_best_move() {
+        while let Some(m) = move_stack.remove_best() {
             let move_type = m.move_type();
             let dest_square_bb = 1 << m.dest_square();
             let captured_piece = m.captured_piece();
@@ -1183,7 +1183,7 @@ mod tests {
                     .unwrap();
         let mut v = MoveStack::new();
         p.generate_moves(&mut v);
-        assert_eq!(v.count(), 5);
+        assert_eq!(v.len(), 5);
     }
 
     #[test]
@@ -1207,7 +1207,7 @@ mod tests {
             while let Some(m) = v.pop() {
                 if p.do_move(m) {
                     count += 1;
-                    v.clear();
+                    v.clear_all();
                     break;
                 }
             }

@@ -436,9 +436,15 @@ impl MoveStack {
         self.savepoints.len()
     }
 
-    /// Clears the current move list and deletes all saved move lists.
+    /// Clears the current move list, removing all moves from it.
     #[inline]
     pub fn clear(&mut self) {
+        self.moves.truncate(self.first_move_index);
+    }
+
+    /// Clears the current move list and deletes all saved move lists.
+    #[inline]
+    pub fn clear_all(&mut self) {
         self.moves.clear();
         self.savepoints.clear();
         self.first_move_index = 0;
@@ -446,7 +452,7 @@ impl MoveStack {
 
     /// Returns the number of moves in the current move list.
     #[inline]
-    pub fn count(&self) -> usize {
+    pub fn len(&self) -> usize {
         debug_assert!(self.moves.len() >= self.first_move_index);
         self.moves.len() - self.first_move_index
     }
@@ -477,7 +483,7 @@ impl MoveStack {
     /// move_digest`. Then it removes it from the current move list,
     /// and returns it. If such move is not found, `None` is returned.
     #[inline]
-    pub fn remove_move(&mut self, move_digest: MoveDigest) -> Option<Move> {
+    pub fn remove(&mut self, move_digest: MoveDigest) -> Option<Move> {
         debug_assert!(self.moves.len() >= self.first_move_index);
 
         // The last move in `self.moves` will take the place of the
@@ -509,7 +515,7 @@ impl MoveStack {
     ///
     /// Returns `None` if the current move list is empty.
     #[inline]
-    pub fn remove_best_move(&mut self) -> Option<Move> {
+    pub fn remove_best(&mut self) -> Option<Move> {
         debug_assert!(self.moves.len() >= self.first_move_index);
         let moves = &mut self.moves;
         if moves.len() > self.first_move_index {
@@ -673,20 +679,20 @@ mod tests {
                           CastlingRights::new(0),
                           0);
         let mut s = MoveStack::new();
-        assert!(s.remove_best_move().is_none());
+        assert!(s.remove_best().is_none());
         s.save();
         s.push(m);
-        assert_eq!(s.remove_best_move().unwrap(), m);
-        assert!(s.remove_best_move().is_none());
+        assert_eq!(s.remove_best().unwrap(), m);
+        assert!(s.remove_best().is_none());
         s.restore();
-        assert!(s.remove_best_move().is_none());
+        assert!(s.remove_best().is_none());
         s.push(m);
         s.push(m);
         s.save();
         s.push(m);
         s.restore();
-        assert_eq!(s.remove_best_move().unwrap(), m);
-        assert_eq!(s.remove_best_move().unwrap(), m);
-        assert!(s.remove_best_move().is_none());
+        assert_eq!(s.remove_best().unwrap(), m);
+        assert_eq!(s.remove_best().unwrap(), m);
+        assert!(s.remove_best().is_none());
     }
 }
