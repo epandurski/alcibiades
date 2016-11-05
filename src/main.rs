@@ -20,7 +20,7 @@ use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
 use position::{Position, START_POSITION_FEN};
 use search::Variation;
-use uci::{UciEngine, UciEngineFactory};
+use uci::{UciEngine, UciEngineFactory, GoParams};
 use search_management::{SearchThread, SearchStatus, TimeManager};
 
 /// The version of the program.
@@ -190,21 +190,20 @@ impl UciEngine for Engine {
         }
     }
 
-    #[allow(unused_variables)]
-    fn go(&mut self,
-          searchmoves: Vec<String>,
-          ponder: bool,
-          wtime: Option<u64>,
-          btime: Option<u64>,
-          winc: Option<u64>,
-          binc: Option<u64>,
-          movestogo: Option<u64>,
-          depth: Option<u64>,
-          nodes: Option<u64>,
-          mate: Option<u64>,
-          movetime: Option<u64>,
-          infinite: bool) {
-        // Note: We ignore the "mate" parameter.
+    fn go(&mut self, params: GoParams) {
+        // Note: We ignore the "mate" field.
+        let GoParams { searchmoves,
+                       ponder,
+                       wtime,
+                       btime,
+                       winc,
+                       binc,
+                       movestogo,
+                       depth,
+                       nodes,
+                       movetime,
+                       infinite,
+                       .. } = params;
 
         self.search_thread.stop();
         self.tt.new_search();

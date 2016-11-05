@@ -34,6 +34,8 @@
 //! }
 //! ```
 
+
+use std::default::Default;
 use std::time::Duration;
 use std::thread::{spawn, sleep};
 use std::io;
@@ -84,55 +86,56 @@ enum UciCommand {
 }
 
 
-/// Parameters for `UciCommand::Go`.
-struct GoParams {
+/// Parameters influencing engine's thinking.
+#[derive(Default)]
+pub struct GoParams {
     /// Restricts the search to a subset of moves only. The move
     /// format is long algebraic notation. Examples: `e2e4`, `e7e5`,
     /// `e1g1` (white short castling), `e7e8q` (for promotion).
-    searchmoves: Vec<String>,
+    pub searchmoves: Vec<String>,
 
-    /// Starts searching in pondering mode. The last move sent in in
-    /// the `Position { moves, .. }` string is the ponder move. The
-    /// engine can do what it wants to do, but after a `PonderHit`
-    /// command it should execute the suggested move to ponder
-    /// on. This means that the ponder move sent by the GUI can be
-    /// interpreted as a recommendation about which move to
-    /// ponder. However, if the engine decides to ponder on a
-    /// different move, it should not display any mainlines as they
-    /// are likely to be misinterpreted by the GUI because the GUI
-    /// expects the engine to ponder on the suggested move.
-    ponder: bool,
+    /// Starts searching in pondering mode. The last move sent in the
+    /// "position" command is the ponder move. The engine can do what
+    /// it wants to do, but after a "ponder hit" command it should
+    /// execute the suggested move to ponder on. This means that the
+    /// ponder move sent by the GUI can be interpreted as a
+    /// recommendation about which move to ponder. However, if the
+    /// engine decides to ponder on a different move, it should not
+    /// display any mainlines as they are likely to be misinterpreted
+    /// by the GUI because the GUI expects the engine to ponder on the
+    /// suggested move.
+    pub ponder: bool,
 
     /// Milliseconds left on white's clock.
-    wtime: Option<u64>,
+    pub wtime: Option<u64>,
 
     /// Milliseconds left on black's clock.
-    btime: Option<u64>,
+    pub btime: Option<u64>,
 
     /// White increment per move in milliseconds.
-    winc: Option<u64>,
+    pub winc: Option<u64>,
 
     /// Black increment per move in milliseconds.
-    binc: Option<u64>,
+    pub binc: Option<u64>,
 
     /// The number of moves to the next time control.
-    movestogo: Option<u64>,
+    pub movestogo: Option<u64>,
 
     /// Search to this depth (plies) only.
-    depth: Option<u64>,
+    pub depth: Option<u64>,
 
     /// Search that many nodes only.
-    nodes: Option<u64>,
+    pub nodes: Option<u64>,
 
     /// Search for a mate in that many moves.
-    mate: Option<u64>,
+    pub mate: Option<u64>,
 
     /// Search for exactly that many milliseconds.
-    movetime: Option<u64>,
+    pub movetime: Option<u64>,
 
-    /// Search until the `Stop` command. Do not exit the search
+    /// Search until the "stop" command. Do not exit the search
     /// without being told so in this mode!
-    infinite: bool,
+    pub infinite: bool,
 }
 
 
@@ -269,58 +272,7 @@ pub trait UciEngine {
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
 
     /// Tells the engine to start thinking.
-    ///
-    /// Engine's thinking can be influenced by many parameters:
-    /// 
-    /// * *searchmoves:* Restricts the search to a subset of moves
-    ///   only. The move format is long algebraic notation. Examples:
-    ///   `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
-    ///   promotion).
-    /// 
-    /// * *ponder:* Starts searching in pondering mode. The last move
-    ///   sent in in the position string is the ponder move. The
-    ///   engine can do what it wants to do, but after a
-    ///   `ponder_hit()` command it should execute the suggested move
-    ///   to ponder on. This means that the ponder move sent by the
-    ///   GUI can be interpreted as a recommendation about which move
-    ///   to ponder. However, if the engine decides to ponder on a
-    ///   different move, it should not display any mainlines as they
-    ///   are likely to be misinterpreted by the GUI because the GUI
-    ///   expects the engine to ponder on the suggested move.
-    ///      
-    /// * *wtime:* Milliseconds left on the white's clock.
-    /// 
-    /// * *btime:* Milliseconds left on the black's clock.
-    /// 
-    /// * *winc:* White increment per move in milliseconds.
-    /// 
-    /// * *binc:* Black increment per move in milliseconds.
-    /// 
-    /// * *movestogo:* The number of moves to the next time control.
-    /// 
-    /// * *depth:* Search to this depth (plies) only.
-    /// 
-    /// * *nodes:* Search that many nodes only.
-    /// 
-    /// * *mate:* Search for a mate in that many moves.
-    /// 
-    /// * *movetime:* Search for exactly that many milliseconds.
-    /// 
-    /// * *infinite:* Search until the `stop()` command. Do not exit
-    ///   the search without being told so in this mode!
-    fn go(&mut self,
-          searchmoves: Vec<String>,
-          ponder: bool,
-          wtime: Option<u64>,
-          btime: Option<u64>,
-          winc: Option<u64>,
-          binc: Option<u64>,
-          movestogo: Option<u64>,
-          depth: Option<u64>,
-          nodes: Option<u64>,
-          mate: Option<u64>,
-          movetime: Option<u64>,
-          infinite: bool);
+    fn go(&mut self, params: GoParams);
 
     /// Forces the engine to stop thinking and reply with the best
     /// move it had found.
@@ -499,30 +451,8 @@ impl<F, E> Server<F, E>
                     UciCommand::PonderHit => {
                         engine.ponder_hit();
                     }
-                    UciCommand::Go(GoParams { searchmoves,
-                                              ponder,
-                                              wtime,
-                                              btime,
-                                              winc,
-                                              binc,
-                                              movestogo,
-                                              depth,
-                                              nodes,
-                                              mate,
-                                              movetime,
-                                              infinite }) => {
-                        engine.go(searchmoves,
-                                  ponder,
-                                  wtime,
-                                  btime,
-                                  winc,
-                                  binc,
-                                  movestogo,
-                                  depth,
-                                  nodes,
-                                  mate,
-                                  movetime,
-                                  infinite);
+                    UciCommand::Go(params) => {
+                        engine.go(params);
                     }
                     UciCommand::Quit => panic!("This should never happen!"),
                 }
@@ -585,7 +515,7 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
         static ref RE: Regex = Regex::new(
             format!(r"\b({})\s*(?:\s(.*)|$)",
                     "setoption|isready|ucinewgame|\
-                     position|go|stop|ponderhit|quit",  // UCI command
+                     position|go|stop|ponderhit|quit",
             ).as_str()
         ).unwrap();
     }
@@ -657,25 +587,12 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
             format!(
                 r"\b(?P<keyword>{})(?:\s+(?P<number>\d+)|(?P<moves>{}))?(?:\s+|$)",
                 "wtime|btime|winc|binc|movestogo|depth|\
-                 nodes|mate|movetime|ponder|infinite|searchmoves",  // any keyword
+                 nodes|mate|movetime|ponder|infinite|searchmoves",
                 r"(?:\s+[a-h][1-8][a-h][1-8][qrbn]?)+",  // a non-empty list of moves
             ).as_str()
         ).unwrap();
     }
-    let mut params = GoParams {
-        searchmoves: vec![],
-        ponder: false,
-        wtime: None,
-        btime: None,
-        winc: None,
-        binc: None,
-        movestogo: None,
-        depth: None,
-        nodes: None,
-        mate: None,
-        movetime: None,
-        infinite: false,
-    };
+    let mut params = GoParams::default();
     for captures in RE.captures_iter(s) {
         let keyword = captures.name("keyword").unwrap();
         match keyword {
