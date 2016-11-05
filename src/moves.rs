@@ -5,6 +5,16 @@ use std::slice;
 use basetypes::*;
 
 
+/// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
+/// `MOVE_NORMAL`.
+pub type MoveType = usize;
+
+pub const MOVE_ENPASSANT: MoveType = 0;
+pub const MOVE_PROMOTION: MoveType = 1;
+pub const MOVE_CASTLING: MoveType = 2;
+pub const MOVE_NORMAL: MoveType = 3;
+
+
 /// Encodes the minimum needed information that unambiguously
 /// describes a move.
 ///
@@ -55,7 +65,6 @@ pub fn get_dest_square(move_digest: MoveDigest) -> Square {
 pub fn get_aux_data(move_digest: MoveDigest) -> usize {
     ((move_digest & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
 }
-
 
 
 /// Represents a move on the chessboard.
@@ -118,7 +127,6 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
 pub struct Move(usize);
-
 
 impl Move {
     /// Creates a new instance.
@@ -336,51 +344,11 @@ impl Move {
     }
 }
 
-
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.notation())
     }
 }
-
-
-/// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
-/// `MOVE_NORMAL`.
-pub type MoveType = usize;
-
-pub const MOVE_ENPASSANT: MoveType = 0;
-pub const MOVE_PROMOTION: MoveType = 1;
-pub const MOVE_CASTLING: MoveType = 2;
-pub const MOVE_NORMAL: MoveType = 3;
-
-
-/// The highest possible move score.
-const MAX_MOVE_SCORE: usize = 3;
-
-
-// Field shifts
-const M_SHIFT_SCORE: usize = 30;
-const M_SHIFT_CAPTURED_PIECE: usize = 27;
-const M_SHIFT_PIECE: usize = 24;
-const M_SHIFT_CASTLING_DATA: usize = 20;
-const M_SHIFT_ENPASSANT_FILE: usize = 16;
-const M_SHIFT_MOVE_TYPE: usize = 14;
-const M_SHIFT_ORIG_SQUARE: usize = 8;
-const M_SHIFT_DEST_SQUARE: usize = 2;
-const M_SHIFT_AUX_DATA: usize = 0;
-
-// Field masks
-const M_MASK_SCORE: usize = ::std::usize::MAX << M_SHIFT_SCORE;
-const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
-const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
-#[allow(dead_code)]
-const M_MASK_CASTLING_DATA: usize = 0b1111 << M_SHIFT_CASTLING_DATA;
-const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
-const M_MASK_MOVE_TYPE: usize = 0b11 << M_SHIFT_MOVE_TYPE;
-const M_MASK_ORIG_SQUARE: usize = 0b111111 << M_SHIFT_ORIG_SQUARE;
-const M_MASK_DEST_SQUARE: usize = 0b111111 << M_SHIFT_DEST_SQUARE;
-const M_MASK_AUX_DATA: usize = 0b11 << M_SHIFT_AUX_DATA;
-
 
 
 /// Stores a list of moves for each position in a given line of play.
@@ -389,7 +357,6 @@ pub struct MoveStack {
     savepoints: Vec<usize>,
     first_move_index: usize,
 }
-
 
 impl MoveStack {
     /// Creates a new (empty) instance.
@@ -557,6 +524,34 @@ impl MoveStack {
     }
 }
 
+
+/// The highest possible move score.
+const MAX_MOVE_SCORE: usize = 3;
+
+
+// Field shifts
+const M_SHIFT_SCORE: usize = 30;
+const M_SHIFT_CAPTURED_PIECE: usize = 27;
+const M_SHIFT_PIECE: usize = 24;
+const M_SHIFT_CASTLING_DATA: usize = 20;
+const M_SHIFT_ENPASSANT_FILE: usize = 16;
+const M_SHIFT_MOVE_TYPE: usize = 14;
+const M_SHIFT_ORIG_SQUARE: usize = 8;
+const M_SHIFT_DEST_SQUARE: usize = 2;
+const M_SHIFT_AUX_DATA: usize = 0;
+
+
+// Field masks
+#[allow(dead_code)]
+const M_MASK_CASTLING_DATA: usize = 0b1111 << M_SHIFT_CASTLING_DATA;
+const M_MASK_SCORE: usize = ::std::usize::MAX << M_SHIFT_SCORE;
+const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
+const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
+const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
+const M_MASK_MOVE_TYPE: usize = 0b11 << M_SHIFT_MOVE_TYPE;
+const M_MASK_ORIG_SQUARE: usize = 0b111111 << M_SHIFT_ORIG_SQUARE;
+const M_MASK_DEST_SQUARE: usize = 0b111111 << M_SHIFT_DEST_SQUARE;
+const M_MASK_AUX_DATA: usize = 0b11 << M_SHIFT_AUX_DATA;
 
 
 #[cfg(test)]
