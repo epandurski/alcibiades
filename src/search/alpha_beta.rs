@@ -6,7 +6,7 @@ use basetypes::*;
 use moves::*;
 use tt::*;
 use position::*;
-use search::MAX_DEPTH;
+use search::{SearchNode, MAX_DEPTH};
 
 
 /// Represents a terminated search condition.
@@ -695,6 +695,7 @@ mod tests {
     use tt::*;
     use moves::*;
     use position::*;
+    use search::SearchNode;
 
     #[test]
     fn test_search() {

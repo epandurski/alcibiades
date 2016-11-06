@@ -13,6 +13,7 @@ use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
 use notation::parse_fen;
+use search::SearchNode;
 use self::bitsets::*;
 use self::move_generation::Board;
 use self::evaluation::evaluate_board;
@@ -145,384 +146,6 @@ impl Position {
         }
         p.declare_as_root();
         Ok(p)
-    }
-
-    /// Returns a description of the placement of the pieces on the
-    /// board.
-    #[inline]
-    pub fn pieces(&self) -> &PiecesPlacement {
-        self.board().pieces()
-    }
-
-    /// Returns the side to move.
-    #[inline]
-    pub fn to_move(&self) -> Color {
-        self.board().to_move()
-    }
-
-    /// Returns the castling rights.
-    #[inline]
-    pub fn castling(&self) -> CastlingRights {
-        self.board().castling()
-    }
-
-    /// Returns the file on which an en-passant pawn capture is
-    /// possible.
-    #[inline]
-    pub fn en_passant_file(&self) -> Option<File> {
-        self.board().en_passant_file()
-    }
-
-    /// Returns the number of half-moves since the last piece capture
-    /// or pawn advance.
-    #[inline]
-    pub fn halfmove_clock(&self) -> u8 {
-        self.state().halfmove_clock
-    }
-
-    /// Returns the count of half-moves since the beginning of the
-    /// game.
-    ///
-    /// At the beginning of the game it starts at `0`, and is
-    /// incremented after anyone's move.
-    #[inline]
-    pub fn halfmove_count(&self) -> u16 {
-        self.halfmove_count
-    }
-
-    /// Returns if the side to move is in check.
-    #[inline]
-    pub fn is_check(&self) -> bool {
-        self.board().checkers() != 0
-    }
-
-    /// Returns an almost unique hash value for the position.
-    ///
-    /// **Important notes:** 1) Two positions that differ in their
-    /// sets of previously repeated, still reachable boards will have
-    /// different hashes. 2) Two positions that differ only in their
-    /// number of played moves without capturing piece or advancing a
-    /// pawn will have equal hashes, as long as they both are far from
-    /// the rule-50 limit.
-    #[inline]
-    pub fn hash(&self) -> u64 {
-        if self.repeated_or_rule50 {
-            // All repeated and rule-50 positions are a draw, so for
-            // practical purposes they can be considered to be the
-            // exact same position, and therefore we can generate the
-            // same hash value for all of them. This has the important
-            // practical advantage that we get two separate records in
-            // the transposition table for the first and the second
-            // occurrence of the same position. (The second occurrence
-            // being deemed as a draw.)
-            1
-        } else {
-            let hash = if self.root_is_unreachable() {
-                self.board_hash
-            } else {
-                // If the repeated positions that occured before the
-                // root postition are still reachable, we blend their
-                // collective hash into current position's hash.
-                self.board_hash ^ self.repeated_boards_hash
-            };
-            let halfmove_clock = self.state().halfmove_clock;
-
-            if halfmove_clock < HALFMOVE_CLOCK_THRESHOLD {
-                hash
-            } else {
-                // If `halfmove_clock` is close to rule-50, we blend
-                // it into the returned hash.
-                hash ^ self.board().zobrist().halfmove_clock[halfmove_clock as usize]
-            }
-        }
-    }
-
-    /// Evaluates a final position.
-    ///
-    /// In final positions this method will return the correct value
-    /// of the position (`0` for a draw, `VALUE_MIN` for a
-    /// checkmate). A position is guaranteed to be final if
-    /// `generate_moves` method generates no legal moves. (It may
-    /// generate some pseudo-legal moves, but if none of them is
-    /// legal, then the position is final.)
-    ///
-    /// **Important note:** Repeated and rule-50 positions are
-    /// considered final (a draw).
-    #[inline]
-    pub fn evaluate_final(&self) -> Value {
-        if self.repeated_or_rule50 || self.board().checkers() == 0 {
-            // Repetition, rule-50, or stalemate.
-            0
-        } else {
-            // Checkmated.
-            VALUE_MIN
-        }
-    }
-
-    /// Statically evaluates the position.
-    ///
-    /// This method considers only static material and positional
-    /// properties of the position. If the position is dynamic, with
-    /// pending tactical threats, this function will return a grossly
-    /// incorrect evaluation. The returned value will be between
-    /// `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`. For repeated and
-    /// rule-50 positions `0` is returned.
-    #[inline]
-    pub fn evaluate_static(&self) -> Value {
-        if self.repeated_or_rule50 {
-            0
-        } else {
-            let v = evaluate_board(self.board());
-            debug_assert!(v >= VALUE_EVAL_MIN && v <= VALUE_EVAL_MAX);
-            v
-        }
-    }
-
-    /// Performs a "quiescence search" and returns an evaluation.
-    ///
-    /// The "quiescence search" is a restricted search which considers
-    /// only a limited set of moves (winning captures, pawn promotions
-    /// to queen, check evasions). The goal is to statically evaluate
-    /// only "quiet" positions (positions where there are no winning
-    /// tactical moves to be made). Although this search can cheaply
-    /// and correctly resolve many tactical issues, it is blind to
-    /// other simple tactical threats like most kinds of forks,
-    /// checks, even a checkmate in one move.
-    /// 
-    /// `lower_bound` and `upper_bound` together give the interval
-    /// within which an as precise as possible evaluation is
-    /// required. If during the calculation is determined that the
-    /// exact evaluation is outside of this interval, this method may
-    /// return a value that is closer to the the interval bounds than
-    /// the exact evaluation, but always staying on the correct side
-    /// of the interval. `static_evaluation` should be the value
-    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
-    /// returned value will be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions `0` is
-    /// returned.
-    ///
-    /// **Note:** This method will return a reliable result even when
-    /// the side to move is in check. In this case it will try all
-    /// possible check evasions. (It will will never use the static
-    /// evaluation value when in check.)
-    #[inline]
-    pub fn evaluate_quiescence(&self,
-                               lower_bound: Value,
-                               upper_bound: Value,
-                               static_evaluation: Value)
-                               -> (Value, NodeCount) {
-        debug_assert!(lower_bound < upper_bound);
-        if self.repeated_or_rule50 {
-            (0, 0)
-        } else {
-            let mut searched_nodes = 0;
-            let value = MOVE_STACK.with(|s| unsafe {
-                self.qsearch(lower_bound,
-                             upper_bound,
-                             static_evaluation,
-                             0,
-                             0,
-                             &mut *s.get(),
-                             &evaluate_board,
-                             &mut searched_nodes)
-            });
-            (value, searched_nodes)
-        }
-    }
-
-    /// Returns the likely evaluation change (material) to be lost or
-    /// gained as a result of a given move.
-    ///
-    /// This method performs static exchange evaluation (SEE). It
-    /// examines the consequence of a series of exchanges on the
-    /// destination square after a given move. A positive returned
-    /// value indicates a "winning" move. For example, "PxQ" will
-    /// always be a win, since the pawn side can choose to stop the
-    /// exchange after its pawn is recaptured, and still be ahead. SEE
-    /// is just an evaluation calculated without actually trying moves
-    /// on the board, and therefore the returned value might be
-    /// incorrect.
-    /// 
-    /// The move passed to this method **must** have been generated by
-    /// `generate_moves`, `try_move_digest`, or `null_move` methods
-    /// for the current position on the board.
-    #[inline]
-    pub fn evaluate_move(&self, m: Move) -> Value {
-        if m.move_type() == MOVE_PROMOTION {
-            // `calc_see` does not handle pawn promotions very well,
-            // so for them we simply return some positive value. We
-            // could differentiate wining and losing promotions, but
-            // this makes no pracical difference and may cause funny
-            // move ordering, resulting in sometimes promoting rooks
-            // or knights for no good reason.
-            PIECE_VALUES[PAWN]
-        } else {
-            self.calc_see(m)
-        }
-    }
-
-    /// Generates pseudo-legal moves.
-    ///
-    /// A pseudo-legal move is a move that is otherwise legal, except
-    /// it might leave the king in check. Every legal move is a
-    /// pseudo-legal move, but not every pseudo-legal move is legal.
-    /// The generated moves will be pushed to `move_stack`. If all of
-    /// the moves generated by this methods are illegal (this means
-    /// that `do_move(m)` returns `false` for all of them), then the
-    /// position is final, and `evaluate_final()` will return its
-    /// correct value.
-    ///
-    /// **Important note:** Repeated and rule-50 positions are
-    /// considered final (and therefore, this method generates no
-    /// moves).
-    #[inline]
-    pub fn generate_moves(&self, move_stack: &mut MoveStack) {
-        if !self.repeated_or_rule50 {
-            self.board().generate_moves(true, move_stack);
-        }
-    }
-
-    /// Returns a null move.
-    ///
-    /// "Null move" is a pseudo-move that changes only the side to
-    /// move. It is sometimes useful to include a speculative null
-    /// move in the search tree so as to achieve more aggressive
-    /// pruning.
-    #[inline]
-    pub fn null_move(&self) -> Move {
-        self.board().null_move()
-    }
-
-    /// Checks if `move_digest` represents a pseudo-legal move.
-    ///
-    /// If a move `m` exists that would be generated by
-    /// `generate_moves` if called for the current position, and for
-    /// that move `m.digest() == move_digest`, this method will
-    /// return `Some(m)`. Otherwise it will return `None`. This is
-    /// useful when playing moves from the transposition table,
-    /// without calling `generate_moves`.
-    #[inline]
-    pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
-        if self.repeated_or_rule50 {
-            // This is a final position -- no moves.
-            None
-        } else {
-            self.board().try_move_digest(move_digest)
-        }
-    }
-
-    /// Plays a move on the board.
-    ///
-    /// It verifies if the move is legal. If the move is legal, the
-    /// board is updated and `true` is returned. If the move is
-    /// illegal, `false` is returned without updating the board. The
-    /// move passed to this method **must** have been generated by
-    /// `generate_moves`, `try_move_digest`, or `null_move` methods
-    /// for the current position on the board.
-    ///
-    /// Moves generated by the `null_move` method are exceptions. For
-    /// them `do_move(m)` will return `false` only if the king is in
-    /// check or the position is a draw due to repetition or rule-50.
-    pub fn do_move(&mut self, m: Move) -> bool {
-        if self.repeated_or_rule50 && m.is_null() {
-            // This is a final position -- null moves are not
-            // allowed. We must still allow other moves though,
-            // because `from_history` should be able to call `do_move`
-            // even in final positions.
-            return false;
-        }
-
-        if let Some(h) = unsafe { self.board_mut().do_move(m) } {
-            let halfmove_clock = if m.is_pawn_advance_or_capure() {
-                0
-            } else {
-                match self.state().halfmove_clock {
-                    x if x < 99 => x + 1,
-                    _ => {
-                        if !self.is_checkmate() {
-                            self.repeated_or_rule50 = true;
-                        }
-                        99
-                    }
-                }
-            };
-            self.halfmove_count += 1;
-            self.encountered_boards.push(self.board_hash);
-            self.board_hash ^= h;
-            debug_assert!(halfmove_clock <= 99);
-            debug_assert!(self.encountered_boards.len() >= halfmove_clock as usize);
-
-            // Figure out if the new position is repeated.
-            if halfmove_clock >= 4 {
-                let boards = &self.encountered_boards;
-                let last_irrev = (boards.len() - (halfmove_clock as usize)) as isize;
-                unsafe {
-                    let mut i = (boards.len() - 4) as isize;
-                    while i >= last_irrev {
-                        if self.board_hash == *boards.get_unchecked(i as usize) {
-                            self.repeated_or_rule50 = true;
-                            break;
-                        }
-                        i -= 2;
-                    }
-                }
-            }
-
-            self.state_stack.push(PositionInfo {
-                halfmove_clock: halfmove_clock,
-                last_move: m,
-            });
-            return true;
-        }
-
-        // This is an illegal move.
-        false
-    }
-
-    /// Takes back the last played move.
-    #[inline]
-    pub fn undo_move(&mut self) {
-        debug_assert!(self.state_stack.len() > 1);
-        unsafe {
-            self.board_mut().undo_move(self.state().last_move);
-        }
-        self.halfmove_count -= 1;
-        self.board_hash = self.encountered_boards.pop().unwrap();
-        self.repeated_or_rule50 = false;
-        self.state_stack.pop();
-    }
-
-    /// Returns all legal moves in the position.
-    ///
-    /// **Important note:** This method is slower than
-    /// `generate_moves` because it ensures that all returned moves
-    /// are legal. (No moves are returned for repeated and rule-50
-    /// positions.)
-    pub fn legal_moves(&self) -> Vec<Move> {
-        let mut legal_moves = vec![];
-        let mut board = unsafe { self.board_mut() };
-        let mut move_stack = MoveStack::new();
-        self.generate_moves(&mut move_stack);
-        while let Some(m) = move_stack.pop() {
-            if board.do_move(m).is_some() {
-                legal_moves.push(m);
-                board.undo_move(m);
-            }
-        }
-        legal_moves
-    }
-
-    /// Returns if the side to move is unlikely to be in zugzwang.
-    ///
-    /// In many endgame positions there is a relatively high
-    /// probability of zugzwang occurring. For such positions, this
-    /// method will return `false`. For all "normal" positions it will
-    /// return `true`. This is useful when deciding if it is safe to
-    /// try a "null move".
-    #[inline]
-    pub fn is_zugzwang_unlikely(&self) -> bool {
-        // TODO: Write a real implementation.
-        true
     }
 
     /// A helper method for `evaluate_quiescence`. It is needed
@@ -842,6 +465,231 @@ impl Position {
     }
 }
 
+impl SearchNode for Position {
+    fn pieces(&self) -> &PiecesPlacement {
+        self.board().pieces()
+    }
+
+    fn to_move(&self) -> Color {
+        self.board().to_move()
+    }
+
+    fn castling(&self) -> CastlingRights {
+        self.board().castling()
+    }
+
+    fn en_passant_file(&self) -> Option<File> {
+        self.board().en_passant_file()
+    }
+
+    fn halfmove_clock(&self) -> u8 {
+        self.state().halfmove_clock
+    }
+
+    fn halfmove_count(&self) -> u16 {
+        self.halfmove_count
+    }
+
+    fn is_check(&self) -> bool {
+        self.board().checkers() != 0
+    }
+
+    fn hash(&self) -> u64 {
+        if self.repeated_or_rule50 {
+            // All repeated and rule-50 positions are a draw, so for
+            // practical purposes they can be considered to be the
+            // exact same position, and therefore we can generate the
+            // same hash value for all of them. This has the important
+            // practical advantage that we get two separate records in
+            // the transposition table for the first and the second
+            // occurrence of the same position. (The second occurrence
+            // being deemed as a draw.)
+            1
+        } else {
+            let hash = if self.root_is_unreachable() {
+                self.board_hash
+            } else {
+                // If the repeated positions that occured before the
+                // root postition are still reachable, we blend their
+                // collective hash into current position's hash.
+                self.board_hash ^ self.repeated_boards_hash
+            };
+            let halfmove_clock = self.state().halfmove_clock;
+
+            if halfmove_clock < HALFMOVE_CLOCK_THRESHOLD {
+                hash
+            } else {
+                // If `halfmove_clock` is close to rule-50, we blend
+                // it into the returned hash.
+                hash ^ self.board().zobrist().halfmove_clock[halfmove_clock as usize]
+            }
+        }
+    }
+
+    fn evaluate_final(&self) -> Value {
+        if self.repeated_or_rule50 || self.board().checkers() == 0 {
+            // Repetition, rule-50, or stalemate.
+            0
+        } else {
+            // Checkmated.
+            VALUE_MIN
+        }
+    }
+
+    fn evaluate_static(&self) -> Value {
+        if self.repeated_or_rule50 {
+            0
+        } else {
+            let v = evaluate_board(self.board());
+            debug_assert!(v >= VALUE_EVAL_MIN && v <= VALUE_EVAL_MAX);
+            v
+        }
+    }
+
+    fn evaluate_quiescence(&self,
+                           lower_bound: Value,
+                           upper_bound: Value,
+                           static_evaluation: Value)
+                           -> (Value, NodeCount) {
+        debug_assert!(lower_bound < upper_bound);
+        if self.repeated_or_rule50 {
+            (0, 0)
+        } else {
+            let mut searched_nodes = 0;
+            let value = MOVE_STACK.with(|s| unsafe {
+                self.qsearch(lower_bound,
+                             upper_bound,
+                             static_evaluation,
+                             0,
+                             0,
+                             &mut *s.get(),
+                             &evaluate_board,
+                             &mut searched_nodes)
+            });
+            (value, searched_nodes)
+        }
+    }
+
+    fn evaluate_move(&self, m: Move) -> Value {
+        if m.move_type() == MOVE_PROMOTION {
+            // `calc_see` does not handle pawn promotions very well,
+            // so for them we simply return some positive value. We
+            // could differentiate wining and losing promotions, but
+            // this makes no pracical difference and may cause funny
+            // move ordering, resulting in sometimes promoting rooks
+            // or knights for no good reason.
+            PIECE_VALUES[PAWN]
+        } else {
+            self.calc_see(m)
+        }
+    }
+
+    fn generate_moves(&self, move_stack: &mut MoveStack) {
+        if !self.repeated_or_rule50 {
+            self.board().generate_moves(true, move_stack);
+        }
+    }
+
+    fn null_move(&self) -> Move {
+        self.board().null_move()
+    }
+
+    fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
+        if self.repeated_or_rule50 {
+            // This is a final position -- no moves.
+            None
+        } else {
+            self.board().try_move_digest(move_digest)
+        }
+    }
+
+    fn do_move(&mut self, m: Move) -> bool {
+        if self.repeated_or_rule50 && m.is_null() {
+            // This is a final position -- null moves are not
+            // allowed. We must still allow other moves though,
+            // because `from_history` should be able to call `do_move`
+            // even in final positions.
+            return false;
+        }
+
+        if let Some(h) = unsafe { self.board_mut().do_move(m) } {
+            let halfmove_clock = if m.is_pawn_advance_or_capure() {
+                0
+            } else {
+                match self.state().halfmove_clock {
+                    x if x < 99 => x + 1,
+                    _ => {
+                        if !self.is_checkmate() {
+                            self.repeated_or_rule50 = true;
+                        }
+                        99
+                    }
+                }
+            };
+            self.halfmove_count += 1;
+            self.encountered_boards.push(self.board_hash);
+            self.board_hash ^= h;
+            debug_assert!(halfmove_clock <= 99);
+            debug_assert!(self.encountered_boards.len() >= halfmove_clock as usize);
+
+            // Figure out if the new position is repeated.
+            if halfmove_clock >= 4 {
+                let boards = &self.encountered_boards;
+                let last_irrev = (boards.len() - (halfmove_clock as usize)) as isize;
+                unsafe {
+                    let mut i = (boards.len() - 4) as isize;
+                    while i >= last_irrev {
+                        if self.board_hash == *boards.get_unchecked(i as usize) {
+                            self.repeated_or_rule50 = true;
+                            break;
+                        }
+                        i -= 2;
+                    }
+                }
+            }
+
+            self.state_stack.push(PositionInfo {
+                halfmove_clock: halfmove_clock,
+                last_move: m,
+            });
+            return true;
+        }
+
+        // This is an illegal move.
+        false
+    }
+
+    fn undo_move(&mut self) {
+        debug_assert!(self.state_stack.len() > 1);
+        unsafe {
+            self.board_mut().undo_move(self.state().last_move);
+        }
+        self.halfmove_count -= 1;
+        self.board_hash = self.encountered_boards.pop().unwrap();
+        self.repeated_or_rule50 = false;
+        self.state_stack.pop();
+    }
+
+    fn legal_moves(&self) -> Vec<Move> {
+        let mut legal_moves = vec![];
+        let mut board = unsafe { self.board_mut() };
+        let mut move_stack = MoveStack::new();
+        self.generate_moves(&mut move_stack);
+        while let Some(m) = move_stack.pop() {
+            if board.do_move(m).is_some() {
+                legal_moves.push(m);
+                board.undo_move(m);
+            }
+        }
+        legal_moves
+    }
+
+    fn is_zugzwang_unlikely(&self) -> bool {
+        // TODO: Write a real implementation.
+        true
+    }
+}
+
 
 impl Clone for Position {
     fn clone(&self) -> Self {
@@ -928,6 +776,7 @@ mod tests {
     use super::PIECE_VALUES;
     use basetypes::*;
     use moves::*;
+    use search::SearchNode;
 
     // This is a very simple evaluation function used for the testing
     // of `qsearch`.
