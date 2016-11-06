@@ -188,7 +188,7 @@ pub enum EngineReply {
 pub type InfoType = String;
 
 
-/// Name of a configuration option supported by the engine.
+/// Name of a configuration option.
 ///
 /// Examples of option names supported by many popular chess engines:
 ///
@@ -199,7 +199,7 @@ pub type InfoType = String;
 pub type OptionName = String;
 
 
-/// Describes a configuration option supported by the engine.
+/// Describes a configuration option.
 ///
 /// Configurable options can be of several different types, depending
 /// on their intended appearance in the GUI: check box, spin box,
@@ -253,7 +253,7 @@ pub trait UciEngineFactory<E: UciEngine> {
 /// Except the method `wait_for_reply`, the methods in this trait
 /// **must not** block the current thread.
 pub trait UciEngine {
-    /// Sets a new value for a given configuration option.
+    /// Sets a new value for a given configuration parameter.
     fn set_option(&mut self, name: &str, value: &str);
 
     /// Tells the engine that the next position will be from a

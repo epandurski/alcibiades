@@ -3,7 +3,7 @@
 pub mod tables;
 pub mod move_generation;
 pub mod bitsets;
-mod evaluation;
+pub mod evaluation;
 
 use std::u16;
 use std::mem::uninitialized;
