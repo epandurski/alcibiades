@@ -149,13 +149,38 @@ pub type Bitboard = u64;
 /// are equal. For example: a value of `100` might mean that the side
 /// to move is a pawn ahead.
 ///
-/// The constant `VALUE_UNKNOWN` equals to `-32768`, and has the
-/// special meaning of "unknown value".
+/// # Constants:
+///
+/// * `VALUE_UNKNOWN` equals `-32768`, and has the special meaning of
+/// "unknown value".
+///
+/// * `VALUE_MAX` equals `32767`, and designates a checkmate (a win).
+///
+/// * `VALUE_MIN` equals `-32767`, and designates a checkmate (a loss).
+///
+/// * Values bigger than `VALUE_EVAL_MAX` designate a win by
+///   inevitable checkmate.
+///
+/// * Values smaller than `VALUE_EVAL_MIN` designate a loss by
+///   inevitable checkmate.
 pub type Value = i16;
 
-pub const VALUE_MAX: Value = ::std::i16::MAX;
-pub const VALUE_MIN: Value = -VALUE_MAX;
+/// Equals `-32768` and has the special meaning of "unknown value".
 pub const VALUE_UNKNOWN: Value = VALUE_MIN - 1;
+
+/// Equals `32767`, and designates a checkmate (a win).
+pub const VALUE_MAX: Value = ::std::i16::MAX;
+
+/// Equals `-32767`, and designates a checkmate (a loss).
+pub const VALUE_MIN: Value = -VALUE_MAX;
+
+/// Values bigger than `VALUE_EVAL_MAX` designate a win by inevitable
+/// checkmate.
+pub const VALUE_EVAL_MAX: Value = 19999;
+
+/// Values smaller than `VALUE_EVAL_MIN` designate a loss by
+/// inevitable checkmate.
+pub const VALUE_EVAL_MIN: Value = -VALUE_EVAL_MAX;
 
 
 

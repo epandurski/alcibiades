@@ -14,8 +14,8 @@ use position::move_generation::Board;
 /// incorrect evaluation. Therefore, it should be relied upon only
 /// for reasonably "quiet" positions.
 /// 
-/// The returned value will always be between `STATIC_EVAL_MIN` and
-/// `STATIC_EVAL_MAX`.
+/// The returned value will always be between `VALUE_EVAL_MIN` and
+/// `VALUE_EVAL_MAX`.
 #[inline]
 pub fn evaluate_board(board: &Board) -> Value {
     // TODO: Implement a real evaluation.

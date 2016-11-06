@@ -142,9 +142,9 @@ impl<'a> Search<'a> {
                 // Increase/decrease the value for a checkmate by one
                 // on every half-move. This way the engine will seek
                 // for the fastest checkmate possible.
-                if v < STATIC_EVAL_MIN - 1 {
+                if v < VALUE_EVAL_MIN - 1 {
                     v += 1;
-                } else if v > STATIC_EVAL_MAX + 1 {
+                } else if v > VALUE_EVAL_MAX + 1 {
                     v -= 1;
                 }
 
@@ -694,7 +694,7 @@ mod tests {
     use basetypes::*;
     use tt::*;
     use moves::*;
-    use position::{Position, STATIC_EVAL_MAX};
+    use position::*;
 
     #[test]
     fn test_search() {
@@ -712,7 +712,7 @@ mod tests {
         let value = search.run(VALUE_MIN, VALUE_MAX, 8, Move::invalid())
                           .ok()
                           .unwrap();
-        assert!(value > STATIC_EVAL_MAX);
+        assert!(value > VALUE_EVAL_MAX);
     }
 
     #[test]
