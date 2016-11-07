@@ -8,6 +8,7 @@ use notation::parse_fen;
 use position::bitsets::*;
 use position::IllegalPosition;
 use position::tables::{BoardGeometry, ZobristArrays};
+use position::evaluation::BoardEvaluator;
 
 
 /// Holds the current position and can determine which moves are
@@ -20,9 +21,10 @@ use position::tables::{BoardGeometry, ZobristArrays};
 /// is completely unaware of repeating positions, rule-50, chess
 /// strategy or tactics.
 #[derive(Clone)]
-pub struct Board {
+pub struct Board<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
+    evaluator: E,
 
     /// The placement of the pieces on the board.
     pieces: PiecesPlacement,
@@ -47,7 +49,7 @@ pub struct Board {
 }
 
 
-impl Board {
+impl<E: BoardEvaluator> Board<E> {
     /// Creates a new board instance.
     ///
     /// This function verifies that the resulting new board is legal.
@@ -55,7 +57,7 @@ impl Board {
                   to_move: Color,
                   castling: CastlingRights,
                   en_passant_square: Option<Square>)
-                  -> Result<Board, IllegalPosition> {
+                  -> Result<Board<E>, IllegalPosition> {
 
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
@@ -67,9 +69,10 @@ impl Board {
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
             _ => return Err(IllegalPosition),
         };
-        let b = Board {
+        let mut b = Board {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
+            evaluator: unsafe { uninitialized() },
             pieces: *pieces_placement,
             to_move: to_move,
             castling: castling,
@@ -79,6 +82,7 @@ impl Board {
         };
 
         if b.is_legal() {
+            b.evaluator = E::new(&b);
             Ok(b)
         } else {
             Err(IllegalPosition)
@@ -90,7 +94,7 @@ impl Board {
     /// A FEN (Forsyth–Edwards Notation) string defines a particular
     /// position using only the ASCII character set. This function
     /// verifies that the resulting new board is legal.
-    pub fn from_fen(fen: &str) -> Result<Board, IllegalPosition> {
+    pub fn from_fen(fen: &str) -> Result<Board<E>, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, _, _) =
             try!(parse_fen(fen).map_err(|_| IllegalPosition));
         Board::create(placement, to_move, castling, en_passant_square)
@@ -586,6 +590,10 @@ impl Board {
             }
         }
 
+        // Update evaluator's state.
+        let board_ptr: *const Board<E> = self;
+        self.evaluator.will_do_move(board_ptr, m);
+
         // Move the rook if the move is castling.
         if move_type == MOVE_CASTLING {
             let side = if dest_square > orig_square {
@@ -680,6 +688,10 @@ impl Board {
         let captured_piece = m.captured_piece();
         debug_assert!(m.en_passant_file() <= 8);
 
+        // Update evaluator's state.
+        let board_ptr: *const Board<E> = self;
+        self.evaluator.will_undo_move(board_ptr, m);
+
         // Change the side to move.
         self.to_move = us;
 
@@ -757,6 +769,24 @@ impl Board {
             hash ^= self.zobrist.to_move;
         }
         hash
+    }
+
+    /// Statically evaluates the board.
+    ///
+    /// This method considers only static material and positional
+    /// properties of the position. If the position is dynamic, with
+    /// pending tactical threats, this function will return a grossly
+    /// incorrect evaluation. Therefore, it should be relied upon only
+    /// for reasonably "quiet" positions.
+    /// 
+    /// The returned value will always be between `VALUE_EVAL_MIN` and
+    /// `VALUE_EVAL_MAX`.
+    #[inline]
+    pub fn evaluate(&self) -> Value {
+        let board_ptr: *const Board<E> = self;
+        let v = self.evaluator.evaluate(board_ptr);
+        debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
+        v
     }
 
     /// A helper method for `create`. It analyzes the board and
@@ -1174,11 +1204,12 @@ mod tests {
     use super::*;
     use basetypes::*;
     use moves::*;
+    use position::evaluation::RandomEvaluator;
 
     #[test]
     fn test_attacks_from() {
         use position::tables::*;
-        let b = Board::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
         let g = BoardGeometry::get();
         assert_eq!(g.attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
                    1 << B2 | 1 << C3 | 1 << D4);
@@ -1190,7 +1221,9 @@ mod tests {
 
     #[test]
     fn test_attacks_to() {
-        let b = Board::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q w - - 0 1")
+                    .ok()
+                    .unwrap();
         assert_eq!(b.attacks_to(WHITE, E4),
                    1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
         assert_eq!(b.attacks_to(BLACK, E4),
@@ -1220,7 +1253,9 @@ mod tests {
     fn test_pawn_dest_sets() {
         let mut stack = MoveStack::new();
 
-        let b = Board::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w - h6 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w - h6 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         let mut pawn_dests = 0u64;
         while let Some(m) = stack.pop() {
@@ -1231,7 +1266,9 @@ mod tests {
         assert_eq!(pawn_dests,
                    1 << H3 | 1 << H4 | 1 << G6 | 1 << E8 | 1 << H5 | 1 << G7 | 1 << H6 | 1 << D8);
 
-        let b = Board::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         let mut pawn_dests = 0u64;
         while let Some(m) = stack.pop() {
@@ -1246,37 +1283,51 @@ mod tests {
     fn test_move_generation_1() {
         let mut stack = MoveStack::new();
 
-        let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
 
-        let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 w - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 7);
         stack.clear_all();
 
-        let b = Board::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 8);
         stack.clear_all();
 
-        let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 22);
         stack.clear_all();
 
-        let b = Board::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - c6 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - c6 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 23);
         stack.clear_all();
 
-        let b = Board::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k b - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k b - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 25);
         stack.clear_all();
 
-        let b = Board::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 b - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 b - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
@@ -1286,21 +1337,27 @@ mod tests {
     fn test_move_generation_2() {
         let mut stack = MoveStack::new();
 
-        assert!(Board::from_fen("8/8/7k/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
-        assert!(Board::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
-        assert!(Board::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 0 1").is_ok());
+        assert!(Board::<RandomEvaluator>::from_fen("8/8/7k/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
+        assert!(Board::<RandomEvaluator>::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
+        assert!(Board::<RandomEvaluator>::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 0 1").is_ok());
 
-        let b = Board::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 6);
         stack.clear_all();
 
-        let b = Board::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 7);
         stack.clear_all();
 
-        let b = Board::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
@@ -1310,7 +1367,7 @@ mod tests {
     fn test_move_generation_3() {
         let mut stack = MoveStack::new();
 
-        let b = Board::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1").ok().unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 6);
         stack.clear_all();
@@ -1320,7 +1377,9 @@ mod tests {
     fn test_move_generation_4() {
         let mut stack = MoveStack::new();
 
-        let b = Board::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.ply(), 0);
         assert_eq!(stack.len(), 7);
@@ -1333,37 +1392,51 @@ mod tests {
     fn test_move_generation_5() {
         let mut stack = MoveStack::new();
 
-        let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 6);
         stack.clear_all();
 
-        let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 7);
         stack.clear_all();
 
-        let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = Board::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 6);
         stack.clear_all();
 
-        let b = Board::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
 
-        let mut b = Board::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let mut b = Board::<RandomEvaluator>::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ - 0 1")
+                        .ok()
+                        .unwrap();
         b.generate_moves(true, &mut stack);
         let mut count = 0;
         while let Some(m) = stack.pop() {
@@ -1374,17 +1447,23 @@ mod tests {
         }
         assert_eq!(count, 19 + 4);
 
-        let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = Board::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = Board::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(true, &mut stack);
         assert_eq!(stack.len(), 19 + 7);
         stack.clear_all();
@@ -1394,7 +1473,10 @@ mod tests {
     fn test_do_undo_move() {
         let mut stack = MoveStack::new();
 
-        let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
+        let mut b = Board::<RandomEvaluator>::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 \
+                                                        0 1")
+                        .ok()
+                        .unwrap();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
@@ -1407,7 +1489,9 @@ mod tests {
             }
         }
         assert_eq!(stack.len(), 0);
-        let mut b = Board::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1").ok().unwrap();
+        let mut b = Board::<RandomEvaluator>::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1")
+                        .ok()
+                        .unwrap();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
@@ -1423,7 +1507,10 @@ mod tests {
     #[test]
     fn test_find_pinned() {
         use basetypes::*;
-        let b = Board::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/6b1 w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/6b1 w - - 0 \
+                                                    1")
+                    .ok()
+                    .unwrap();
         assert_eq!(b.find_pinned(), 1 << F2 | 1 << D6 | 1 << G4);
     }
 
@@ -1431,17 +1518,21 @@ mod tests {
     fn test_generate_only_captures() {
         let mut stack = MoveStack::new();
 
-        let b = Board::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(false, &mut stack);
         assert_eq!(stack.len(), 4);
         stack.clear_all();
 
-        let b = Board::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1")
+                    .ok()
+                    .unwrap();
         b.generate_moves(false, &mut stack);
         assert_eq!(stack.len(), 8);
         stack.clear_all();
 
-        let b = Board::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1").ok().unwrap();
+        let b = Board::<RandomEvaluator>::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1").ok().unwrap();
         b.generate_moves(false, &mut stack);
         assert_eq!(stack.len(), 7);
         stack.clear_all();
@@ -1451,7 +1542,9 @@ mod tests {
     fn test_null_move() {
         let mut stack = MoveStack::new();
 
-        let mut b = Board::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
+        let mut b = Board::<RandomEvaluator>::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1")
+                        .ok()
+                        .unwrap();
         b.generate_moves(true, &mut stack);
         let count = stack.len();
         stack.clear_all();
@@ -1462,7 +1555,9 @@ mod tests {
         assert_eq!(count, stack.len());
         stack.clear_all();
 
-        let mut b = Board::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
+        let mut b = Board::<RandomEvaluator>::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1")
+                        .ok()
+                        .unwrap();
         let m = b.null_move();
         assert!(b.do_move(m).is_none());
     }
@@ -1471,7 +1566,8 @@ mod tests {
     fn test_move_into_check_bug() {
         let mut stack = MoveStack::new();
 
-        let mut b = Board::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5N2/PPPN1PP1/2K4R b - - 0 1")
+        let mut b = Board::<RandomEvaluator>::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5N2/PPPN1PP1/\
+                                                        2K4R b - - 0 1")
                         .ok()
                         .unwrap();
         b.generate_moves(true, &mut stack);
@@ -1482,7 +1578,8 @@ mod tests {
 
     #[test]
     fn test_try_move_digest() {
-        fn try_all(b: &Board, stack: &MoveStack) {
+        use position::evaluation::BoardEvaluator;
+        fn try_all<E: BoardEvaluator>(b: &Board<E>, stack: &MoveStack) {
             let mut i = 0;
             loop {
                 if let Some(m) = b.try_move_digest(i) {
@@ -1497,54 +1594,54 @@ mod tests {
         }
 
         let mut stack = MoveStack::new();
-        let b = Board::from_fen("rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQkq c3 0 \
-                                     1")
+        let b = Board::<RandomEvaluator>::from_fen("rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP1PPPBP/RNBQK\
+                                                    2R b KQkq c3 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = Board::from_fen("rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 \
-                                 1")
+        let b = Board::<RandomEvaluator>::from_fen("rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1\
+                                                    K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = Board::from_fen("rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/pP1PPPBP/RNB1K2R b KQkq - 0 \
-                                 1")
+        let b = Board::<RandomEvaluator>::from_fen("rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/pP1PPPBP/RNB\
+                                                    1K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = Board::from_fen("rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQ c3 0 \
-                                     1")
+        let b = Board::<RandomEvaluator>::from_fen("rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/pP1PPPBP/RNBQ\
+                                                    K2R b KQ c3 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = Board::from_fen("rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 \
-                                 1")
+        let b = Board::<RandomEvaluator>::from_fen("rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1\
+                                                    K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = Board::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = Board::from_fen("8/8/8/8/5pPk/8/8/7K b - g3 0 1")
+        let b = Board::<RandomEvaluator>::from_fen("8/8/8/8/5pPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_moves(true, &mut stack);

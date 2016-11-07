@@ -59,15 +59,13 @@ pub struct IllegalPosition;
 /// occurred exactly once. Also, the root position is never deemed as
 /// a draw due to repetition or rule-50.
 pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
-    evaluator: E,
-
     /// The current board.
     ///
     /// We use `UnsafeCell` for this, because the
     /// `evaluate_quiescence` method logically is non-mutating, but
     /// internally it tries moves on the board and then undoes them,
     /// always leaving everything the way it was.
-    board: UnsafeCell<Board>,
+    board: UnsafeCell<Board<E>>,
 
     /// The hash value for the current board.
     board_hash: u64,
@@ -108,7 +106,6 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         let board = try!(Board::create(placement, to_move, castling, en_passant_square)
                              .map_err(|_| IllegalPosition));
         Ok(Position {
-            evaluator: E::new(&board),
             board_hash: board.calc_hash(),
             board: UnsafeCell::new(board),
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
@@ -153,7 +150,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
 
     /// Returns a reference to the internal board.
     #[inline(always)]
-    pub fn board(&self) -> &Board {
+    pub fn board(&self) -> &Board<E> {
         unsafe { &*self.board.get() }
     }
 
@@ -183,7 +180,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
                mut recapture_squares: Bitboard,
                ply: u8,
                move_stack: &mut MoveStack,
-               eval_func: &Fn(&Board) -> Value,
+               eval_func: &Fn(&Board<E>) -> Value,
                searched_nodes: &mut NodeCount)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
@@ -475,7 +472,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     }
 
     #[inline(always)]
-    unsafe fn board_mut(&self) -> &mut Board {
+    unsafe fn board_mut(&self) -> &mut Board<E> {
         &mut *self.board.get()
     }
 }
@@ -682,7 +679,6 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
         encountered_boards.extend_from_slice(&self.encountered_boards);
         state_stack.extend_from_slice(&self.state_stack);
         Box::new(Position {
-            evaluator: self.evaluator.clone(),
             board: UnsafeCell::new(self.board().clone()),
             board_hash: self.board_hash,
             halfmove_count: self.halfmove_count,
@@ -762,10 +758,10 @@ mod tests {
     use basetypes::*;
     use moves::*;
     use search::SearchNode;
-    use position::evaluation::RandomEvaluator;
+    use position::evaluation::{BoardEvaluator, RandomEvaluator};
 
     #[allow(unused_variables)]
-    fn simple_eval(board: &Board) -> Value {
+    fn simple_eval<E: BoardEvaluator>(board: &Board<E>) -> Value {
         use basetypes::*;
         use position::bitsets::*;
         let piece_type = board.pieces().piece_type;
