@@ -23,13 +23,6 @@ pub trait SetOption {
 
 
 /// A trait used to statically evaluate the current board.
-///
-/// The static evaluation of the current board will consider only the
-/// static material and positional properties of the position on the
-/// board. If the position is dynamic, with pending tactical threats,
-/// the static evaluation will return a grossly incorrect
-/// evaluation. Therefore, it should be relied upon only for
-/// reasonably "quiet" positions.
 pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Creates a new instance and binds it to a given position on the
     /// board.
@@ -40,12 +33,12 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     ///
     /// This method updates the internally maintained properties of
     /// the current position, so that the next call to `evaluate` can
-    /// calculate the correct evaluation as quick as possible.
+    /// calculate the correct evaluation as quickly as possible.
     ///
     /// **Important note:** `m` must be a legal move. `board` must
     /// point to a board that represents exactly the same position as
-    /// the one to which the evaluator's instance is bound
-    /// to. `will_do_move` must be called before the move `m` is
+    /// the one to which the evaluator's instance is
+    /// bound. `will_do_move` must be called before the move `m` is
     /// actually played, and after that, the move must actually be
     /// played.
     #[allow(unused_variables)]
@@ -57,12 +50,12 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     ///
     /// This method updates the internally maintained properties of
     /// the current position, so that the next call to `evaluate` can
-    /// calculate the correct evaluation as quick as possible.
+    /// calculate the correct evaluation as quickly as possible.
     ///
     /// **Important note:** `m` must the last played move. `board`
     /// must point to a board that represents exactly the same
-    /// position as the one to which the evaluator's instance is bound
-    /// to. `will_undo_move` must be called before the move `m` is
+    /// position as the one to which the evaluator's instance is
+    /// bound. `will_undo_move` must be called before the move `m` is
     /// actually taken back, and after that, the move must actually be
     /// taken back.
     #[allow(unused_variables)]
@@ -76,7 +69,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// 
     /// **Important note:** `board` must point to a board that
     /// represents exactly the same position as the one to which the
-    /// evaluator's instance is bound to.
+    /// evaluator's instance is bound.
     #[inline]
     fn evaluate(&self, board: *const Board<Self>) -> Value;
 }

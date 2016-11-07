@@ -11,15 +11,16 @@ use position::tables::{BoardGeometry, ZobristArrays};
 use position::evaluation::BoardEvaluator;
 
 
-/// Holds the current position and can determine which moves are
-/// legal.
+/// Holds the current position, can determine which moves are legal,
+/// can evaluate the odds.
 ///
 /// In a nutshell, `Board` can generate all possible moves in the
 /// current position, play a selected move, and take it back. It can
 /// also play a "null move" which can be used to selectively prune the
-/// search tree. `Board` does not try to be clever. In particular, it
-/// is completely unaware of repeating positions, rule-50, chess
-/// strategy or tactics.
+/// search tree. `Board` does not try to be too clever. In particular,
+/// it is completely unaware of repeating positions and
+/// rule-50. Although `Board` can statically evaluate the position, it
+/// delagates this to `BoardEvaluator`.
 #[derive(Clone)]
 pub struct Board<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,
@@ -45,7 +46,7 @@ pub struct Board<E: BoardEvaluator> {
 
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
-    pub _checkers: Cell<Bitboard>,
+    _checkers: Cell<Bitboard>,
 }
 
 
@@ -154,9 +155,9 @@ impl<E: BoardEvaluator> Board<E> {
     /// king.
     ///
     /// The bitboard of all checkers is calculated the first time it
-    /// is needed and is saved to the `_checkers` filed, in case it is
-    /// needed again. If there is a saved value already, the call to
-    /// `checkers` is practically free.
+    /// is needed and is saved, in case it is needed again. If there
+    /// is a saved value already, the call to `checkers` is
+    /// practically free.
     #[inline]
     pub fn checkers(&self) -> Bitboard {
         if self._checkers.get() == BB_UNIVERSAL_SET {
@@ -773,12 +774,6 @@ impl<E: BoardEvaluator> Board<E> {
 
     /// Statically evaluates the board.
     ///
-    /// This method considers only static material and positional
-    /// properties of the position. If the position is dynamic, with
-    /// pending tactical threats, this function will return a grossly
-    /// incorrect evaluation. Therefore, it should be relied upon only
-    /// for reasonably "quiet" positions.
-    /// 
     /// The returned value will always be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
     #[inline]
