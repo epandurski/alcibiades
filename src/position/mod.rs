@@ -119,7 +119,7 @@ impl Position {
         })
     }
 
-    /// Creates a new instance.
+    /// Creates a new instance from playing history.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
     /// starting position. `moves` should be an iterator over all the
@@ -148,10 +148,31 @@ impl Position {
         Ok(p)
     }
 
-    /// A helper method for `evaluate_quiescence`. It is needed
-    /// because`qsearch` should be able to call itself recursively,
-    /// which should not complicate `evaluate_quiescence`'s
-    /// public-facing interface.
+    /// Returns a reference to the internal board.
+    #[inline(always)]
+    pub fn board(&self) -> &Board {
+        unsafe { &*self.board.get() }
+    }
+
+    /// Returns the number of half-moves since the last piece capture
+    /// or pawn advance.
+    #[inline]
+    pub fn halfmove_clock(&self) -> u8 {
+        self.state().halfmove_clock
+    }
+
+    /// Returns the count of half-moves since the beginning of the
+    /// game.
+    ///
+    /// At the beginning of the game it starts at `0`, and is
+    /// incremented after anyone's move.
+    #[inline]
+    pub fn halfmove_count(&self) -> u16 {
+        self.halfmove_count
+    }
+
+    /// A helper method for `evaluate_quiescence`. It performs
+    /// quiescence search and returns an evaluation.
     fn qsearch(&self,
                mut lower_bound: Value,
                upper_bound: Value,
@@ -281,8 +302,7 @@ impl Position {
         }
     }
 
-    /// A helper method for `qsearch` and `evaluate_move`. It
-    /// calculates the static exchange evaluation (SEE) value of a
+    /// Calculates the static exchange evaluation (SEE) value for a
     /// move.
     fn calc_see(&self, m: Move) -> Value {
         debug_assert!(m.piece() < NO_PIECE);
@@ -382,9 +402,8 @@ impl Position {
         gain[0]
     }
 
-    /// A helper method for `from_history`. It "forgets" the previous
-    /// playing history, preserving only the set of previously
-    /// repeated, still reachable boards.
+    /// Forgets the previous playing history, preserving only the set
+    /// of previously repeated, still reachable boards.
     fn declare_as_root(&mut self) {
         let state = *self.state();
         self.repeated_or_rule50 = false;
@@ -418,16 +437,14 @@ impl Position {
         self.state_stack.reserve(32);
     }
 
-    /// A helper method for `hash`. It returns `true` if the root
-    /// position (the earliest in `state_stack`) can not be reached by
-    /// playing moves from the current position, `false` otherwise.
+    /// Returns if the root position (the earliest in `state_stack`)
+    /// can be reached by playing moves from the current position.
     #[inline(always)]
-    fn root_is_unreachable(&self) -> bool {
-        self.encountered_boards.len() > self.state().halfmove_clock as usize
+    fn root_is_reachable(&self) -> bool {
+        self.encountered_boards.len() <= self.state().halfmove_clock as usize
     }
 
-    /// A helper method for `do_move`. It returns if the side to move
-    /// is checkmated.
+    /// Returns if the side to move is checkmated.
     fn is_checkmate(&self) -> bool {
         self.board().checkers() != 0 &&
         MOVE_STACK.with(|s| unsafe {
@@ -455,45 +472,12 @@ impl Position {
     }
 
     #[inline(always)]
-    fn board(&self) -> &Board {
-        unsafe { &*self.board.get() }
-    }
-
-    #[inline(always)]
     unsafe fn board_mut(&self) -> &mut Board {
         &mut *self.board.get()
     }
 }
 
 impl SearchNode for Position {
-    fn pieces(&self) -> &PiecesPlacement {
-        self.board().pieces()
-    }
-
-    fn to_move(&self) -> Color {
-        self.board().to_move()
-    }
-
-    fn castling(&self) -> CastlingRights {
-        self.board().castling()
-    }
-
-    fn en_passant_file(&self) -> Option<File> {
-        self.board().en_passant_file()
-    }
-
-    fn halfmove_clock(&self) -> u8 {
-        self.state().halfmove_clock
-    }
-
-    fn halfmove_count(&self) -> u16 {
-        self.halfmove_count
-    }
-
-    fn is_check(&self) -> bool {
-        self.board().checkers() != 0
-    }
-
     fn hash(&self) -> u64 {
         if self.repeated_or_rule50 {
             // All repeated and rule-50 positions are a draw, so for
@@ -506,7 +490,7 @@ impl SearchNode for Position {
             // being deemed as a draw.)
             1
         } else {
-            let hash = if self.root_is_unreachable() {
+            let hash = if !self.root_is_reachable() {
                 self.board_hash
             } else {
                 // If the repeated positions that occured before the
@@ -526,12 +510,19 @@ impl SearchNode for Position {
         }
     }
 
+    fn is_check(&self) -> bool {
+        self.board().checkers() != 0
+    }
+
+    fn is_zugzwang_unlikely(&self) -> bool {
+        // TODO: Write a real implementation.
+        true
+    }
+
     fn evaluate_final(&self) -> Value {
         if self.repeated_or_rule50 || self.board().checkers() == 0 {
-            // Repetition, rule-50, or stalemate.
             0
         } else {
-            // Checkmated.
             VALUE_MIN
         }
     }
@@ -596,7 +587,6 @@ impl SearchNode for Position {
 
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
         if self.repeated_or_rule50 {
-            // This is a final position -- no moves.
             None
         } else {
             self.board().try_move_digest(move_digest)
@@ -655,7 +645,6 @@ impl SearchNode for Position {
             return true;
         }
 
-        // This is an illegal move.
         false
     }
 
@@ -682,11 +671,6 @@ impl SearchNode for Position {
             }
         }
         legal_moves
-    }
-
-    fn is_zugzwang_unlikely(&self) -> bool {
-        // TODO: Write a real implementation.
-        true
     }
 
     fn copy(&self) -> Box<SearchNode> {

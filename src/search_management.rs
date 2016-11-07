@@ -214,7 +214,7 @@ impl TimeManager {
                -> TimeManager {
         // TODO: We ignore "pondering_is_allowed".
 
-        let (time, inc) = if position.to_move() == WHITE {
+        let (time, inc) = if position.board().to_move() == WHITE {
             (wtime_millis, winc_millis.unwrap_or(0))
         } else {
             (btime_millis, binc_millis.unwrap_or(0))

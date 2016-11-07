@@ -58,12 +58,13 @@
 //! let mut tt = Tt::new();
 //! tt.resize(16);
 //! let tt = Arc::new(tt);
-//! let position = Position::from_fen(START_POSITION_FEN).ok().unwrap();
+//! let fen = "8/8/8/8/8/7k/7q/7K w - - 0 1";
+//! let position = Box::new(Position::from_fen(fen).ok().unwrap());
 //! let mut searcher: DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>> =
 //!     DeepeningSearcher::new(tt.clone());
 //! searcher.start_search(SearchParams {
 //!     search_id: 0,
-//!     position: position.clone(),
+//!     position: position.copy(),
 //!     depth: 10,
 //!     lower_bound: VALUE_MIN,
 //!     upper_bound: VALUE_MAX,
@@ -80,7 +81,7 @@
 //!     }
 //!     // Do something else here!
 //! }
-//! let pv = extract_pv(&tt, &position, 10);
+//! let pv = extract_pv(&tt, position.as_ref(), 10);
 //! ```
 pub mod alpha_beta;
 mod threading;
@@ -93,7 +94,6 @@ use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::*;
 use self::threading::*;
 
 
@@ -169,8 +169,8 @@ pub struct Report {
 }
 
 
-/// The `SearchExecutor` trait is used to execute consecutive searches
-/// in different starting positions.
+/// A trait for executing consecutive searches in different starting
+/// positions.
 pub trait SearchExecutor {
     /// Creates a new instance.
     fn new(tt: Arc<Tt>) -> Self;
@@ -196,6 +196,168 @@ pub trait SearchExecutor {
     /// be called periodically until the returned report indicates
     /// that the search is done.
     fn terminate_search(&mut self);
+}
+
+
+/// A trait for interacting with chess positions.
+pub trait SearchNode: Send {
+    /// Returns an almost unique hash value for the position.
+    ///
+    /// **Important notes:** 1) Two positions that differ in their
+    /// sets of previously repeated, still reachable boards will have
+    /// different hashes. 2) Two positions that differ only in their
+    /// number of played moves without capturing piece or advancing a
+    /// pawn will have equal hashes, as long as they both are far from
+    /// the rule-50 limit.
+    fn hash(&self) -> u64;
+
+    /// Returns if the side to move is in check.
+    fn is_check(&self) -> bool;
+
+    /// Returns if the side to move is unlikely to be in zugzwang.
+    ///
+    /// In many endgame positions there is a relatively high
+    /// probability of zugzwang occurring. For such positions, this
+    /// method will return `false`. For all "normal" positions it will
+    /// return `true`. This is useful when deciding if it is safe to
+    /// try a "null move".
+    fn is_zugzwang_unlikely(&self) -> bool;
+
+    /// Evaluates a final position.
+    ///
+    /// In final positions this method will return the correct value
+    /// of the position (`0` for a draw, `VALUE_MIN` for a
+    /// checkmate). A position is guaranteed to be final if
+    /// `generate_moves` method generates no legal moves. (It may
+    /// generate some pseudo-legal moves, but if none of them is
+    /// legal, then the position is final.)
+    ///
+    /// **Important note:** Repeated and rule-50 positions are
+    /// considered final (a draw).
+    fn evaluate_final(&self) -> Value;
+
+    /// Statically evaluates the position.
+    ///
+    /// This method considers only static material and positional
+    /// properties of the position. If the position is dynamic, with
+    /// pending tactical threats, this function will return a grossly
+    /// incorrect evaluation. The returned value will be between
+    /// `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`. For repeated and
+    /// rule-50 positions `0` is returned.
+    fn evaluate_static(&self) -> Value;
+
+    /// Performs a "quiescence search" and returns an evaluation.
+    ///
+    /// The "quiescence search" is a restricted search which considers
+    /// only a limited set of moves (winning captures, pawn promotions
+    /// to queen, check evasions). The goal is to statically evaluate
+    /// only "quiet" positions (positions where there are no winning
+    /// tactical moves to be made). Although this search can cheaply
+    /// and correctly resolve many tactical issues, it is blind to
+    /// other simple tactical threats like most kinds of forks,
+    /// checks, even a checkmate in one move.
+    ///
+    /// `lower_bound` and `upper_bound` together give the interval
+    /// within which an as precise as possible evaluation is
+    /// required. If during the calculation is determined that the
+    /// exact evaluation is outside of this interval, this method may
+    /// return a value that is closer to the the interval bounds than
+    /// the exact evaluation, but always staying on the correct side
+    /// of the interval. `static_evaluation` should be the value
+    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
+    /// returned value will be between `VALUE_EVAL_MIN` and
+    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions `0` is
+    /// returned.
+    ///
+    /// **Note:** This method will return a reliable result even when
+    /// the side to move is in check. In this case it will try all
+    /// possible check evasions. (It will will never use the static
+    /// evaluation value when in check.)
+    fn evaluate_quiescence(&self,
+                           lower_bound: Value,
+                           upper_bound: Value,
+                           static_evaluation: Value)
+                           -> (Value, NodeCount);
+
+    /// Returns the likely evaluation change (material) to be lost or
+    /// gained as a result of a given move.
+    ///
+    /// This method performs static exchange evaluation (SEE). It
+    /// examines the consequence of a series of exchanges on the
+    /// destination square after a given move. A positive returned
+    /// value indicates a "winning" move. For example, "PxQ" will
+    /// always be a win, since the pawn side can choose to stop the
+    /// exchange after its pawn is recaptured, and still be ahead. SEE
+    /// is just an evaluation calculated without actually trying moves
+    /// on the board, and therefore the returned value might be
+    /// incorrect.
+    ///
+    /// The move passed to this method **must** have been generated by
+    /// `generate_moves`, `try_move_digest`, or `null_move` methods
+    /// for the current position on the board.
+    fn evaluate_move(&self, m: Move) -> Value;
+
+    /// Generates pseudo-legal moves.
+    ///
+    /// A pseudo-legal move is a move that is otherwise legal, except
+    /// it might leave the king in check. Every legal move is a
+    /// pseudo-legal move, but not every pseudo-legal move is legal.
+    /// The generated moves will be pushed to `move_stack`. If all of
+    /// the moves generated by this methods are illegal (this means
+    /// that `do_move(m)` returns `false` for all of them), then the
+    /// position is final, and `evaluate_final()` will return its
+    /// correct value.
+    ///
+    /// **Important note:** Repeated and rule-50 positions are
+    /// considered final (and therefore, this method generates no
+    /// moves).
+    fn generate_moves(&self, move_stack: &mut MoveStack);
+
+    /// Returns a null move.
+    ///
+    /// "Null move" is a pseudo-move that changes only the side to
+    /// move. It is sometimes useful to include a speculative null
+    /// move in the search tree so as to achieve more aggressive
+    /// pruning.
+    fn null_move(&self) -> Move;
+
+    /// Checks if `move_digest` represents a pseudo-legal move.
+    ///
+    /// If a move `m` exists that would be generated by
+    /// `generate_moves` if called for the current position, and for
+    /// that move `m.digest() == move_digest`, this method will
+    /// return `Some(m)`. Otherwise it will return `None`. This is
+    /// useful when playing moves from the transposition table,
+    /// without calling `generate_moves`.
+    fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move>;
+
+    /// Plays a move on the board.
+    ///
+    /// It verifies if the move is legal. If the move is legal, the
+    /// board is updated and `true` is returned. If the move is
+    /// illegal, `false` is returned without updating the board. The
+    /// move passed to this method **must** have been generated by
+    /// `generate_moves`, `try_move_digest`, or `null_move` methods
+    /// for the current position on the board.
+    ///
+    /// Moves generated by the `null_move` method are exceptions. For
+    /// them `do_move(m)` will return `false` only if the king is in
+    /// check or the position is a draw due to repetition or rule-50.
+    fn do_move(&mut self, m: Move) -> bool;
+
+    /// Takes back the last played move.
+    fn undo_move(&mut self);
+
+    /// Returns all legal moves in the position.
+    ///
+    /// **Important note:** This method is slower than
+    /// `generate_moves` because it ensures that all returned moves
+    /// are legal. No moves are returned for repeated and rule-50
+    /// positions.
+    fn legal_moves(&self) -> Vec<Move>;
+
+    /// Returns an exact copy of the position.
+    fn copy(&self) -> Box<SearchNode>;
 }
 
 
@@ -790,6 +952,7 @@ pub fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
 
 /// A helper function. It returns bogus search parameters.
 fn bogus_params() -> SearchParams {
+    use position::*;
     SearchParams {
         search_id: 0,
         position: Box::new(Position::from_fen(START_POSITION_FEN).ok().unwrap()),
@@ -820,190 +983,4 @@ fn contains_dups(list: &Vec<Move>) -> bool {
     l.sort();
     l.dedup();
     l.len() < list.len()
-}
-
-
-pub trait SearchNode: Send {
-    /// Returns a description of the placement of the pieces on the
-    /// board.
-    fn pieces(&self) -> &PiecesPlacement;
-
-    /// Returns the side to move.
-    fn to_move(&self) -> Color;
-
-    /// Returns the castling rights.
-    fn castling(&self) -> CastlingRights;
-
-    /// Returns the file on which an en-passant pawn capture is
-    /// possible.
-    fn en_passant_file(&self) -> Option<File>;
-
-    /// Returns the number of half-moves since the last piece capture
-    /// or pawn advance.
-    fn halfmove_clock(&self) -> u8;
-
-    /// Returns the count of half-moves since the beginning of the
-    /// game.
-    ///
-    /// At the beginning of the game it starts at `0`, and is
-    /// incremented after anyone's move.
-    fn halfmove_count(&self) -> u16;
-
-    /// Returns if the side to move is in check.
-    fn is_check(&self) -> bool;
-
-    /// Returns an almost unique hash value for the position.
-    ///
-    /// **Important notes:** 1) Two positions that differ in their
-    /// sets of previously repeated, still reachable boards will have
-    /// different hashes. 2) Two positions that differ only in their
-    /// number of played moves without capturing piece or advancing a
-    /// pawn will have equal hashes, as long as they both are far from
-    /// the rule-50 limit.
-    fn hash(&self) -> u64;
-
-    /// Evaluates a final position.
-    ///
-    /// In final positions this method will return the correct value
-    /// of the position (`0` for a draw, `VALUE_MIN` for a
-    /// checkmate). A position is guaranteed to be final if
-    /// `generate_moves` method generates no legal moves. (It may
-    /// generate some pseudo-legal moves, but if none of them is
-    /// legal, then the position is final.)
-    ///
-    /// **Important note:** Repeated and rule-50 positions are
-    /// considered final (a draw).
-    fn evaluate_final(&self) -> Value;
-
-    /// Statically evaluates the position.
-    ///
-    /// This method considers only static material and positional
-    /// properties of the position. If the position is dynamic, with
-    /// pending tactical threats, this function will return a grossly
-    /// incorrect evaluation. The returned value will be between
-    /// `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`. For repeated and
-    /// rule-50 positions `0` is returned.
-    fn evaluate_static(&self) -> Value;
-
-    /// Performs a "quiescence search" and returns an evaluation.
-    ///
-    /// The "quiescence search" is a restricted search which considers
-    /// only a limited set of moves (winning captures, pawn promotions
-    /// to queen, check evasions). The goal is to statically evaluate
-    /// only "quiet" positions (positions where there are no winning
-    /// tactical moves to be made). Although this search can cheaply
-    /// and correctly resolve many tactical issues, it is blind to
-    /// other simple tactical threats like most kinds of forks,
-    /// checks, even a checkmate in one move.
-    ///
-    /// `lower_bound` and `upper_bound` together give the interval
-    /// within which an as precise as possible evaluation is
-    /// required. If during the calculation is determined that the
-    /// exact evaluation is outside of this interval, this method may
-    /// return a value that is closer to the the interval bounds than
-    /// the exact evaluation, but always staying on the correct side
-    /// of the interval. `static_evaluation` should be the value
-    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
-    /// returned value will be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions `0` is
-    /// returned.
-    ///
-    /// **Note:** This method will return a reliable result even when
-    /// the side to move is in check. In this case it will try all
-    /// possible check evasions. (It will will never use the static
-    /// evaluation value when in check.)
-    fn evaluate_quiescence(&self,
-                           lower_bound: Value,
-                           upper_bound: Value,
-                           static_evaluation: Value)
-                           -> (Value, NodeCount);
-
-    /// Returns the likely evaluation change (material) to be lost or
-    /// gained as a result of a given move.
-    ///
-    /// This method performs static exchange evaluation (SEE). It
-    /// examines the consequence of a series of exchanges on the
-    /// destination square after a given move. A positive returned
-    /// value indicates a "winning" move. For example, "PxQ" will
-    /// always be a win, since the pawn side can choose to stop the
-    /// exchange after its pawn is recaptured, and still be ahead. SEE
-    /// is just an evaluation calculated without actually trying moves
-    /// on the board, and therefore the returned value might be
-    /// incorrect.
-    ///
-    /// The move passed to this method **must** have been generated by
-    /// `generate_moves`, `try_move_digest`, or `null_move` methods
-    /// for the current position on the board.
-    fn evaluate_move(&self, m: Move) -> Value;
-
-    /// Generates pseudo-legal moves.
-    ///
-    /// A pseudo-legal move is a move that is otherwise legal, except
-    /// it might leave the king in check. Every legal move is a
-    /// pseudo-legal move, but not every pseudo-legal move is legal.
-    /// The generated moves will be pushed to `move_stack`. If all of
-    /// the moves generated by this methods are illegal (this means
-    /// that `do_move(m)` returns `false` for all of them), then the
-    /// position is final, and `evaluate_final()` will return its
-    /// correct value.
-    ///
-    /// **Important note:** Repeated and rule-50 positions are
-    /// considered final (and therefore, this method generates no
-    /// moves).
-    fn generate_moves(&self, move_stack: &mut MoveStack);
-
-    /// Returns a null move.
-    ///
-    /// "Null move" is a pseudo-move that changes only the side to
-    /// move. It is sometimes useful to include a speculative null
-    /// move in the search tree so as to achieve more aggressive
-    /// pruning.
-    fn null_move(&self) -> Move;
-
-    /// Checks if `move_digest` represents a pseudo-legal move.
-    ///
-    /// If a move `m` exists that would be generated by
-    /// `generate_moves` if called for the current position, and for
-    /// that move `m.digest() == move_digest`, this method will
-    /// return `Some(m)`. Otherwise it will return `None`. This is
-    /// useful when playing moves from the transposition table,
-    /// without calling `generate_moves`.
-    fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move>;
-
-    /// Plays a move on the board.
-    ///
-    /// It verifies if the move is legal. If the move is legal, the
-    /// board is updated and `true` is returned. If the move is
-    /// illegal, `false` is returned without updating the board. The
-    /// move passed to this method **must** have been generated by
-    /// `generate_moves`, `try_move_digest`, or `null_move` methods
-    /// for the current position on the board.
-    ///
-    /// Moves generated by the `null_move` method are exceptions. For
-    /// them `do_move(m)` will return `false` only if the king is in
-    /// check or the position is a draw due to repetition or rule-50.
-    fn do_move(&mut self, m: Move) -> bool;
-
-    /// Takes back the last played move.
-    fn undo_move(&mut self);
-
-    /// Returns if the side to move is unlikely to be in zugzwang.
-    ///
-    /// In many endgame positions there is a relatively high
-    /// probability of zugzwang occurring. For such positions, this
-    /// method will return `false`. For all "normal" positions it will
-    /// return `true`. This is useful when deciding if it is safe to
-    /// try a "null move".
-    fn is_zugzwang_unlikely(&self) -> bool;
-
-    /// Returns all legal moves in the position.
-    ///
-    /// **Important note:** This method is slower than
-    /// `generate_moves` because it ensures that all returned moves
-    /// are legal. (No moves are returned for repeated and rule-50
-    /// positions.)
-    fn legal_moves(&self) -> Vec<Move>;
-
-    /// Returns an exact copy of the position.
-    fn copy(&self) -> Box<SearchNode>;
 }
