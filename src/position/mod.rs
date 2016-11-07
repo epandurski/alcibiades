@@ -16,7 +16,7 @@ use notation::parse_fen;
 use search::SearchNode;
 use self::bitsets::*;
 use self::move_generation::Board;
-use self::evaluation::{BoardEvaluator, RandomEvaluator, evaluate_board};
+use self::evaluation::{BoardEvaluator, RandomEvaluator};
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).
@@ -180,13 +180,12 @@ impl<E: BoardEvaluator + 'static> Position<E> {
                mut recapture_squares: Bitboard,
                ply: u8,
                move_stack: &mut MoveStack,
-               eval_func: &Fn(&Board<E>) -> Value,
                searched_nodes: &mut NodeCount)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(stand_pat == VALUE_UNKNOWN ||
                       VALUE_EVAL_MIN <= stand_pat && stand_pat <= VALUE_EVAL_MAX &&
-                      stand_pat == eval_func(self.board()));
+                      stand_pat == self.board().evaluate());
         let in_check = self.board().checkers() != 0;
 
         // At the beginning of quiescence, the position's static
@@ -201,7 +200,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
             // Position's static evaluation is useless when in check.
             stand_pat = lower_bound
         } else if stand_pat == VALUE_UNKNOWN {
-            stand_pat = eval_func(self.board());
+            stand_pat = self.board().evaluate();
             debug_assert!(VALUE_EVAL_MIN <= stand_pat && stand_pat <= VALUE_EVAL_MAX);
         }
         if stand_pat >= upper_bound {
@@ -270,7 +269,6 @@ impl<E: BoardEvaluator + 'static> Position<E> {
                                               recapture_squares ^ dest_square_bb,
                                               ply + 1,
                                               move_stack,
-                                              eval_func,
                                               searched_nodes);
                     self.board_mut().undo_move(m);
                     if value >= upper_bound {
@@ -531,7 +529,7 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
         if self.repeated_or_rule50 {
             0
         } else {
-            let v = evaluate_board(self.board());
+            let v = self.board().evaluate();
             debug_assert!(v >= VALUE_EVAL_MIN && v <= VALUE_EVAL_MAX);
             v
         }
@@ -554,7 +552,6 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
                              0,
                              0,
                              &mut *s.get(),
-                             &evaluate_board,
                              &mut searched_nodes)
             });
             (value, searched_nodes)
@@ -753,115 +750,132 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::move_generation::Board;
-    use super::PIECE_VALUES;
     use basetypes::*;
     use moves::*;
     use search::SearchNode;
-    use position::evaluation::{BoardEvaluator, RandomEvaluator};
+    use position::move_generation::Board;
+    use position::evaluation::{BoardEvaluator, SetOption};
 
-    #[allow(unused_variables)]
-    fn simple_eval<E: BoardEvaluator>(board: &Board<E>) -> Value {
-        use basetypes::*;
-        use position::bitsets::*;
-        let piece_type = board.pieces().piece_type;
-        let color = board.pieces().color;
-        let us = board.to_move();
-        let them = 1 ^ us;
-        let mut result = 0;
-        for piece in QUEEN..NO_PIECE {
-            result += PIECE_VALUES[piece] *
-                      (pop_count(piece_type[piece] & color[us]) as i16 -
-                       pop_count(piece_type[piece] & color[them]) as i16);
+    #[derive(Clone)]
+    pub struct MaterialEvaluator;
+
+    impl SetOption for MaterialEvaluator {}
+
+    impl BoardEvaluator for MaterialEvaluator {
+        #[allow(unused_variables)]
+        fn new(board: *const Board<MaterialEvaluator>) -> MaterialEvaluator {
+            MaterialEvaluator
         }
-        result
+
+        fn evaluate(&self, board: *const Board<MaterialEvaluator>) -> Value {
+            use position::bitsets::*;
+            const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
+            let board = unsafe { board.as_ref().unwrap() };
+            let piece_type = board.pieces().piece_type;
+            let color = board.pieces().color;
+            let us = board.to_move();
+            let them = 1 ^ us;
+            let mut result = 0;
+            for piece in QUEEN..NO_PIECE {
+                result += PIECE_VALUES[piece] *
+                          (pop_count(piece_type[piece] & color[us]) as i16 -
+                           pop_count(piece_type[piece] & color[them]) as i16);
+            }
+            result
+        }
     }
 
     #[test]
     fn test_fen_parsing() {
-        assert!(Position::<RandomEvaluator>::from_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQK\
-                                                       BNR b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNB\
+                                                         QKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr1/pppppppp/8/8/4P3/8/PPPP1PPP/RNB\
-                                                       QKBNR b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr1/pppppppp/8/8/4P3/8/PPPP1PPP/R\
+                                                         NBQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
-                                                       KBN b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RN\
+                                                         BQKBN b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
-                                                       KBNR/ b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RN\
+                                                         BQKBNR/ b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
-                                                       KBNRR b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RN\
+                                                         BQKBNRR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP01PPP/RNBQ\
-                                                       KBNR b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP01PPP/RN\
+                                                         BQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP91PPP/RNBQ\
-                                                       KBNR b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP91PPP/RN\
+                                                         BQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP*1PPP/RNBQ\
-                                                       KBNR b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP*1PPP/RN\
+                                                         BQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
-                                                       KBNR b KQkq e3 * 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RN\
+                                                         BQKBNR b KQkq e3 * 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
-                                                       KBNR b KQkq e3 0 *")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RN\
+                                                         BQKBNR b KQkq e3 0 *")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
-                                                       KBNR b - e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RN\
+                                                         BQKBNR b - e3 0 1")
                     .is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
-                                                       KBNR b KQkq e3 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RN\
+                                                         BQKBNR b KQkq e3 0 1")
                     .is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - \
+                                                         0 1")
                     .is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Position::<MaterialEvaluator>::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
                     .is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1")
                     .is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1")
                     .is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1").is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
-        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
-        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1")
+                    .is_ok());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1")
+                    .is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Position::<MaterialEvaluator>::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1")
+                    .is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1")
+                    .is_ok());
+        assert!(Position::<MaterialEvaluator>::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1")
+                    .is_err());
+        assert!(Position::<MaterialEvaluator>::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
     }
 
     #[test]
     fn test_evaluate_static() {
-        assert!(Position::<RandomEvaluator>::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
+        assert!(Position::<MaterialEvaluator>::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
                     .ok()
                     .unwrap()
                     .evaluate_static() < -20);
@@ -869,7 +883,7 @@ mod tests {
 
     #[test]
     fn test_evaluate_move() {
-        let p = Position::<RandomEvaluator>::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1")
                     .ok()
                     .unwrap();
         let mut s = MoveStack::new();
@@ -892,7 +906,7 @@ mod tests {
             }
         }
         assert_eq!(p.evaluate_move(p.null_move()), 0);
-        let p = Position::<RandomEvaluator>::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1")
                     .ok()
                     .unwrap();
         p.generate_moves(&mut s);
@@ -909,111 +923,57 @@ mod tests {
     #[test]
     fn test_qsearch() {
         let mut s = MoveStack::new();
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    225);
 
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    -100);
 
-        let p = Position::<RandomEvaluator>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PP\
-                                                       P2PPP/R2QKB1R w - - 5 1")
+        let p = Position::<MaterialEvaluator>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/\
+                                                         PPP2PPP/R2QKB1R w - - 5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<RandomEvaluator>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2\
-                                                       PPP/R2QKB1R b - - 5 1")
+        let p = Position::<MaterialEvaluator>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PP\
+                                                         P2PPP/R2QKB1R b - - 5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    -100);
 
-        let p = Position::<RandomEvaluator>::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2P\
-                                                       PP/R1BKQB1R w - - 5 1")
+        let p = Position::<MaterialEvaluator>::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP\
+                                                         2PPP/R1BKQB1R w - - 5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
-        assert!(p.qsearch(-10000,
-                          10000,
-                          VALUE_UNKNOWN,
-                          0,
-                          0,
-                          &mut s,
-                          &simple_eval,
-                          &mut 0) <= -10000);
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1")
+                    .ok()
+                    .unwrap();
+        assert!(p.qsearch(-10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000);
 
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).1, 1);
@@ -1022,8 +982,8 @@ mod tests {
     #[test]
     fn test_from_history_repeated() {
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4"];
-        let p = Position::<RandomEvaluator>::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1",
-                                                          &mut moves.into_iter())
+        let p = Position::<MaterialEvaluator>::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1",
+                                                            &mut moves.into_iter())
                     .ok()
                     .unwrap();
         let mut v = MoveStack::new();
@@ -1042,8 +1002,8 @@ mod tests {
 
     #[test]
     fn is_repeated() {
-        let mut p = Position::<RandomEvaluator>::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2K \
-                                                           w - - 0 1")
+        let mut p = Position::<MaterialEvaluator>::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2\
+                                                             K w - - 0 1")
                         .ok()
                         .unwrap();
         let mut v = MoveStack::new();
@@ -1063,17 +1023,17 @@ mod tests {
 
     #[test]
     fn is_checkmate() {
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(p.is_checkmate());
 
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(!p.is_checkmate());
 
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(!p.is_checkmate());
@@ -1083,8 +1043,8 @@ mod tests {
     fn test_static_exchange_evaluation() {
         let mut v = MoveStack::new();
 
-        let p = Position::<RandomEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - \
-                                                       - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w \
+                                                         - - 0 1")
                     .ok()
                     .unwrap();
         p.generate_moves(&mut v);
@@ -1106,8 +1066,8 @@ mod tests {
             }
         }
 
-        let p = Position::<RandomEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 b - \
-                                                       - 0 1")
+        let p = Position::<MaterialEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 b \
+                                                         - - 0 1")
                     .ok()
                     .unwrap();
         p.generate_moves(&mut v);
@@ -1126,24 +1086,26 @@ mod tests {
 
     #[test]
     fn test_repeated_boards_hash() {
-        let p1 = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7k/8/7K w - - 0 1").ok().unwrap();
+        let p1 = Position::<MaterialEvaluator>::from_fen("8/8/8/8/8/7k/8/7K w - - 0 1")
+                     .ok()
+                     .unwrap();
         let moves: Vec<&str> = vec![];
-        let p2 = Position::<RandomEvaluator>::from_history("8/8/8/8/8/7k/8/7K w - - 0 1",
-                                                           &mut moves.into_iter())
+        let p2 = Position::<MaterialEvaluator>::from_history("8/8/8/8/8/7k/8/7K w - - 0 1",
+                                                             &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
-        let p2 = Position::<RandomEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
-                                                           &mut moves.into_iter())
+        let p2 = Position::<MaterialEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
+                                                             &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
-        let p3 = Position::<RandomEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
-                                                           &mut moves.into_iter())
+        let p3 = Position::<MaterialEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
+                                                             &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
