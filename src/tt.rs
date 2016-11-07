@@ -18,6 +18,10 @@ use basetypes::{Value, VALUE_UNKNOWN};
 use moves::MoveDigest;
 
 
+/// The maximum search depth in half-moves.
+pub const MAX_DEPTH: u8 = 63;
+
+
 /// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.
 ///
 /// For the majority of chess positions our evaluations will be more
@@ -34,13 +38,19 @@ use moves::MoveDigest;
 /// * `BOUND_UPPER` means that the real value is lesser or equal to
 ///   the evaluation (as far as we know).
 ///
-/// * `BOUND_NONE` means that the real value might be lesser, equal,
-///   or grater than the evaluation.
+/// * `BOUND_NONE` means that the real value might be anything.
 pub type BoundType = u8;
 
+/// Means that the real value might be anything.
 pub const BOUND_NONE: BoundType = 0;
-pub const BOUND_UPPER: BoundType = 0b10;
+
+/// Means that the real value is greater or equal to the evaluation.
 pub const BOUND_LOWER: BoundType = 0b01;
+
+/// Means that the real value is lesser or equal to the evaluation.
+pub const BOUND_UPPER: BoundType = 0b10;
+
+/// Means that the evaluation is exact.
 pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 
 
@@ -83,7 +93,7 @@ impl TtEntry {
                -> TtEntry {
         debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
-        debug_assert!(depth < 127);
+        debug_assert!(depth <= MAX_DEPTH);
         TtEntry {
             move16: move16,
             value: value,
@@ -406,6 +416,11 @@ mod tests {
     use super::Record;
     use std;
 
+    #[test]
+    fn test_max_depth() {
+        assert!(MAX_DEPTH < 127);
+    }
+    
     #[test]
     fn test_cluster_size() {
         assert_eq!(std::mem::size_of::<[Record; 4]>(), 64);

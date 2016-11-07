@@ -5,7 +5,7 @@ use std::cmp::max;
 use basetypes::*;
 use moves::*;
 use tt::*;
-use search::{SearchNode, MAX_DEPTH};
+use search::SearchNode;
 
 
 /// Represents a terminated search condition.
