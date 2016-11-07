@@ -16,7 +16,7 @@ use notation::parse_fen;
 use search::SearchNode;
 use self::bitsets::*;
 use self::move_generation::Board;
-use self::evaluation::evaluate_board;
+use self::evaluation::{BoardEvaluator, RandomEvaluator, evaluate_board};
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).
@@ -58,7 +58,9 @@ pub struct IllegalPosition;
 /// `Position::from_history` "forgets" all positions that have
 /// occurred exactly once. Also, the root position is never deemed as
 /// a draw due to repetition or rule-50.
-pub struct Position {
+pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
+    evaluator: E,
+
     /// The current board.
     ///
     /// We use `UnsafeCell` for this, because the
@@ -95,17 +97,18 @@ pub struct Position {
 }
 
 
-impl Position {
+impl<E: BoardEvaluator + 'static> Position<E> {
     /// Creates a new board instance from a FEN string.
     ///
     /// A FEN (Forsyth–Edwards Notation) string defines a particular
     /// position using only the ASCII character set.
-    pub fn from_fen(fen: &str) -> Result<Position, IllegalPosition> {
+    pub fn from_fen(fen: &str) -> Result<Position<E>, IllegalPosition> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(parse_fen(fen).map_err(|_| IllegalPosition));
         let board = try!(Board::create(placement, to_move, castling, en_passant_square)
                              .map_err(|_| IllegalPosition));
-        Ok(Position {
+        let mut p = Position {
+            evaluator: E::new(),
             board_hash: board.calc_hash(),
             board: UnsafeCell::new(board),
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
@@ -116,7 +119,9 @@ impl Position {
                                   halfmove_clock: min(halfmove_clock, 99),
                                   last_move: Move::invalid(),
                               }],
-        })
+        };
+        p.evaluator.set_board(p.board.get());
+        Ok(p)
     }
 
     /// Creates a new instance from playing history.
@@ -128,7 +133,7 @@ impl Position {
     /// (white short castling), `e7e8q` (for promotion).
     pub fn from_history(fen: &str,
                         moves: &mut Iterator<Item = &str>)
-                        -> Result<Position, IllegalPosition> {
+                        -> Result<Position<E>, IllegalPosition> {
         let mut p = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
         'played_moves: for played_move in moves {
@@ -477,7 +482,7 @@ impl Position {
     }
 }
 
-impl SearchNode for Position {
+impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
     fn hash(&self) -> u64 {
         if self.repeated_or_rule50 {
             // All repeated and rule-50 positions are a draw, so for
@@ -678,7 +683,8 @@ impl SearchNode for Position {
         let mut state_stack = Vec::with_capacity(self.state_stack.capacity());
         encountered_boards.extend_from_slice(&self.encountered_boards);
         state_stack.extend_from_slice(&self.state_stack);
-        Box::new(Position {
+        let mut p = Position {
+            evaluator: self.evaluator.clone(),
             board: UnsafeCell::new(self.board().clone()),
             board_hash: self.board_hash,
             halfmove_count: self.halfmove_count,
@@ -686,7 +692,9 @@ impl SearchNode for Position {
             repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: encountered_boards,
             state_stack: state_stack,
-        })
+        };
+        p.evaluator.set_board(p.board.get());
+        Box::new(p)
     }
 }
 
@@ -758,9 +766,8 @@ mod tests {
     use basetypes::*;
     use moves::*;
     use search::SearchNode;
+    use position::evaluation::RandomEvaluator;
 
-    // This is a very simple evaluation function used for the testing
-    // of `qsearch`.
     #[allow(unused_variables)]
     fn simple_eval(board: &Board) -> Value {
         use basetypes::*;
@@ -780,67 +787,89 @@ mod tests {
 
     #[test]
     fn test_fen_parsing() {
-        assert!(Position::from_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQK\
+                                                       BNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr1/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr1/pppppppp/8/8/4P3/8/PPPP1PPP/RNB\
+                                                       QKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBN b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
+                                                       KBN b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR/ b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
+                                                       KBNR/ b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNRR b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
+                                                       KBNRR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP01PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP01PPP/RNBQ\
+                                                       KBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP91PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP91PPP/RNBQ\
+                                                       KBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP*1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPP*1PPP/RNBQ\
+                                                       KBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 * 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
+                                                       KBNR b KQkq e3 * 1")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 *")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
+                                                       KBNR b KQkq e3 0 *")
                     .is_err());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b - e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
+                                                       KBNR b - e3 0 1")
                     .is_ok());
-        assert!(Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQ\
+                                                       KBNR b KQkq e3 0 1")
                     .is_ok());
-        assert!(Position::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
-        assert!(Position::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
-        assert!(Position::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
-        assert!(Position::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1").is_err());
-        assert!(Position::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1").is_ok());
-        assert!(Position::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
-        assert!(Position::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Position::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
-        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").is_ok());
-        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1").is_err());
-        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
-        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
-        assert!(Position::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_ok());
-        assert!(Position::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_err());
-        assert!(Position::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1").is_err());
-        assert!(Position::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1").is_ok());
-        assert!(Position::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
-        assert!(Position::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
-        assert!(Position::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
-        assert!(Position::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
-        assert!(Position::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
-        assert!(Position::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1").is_err());
-        assert!(Position::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
-        assert!(Position::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_err());
-        assert!(Position::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
-        assert!(Position::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
-        assert!(Position::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1")
+                    .is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1")
+                    .is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1")
+                    .is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
+                    .is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1")
+                    .is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
+                    .is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1")
+                    .is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1")
+                    .is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1")
+                    .is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1")
+                    .is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1").is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
+        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
+        assert!(Position::<RandomEvaluator>::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
     }
 
     #[test]
     fn test_evaluate_static() {
-        assert!(Position::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
+        assert!(Position::<RandomEvaluator>::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
                     .ok()
                     .unwrap()
                     .evaluate_static() < -20);
@@ -848,7 +877,7 @@ mod tests {
 
     #[test]
     fn test_evaluate_move() {
-        let p = Position::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1")
+        let p = Position::<RandomEvaluator>::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1")
                     .ok()
                     .unwrap();
         let mut s = MoveStack::new();
@@ -871,7 +900,7 @@ mod tests {
             }
         }
         assert_eq!(p.evaluate_move(p.null_move()), 0);
-        let p = Position::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1")
+        let p = Position::<RandomEvaluator>::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1")
                     .ok()
                     .unwrap();
         p.generate_moves(&mut s);
@@ -888,7 +917,9 @@ mod tests {
     #[test]
     fn test_qsearch() {
         let mut s = MoveStack::new();
-        let p = Position::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1").ok().unwrap();
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1")
+                    .ok()
+                    .unwrap();
         assert_eq!(p.qsearch(-1000,
                              1000,
                              VALUE_UNKNOWN,
@@ -899,7 +930,9 @@ mod tests {
                              &mut 0),
                    0);
 
-        let p = Position::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1").ok().unwrap();
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1")
+                    .ok()
+                    .unwrap();
         assert_eq!(p.qsearch(-1000,
                              1000,
                              VALUE_UNKNOWN,
@@ -910,30 +943,7 @@ mod tests {
                              &mut 0),
                    225);
 
-        let p = Position::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1").ok().unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
-                   0);
-
-        let p = Position::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1").ok().unwrap();
-        assert_eq!(p.qsearch(-1000,
-                             1000,
-                             VALUE_UNKNOWN,
-                             0,
-                             0,
-                             &mut s,
-                             &simple_eval,
-                             &mut 0),
-                   -100);
-
-        let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP2PPP/R2QKB1R w - \
-                                    - 5 1")
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.qsearch(-1000,
@@ -946,8 +956,7 @@ mod tests {
                              &mut 0),
                    0);
 
-        let p = Position::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2PPP/R2QKB1R b - - \
-                                    5 1")
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.qsearch(-1000,
@@ -960,8 +969,8 @@ mod tests {
                              &mut 0),
                    -100);
 
-        let p = Position::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PPP/R1BKQB1R w - - \
-                                    5 1")
+        let p = Position::<RandomEvaluator>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PP\
+                                                       P2PPP/R2QKB1R w - - 5 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.qsearch(-1000,
@@ -974,7 +983,35 @@ mod tests {
                              &mut 0),
                    0);
 
-        let p = Position::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
+        let p = Position::<RandomEvaluator>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2\
+                                                       PPP/R2QKB1R b - - 5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   -100);
+
+        let p = Position::<RandomEvaluator>::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2P\
+                                                       PP/R1BKQB1R w - - 5 1")
+                    .ok()
+                    .unwrap();
+        assert_eq!(p.qsearch(-1000,
+                             1000,
+                             VALUE_UNKNOWN,
+                             0,
+                             0,
+                             &mut s,
+                             &simple_eval,
+                             &mut 0),
+                   0);
+
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1").ok().unwrap();
         assert!(p.qsearch(-10000,
                           10000,
                           VALUE_UNKNOWN,
@@ -984,14 +1021,17 @@ mod tests {
                           &simple_eval,
                           &mut 0) <= -10000);
 
-        let p = Position::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1")
+                    .ok()
+                    .unwrap();
         assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).1, 1);
     }
 
     #[test]
     fn test_from_history_repeated() {
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4"];
-        let p = Position::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
+        let p = Position::<RandomEvaluator>::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1",
+                                                          &mut moves.into_iter())
                     .ok()
                     .unwrap();
         let mut v = MoveStack::new();
@@ -1010,7 +1050,8 @@ mod tests {
 
     #[test]
     fn is_repeated() {
-        let mut p = Position::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2K w - - 0 1")
+        let mut p = Position::<RandomEvaluator>::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2K \
+                                                           w - - 0 1")
                         .ok()
                         .unwrap();
         let mut v = MoveStack::new();
@@ -1030,17 +1071,17 @@ mod tests {
 
     #[test]
     fn is_checkmate() {
-        let p = Position::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1")
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(p.is_checkmate());
 
-        let p = Position::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1")
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(!p.is_checkmate());
 
-        let p = Position::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1")
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(!p.is_checkmate());
@@ -1050,7 +1091,10 @@ mod tests {
     fn test_static_exchange_evaluation() {
         let mut v = MoveStack::new();
 
-        let p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1").ok().unwrap();
+        let p = Position::<RandomEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - \
+                                                       - 0 1")
+                    .ok()
+                    .unwrap();
         p.generate_moves(&mut v);
         while let Some(m) = v.pop() {
             if m.notation() == "f2f4" {
@@ -1070,7 +1114,10 @@ mod tests {
             }
         }
 
-        let p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 b - - 0 1").ok().unwrap();
+        let p = Position::<RandomEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 b - \
+                                                       - 0 1")
+                    .ok()
+                    .unwrap();
         p.generate_moves(&mut v);
         while let Some(m) = v.pop() {
             if m.notation() == "e5e3" {
@@ -1087,21 +1134,24 @@ mod tests {
 
     #[test]
     fn test_repeated_boards_hash() {
-        let p1 = Position::from_fen("8/8/8/8/8/7k/8/7K w - - 0 1").ok().unwrap();
+        let p1 = Position::<RandomEvaluator>::from_fen("8/8/8/8/8/7k/8/7K w - - 0 1").ok().unwrap();
         let moves: Vec<&str> = vec![];
-        let p2 = Position::from_history("8/8/8/8/8/7k/8/7K w - - 0 1", &mut moves.into_iter())
+        let p2 = Position::<RandomEvaluator>::from_history("8/8/8/8/8/7k/8/7K w - - 0 1",
+                                                           &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
-        let p2 = Position::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
+        let p2 = Position::<RandomEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
+                                                           &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
-        let p3 = Position::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
+        let p3 = Position::<RandomEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
+                                                           &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);

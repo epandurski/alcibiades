@@ -953,9 +953,10 @@ pub fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
 /// A helper function. It returns bogus search parameters.
 fn bogus_params() -> SearchParams {
     use position::*;
+    use position::evaluation::RandomEvaluator;
     SearchParams {
         search_id: 0,
-        position: Box::new(Position::from_fen(START_POSITION_FEN).ok().unwrap()),
+        position: Box::new(Position::<RandomEvaluator>::from_fen(START_POSITION_FEN).ok().unwrap()),
         depth: 1,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,

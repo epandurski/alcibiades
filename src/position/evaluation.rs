@@ -1,6 +1,7 @@
 //! Implements static board evaluation (not implemented yet).
 
 use std::hash::{Hasher, SipHasher};
+use std::ptr;
 use basetypes::*;
 use moves::*;
 use uci::{OptionName, OptionDescription};
@@ -30,9 +31,12 @@ pub trait SetOption {
 /// the static evaluation will return a grossly incorrect
 /// evaluation. Therefore, it should be relied upon only for
 /// reasonably "quiet" positions.
-pub trait BoardEvaluator: SetOption {
+pub trait BoardEvaluator: Clone + SetOption + Send {
     /// Creates a new instance.
-    fn new(board: *const Board) -> Self;
+    fn new() -> Self;
+
+    /// Binds the instance to a given board.
+    fn set_board(&mut self, board: *const Board);
 
     /// Updates the internal state in accordance with a move that will
     /// be played on the board.
@@ -62,7 +66,8 @@ pub trait BoardEvaluator: SetOption {
 }
 
 
-struct RandomEvaluator {
+#[derive(Clone)]
+pub struct RandomEvaluator {
     board: *const Board,
 }
 
@@ -70,9 +75,16 @@ struct RandomEvaluator {
 impl SetOption for RandomEvaluator {}
 
 
+unsafe impl Send for RandomEvaluator {}
+
+
 impl BoardEvaluator for RandomEvaluator {
-    fn new(board: *const Board) -> RandomEvaluator {
-        RandomEvaluator { board: board }
+    fn new() -> RandomEvaluator {
+        RandomEvaluator { board: ptr::null() }
+    }
+
+    fn set_board(&mut self, board: *const Board) {
+        self.board = board;
     }
 
     fn evaluate(&self) -> Value {

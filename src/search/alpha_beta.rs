@@ -694,12 +694,15 @@ mod tests {
     use tt::*;
     use moves::*;
     use position::*;
+    use position::evaluation::RandomEvaluator;
     use search::SearchNode;
 
     #[test]
     fn test_search() {
         assert!(Move::max_score() - 2 > super::REDUCTION_THRESHOLD);
-        let p = Position::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1").ok().unwrap();
+        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1")
+                    .ok()
+                    .unwrap();
         let tt = Tt::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
@@ -719,7 +722,8 @@ mod tests {
     fn test_killers() {
         use basetypes::*;
         let mut killers = KillerTable::new();
-        let mut p = Position::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
+        let mut p = Position::<RandomEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 \
+                                                           w - - 0 1")
                         .ok()
                         .unwrap();
         let mut v = MoveStack::new();
