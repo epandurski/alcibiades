@@ -105,7 +105,7 @@ use search::threading::*;
 pub struct AlphabetaSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
-    thread_reports: Receiver<Report>,
+    thread_reports: Receiver<SearchReport>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
@@ -135,7 +135,7 @@ impl SearchExecutor for AlphabetaSearcher {
         self.thread_commands.send(Command::Start(params)).unwrap();
     }
 
-    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
         let mut has_reports = self.has_reports_condition.0.lock().unwrap();
         let result = self.thread_reports.try_recv();
         if result.is_err() {
@@ -218,14 +218,14 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
         self.search_next_depth();
     }
 
-    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, sorted_moves, done, .. } =
+    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
+        let SearchReport { searched_nodes, depth, value, sorted_moves, done, .. } =
             try!(self.searcher.try_recv_report());
         if !sorted_moves.is_empty() {
             debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
             self.params.searchmoves = sorted_moves.clone();
         }
-        let mut report = Report {
+        let mut report = SearchReport {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
             depth: self.depth,
@@ -393,14 +393,14 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
         self.start_aspirated_search();
     }
 
-    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
-        let Report { searched_nodes, depth, value, sorted_moves, done, .. } =
+    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
+        let SearchReport { searched_nodes, depth, value, sorted_moves, done, .. } =
             try!(self.searcher.try_recv_report());
         if !sorted_moves.is_empty() {
             debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
             self.params.searchmoves = sorted_moves.clone();
         }
-        let mut report = Report {
+        let mut report = SearchReport {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
             depth: 0,
@@ -539,14 +539,14 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
         self.search_current_move();
     }
 
-    fn try_recv_report(&mut self) -> Result<Report, TryRecvError> {
+    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
         if self.params.searchmoves.is_empty() {
             // `searchmoves` is empty -- we assume that the root
             // position is final. (We also update `searchmoves` so
             // that other calls to `try_recv_report` will return
             // `Err`.)
             self.params.searchmoves = vec![Move::invalid()];
-            Ok(Report {
+            Ok(SearchReport {
                 search_id: self.params.search_id,
                 searched_nodes: 0,
                 depth: self.params.depth,
@@ -556,8 +556,9 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
             })
         } else {
             // `searchmoves` is not empty.
-            let Report { searched_nodes, value, done, .. } = try!(self.searcher.try_recv_report());
-            let mut report = Report {
+            let SearchReport { searched_nodes, value, done, .. } = try!(self.searcher
+                                                                            .try_recv_report());
+            let mut report = SearchReport {
                 search_id: self.params.search_id,
                 searched_nodes: self.previously_searched_nodes + searched_nodes,
                 depth: 0,
@@ -627,5 +628,3 @@ fn contains_dups(list: &Vec<Move>) -> bool {
     l.dedup();
     l.len() < list.len()
 }
-
-

@@ -61,7 +61,7 @@ impl Clone for SearchParams {
 
 /// A progress report from a search.
 #[derive(Clone)]
-pub struct Report {
+pub struct SearchReport {
     /// The ID assigned to search.
     pub search_id: usize,
 
@@ -99,7 +99,7 @@ pub trait SearchExecutor {
     fn start_search(&mut self, params: SearchParams);
 
     /// Attempts to return a search progress report without blocking.
-    fn try_recv_report(&mut self) -> Result<Report, TryRecvError>;
+    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError>;
 
     /// Waits until a search progress report is available, timing out
     /// after a specified duration or earlier.

@@ -172,7 +172,7 @@ impl SearchThread {
 
     /// A helper method. It updates the current status according to
     /// the received report message.
-    fn process_report(&mut self, report: Report) {
+    fn process_report(&mut self, report: SearchReport) {
         let duration = self.status.started_at.elapsed().unwrap();
         self.status.duration_millis = 1000 * duration.as_secs() +
                                       (duration.subsec_nanos() / 1000000) as u64;

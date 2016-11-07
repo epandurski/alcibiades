@@ -6,7 +6,7 @@ use std::sync::mpsc::{Sender, Receiver, RecvError};
 use basetypes::*;
 use moves::*;
 use tt::*;
-use search::{Report, SearchParams};
+use search::{SearchReport, SearchParams};
 use search::alpha_beta::Search;
 
 
@@ -60,7 +60,7 @@ pub enum Command {
 /// depth.
 pub fn serve_simple(tt: Arc<Tt>,
                     commands: Receiver<Command>,
-                    reports: Sender<Report>,
+                    reports: Sender<SearchReport>,
                     has_reports_condition: Arc<(Mutex<bool>, Condvar)>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
@@ -86,7 +86,7 @@ pub fn serve_simple(tt: Arc<Tt>,
                                               .. }) => {
                     debug_assert!(lower_bound < upper_bound);
                     let mut report = |searched_nodes| {
-                        reports.send(Report {
+                        reports.send(SearchReport {
                                    search_id: search_id,
                                    searched_nodes: searched_nodes,
                                    depth: 0,
@@ -116,7 +116,7 @@ pub fn serve_simple(tt: Arc<Tt>,
                         (0, VALUE_UNKNOWN)
                     };
 
-                    reports.send(Report {
+                    reports.send(SearchReport {
                                search_id: search_id,
                                searched_nodes: search.node_count(),
                                depth: depth,

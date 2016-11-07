@@ -440,21 +440,21 @@ mod tests {
     fn test_store_and_probe() {
         let tt = Tt::new();
         assert!(tt.probe(1).is_none());
-        let data = TtEntry::new(0, 0, 100, 666, 0);
-        assert_eq!(data.depth(), 100);
+        let data = TtEntry::new(0, 0, 50, 666, 0);
+        assert_eq!(data.depth(), 50);
         assert_eq!(data.move16(), 666);
         tt.store(1, data);
-        assert_eq!(tt.probe(1).unwrap().depth(), 100);
-        tt.store(1, TtEntry::new(0, 0, 100, 666, 0));
-        assert_eq!(tt.probe(1).unwrap().depth(), 100);
+        assert_eq!(tt.probe(1).unwrap().depth(), 50);
+        tt.store(1, TtEntry::new(0, 0, 50, 666, 0));
+        assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move16(), 666);
-        for i in 2..100 {
+        for i in 2..50 {
             tt.store(i, TtEntry::new(i as i16, 0, i as u8, i as u16, i as i16));
         }
-        assert_eq!(tt.probe(1).unwrap().depth(), 100);
-        assert_eq!(tt.probe(99).unwrap().depth(), 99);
-        assert_eq!(tt.probe(98).unwrap().depth(), 98);
-        assert_eq!(tt.probe(97).unwrap().depth(), 97);
+        assert_eq!(tt.probe(1).unwrap().depth(), 50);
+        assert_eq!(tt.probe(49).unwrap().depth(), 49);
+        assert_eq!(tt.probe(48).unwrap().depth(), 48);
+        assert_eq!(tt.probe(47).unwrap().depth(), 47);
         tt.clear();
         assert!(tt.probe(1).is_none());
         tt.store(1, data);
