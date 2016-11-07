@@ -58,9 +58,9 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// the current position, so that the next call to `evaluate` can
     /// calculate the correct evaluation as quick as possible.
     ///
-    /// **Important note:** `m` must be a legal move. `board` must
-    /// point to a board that represents exactly the same position as
-    /// the one to which the evaluator's instance is bound
+    /// **Important note:** `m` must the last played move. `board`
+    /// must point to a board that represents exactly the same
+    /// position as the one to which the evaluator's instance is bound
     /// to. `will_undo_move` must be called before the move `m` is
     /// actually taken back, and after that, the move must actually be
     /// taken back.
