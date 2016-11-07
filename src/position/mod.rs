@@ -107,8 +107,8 @@ impl<E: BoardEvaluator + 'static> Position<E> {
             try!(parse_fen(fen).map_err(|_| IllegalPosition));
         let board = try!(Board::create(placement, to_move, castling, en_passant_square)
                              .map_err(|_| IllegalPosition));
-        let mut p = Position {
-            evaluator: E::new(),
+        Ok(Position {
+            evaluator: E::new(&board),
             board_hash: board.calc_hash(),
             board: UnsafeCell::new(board),
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
@@ -119,9 +119,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
                                   halfmove_clock: min(halfmove_clock, 99),
                                   last_move: Move::invalid(),
                               }],
-        };
-        p.evaluator.set_board(p.board.get());
-        Ok(p)
+        })
     }
 
     /// Creates a new instance from playing history.
@@ -683,7 +681,7 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
         let mut state_stack = Vec::with_capacity(self.state_stack.capacity());
         encountered_boards.extend_from_slice(&self.encountered_boards);
         state_stack.extend_from_slice(&self.state_stack);
-        let mut p = Position {
+        Box::new(Position {
             evaluator: self.evaluator.clone(),
             board: UnsafeCell::new(self.board().clone()),
             board_hash: self.board_hash,
@@ -692,9 +690,7 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
             repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: encountered_boards,
             state_stack: state_stack,
-        };
-        p.evaluator.set_board(p.board.get());
-        Box::new(p)
+        })
     }
 }
 

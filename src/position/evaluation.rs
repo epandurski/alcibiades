@@ -1,7 +1,6 @@
 //! Implements static board evaluation (not implemented yet).
 
 use std::hash::{Hasher, SipHasher};
-use std::ptr;
 use basetypes::*;
 use moves::*;
 use uci::{OptionName, OptionDescription};
@@ -31,65 +30,68 @@ pub trait SetOption {
 /// the static evaluation will return a grossly incorrect
 /// evaluation. Therefore, it should be relied upon only for
 /// reasonably "quiet" positions.
-pub trait BoardEvaluator: Clone + SetOption + Send {
-    /// Creates a new instance.
-    fn new() -> Self;
+pub trait BoardEvaluator: Clone + Send + SetOption {
+    /// Creates a new instance and binds it to a given position on the
+    /// board.
+    fn new(board: &Board) -> Self;
 
-    /// Binds the instance to a given board.
-    fn set_board(&mut self, board: *const Board);
-
-    /// Updates the internal state in accordance with a move that will
-    /// be played on the board.
+    /// Updates evaluator's internal state in accordance with a move
+    /// that will be played.
     ///
-    /// This method updates the internally maintained attributes of
-    /// the position, so that the next call to `evaluate` can give the
-    /// correct evaluation of the board. `do_move` must be called
-    /// before the move `m` is actually played on the board.
-    #[allow(unused_variables)]
-    fn do_move(&mut self, m: Move) {}
-
-    /// Updates the internal state in accordance with a move that will
-    /// be taken back.
+    /// This method updates the internally maintained properties of
+    /// the current position, so that the next call to `evaluate` can
+    /// calculate the correct evaluation as quick as possible.
     ///
-    /// This method updates the internally maintained attributes of
-    /// the position, so that the next call to `evaluate` can give the
-    /// correct evaluation of the board. `undo_move` must be called
-    /// before the move `m` is actually taken back.
+    /// **Important note:** `m` must be a legal move. `board` must
+    /// point to a board that represents exactly the same position as
+    /// the one to which the evaluator's instance is bound
+    /// to. `will_do_move` must be called before the move `m` is
+    /// actually played, and after that, the move must actually be
+    /// played.
     #[allow(unused_variables)]
-    fn undo_move(&mut self, m: Move) {}
+    fn will_do_move(&mut self, board: &Board, m: Move) {}
+
+    /// Updates evaluator's internal state in accordance with a move
+    /// that will be taken back.
+    ///
+    /// This method updates the internally maintained properties of
+    /// the current position, so that the next call to `evaluate` can
+    /// calculate the correct evaluation as quick as possible.
+    ///
+    /// **Important note:** `m` must be a legal move. `board` must
+    /// point to a board that represents exactly the same position as
+    /// the one to which the evaluator's instance is bound
+    /// to. `will_undo_move` must be called before the move `m` is
+    /// actually taken back, and after that, the move must actually be
+    /// taken back.
+    #[allow(unused_variables)]
+    fn will_undo_move(&mut self, board: &Board, m: Move) {}
 
     /// Statically evaluates the board.
     /// 
     /// The returned value will be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
-    fn evaluate(&self) -> Value;
+    /// 
+    /// **Important note:** `board` must point to a board that
+    /// represents exactly the same position as the one to which the
+    /// evaluator's instance is bound to.
+    fn evaluate(&self, board: &Board) -> Value;
 }
 
 
 #[derive(Clone)]
-pub struct RandomEvaluator {
-    board: *const Board,
-}
-
+pub struct RandomEvaluator;
 
 impl SetOption for RandomEvaluator {}
 
-
-unsafe impl Send for RandomEvaluator {}
-
-
 impl BoardEvaluator for RandomEvaluator {
-    fn new() -> RandomEvaluator {
-        RandomEvaluator { board: ptr::null() }
+    #[allow(unused_variables)]
+    fn new(board: &Board) -> RandomEvaluator {
+        RandomEvaluator
     }
 
-    fn set_board(&mut self, board: *const Board) {
-        self.board = board;
-    }
-
-    fn evaluate(&self) -> Value {
+    fn evaluate(&self, board: &Board) -> Value {
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
-        let board = unsafe { self.board.as_ref().unwrap() };
         let piece_type = board.pieces().piece_type;
         let color = board.pieces().color;
         let us = board.to_move();
