@@ -44,7 +44,7 @@ pub struct SearchStatus {
 /// positions.
 pub struct SearchThread {
     tt: Arc<Tt>,
-    position: Position,
+    position: Box<SearchNode>,
     status: SearchStatus,
     searcher: DeepeningSearcher<MultipvSearcher<AlphabetaSearcher>>,
 }
@@ -54,7 +54,7 @@ impl SearchThread {
     pub fn new(tt: Arc<Tt>) -> SearchThread {
         SearchThread {
             tt: tt.clone(),
-            position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
+            position: Box::new(Position::from_fen(START_POSITION_FEN).ok().unwrap()),
             status: SearchStatus {
                 done: true,
                 depth: 0,
@@ -85,10 +85,10 @@ impl SearchThread {
     /// notation. Examples: e2e4, e7e5, e1g1 (white short castling),
     /// e7e8q (for promotion).
     pub fn search(&mut self,
-                  position: &Position,
+                  position: &SearchNode,
                   variation_count: usize,
                   mut searchmoves: Vec<String>) {
-        self.position = position.clone();
+        self.position = position.copy();
 
         // Validate `searchmoves`.
         let mut moves = vec![];
@@ -129,7 +129,7 @@ impl SearchThread {
         // Start a new search.
         self.searcher.start_search(SearchParams {
             search_id: 0,
-            position: position.clone(),
+            position: position.copy(),
             depth: MAX_DEPTH,
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
@@ -178,7 +178,9 @@ impl SearchThread {
                           (1000 + self.status.duration_millis);
         if self.status.depth < report.depth {
             self.status.depth = report.depth;
-            self.status.variations = vec![extract_pv(&self.tt, &self.position, report.depth)];
+            self.status.variations = vec![extract_pv(&self.tt,
+                                                     self.position.as_ref(),
+                                                     report.depth)];
         }
         self.status.done = report.done;
     }

@@ -688,16 +688,13 @@ impl SearchNode for Position {
         // TODO: Write a real implementation.
         true
     }
-}
 
-
-impl Clone for Position {
-    fn clone(&self) -> Self {
+    fn copy(&self) -> Box<SearchNode> {
         let mut encountered_boards = Vec::with_capacity(self.encountered_boards.capacity());
         let mut state_stack = Vec::with_capacity(self.state_stack.capacity());
         encountered_boards.extend_from_slice(&self.encountered_boards);
         state_stack.extend_from_slice(&self.state_stack);
-        Position {
+        Box::new(Position {
             board: UnsafeCell::new(self.board().clone()),
             board_hash: self.board_hash,
             halfmove_count: self.halfmove_count,
@@ -705,7 +702,7 @@ impl Clone for Position {
             repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: encountered_boards,
             state_stack: state_stack,
-        }
+        })
     }
 }
 

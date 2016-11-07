@@ -102,13 +102,12 @@ pub const MAX_DEPTH: u8 = 63; // Should be less than 127.
 
 
 /// Parameters describing a new search.
-#[derive(Clone)]
 pub struct SearchParams {
     /// A number identifying the new search.
     pub search_id: usize,
 
     /// The root position for the new search.
-    pub position: Position,
+    pub position: Box<SearchNode>,
 
     /// The requested search depth.
     pub depth: u8,
@@ -132,6 +131,16 @@ pub struct SearchParams {
     ///
     /// Must be greater than zero.
     pub variation_count: usize,
+}
+
+impl Clone for SearchParams {
+    fn clone(&self) -> Self {
+        SearchParams {
+            position: self.position.copy(),
+            searchmoves: self.searchmoves.clone(),
+            ..*self
+        }
+    }
 }
 
 
@@ -705,8 +714,8 @@ pub struct Variation {
 
 /// Extracts the primary variation for a given position from the
 /// transposition table and returns it.
-pub fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
-    let mut p = position.clone();
+pub fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
+    let mut p = position.copy();
     let mut our_turn = true;
     let mut root_value = VALUE_UNKNOWN;
     let mut leaf_value = -9999;
@@ -783,7 +792,7 @@ pub fn extract_pv(tt: &Tt, position: &Position, depth: u8) -> Variation {
 fn bogus_params() -> SearchParams {
     SearchParams {
         search_id: 0,
-        position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
+        position: Box::new(Position::from_fen(START_POSITION_FEN).ok().unwrap()),
         depth: 1,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,
@@ -814,7 +823,7 @@ fn contains_dups(list: &Vec<Move>) -> bool {
 }
 
 
-pub trait SearchNode {
+pub trait SearchNode: Send {
     /// Returns a description of the placement of the pieces on the
     /// board.
     fn pieces(&self) -> &PiecesPlacement;
@@ -995,5 +1004,6 @@ pub trait SearchNode {
     /// positions.)
     fn legal_moves(&self) -> Vec<Move>;
 
-    // fn clone(&self) -> Box<SearchNode + Send>;
+    /// Returns an exact copy of the position.
+    fn copy(&self) -> Box<SearchNode>;
 }

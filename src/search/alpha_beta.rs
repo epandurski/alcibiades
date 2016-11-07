@@ -5,7 +5,6 @@ use std::cmp::max;
 use basetypes::*;
 use moves::*;
 use tt::*;
-use position::*;
 use search::{SearchNode, MAX_DEPTH};
 
 
@@ -17,7 +16,7 @@ pub struct TerminatedSearch;
 pub struct Search<'a> {
     tt: &'a Tt,
     killers: KillerTable,
-    position: Position,
+    position: Box<SearchNode>,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
     state_stack: Vec<NodeState>,
@@ -35,7 +34,7 @@ impl<'a> Search<'a> {
     /// positions from the beginning of the search to this moment. The
     /// function should return `true` if the search should be
     /// terminated, otherwise it should return `false`.
-    pub fn new(root: Position,
+    pub fn new(root: Box<SearchNode>,
                tt: &'a Tt,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(NodeCount) -> bool)
@@ -704,7 +703,7 @@ mod tests {
         let tt = Tt::new();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut search = Search::new(p, &tt, &mut moves, &mut report);
+        let mut search = Search::new(Box::new(p), &tt, &mut moves, &mut report);
         let value = search.run(VALUE_MIN, VALUE_MAX, 2, Move::invalid())
                           .ok()
                           .unwrap();
