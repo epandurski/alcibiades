@@ -30,9 +30,9 @@ pub enum Command {
 /// This function will block and wait to receive commands on the
 /// `commands` channel to start, stop, or exit searches. It is
 /// intended to be called in a separate thread. While the search is
-/// executed, regular `Report` messages will be send back to the
+/// executed, regular `SearchReport` messages will be send back to the
 /// master thread via the `reports` channel. When the search is done,
-/// the final `Report` message will have its `done` field set to
+/// the final `SearchReport` message will have its `done` field set to
 /// `true`.
 ///
 /// # Example:
