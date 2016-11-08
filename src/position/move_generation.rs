@@ -5,10 +5,9 @@ use std::cell::Cell;
 use basetypes::*;
 use moves::*;
 use notation::parse_fen;
+use position::{BoardEvaluator, IllegalPosition};
 use position::bitsets::*;
-use position::IllegalPosition;
 use position::tables::{BoardGeometry, ZobristArrays};
-use position::evaluation::BoardEvaluator;
 
 
 /// Holds the current position, can determine which moves are legal,

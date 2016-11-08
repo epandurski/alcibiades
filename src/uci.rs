@@ -298,6 +298,20 @@ pub trait UciEngine {
 }
 
 
+/// A trait for announcing configuration options, and changing
+/// configuration parameters.
+pub trait SetOption {
+    /// Returns all supported configuration options.
+    fn options() -> Vec<(OptionName, OptionDescription)> {
+        vec![]
+    }
+
+    /// Sets a new value for a given configuration parameter.
+    #[allow(unused_variables)]
+    fn set_option(&mut self, name: &str, value: &str) {}
+}
+
+
 /// UCI protocol server -- connects the engine to the GUI.
 pub struct Server<F, E>
     where F: UciEngineFactory<E>,
