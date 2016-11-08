@@ -115,6 +115,20 @@ pub trait SearchExecutor {
 
 
 /// A trait for interacting with chess positions.
+///
+/// `SearchNode` presents a convenient interface to the tree-searching
+/// algorithm. A `SearchNode` can generate the all possible moves
+/// (plus a "null move") in the current position, play a selected move
+/// and take it back. It can also quickly (without doing extensive
+/// tree-searching) evaluate the chances of the sides, so that the
+/// tree-searching algorithm can use this evaluation to assign
+/// realistic game outcomes to its leaf nodes.
+///
+/// **Important note:** Repeating positions are considered a draw
+/// after the first repetition, not after the second one as the
+/// official chess rules prescribe. This is done in the sake of
+/// efficiency.
+
 pub trait SearchNode: Send {
     /// Returns an almost unique hash value for the position.
     ///
@@ -156,9 +170,11 @@ pub trait SearchNode: Send {
     /// This method considers only static material and positional
     /// properties of the position. If the position is dynamic, with
     /// pending tactical threats, this function will return a grossly
-    /// incorrect evaluation. The returned value will be between
-    /// `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`. For repeated and
-    /// rule-50 positions `0` is returned.
+    /// incorrect evaluation.
+    ///
+    /// The returned value will be between `VALUE_EVAL_MIN` and
+    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions `0` is
+    /// returned.
     fn evaluate_static(&self) -> Value;
 
     /// Performs a "quiescence search" and returns an evaluation.
@@ -179,15 +195,16 @@ pub trait SearchNode: Send {
     /// return a value that is closer to the the interval bounds than
     /// the exact evaluation, but always staying on the correct side
     /// of the interval. `static_evaluation` should be the value
-    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`. The
-    /// returned value will be between `VALUE_EVAL_MIN` and
+    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`.
+    ///
+    /// The returned value will be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions `0` is
     /// returned.
     ///
     /// **Note:** This method will return a reliable result even when
-    /// the side to move is in check. In this case it will try all
-    /// possible check evasions. (It will will never use the static
-    /// evaluation value when in check.)
+    /// the side to move is in check. In this case the all possible
+    /// check evasions will be tried. It will will never use the
+    /// static evaluation value when in check.
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
@@ -265,10 +282,11 @@ pub trait SearchNode: Send {
 
     /// Returns all legal moves in the position.
     ///
+    /// No moves are returned for repeated and rule-50 positions.
+    /// 
     /// **Important note:** This method is slower than
     /// `generate_moves` because it ensures that all returned moves
-    /// are legal. No moves are returned for repeated and rule-50
-    /// positions.
+    /// are legal.
     fn legal_moves(&self) -> Vec<Move>;
 
     /// Returns an exact copy of the position.

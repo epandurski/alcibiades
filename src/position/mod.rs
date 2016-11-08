@@ -30,16 +30,6 @@ pub struct IllegalPosition;
 /// Holds the current position, knows the rules of chess, can evaluate
 /// the odds.
 ///
-/// `Position` presents a convenient interface to the tree-searching
-/// algorithm. It encapsulates most of the chess-specific knowledge
-/// like the values of pieces, king safety, pawn structure
-/// etc. `Position` can generate the all possible moves (plus a "null
-/// move") in the current position, play a selected move and take it
-/// back. It can also quickly (without doing extensive tree-searching)
-/// evaluate the chances of the sides, so that the tree-searching
-/// algorithm can use this evaluation to assign realistic game
-/// outcomes to its leaf nodes.
-///
 /// `Position` improves on the features of `Board` adding the the
 /// following important functionality:
 ///
@@ -50,14 +40,6 @@ pub struct IllegalPosition;
 /// 5. Quiescence search.
 /// 6. 50 move rule awareness.
 /// 7. Threefold/twofold repetition detection.
-///
-/// **Important note:** Repeating positions are considered a draw
-/// after the first repetition, not after the second one as the
-/// official chess rules prescribe. This is done in the sake of
-/// efficiency. In order to compensate for that
-/// `Position::from_history` "forgets" all positions that have
-/// occurred exactly once. Also, the root position is never deemed as
-/// a draw due to repetition or rule-50.
 pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
     /// The current board.
     ///
@@ -148,7 +130,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         Ok(p)
     }
 
-    /// Returns a reference to the internal board.
+    /// Returns a reference to the underlying board.
     #[inline(always)]
     pub fn board(&self) -> &Board<E> {
         unsafe { &*self.board.get() }
@@ -171,8 +153,13 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         self.halfmove_count
     }
 
-    /// A helper method for `evaluate_quiescence`. It performs
-    /// quiescence search and returns an evaluation.
+    /// Performs a "quiescence search" and returns an evaluation.
+    ///
+    /// The "quiescence search" is a restricted search which considers
+    /// only a limited set of moves (winning captures, pawn promotions
+    /// to queen, check evasions). The goal is to statically evaluate
+    /// only "quiet" positions (positions where there are no winning
+    /// tactical moves to be made).
     fn qsearch(&self,
                mut lower_bound: Value,
                upper_bound: Value,
@@ -302,6 +289,12 @@ impl<E: BoardEvaluator + 'static> Position<E> {
 
     /// Calculates the static exchange evaluation (SEE) value for a
     /// move.
+    ///
+    /// This method returns the likely evaluation change (material) to
+    /// be lost or gained as a result of a given move. It examines the
+    /// consequence of a series of exchanges on the destination square
+    /// after a given move. The result is calculated without actually
+    /// doing any moves on the board.
     fn calc_see(&self, m: Move) -> Value {
         debug_assert!(m.piece() < NO_PIECE);
         debug_assert!(m.captured_piece() <= NO_PIECE);
@@ -400,10 +393,13 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         gain[0]
     }
 
-    /// Forgets the previous playing history, preserving only the set
-    /// of previously repeated, still reachable boards.
+    /// Forgets the playing history, preserves only the set of
+    /// previously repeated, still reachable boards.
     fn declare_as_root(&mut self) {
         let state = *self.state();
+
+        // The root position is never deemed as a draw due to
+        // repetition or rule-50.
         self.repeated_or_rule50 = false;
 
         // Calculate the set of previously repeated, still reachable boards.
@@ -430,7 +426,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
             hasher.finish()
         };
 
-        // Forget all previously played moves.
+        // Forget all played moves.
         self.state_stack = vec![state];
         self.state_stack.reserve(32);
     }
@@ -518,6 +514,11 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
     }
 
     fn evaluate_final(&self) -> Value {
+        // Note that a draw score is assigned after the first
+        // repetition, not after the second one as the official chess
+        // rules prescribe. This is done in the sake of efficiency. In
+        // order to compensate for that `Position::from_history`
+        // "forgets" all positions that have occurred exactly once.
         if self.repeated_or_rule50 || self.board().checkers() == 0 {
             0
         } else {
