@@ -1,10 +1,5 @@
 //! Implements the rules of chess and the position evaluation logic.
 
-pub mod tables;
-pub mod move_generation;
-pub mod bitsets;
-pub mod evaluation;
-
 use std::u16;
 use std::mem::uninitialized;
 use std::cmp::{min, max};
@@ -13,77 +8,15 @@ use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
 use notation::parse_fen;
-use uci::SetOption;
 use search::SearchNode;
-use self::bitsets::*;
-use self::move_generation::Board;
-use self::evaluation::RandomEvaluator;
+use board::{Board, BoardEvaluator, IllegalBoard};
+use board::bitsets::*;
+use board::evaluation::RandomEvaluator;
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).
 pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
                                               - 0 1";
-
-/// A trait used to statically evaluate positions.
-pub trait BoardEvaluator: Clone + Send + SetOption {
-    /// Creates a new instance and binds it to a given position.
-    ///
-    /// When a new instance is created, it is bound to a particular
-    /// chess position (given by the `board` parameter). And for a
-    /// moment, this the only position that can be correctly
-    /// evaluated. The instance then can be re-bound to the next (or
-    /// the previous) position in the line of play by issuing calls to
-    /// `will_do_move` and `done_move` methods (or respectively,
-    /// `will_undo_move` and `undone_move` methods) .
-    fn new(board: &Board<Self>) -> Self;
-
-    /// Evaluates the the position to which the instance is bound.
-    ///
-    /// `board` points to the position to which the instance is bound.
-    ///
-    /// The returned value must be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`.
-
-    fn evaluate(&self, board: &Board<Self>) -> Value;
-    /// Updates evaluator's state to keep up with a move that will be
-    /// played.
-    ///
-    /// `board` points to the position to which the instance is bound.
-    ///
-    /// `m` is a legal move, or (if not in check) a "null move".
-    #[inline]
-    #[allow(unused_variables)]
-    fn will_do_move(&mut self, board: &Board<Self>, m: Move) {}
-
-    /// Updates evaluator's state to keep up with a move that was
-    /// played.
-    ///
-    /// `board` points to the position to which the instance is bound.
-    #[inline]
-    #[allow(unused_variables)]
-    fn done_move(&mut self, board: &Board<Self>, m: Move) {}
-
-    /// Updates evaluator's state to keep up with a move that will be
-    /// taken back.
-    ///
-    /// `board` points to the position to which the instance is bound.
-    #[inline]
-    #[allow(unused_variables)]
-    fn will_undo_move(&mut self, board: &Board<Self>, m: Move) {}
-
-    /// Updates evaluator's state in accordance with a move that was
-    /// taken back.
-    ///
-    /// `board` points to the position to which the instance is bound.
-    #[inline]
-    #[allow(unused_variables)]
-    fn undone_move(&mut self, board: &Board<Self>, m: Move) {}
-}
-
-
-/// Represents an illegal possiton error.
-pub struct IllegalPosition;
-
 
 /// Holds the current position, knows the rules of chess, can evaluate
 /// the odds.
@@ -140,11 +73,11 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     ///
     /// A FEN (Forsyth–Edwards Notation) string defines a particular
     /// position using only the ASCII character set.
-    pub fn from_fen(fen: &str) -> Result<Position<E>, IllegalPosition> {
+    pub fn from_fen(fen: &str) -> Result<Position<E>, IllegalBoard> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
-            try!(parse_fen(fen).map_err(|_| IllegalPosition));
+            try!(parse_fen(fen).map_err(|_| IllegalBoard));
         let board = try!(Board::create(placement, to_move, castling, en_passant_square)
-                             .map_err(|_| IllegalPosition));
+                             .map_err(|_| IllegalBoard));
         Ok(Position {
             board_hash: board.calc_hash(),
             board: UnsafeCell::new(board),
@@ -168,7 +101,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     /// (white short castling), `e7e8q` (for promotion).
     pub fn from_history(fen: &str,
                         moves: &mut Iterator<Item = &str>)
-                        -> Result<Position<E>, IllegalPosition> {
+                        -> Result<Position<E>, IllegalBoard> {
         let mut p = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
         'played_moves: for played_move in moves {
@@ -182,7 +115,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
                     break;
                 }
             }
-            return Err(IllegalPosition);
+            return Err(IllegalBoard);
         }
         p.declare_as_root();
         Ok(p)
@@ -807,9 +740,9 @@ mod tests {
     use super::*;
     use basetypes::*;
     use moves::*;
+    use uci::SetOption;
     use search::SearchNode;
-    use position::move_generation::Board;
-    use position::evaluation::{BoardEvaluator, SetOption};
+    use board::{Board, BoardEvaluator};
 
     #[derive(Clone)]
     pub struct MaterialEvaluator;
@@ -823,7 +756,7 @@ mod tests {
         }
 
         fn evaluate(&self, board: &Board<MaterialEvaluator>) -> Value {
-            use position::bitsets::*;
+            use board::bitsets::*;
             const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
             let piece_type = board.pieces().piece_type;
             let color = board.pieces().color;

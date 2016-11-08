@@ -1,13 +1,79 @@
 //! Implements the internal chess board and the move generation logic.
 
+pub mod tables;
+pub mod position;
+pub mod bitsets;
+pub mod evaluation;
+
 use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
 use moves::*;
+use uci::SetOption;
 use notation::parse_fen;
-use position::{BoardEvaluator, IllegalPosition};
-use position::bitsets::*;
-use position::tables::{BoardGeometry, ZobristArrays};
+use board::bitsets::*;
+use board::tables::{BoardGeometry, ZobristArrays};
+
+
+/// A trait used to statically evaluate positions.
+pub trait BoardEvaluator: Clone + Send + SetOption {
+    /// Creates a new instance and binds it to a given position.
+    ///
+    /// When a new instance is created, it is bound to a particular
+    /// chess position (given by the `board` parameter). And for a
+    /// moment, this the only position that can be correctly
+    /// evaluated. The instance then can be re-bound to the next (or
+    /// the previous) position in the line of play by issuing calls to
+    /// `will_do_move` and `done_move` methods (or respectively,
+    /// `will_undo_move` and `undone_move` methods) .
+    fn new(board: &Board<Self>) -> Self;
+
+    /// Evaluates the the position to which the instance is bound.
+    ///
+    /// `board` points to the position to which the instance is bound.
+    ///
+    /// The returned value must be between `VALUE_EVAL_MIN` and
+    /// `VALUE_EVAL_MAX`.
+
+    fn evaluate(&self, board: &Board<Self>) -> Value;
+    /// Updates evaluator's state to keep up with a move that will be
+    /// played.
+    ///
+    /// `board` points to the position to which the instance is bound.
+    ///
+    /// `m` is a legal move, or (if not in check) a "null move".
+    #[inline]
+    #[allow(unused_variables)]
+    fn will_do_move(&mut self, board: &Board<Self>, m: Move) {}
+
+    /// Updates evaluator's state to keep up with a move that was
+    /// played.
+    ///
+    /// `board` points to the position to which the instance is bound.
+    #[inline]
+    #[allow(unused_variables)]
+    fn done_move(&mut self, board: &Board<Self>, m: Move) {}
+
+    /// Updates evaluator's state to keep up with a move that will be
+    /// taken back.
+    ///
+    /// `board` points to the position to which the instance is bound.
+    #[inline]
+    #[allow(unused_variables)]
+    fn will_undo_move(&mut self, board: &Board<Self>, m: Move) {}
+
+    /// Updates evaluator's state in accordance with a move that was
+    /// taken back.
+    ///
+    /// `board` points to the position to which the instance is bound.
+    #[inline]
+    #[allow(unused_variables)]
+    fn undone_move(&mut self, board: &Board<Self>, m: Move) {}
+}
+
+
+/// Illegal possiton error.
+pub struct IllegalBoard;
 
 
 /// Holds the current position, can determine which moves are legal,
@@ -57,17 +123,17 @@ impl<E: BoardEvaluator> Board<E> {
                   to_move: Color,
                   castling: CastlingRights,
                   en_passant_square: Option<Square>)
-                  -> Result<Board<E>, IllegalPosition> {
+                  -> Result<Board<E>, IllegalBoard> {
 
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
             BLACK => RANK_3,
-            _ => return Err(IllegalPosition),
+            _ => return Err(IllegalBoard),
         };
         let en_passant_file = match en_passant_square {
             None => 8,
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
-            _ => return Err(IllegalPosition),
+            _ => return Err(IllegalBoard),
         };
         let mut b = Board {
             geometry: BoardGeometry::get(),
@@ -85,7 +151,7 @@ impl<E: BoardEvaluator> Board<E> {
             b.evaluator = E::new(&b);
             Ok(b)
         } else {
-            Err(IllegalPosition)
+            Err(IllegalBoard)
         }
     }
 
@@ -94,9 +160,11 @@ impl<E: BoardEvaluator> Board<E> {
     /// A FEN (Forsyth–Edwards Notation) string defines a particular
     /// position using only the ASCII character set. This function
     /// verifies that the resulting new board is legal.
-    pub fn from_fen(fen: &str) -> Result<Board<E>, IllegalPosition> {
-        let (ref placement, to_move, castling, en_passant_square, _, _) =
-            try!(parse_fen(fen).map_err(|_| IllegalPosition));
+    pub fn from_fen(fen: &str) -> Result<Board<E>, IllegalBoard> {
+        let (ref placement, to_move, castling, en_passant_square, _, _) = try!(parse_fen(fen)
+                                                                                   .map_err(|_| {
+                                                                                       IllegalBoard
+                                                                                   }));
         Board::create(placement, to_move, castling, en_passant_square)
     }
 
@@ -1216,11 +1284,11 @@ mod tests {
     use super::*;
     use basetypes::*;
     use moves::*;
-    use position::evaluation::RandomEvaluator;
+    use board::evaluation::RandomEvaluator;
 
     #[test]
     fn test_attacks_from() {
-        use position::tables::*;
+        use board::tables::*;
         let b = Board::<RandomEvaluator>::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1").ok().unwrap();
         let g = BoardGeometry::get();
         assert_eq!(g.attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
@@ -1590,7 +1658,7 @@ mod tests {
 
     #[test]
     fn test_try_move_digest() {
-        use position::evaluation::BoardEvaluator;
+        use board::BoardEvaluator;
         fn try_all<E: BoardEvaluator>(b: &Board<E>, stack: &MoveStack) {
             let mut i = 0;
             loop {

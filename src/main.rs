@@ -5,7 +5,7 @@ extern crate rand;
 
 pub mod basetypes;
 pub mod moves;
-pub mod position;
+pub mod board;
 pub mod search;
 pub mod uci;
 pub mod tt;
@@ -18,7 +18,7 @@ use std::time::{SystemTime, Duration};
 use std::collections::VecDeque;
 use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
-use position::{Position, START_POSITION_FEN};
+use board::position::{Position, START_POSITION_FEN};
 use search::Variation;
 use uci::{UciEngine, UciEngineFactory, GoParams};
 use search_management::{SearchThread, SearchStatus, TimeManager};

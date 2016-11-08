@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use basetypes::*;
 use tt::*;
-use position::*;
+use board::position::*;
 use search::*;
 
 
@@ -52,7 +52,7 @@ pub struct SearchThread {
 impl SearchThread {
     /// Creates a new instance.
     pub fn new(tt: Arc<Tt>) -> SearchThread {
-        use position::evaluation::RandomEvaluator;
+        use board::evaluation::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
             position: Box::new(Position::<RandomEvaluator>::from_fen(START_POSITION_FEN)

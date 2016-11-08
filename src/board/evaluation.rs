@@ -3,9 +3,8 @@
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use uci::SetOption;
-use position::BoardEvaluator;
-use position::bitsets::*;
-use position::move_generation::Board;
+use board::{Board, BoardEvaluator};
+use board::bitsets::*;
 
 
 #[derive(Clone)]
