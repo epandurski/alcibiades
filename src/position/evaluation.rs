@@ -22,7 +22,7 @@ pub trait SetOption {
 }
 
 
-/// A trait used to statically evaluate the current board.
+/// A trait used to statically evaluate positions.
 pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Creates a new instance and binds it to a given position.
     ///
