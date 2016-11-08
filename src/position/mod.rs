@@ -511,11 +511,6 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
     }
 
     fn evaluate_final(&self) -> Value {
-        // Note that a draw score is assigned after the first
-        // repetition, not after the second one as the official chess
-        // rules prescribe. This is done in the sake of efficiency. In
-        // order to compensate for that `Position::from_history`
-        // "forgets" all positions that have occurred exactly once.
         if self.repeated_or_rule50 || self.board().checkers() == 0 {
             0
         } else {
@@ -615,7 +610,7 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
             debug_assert!(halfmove_clock <= 99);
             debug_assert!(self.encountered_boards.len() >= halfmove_clock as usize);
 
-            // Figure out if the new position is repeated.
+            // Figure out if the new position is repeated (a draw).
             if halfmove_clock >= 4 {
                 let boards = &self.encountered_boards;
                 let last_irrev = (boards.len() - (halfmove_clock as usize)) as isize;
@@ -623,6 +618,12 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
                     let mut i = (boards.len() - 4) as isize;
                     while i >= last_irrev {
                         if self.board_hash == *boards.get_unchecked(i as usize) {
+                            // Note that the position is deemed a draw after the first
+                            // repetition, not after the second one as the official
+                            // chess rules prescribe. This is done in the sake of
+                            // efficiency. In order to compensate for that,
+                            // `Position::from_history` "forgets" all positions that
+                            // have occurred exactly once.
                             self.repeated_or_rule50 = true;
                             break;
                         }
