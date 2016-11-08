@@ -14,10 +14,10 @@ use board::bitsets::*;
 use board::evaluation::RandomEvaluator;
 
 
-/// Holds the current position, knows the rules of chess, can evaluate
-/// the odds.
+/// Holds a chess position, can evaluate the odds, knows the rules of
+/// chess.
 pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
-    /// The current board.
+    /// The underlying `Board` instance.
     ///
     /// We use `UnsafeCell` for this, because the
     /// `evaluate_quiescence` method logically is non-mutating, but
@@ -25,7 +25,7 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
     /// always leaving everything the way it was.
     board: UnsafeCell<Board<E>>,
 
-    /// The hash value for the current board.
+    /// The hash value for the underlying `Board` instance.
     board_hash: u64,
 
     /// The count of half-moves since the beginning of the game.
@@ -39,9 +39,9 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
     /// Information needed so as to be able to undo the played moves.
     state_stack: Vec<PositionInfo>,
 
-    /// A list of hashes for the boards that had occurred during the
-    /// game. This is needed so as to be able to detect repeated
-    /// positions.
+    /// A list of hashes values for the `Board` instances ("boards"
+    /// for short) that had occurred during the game. This is needed
+    /// so as to be able to detect repeated positions.
     encountered_boards: Vec<u64>,
 
     /// A hash value for the set of boards that had occurred at least

@@ -1,4 +1,4 @@
-//! Basic facilities for implementing static position evaluation.
+//! Basic facilities for implementing position evaluation.
 
 mod notation;
 pub mod tables;
@@ -16,13 +16,13 @@ use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
 
 
-/// A trait used to statically evaluate positions.
+/// A trait used to evaluate positions.
 pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Creates a new instance and binds it to a given position.
     ///
     /// When a new instance is created, it is bound to a particular
     /// chess position (given by the `board` parameter). And for a
-    /// moment, this the only position that can be correctly
+    /// moment, this is the only position that can be correctly
     /// evaluated. The instance then can be re-bound to the next (or
     /// the previous) position in the line of play by issuing calls to
     /// `will_do_move` and `done_move` methods (or respectively,
@@ -77,7 +77,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
 pub struct IllegalBoard;
 
 
-/// Holds the current position, can evaluate the odds.
+/// Holds a chess position, can evaluate the odds.
 #[derive(Clone)]
 pub struct Board<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,
@@ -853,7 +853,7 @@ impl<E: BoardEvaluator> Board<E> {
         hash
     }
 
-    /// Statically evaluates the board.
+    /// Evaluates the position.
     ///
     /// The returned value will be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
@@ -867,17 +867,17 @@ impl<E: BoardEvaluator> Board<E> {
         }
     }
 
-    /// A helper method for `create`. It analyzes the board and
-    /// decides if it is a legal board.
+    /// A helper method for `create`. It analyzes the position on the
+    /// board and decides if it is legal.
     ///
-    /// In addition to the obviously wrong boards (that for example
-    /// declare some pieces having no or more than one color), there
-    /// are many chess boards that are impossible to create by normal
-    /// play. Here we are interested only to guard against those of
-    /// the cases that can invalidate our assumptions about what a
-    /// "normal" chess position is when writing the code.
+    /// In addition to the obviously messed up `Board` instances (that
+    /// for example declare some pieces having no or more than one
+    /// color), there are many chess positions that are impossible to
+    /// create by normal play. Here we are interested only to guard
+    /// against those of the cases that can invalidate our assumptions
+    /// about what a "normal" chess position is when writing the code.
     ///
-    /// Illegal boards:
+    /// Illegal positions:
     ///
     /// 1. having more or less than 1 king from each color;
     /// 2. having more than 8 pawns of a color;
