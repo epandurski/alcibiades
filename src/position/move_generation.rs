@@ -591,7 +591,7 @@ impl<E: BoardEvaluator> Board<E> {
             }
         }
 
-        // Tell the evaluator that a move will be done.
+        // Tell the evaluator that a move will be played.
         unsafe {
             let board_ptr: *const Board<E> = self;
             self.evaluator.will_do_move(board_ptr.as_ref().unwrap(), m);
@@ -668,7 +668,7 @@ impl<E: BoardEvaluator> Board<E> {
         self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
         self._checkers.set(BB_UNIVERSAL_SET);
 
-        // Tell the evaluator that a move has been done.
+        // Tell the evaluator that a move was played.
         unsafe {
             let board_ptr: *const Board<E> = self;
             self.evaluator.done_move(board_ptr.as_ref().unwrap(), m);
@@ -753,7 +753,7 @@ impl<E: BoardEvaluator> Board<E> {
         self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
         self._checkers.set(BB_UNIVERSAL_SET);
 
-        // Tell the evaluator that a move has been taken back.
+        // Tell the evaluator that a move was taken back.
         unsafe {
             let board_ptr: *const Board<E> = self;
             self.evaluator.undone_move(board_ptr.as_ref().unwrap(), m);
