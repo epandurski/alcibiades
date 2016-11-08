@@ -9,7 +9,6 @@ pub mod board;
 pub mod search;
 pub mod uci;
 pub mod tt;
-pub mod notation;
 pub mod search_management;
 
 use std::process::exit;

@@ -7,9 +7,9 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
-use notation::parse_fen;
 use search::SearchNode;
 use board::{Board, BoardEvaluator, IllegalBoard};
+use board::notation::parse_fen;
 use board::bitsets::*;
 use board::evaluation::RandomEvaluator;
 

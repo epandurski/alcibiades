@@ -1,5 +1,6 @@
 //! Basic facilities for implementing static position evaluation.
 
+mod notation;
 pub mod tables;
 pub mod rules;
 pub mod bitsets;
@@ -10,7 +11,7 @@ use std::cell::Cell;
 use basetypes::*;
 use moves::*;
 use uci::SetOption;
-use notation::parse_fen;
+use board::notation::parse_fen;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
 
