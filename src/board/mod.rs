@@ -76,16 +76,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
 pub struct IllegalBoard;
 
 
-/// Holds the current position, can determine which moves are legal,
-/// can evaluate the odds.
-///
-/// In a nutshell, `Board` can generate all possible moves in the
-/// current position, play a selected move, and take it back. It can
-/// also play a "null move" which can be used to selectively prune the
-/// search tree. `Board` does not try to be too clever. In particular,
-/// it is completely unaware of repeating positions and
-/// rule-50. Although `Board` can statically evaluate the position, it
-/// delagates this to `BoardEvaluator`.
+/// Holds the current position, can evaluate the odds.
 #[derive(Clone)]
 pub struct Board<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,
@@ -115,15 +106,25 @@ pub struct Board<E: BoardEvaluator> {
 }
 
 
+// In a nutshell: `Board` can generate all possible moves in the
+// current position, play a selected move, and take it back. It can
+// also play a "null move" which can be used to selectively prune the
+// search tree. `Board` does not try to be too clever. In particular,
+// it is completely unaware of repeating positions and
+// rule-50. Although `Board` is able to statically evaluate the
+// position, it delagates this to `BoardEvaluator`.
+//
+// Note that many of the implemented methods are private -- they are
+// used solely by the module `board::position`.
 impl<E: BoardEvaluator> Board<E> {
-    /// Creates a new board instance.
+    /// Creates a new instance.
     ///
-    /// This function verifies that the resulting new board is legal.
-    pub fn create(pieces_placement: &PiecesPlacement,
-                  to_move: Color,
-                  castling: CastlingRights,
-                  en_passant_square: Option<Square>)
-                  -> Result<Board<E>, IllegalBoard> {
+    /// This function verifies that the resulting new position is legal.
+    fn create(pieces: &PiecesPlacement,
+              to_move: Color,
+              castling: CastlingRights,
+              en_passant_square: Option<Square>)
+              -> Result<Board<E>, IllegalBoard> {
 
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
@@ -139,11 +140,11 @@ impl<E: BoardEvaluator> Board<E> {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
             evaluator: unsafe { uninitialized() },
-            pieces: *pieces_placement,
+            pieces: *pieces,
             to_move: to_move,
             castling: castling,
             en_passant_file: en_passant_file,
-            _occupied: pieces_placement.color[WHITE] | pieces_placement.color[BLACK],
+            _occupied: pieces.color[WHITE] | pieces.color[BLACK],
             _checkers: Cell::new(BB_UNIVERSAL_SET),
         };
 
@@ -155,11 +156,11 @@ impl<E: BoardEvaluator> Board<E> {
         }
     }
 
-    /// Creates a new board instance from a FEN string.
+    /// Creates a new instance from a string in Forsyth–Edwards
+    /// Notation (FEN).
     ///
-    /// A FEN (Forsyth–Edwards Notation) string defines a particular
-    /// position using only the ASCII character set. This function
-    /// verifies that the resulting new board is legal.
+    /// This function verifies that the resulting new position is
+    /// legal.
     pub fn from_fen(fen: &str) -> Result<Board<E>, IllegalBoard> {
         let (ref placement, to_move, castling, en_passant_square, _, _) = try!(parse_fen(fen)
                                                                                    .map_err(|_| {
@@ -218,23 +219,6 @@ impl<E: BoardEvaluator> Board<E> {
         self._occupied
     }
 
-    /// Returns the bitboard of all checkers that are attacking the
-    /// king.
-    ///
-    /// The bitboard of all checkers is calculated the first time it
-    /// is needed and is saved, in case it is needed again. If there
-    /// is a saved value already, the call to `checkers` is
-    /// practically free.
-    #[inline]
-    pub fn checkers(&self) -> Bitboard {
-        if self._checkers.get() == BB_UNIVERSAL_SET {
-            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
-        }
-        debug_assert_eq!(self._checkers.get(),
-                         self.attacks_to(1 ^ self.to_move, self.king_square()));
-        self._checkers.get()
-    }
-
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
@@ -257,6 +241,19 @@ impl<E: BoardEvaluator> Board<E> {
          self.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
+    /// Returns a bitboard of all enemy pieces and pawns that are
+    /// attacking the king.
+    #[inline]
+    pub fn checkers(&self) -> Bitboard {
+        if self._checkers.get() == BB_UNIVERSAL_SET {
+            // The result is saved, in case it is needed again.
+            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
+        }
+        debug_assert_eq!(self._checkers.get(),
+                         self.attacks_to(1 ^ self.to_move, self.king_square()));
+        self._checkers.get()
+    }
+
     /// Generates pseudo-legal moves.
     ///
     /// A pseudo-legal move is a move that is otherwise legal, except
@@ -266,7 +263,7 @@ impl<E: BoardEvaluator> Board<E> {
     /// is `true`, all pseudo-legal moves will be generated. When
     /// `all` is `false`, only captures, pawn promotions to queen, and
     /// check evasions will be generated.
-    pub fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
+    fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
         // All generated moves with pieces other than the king will be
         // legal. It is possible that some of the king's moves are
         // illegal because the destination square is under
@@ -408,7 +405,7 @@ impl<E: BoardEvaluator> Board<E> {
     /// speculative null move in the search tree so as to achieve more
     /// aggressive pruning.
     #[inline]
-    pub fn null_move(&self) -> Move {
+    fn null_move(&self) -> Move {
         // Null moves are represented as king's moves for which the
         // destination square equals the origin square.
         let king_square = self.king_square();
@@ -430,7 +427,7 @@ impl<E: BoardEvaluator> Board<E> {
     /// method will return `Some(m)`. Otherwise it will return
     /// `None`. This is useful when playing moves from the
     /// transposition table, without calling `generate_moves`.
-    pub fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
+    fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
         // We will use `generated_move` to assert that our result is correct.
         let mut generated_move = unsafe { uninitialized() };
 
@@ -612,7 +609,7 @@ impl<E: BoardEvaluator> Board<E> {
     /// Moves generated by the `null_move` method are exceptions. For
     /// them `do_move(m)` will return `None` if and only if the king
     /// is in check.
-    pub fn do_move(&mut self, m: Move) -> Option<u64> {
+    fn do_move(&mut self, m: Move) -> Option<u64> {
         let us = self.to_move;
         let them = 1 ^ us;
         let move_type = m.move_type();
@@ -750,7 +747,7 @@ impl<E: BoardEvaluator> Board<E> {
     ///
     /// The move passed to this method **must** be the last move passed
     /// to `do_move`.
-    pub fn undo_move(&mut self, m: Move) {
+    fn undo_move(&mut self, m: Move) {
         // In this method we basically do the same things that we do
         // in `do_move`, but in reverse.
 
@@ -836,7 +833,7 @@ impl<E: BoardEvaluator> Board<E> {
     /// over all possible numbers, invented by Albert Zobrist. The key
     /// property of this method is that two similar positions generate
     /// entirely different hash numbers.
-    pub fn calc_hash(&self) -> u64 {
+    fn calc_hash(&self) -> u64 {
         let mut hash = 0;
         for color in 0..2 {
             for piece in 0..6 {
@@ -857,7 +854,7 @@ impl<E: BoardEvaluator> Board<E> {
 
     /// Statically evaluates the board.
     ///
-    /// The returned value will always be between `VALUE_EVAL_MIN` and
+    /// The returned value will be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
     #[inline]
     pub fn evaluate(&self) -> Value {

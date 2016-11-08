@@ -1,4 +1,4 @@
-//! Implements the rules of chess and the position evaluation logic.
+//! Implements the rules of chess.
 
 use std::u16;
 use std::mem::uninitialized;
@@ -20,17 +20,6 @@ pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP
 
 /// Holds the current position, knows the rules of chess, can evaluate
 /// the odds.
-///
-/// `Position` improves on the features of `Board` adding the the
-/// following important functionality:
-///
-/// 1. Fast position hashing.
-/// 2. Exact evaluation of final positions.
-/// 3. Static position evaluation.
-/// 4. Static exchange evaluation.
-/// 5. Quiescence search.
-/// 6. 50 move rule awareness.
-/// 7. Threefold/twofold repetition detection.
 pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
     /// The current board.
     ///
@@ -68,11 +57,20 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
 }
 
 
+// `Position` delegates most of the hard work to its underlying
+// `Board` instance. `Position` improves on the features of `Board`,
+// adding the the following important functionality:
+//
+// 1. Fast position hashing.
+// 2. Exact evaluation of final positions.
+// 3. Static position evaluation.
+// 4. Static exchange evaluation.
+// 5. Quiescence search.
+// 6. 50 move rule awareness.
+// 7. Threefold/twofold repetition detection.
 impl<E: BoardEvaluator + 'static> Position<E> {
-    /// Creates a new board instance from a FEN string.
-    ///
-    /// A FEN (Forsyth–Edwards Notation) string defines a particular
-    /// position using only the ASCII character set.
+    /// Creates a new instance from a string in Forsyth–Edwards
+    /// Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<Position<E>, IllegalBoard> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(parse_fen(fen).map_err(|_| IllegalBoard));
@@ -121,7 +119,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         Ok(p)
     }
 
-    /// Returns a reference to the underlying board.
+    /// Returns a reference to the underlying `Board` instance.
     #[inline(always)]
     pub fn board(&self) -> &Board<E> {
         unsafe { &*self.board.get() }
