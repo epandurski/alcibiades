@@ -242,8 +242,8 @@ impl<E: BoardEvaluator> Board<E> {
          self.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
-    /// Returns a bitboard of all enemy pieces and pawns that are
-    /// attacking the king.
+    /// Returns a bitboard of all enemy pieces and pawns that attack
+    /// the king.
     #[inline]
     pub fn checkers(&self) -> Bitboard {
         if self._checkers.get() == BB_UNIVERSAL_SET {
