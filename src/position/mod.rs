@@ -760,14 +760,13 @@ mod tests {
 
     impl BoardEvaluator for MaterialEvaluator {
         #[allow(unused_variables)]
-        fn new(board: *const Board<MaterialEvaluator>) -> MaterialEvaluator {
+        fn new(board: &Board<MaterialEvaluator>) -> MaterialEvaluator {
             MaterialEvaluator
         }
 
-        fn evaluate(&self, board: *const Board<MaterialEvaluator>) -> Value {
+        fn evaluate(&self, board: &Board<MaterialEvaluator>) -> Value {
             use position::bitsets::*;
             const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
-            let board = unsafe { board.as_ref().unwrap() };
             let piece_type = board.pieces().piece_type;
             let color = board.pieces().color;
             let us = board.to_move();

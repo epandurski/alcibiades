@@ -591,9 +591,11 @@ impl<E: BoardEvaluator> Board<E> {
             }
         }
 
-        // Update evaluator's state.
-        let board_ptr: *const Board<E> = self;
-        self.evaluator.will_do_move(board_ptr, m);
+        // Tell the evaluator that a move will be done.
+        unsafe {
+            let board_ptr: *const Board<E> = self;
+            self.evaluator.will_do_move(board_ptr.as_ref().unwrap(), m);
+        }
 
         // Move the rook if the move is castling.
         if move_type == MOVE_CASTLING {
@@ -666,6 +668,12 @@ impl<E: BoardEvaluator> Board<E> {
         self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
         self._checkers.set(BB_UNIVERSAL_SET);
 
+        // Tell the evaluator that a move has been done.
+        unsafe {
+            let board_ptr: *const Board<E> = self;
+            self.evaluator.done_move(board_ptr.as_ref().unwrap(), m);
+        }
+
         debug_assert!(self.is_legal());
         debug_assert_eq!(old_hash ^ h, self.calc_hash());
         Some(h)
@@ -689,9 +697,11 @@ impl<E: BoardEvaluator> Board<E> {
         let captured_piece = m.captured_piece();
         debug_assert!(m.en_passant_file() <= 8);
 
-        // Update evaluator's state.
-        let board_ptr: *const Board<E> = self;
-        self.evaluator.will_undo_move(board_ptr, m);
+        // Tell the evaluator that a move will be taken back.
+        unsafe {
+            let board_ptr: *const Board<E> = self;
+            self.evaluator.will_undo_move(board_ptr.as_ref().unwrap(), m);
+        }
 
         // Change the side to move.
         self.to_move = us;
@@ -743,6 +753,12 @@ impl<E: BoardEvaluator> Board<E> {
         self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
         self._checkers.set(BB_UNIVERSAL_SET);
 
+        // Tell the evaluator that a move has been taken back.
+        unsafe {
+            let board_ptr: *const Board<E> = self;
+            self.evaluator.undone_move(board_ptr.as_ref().unwrap(), m);
+        }
+
         debug_assert!(self.is_legal());
     }
 
@@ -778,10 +794,12 @@ impl<E: BoardEvaluator> Board<E> {
     /// `VALUE_EVAL_MAX`.
     #[inline]
     pub fn evaluate(&self) -> Value {
-        let board_ptr: *const Board<E> = self;
-        let v = self.evaluator.evaluate(board_ptr);
-        debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
-        v
+        unsafe {
+            let board_ptr: *const Board<E> = self;
+            let v = self.evaluator.evaluate(board_ptr.as_ref().unwrap());
+            debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
+            v
+        }
     }
 
     /// A helper method for `create`. It analyzes the board and

@@ -26,7 +26,7 @@ pub trait SetOption {
 pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Creates a new instance and binds it to a given position on the
     /// board.
-    fn new(board: *const Board<Self>) -> Self;
+    fn new(board: &Board<Self>) -> Self;
 
     /// Updates evaluator's internal state in accordance with a move
     /// that will be played.
@@ -41,9 +41,9 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// bound. `will_do_move` must be called before the move `m` is
     /// actually played, and after that, the move must actually be
     /// played.
-    #[allow(unused_variables)]
     #[inline]
-    fn will_do_move(&mut self, board: *const Board<Self>, m: Move) {}
+    #[allow(unused_variables)]
+    fn will_do_move(&mut self, board: &Board<Self>, m: Move) {}
 
     /// Updates evaluator's internal state in accordance with a move
     /// that will be taken back.
@@ -58,9 +58,17 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// bound. `will_undo_move` must be called before the move `m` is
     /// actually taken back, and after that, the move must actually be
     /// taken back.
-    #[allow(unused_variables)]
     #[inline]
-    fn will_undo_move(&mut self, board: *const Board<Self>, m: Move) {}
+    #[allow(unused_variables)]
+    fn will_undo_move(&mut self, board: &Board<Self>, m: Move) {}
+
+    #[inline]
+    #[allow(unused_variables)]
+    fn done_move(&mut self, board: &Board<Self>, m: Move) {}
+
+    #[inline]
+    #[allow(unused_variables)]
+    fn undone_move(&mut self, board: &Board<Self>, m: Move) {}
 
     /// Statically evaluates the board.
     /// 
@@ -70,8 +78,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// **Important note:** `board` must point to a board that
     /// represents exactly the same position as the one to which the
     /// evaluator's instance is bound.
-    #[inline]
-    fn evaluate(&self, board: *const Board<Self>) -> Value;
+    fn evaluate(&self, board: &Board<Self>) -> Value;
 }
 
 
@@ -82,13 +89,12 @@ impl SetOption for RandomEvaluator {}
 
 impl BoardEvaluator for RandomEvaluator {
     #[allow(unused_variables)]
-    fn new(board: *const Board<RandomEvaluator>) -> RandomEvaluator {
+    fn new(board: &Board<RandomEvaluator>) -> RandomEvaluator {
         RandomEvaluator
     }
 
-    fn evaluate(&self, board: *const Board<RandomEvaluator>) -> Value {
+    fn evaluate(&self, board: &Board<RandomEvaluator>) -> Value {
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
-        let board = unsafe { board.as_ref().unwrap() };
         let piece_type = board.pieces().piece_type;
         let color = board.pieces().color;
         let us = board.to_move();
