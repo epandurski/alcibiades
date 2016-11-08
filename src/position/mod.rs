@@ -161,21 +161,19 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     /// only "quiet" positions (positions where there are no winning
     /// tactical moves to be made).
     fn qsearch(&self,
-               mut lower_bound: Value,
-               upper_bound: Value,
-               mut stand_pat: Value,
+               mut lower_bound: Value, // alpha
+               upper_bound: Value, // beta
+               mut stand_pat: Value, // position's static evaluation
                mut recapture_squares: Bitboard,
-               ply: u8,
+               ply: u8, // the reached `qsearch` depth
                move_stack: &mut MoveStack,
                searched_nodes: &mut NodeCount)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
-        debug_assert!(stand_pat == VALUE_UNKNOWN ||
-                      VALUE_EVAL_MIN <= stand_pat && stand_pat <= VALUE_EVAL_MAX &&
-                      stand_pat == self.board().evaluate());
+        debug_assert!(stand_pat == VALUE_UNKNOWN || stand_pat == self.board().evaluate());
         let in_check = self.board().checkers() != 0;
 
-        // At the beginning of quiescence, the position's static
+        // At the beginning of quiescence, position's static
         // evaluation (`stand_pat`) is used to establish a lower bound
         // on the result. We assume that even if none of the capturing
         // moves can improve over the stand pat, there will be at
@@ -188,7 +186,6 @@ impl<E: BoardEvaluator + 'static> Position<E> {
             stand_pat = lower_bound
         } else if stand_pat == VALUE_UNKNOWN {
             stand_pat = self.board().evaluate();
-            debug_assert!(VALUE_EVAL_MIN <= stand_pat && stand_pat <= VALUE_EVAL_MAX);
         }
         if stand_pat >= upper_bound {
             return stand_pat;
@@ -530,9 +527,7 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
         if self.repeated_or_rule50 {
             0
         } else {
-            let v = self.board().evaluate();
-            debug_assert!(v >= VALUE_EVAL_MIN && v <= VALUE_EVAL_MAX);
-            v
+            self.board().evaluate()
         }
     }
 
