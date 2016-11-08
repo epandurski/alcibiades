@@ -14,10 +14,6 @@ use board::bitsets::*;
 use board::evaluation::RandomEvaluator;
 
 
-/// The chess starting position in Forsyth–Edwards notation (FEN).
-pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
-                                              - 0 1";
-
 /// Holds the current position, knows the rules of chess, can evaluate
 /// the odds.
 pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {

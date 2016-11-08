@@ -1,7 +1,7 @@
-//! Implements the internal chess board and the move generation logic.
+//! Basic facilities for implementing static position evaluation.
 
 pub mod tables;
-pub mod position;
+pub mod rules;
 pub mod bitsets;
 pub mod evaluation;
 
@@ -115,7 +115,7 @@ pub struct Board<E: BoardEvaluator> {
 // position, it delagates this to `BoardEvaluator`.
 //
 // Note that many of the implemented methods are private -- they are
-// used solely by the module `board::position`.
+// used solely by the module `board::rules`.
 impl<E: BoardEvaluator> Board<E> {
     /// Creates a new instance.
     ///
@@ -1205,6 +1205,10 @@ impl<E: BoardEvaluator> Board<E> {
     }
 }
 
+
+/// The chess starting position in Forsyth–Edwards notation (FEN).
+pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
+                                              - 0 1";
 
 /// Pawn move sub-type -- a single push.
 const PAWN_PUSH: usize = 0;

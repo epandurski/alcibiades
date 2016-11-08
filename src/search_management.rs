@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use basetypes::*;
 use tt::*;
-use board::position::*;
+use board::START_POSITION_FEN;
+use board::rules::Position;
 use search::*;
 
 

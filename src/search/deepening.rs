@@ -595,7 +595,8 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 
 /// A helper function. It returns bogus search parameters.
 fn bogus_params() -> SearchParams {
-    use board::position::*;
+    use board::START_POSITION_FEN;
+    use board::rules::Position;
     use board::evaluation::RandomEvaluator;
     SearchParams {
         search_id: 0,

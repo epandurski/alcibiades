@@ -693,7 +693,7 @@ mod tests {
     use basetypes::*;
     use tt::*;
     use moves::*;
-    use board::position::*;
+    use board::rules::Position;
     use board::evaluation::RandomEvaluator;
     use search::SearchNode;
 
