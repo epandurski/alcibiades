@@ -24,9 +24,9 @@
 //!
 //! To execute a game search, instantiate one of the following types:
 //!
-//! * `DeepeningSearcher<AlphabetaSearcher>`
-//! * `DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>>`
-//! * `DeepeningSearcher<MultipvSearcher<AlphabetaSearcher>>`
+//! * `DeepeningSearcher<StandardSearcher>`
+//! * `DeepeningSearcher<AspirationSearcher<StandardSearcher>>`
+//! * `DeepeningSearcher<MultipvSearcher<StandardSearcher>>`
 //!
 //! then:
 //!
@@ -52,7 +52,7 @@
 //! let tt = Arc::new(tt);
 //! let fen = "8/8/8/8/8/7k/7q/7K w - - 0 1";
 //! let position = Box::new(Position::<MaterialEvaluator>::from_fen(fen).ok().unwrap());
-//! let mut searcher: DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>> =
+//! let mut searcher: DeepeningSearcher<AspirationSearcher<StandardSearcher>> =
 //!     DeepeningSearcher::new(tt.clone());
 //! searcher.start_search(SearchParams {
 //!     search_id: 0,

@@ -1,6 +1,6 @@
 //! Basic facilities for implementing game-tree searchers.
 pub mod deepening;
-pub mod alpha_beta;
+pub mod standard;
 
 use std::cmp::Ordering;
 use std::time::Duration;
@@ -9,7 +9,7 @@ use std::sync::mpsc::TryRecvError;
 use basetypes::*;
 use moves::*;
 use tt::*;
-pub use self::alpha_beta::AlphabetaSearcher;
+pub use self::standard::StandardSearcher;
 pub use self::deepening::AspirationSearcher;
 pub use self::deepening::MultipvSearcher;
 pub use self::deepening::DeepeningSearcher;

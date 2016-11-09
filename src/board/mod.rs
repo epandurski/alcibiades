@@ -1289,7 +1289,6 @@ mod tests {
     use super::*;
     use basetypes::*;
     use moves::*;
-    use board::evaluation::RandomEvaluator;
 
     #[test]
     fn test_attacks_from() {

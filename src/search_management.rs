@@ -48,7 +48,7 @@ pub struct SearchThread {
     tt: Arc<Tt>,
     position: Box<SearchNode>,
     status: SearchStatus,
-    searcher: DeepeningSearcher<MultipvSearcher<AlphabetaSearcher>>,
+    searcher: DeepeningSearcher<MultipvSearcher<StandardSearcher>>,
 }
 
 impl SearchThread {

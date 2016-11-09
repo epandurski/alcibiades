@@ -1,10 +1,21 @@
-//! Implements single-threaded alpha-beta searching.
+//! Implements alpha-beta searching with null move pruning and late
+//! move reductions.
 //!
 //! The alpha-beta algorithm is an enhancement to the minimax search
 //! algorithm. It maintains two values, alpha and beta. They represent
 //! the minimum score that the maximizing player is assured of (lower
 //! bound) and the maximum score that the minimizing player is assured
 //! of (upper bound) respectively.
+//!
+//! Null move pruning is a method to reduce the search space by trying
+//! a "null" or "passing" move, then seeing if the score of the
+//! subtree search is still high enough to cause a beta cutoff. Nodes
+//! are saved by reducing the depth of the subtree under the null
+//! move.
+//!
+//! Late move reductions save search space by reducing the search
+//! depth for moves that are ordered closer to the end (likely
+//! fail-low nodes).
 use std::mem;
 use std::cmp::max;
 use std::thread;
@@ -18,25 +29,26 @@ use tt::*;
 use search::*;
 
 
-/// Executes alpha-beta searches.
+/// Executes alpha-beta searches with null move pruning and late move
+/// reductions.
 ///
-/// **Important note:** `AlphabetaSearcher` ignores the `searchmoves`
+/// **Important note:** `StandardSearcher` ignores the `searchmoves`
 /// search parameter. It always analyses all legal moves in the root
 /// position, and always gives an empty list of `sorted_moves` in its
 /// progress reports.
-pub struct AlphabetaSearcher {
+pub struct StandardSearcher {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<SearchReport>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl SearchExecutor for AlphabetaSearcher {
-    fn new(tt: Arc<Tt>) -> AlphabetaSearcher {
+impl SearchExecutor for StandardSearcher {
+    fn new(tt: Arc<Tt>) -> StandardSearcher {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
-        AlphabetaSearcher {
+        StandardSearcher {
             thread_commands: commands_tx,
             thread_reports: reports_rx,
             has_reports_condition: has_reports_condition.clone(),
@@ -78,7 +90,7 @@ impl SearchExecutor for AlphabetaSearcher {
     }
 }
 
-impl Drop for AlphabetaSearcher {
+impl Drop for StandardSearcher {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();
