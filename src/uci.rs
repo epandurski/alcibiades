@@ -226,8 +226,8 @@ pub trait SetOption {
 
 /// A trait for UCI-compatible chess engines.
 ///
-/// Except the method `wait_for_reply`, the methods in this trait
-/// **must not** block the current thread.
+/// The methods in this trait, except the method `wait_for_reply`,
+/// must not block the current thread.
 pub trait UciEngine: SetOption {
     /// Returns the name of the engine.
     fn name() -> String;
