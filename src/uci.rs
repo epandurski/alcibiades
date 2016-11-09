@@ -164,7 +164,7 @@ pub struct GoParams {
 /// * `"string"`: Any string that will be displayed.
 pub struct InfoItem {
     pub info_type: String,
-    pub value: String,
+    pub data: String,
 }
 
 
@@ -454,8 +454,8 @@ impl<E: UciEngine> Server<E> {
                         EngineReply::Info(infos) => {
                             if infos.len() > 0 {
                                 try!(write!(writer, "info"));
-                                for InfoItem { info_type, value } in infos {
-                                    try!(write!(writer, " {} {}", info_type, value));
+                                for InfoItem { info_type, data } in infos {
+                                    try!(write!(writer, " {} {}", info_type, data));
                                 }
                                 try!(write!(writer, "\n"));
                             }

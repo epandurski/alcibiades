@@ -75,9 +75,9 @@ impl Engine {
     fn queue_progress_report(&mut self) {
         let &SearchStatus { depth, searched_nodes, nps, .. } = self.search_thread.status();
         self.queue.push_back(EngineReply::Info(vec![
-            InfoItem { info_type: "depth".to_string(), value: format!("{}", depth) },
-            InfoItem { info_type: "nodes".to_string(), value: format!("{}", searched_nodes) },
-            InfoItem { info_type: "nps".to_string(), value: format!("{}", nps) },
+            InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
+            InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
+            InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
         ]));
         self.silent_since = SystemTime::now();
     }
@@ -100,13 +100,13 @@ impl Engine {
                 moves_string.push(' ');
             }
             self.queue.push_back(EngineReply::Info(vec![
-                InfoItem { info_type: "depth".to_string(), value: format!("{}", depth) },
-                InfoItem { info_type: "multipv".to_string(), value: format!("{}", i + 1) },
-                InfoItem { info_type: "score".to_string(), value: format!("cp {}{}", value, bound_suffix) },
-                InfoItem { info_type: "time".to_string(), value: format!("{}", duration_millis) },
-                InfoItem { info_type: "nodes".to_string(), value: format!("{}", searched_nodes) },
-                InfoItem { info_type: "nps".to_string(), value: format!("{}", nps) },
-                InfoItem { info_type: "pv".to_string(), value: moves_string },
+                InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
+                InfoItem { info_type: "multipv".to_string(), data: format!("{}", i + 1) },
+                InfoItem { info_type: "score".to_string(), data: format!("cp {}{}", value, bound_suffix) },
+                InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
+                InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
+                InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
+                InfoItem { info_type: "pv".to_string(), data: moves_string },
             ]));
         }
         self.silent_since = SystemTime::now();
