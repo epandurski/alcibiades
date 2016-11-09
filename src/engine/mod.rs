@@ -126,7 +126,7 @@ impl Engine {
 
 
 impl SetOption for Engine {
-    fn options() -> Vec<(OptionName, OptionDescription)> {
+    fn options() -> Vec<(String, OptionDescription)> {
         vec![
             // TODO: Calculate a sane limit for the hash size.
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),

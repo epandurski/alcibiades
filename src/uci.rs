@@ -49,7 +49,7 @@ enum UciCommand {
     /// This is sent to the engine when the user wants to change the
     /// value of some configuration option supported by the engine.
     SetOption {
-        name: OptionName,
+        name: String,
         value: String,
     },
 
@@ -184,17 +184,6 @@ pub enum EngineReply {
 }
 
 
-/// Name of a configuration option.
-///
-/// Examples of option names supported by many popular chess engines:
-///
-/// * `"Hash"`
-/// * `"OwnBook"`
-/// * `"MultiPV"`
-/// * `"UCI_AnalyseMode"`
-pub type OptionName = String;
-
-
 /// Describes a configuration option.
 ///
 /// Configurable options can be of several different types, depending
@@ -223,8 +212,9 @@ pub enum OptionDescription {
 /// A trait for announcing configuration options, and changing
 /// configuration parameters.
 pub trait SetOption {
-    /// Returns all supported configuration options.
-    fn options() -> Vec<(OptionName, OptionDescription)> {
+    /// Returns a list of supported configuration options (name and
+    /// description).
+    fn options() -> Vec<(String, OptionDescription)> {
         vec![]
     }
 
