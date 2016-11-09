@@ -8,9 +8,9 @@ use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
 use search::SearchNode;
-use board::{Board, BoardEvaluator, IllegalBoard};
-use board::notation::parse_fen;
-use board::bitsets::*;
+use super::{Board, BoardEvaluator, IllegalBoard};
+use super::notation::parse_fen;
+use super::bitsets::*;
 
 
 /// Implements the `SearchNode` trait, connecting the static evaluator

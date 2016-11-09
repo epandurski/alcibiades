@@ -382,3 +382,25 @@ pub fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
         moves: pv_moves,
     }
 }
+
+
+/// A helper function used by the sub-modules. It checks if the two
+/// supplied lists of moves contain the same moves, possibly in
+/// different order.
+fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
+    let mut list1 = list1.clone();
+    let mut list2 = list2.clone();
+    list1.sort();
+    list2.sort();
+    list1 == list2
+}
+
+
+/// A helper function used by the sub-modules. It checks if there are
+/// moves in the supplied list that occur more than once.
+fn contains_dups(list: &Vec<Move>) -> bool {
+    let mut l = list.clone();
+    l.sort();
+    l.dedup();
+    l.len() < list.len()
+}

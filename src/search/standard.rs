@@ -26,7 +26,7 @@ use std::time::Duration;
 use basetypes::*;
 use moves::*;
 use tt::*;
-use search::*;
+use super::{SearchNode, SearchExecutor, SearchParams, SearchReport, contains_same_moves};
 
 
 /// Executes alpha-beta searches with null move pruning and late move
@@ -65,6 +65,9 @@ impl SearchExecutor for StandardSearcher {
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(params.variation_count != 0);
+        debug_assert!(params.searchmoves.is_empty() ||
+                      contains_same_moves(&params.searchmoves, &params.position.legal_moves()),
+                      "StandardSearcher ignores searchmoves");
         self.thread_commands.send(Command::Start(params)).unwrap();
     }
 

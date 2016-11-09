@@ -3,8 +3,8 @@
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use uci::SetOption;
-use board::{Board, BoardEvaluator};
-use board::bitsets::*;
+use super::{Board, BoardEvaluator};
+use super::bitsets::*;
 
 
 /// A simple evaluator that considers only the material available on

@@ -2,7 +2,7 @@
 
 use rand::{Rng, thread_rng};
 use basetypes::*;
-use board::bitsets::*;
+use super::bitsets::*;
 
 
 /// Tables for calculating Zobrist hashes.
