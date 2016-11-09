@@ -1,4 +1,4 @@
-//! Implements static board evaluation (not implemented yet).
+//! Implements various position evaluators.
 
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
@@ -7,6 +7,38 @@ use board::{Board, BoardEvaluator};
 use board::bitsets::*;
 
 
+/// An evaluator that considers only the material available on the
+/// board.
+#[derive(Clone)]
+pub struct MaterialEvaluator;
+
+impl SetOption for MaterialEvaluator {}
+
+impl BoardEvaluator for MaterialEvaluator {
+    #[allow(unused_variables)]
+    fn new(board: &Board<MaterialEvaluator>) -> MaterialEvaluator {
+        MaterialEvaluator
+    }
+
+    fn evaluate(&self, board: &Board<MaterialEvaluator>) -> Value {
+        use board::bitsets::*;
+        const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
+        let piece_type = board.pieces().piece_type;
+        let color = board.pieces().color;
+        let us = board.to_move();
+        let them = 1 ^ us;
+        let mut result = 0;
+        for piece in QUEEN..NO_PIECE {
+            result += PIECE_VALUES[piece] *
+                      (pop_count(piece_type[piece] & color[us]) as i16 -
+                       pop_count(piece_type[piece] & color[them]) as i16);
+        }
+        result
+    }
+}
+
+
+/// An evaluator that adds a random number to the available material.
 #[derive(Clone)]
 pub struct RandomEvaluator;
 
@@ -35,10 +67,3 @@ impl BoardEvaluator for RandomEvaluator {
         result + (hasher.finish() >> 59) as i16
     }
 }
-
-
-// use rand;
-// use rand::distributions::{Sample, Range};
-// let mut rng = rand::thread_rng();
-// let mut between = Range::new(0, 10);
-// let x = between.sample(&mut rng);
