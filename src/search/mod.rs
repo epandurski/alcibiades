@@ -9,10 +9,10 @@ use std::sync::mpsc::TryRecvError;
 use basetypes::*;
 use moves::*;
 use tt::*;
-pub use self::standard::StandardSearcher;
-pub use self::deepening::AspirationSearcher;
-pub use self::deepening::MultipvSearcher;
 pub use self::deepening::DeepeningSearcher;
+pub use self::deepening::MultipvSearcher;
+pub use self::deepening::AspirationSearcher;
+pub use self::standard::StandardSearcher;
 
 
 /// Parameters describing a new search.
