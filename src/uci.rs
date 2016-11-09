@@ -238,6 +238,12 @@ pub trait SetOption {
 /// Except the method `wait_for_reply`, the methods in this trait
 /// **must not** block the current thread.
 pub trait UciEngine: SetOption {
+    /// Returns the name of the engine.
+    fn name() -> String;
+
+    /// Returns the author of the engine.
+    fn author() -> String;
+
     /// Tells the engine that the next position will be from a
     /// different game.
     ///
