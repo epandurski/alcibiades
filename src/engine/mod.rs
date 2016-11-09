@@ -69,6 +69,39 @@ pub struct Engine {
 }
 
 
+impl SetOption for Engine {
+    fn options() -> Vec<(OptionName, OptionDescription)> {
+        vec![
+            // TODO: Calculate a sane limit for the hash size.
+            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
+            ("Ponder".to_string(), OptionDescription::Check { default: false }),
+            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
+        ]
+    }
+
+    fn set_option(&mut self, name: &str, value: &str) {
+        match name {
+            "Ponder" => {
+                self.pondering_is_allowed = value == "true";
+            }
+
+            "MultiPV" => {
+                self.variation_count = match value.parse::<usize>().unwrap_or(0) {
+                    0 => 1,
+                    n if n > 500 => 500,
+                    n => n,
+                };
+            }
+
+            // An invalid option. Notice that we do not support
+            // re-sizing of the transposition table once the engine
+            // had started.
+            _ => (),
+        }
+    }
+}
+
+
 impl Engine {
     /// Creates a new instance.
     ///
@@ -149,27 +182,6 @@ impl Engine {
 
 
 impl UciEngine for Engine {
-    fn set_option(&mut self, name: &str, value: &str) {
-        match name {
-            "Ponder" => {
-                self.pondering_is_allowed = value == "true";
-            }
-
-            "MultiPV" => {
-                self.variation_count = match value.parse::<usize>().unwrap_or(0) {
-                    0 => 1,
-                    n if n > 500 => 500,
-                    n => n,
-                };
-            }
-
-            // An invalid option. Notice that we do not support
-            // re-sizing of the transposition table once the engine
-            // had started.
-            _ => (),
-        }
-    }
-
     fn new_game(&mut self) {
         self.tt.clear();
     }
@@ -300,12 +312,7 @@ impl UciEngineFactory<Engine> for EngineFactory {
     }
 
     fn options(&self) -> Vec<(OptionName, OptionDescription)> {
-        vec![
-            // TODO: Calculate a sane limit for the hash size.
-            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
-            ("Ponder".to_string(), OptionDescription::Check { default: false }),
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
-        ]
+        Engine::options()
     }
 
     fn create(&self, hash_size_mb: Option<usize>) -> Engine {

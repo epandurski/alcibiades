@@ -139,27 +139,10 @@ pub struct GoParams {
 }
 
 
-/// A reply from the engine to the GUI.
+/// A specific information item that the engine sends to the GUI.
 ///
-/// The engine reply is either a best move found, or a new/updated
-/// information item. The move format is long algebraic
-/// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
-/// `e7e8q` (for promotion). If supplied, `ponder_move` is the
-/// response on which the engine would like to ponder.
-pub enum EngineReply {
-    BestMove {
-        best_move: String,
-        ponder_move: Option<String>,
-    },
-    Info(Vec<(InfoType, String)>),
-}
-
-
-/// Specific information item that the engine sends to the GUI.
-///
-/// There are many standard types of information that GUIs visualize
-/// and therefore expect the engine to send. Here are some of the most
-/// important ones:
+/// The GUI requires the engine to send various types of information
+/// during its working. Here are some standard ones:
 ///
 /// * `"depth"`: search depth in plies;
 /// 
@@ -186,6 +169,22 @@ pub enum EngineReply {
 /// 
 /// * `"currline"`: the current line the engine is calculating.
 pub type InfoType = String;
+
+
+/// A reply from the engine to the GUI.
+///
+/// The engine reply is either a best move found, or a new/updated
+/// information item. The move format is long algebraic
+/// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
+/// `e7e8q` (for promotion). If supplied, `ponder_move` is the
+/// response on which the engine would like to ponder.
+pub enum EngineReply {
+    BestMove {
+        best_move: String,
+        ponder_move: Option<String>,
+    },
+    Info(Vec<(InfoType, String)>),
+}
 
 
 /// Name of a configuration option.
@@ -224,27 +223,17 @@ pub enum OptionDescription {
 }
 
 
-/// UCI-compatible chess engine factory.
-pub trait UciEngineFactory<E: UciEngine> {
-    /// Returns the name of the engine.
-    fn name(&self) -> String;
+/// A trait for announcing configuration options, and changing
+/// configuration parameters.
+pub trait SetOption {
+    /// Returns all supported configuration options.
+    fn options() -> Vec<(OptionName, OptionDescription)> {
+        vec![]
+    }
 
-    /// Returns the author of the engine.
-    fn author(&self) -> String;
-
-    /// Returns all configuration options supported by the engine.
-    ///
-    /// The GUI will use this information to configure the
-    /// engine. Most commonly it will build a dialog box according to
-    /// the received option names and descriptions so that GUI users
-    /// can configure the engine themselves.
-    fn options(&self) -> Vec<(OptionName, OptionDescription)>;
-
-    /// Returns a fully initialized engine.
-    ///
-    /// `hash_size_mb` is the preferred total size of the hash tables
-    /// in Mbytes.
-    fn create(&self, hash_size_mb: Option<usize>) -> E;
+    /// Sets a new value for a given configuration parameter.
+    #[allow(unused_variables)]
+    fn set_option(&mut self, name: &str, value: &str) {}
 }
 
 
@@ -252,10 +241,7 @@ pub trait UciEngineFactory<E: UciEngine> {
 ///
 /// Except the method `wait_for_reply`, the methods in this trait
 /// **must not** block the current thread.
-pub trait UciEngine {
-    /// Sets a new value for a given configuration parameter.
-    fn set_option(&mut self, name: &str, value: &str);
-
+pub trait UciEngine: SetOption {
     /// Tells the engine that the next position will be from a
     /// different game.
     ///
@@ -298,17 +284,27 @@ pub trait UciEngine {
 }
 
 
-/// A trait for announcing configuration options, and changing
-/// configuration parameters.
-pub trait SetOption {
-    /// Returns all supported configuration options.
-    fn options() -> Vec<(OptionName, OptionDescription)> {
-        vec![]
-    }
+/// UCI-compatible chess engine factory.
+pub trait UciEngineFactory<E: UciEngine> {
+    /// Returns the name of the engine.
+    fn name(&self) -> String;
 
-    /// Sets a new value for a given configuration parameter.
-    #[allow(unused_variables)]
-    fn set_option(&mut self, name: &str, value: &str) {}
+    /// Returns the author of the engine.
+    fn author(&self) -> String;
+
+    /// Returns all configuration options supported by the engine.
+    ///
+    /// The GUI will use this information to configure the
+    /// engine. Most commonly it will build a dialog box according to
+    /// the received option names and descriptions so that GUI users
+    /// can configure the engine themselves.
+    fn options(&self) -> Vec<(OptionName, OptionDescription)>;
+
+    /// Returns a fully initialized engine.
+    ///
+    /// `hash_size_mb` is the preferred total size of the hash tables
+    /// in Mbytes.
+    fn create(&self, hash_size_mb: Option<usize>) -> E;
 }
 
 
