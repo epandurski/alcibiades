@@ -57,7 +57,7 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
 // `Board` instance. `Position` improves on the features of `Board`,
 // adding the the following important functionality:
 //
-// 1. Fast position hashing.
+// 1. Faster and smarter position hashing.
 // 2. Exact evaluation of final positions.
 // 3. Static position evaluation.
 // 4. Static exchange evaluation.
