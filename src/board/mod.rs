@@ -14,6 +14,8 @@ use uci::SetOption;
 use board::notation::parse_fen;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
+pub use self::evaluation::MaterialEvaluator;
+pub use self::evaluation::RandomEvaluator;
 
 
 /// A trait used to evaluate positions.

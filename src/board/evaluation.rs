@@ -7,8 +7,8 @@ use board::{Board, BoardEvaluator};
 use board::bitsets::*;
 
 
-/// An evaluator that considers only the material available on the
-/// board.
+/// A simple evaluator that considers only the material available on
+/// the board.
 #[derive(Clone)]
 pub struct MaterialEvaluator;
 
@@ -38,7 +38,8 @@ impl BoardEvaluator for MaterialEvaluator {
 }
 
 
-/// An evaluator that adds a random number to the available material.
+/// A simple evaluator that adds a random number to the available
+/// material.
 #[derive(Clone)]
 pub struct RandomEvaluator;
 
