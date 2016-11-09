@@ -1,11 +1,4 @@
-//! Implements alpha-beta searching, iterative deepening, aspiration
-//! windows, multi-PV.
-//!
-//! The alpha-beta algorithm is an enhancement to the minimax search
-//! algorithm. It maintains two values, alpha and beta. They represent
-//! the minimum score that the maximizing player is assured of (lower
-//! bound) and the maximum score that the minimizing player is assured
-//! of (upper bound) respectively.
+//! Implements iterative deepening, aspiration windows, multi-PV.
 //!
 //! Iterative deepening works as follows: the program starts with a
 //! one ply search, then increments the search depth and does another
@@ -20,9 +13,7 @@
 //! alpha-beta bounds for the next search. Because the window is
 //! narrower, more beta cutoffs are achieved, and the search takes a
 //! shorter time. The drawback is that if the true score is outside
-//! this window, then a costly re-search must be made. But then most
-//! probably the re-search will be much faster, because many positions
-//! will be remembered from the transposition table.
+//! this window, then a costly re-search must be made.
 //!
 //! In multi-PV mode the engine calculates and sends to the GUI
 //! several principal variations (PV), each one starting with a
@@ -53,13 +44,14 @@
 //! use std::time::Duration;
 //! use tt::*;
 //! use search::*;
-//! use position::*;
+//! use board::evaluation::MaterialEvaluator;
+//! use board::rules::Position;
 //!
 //! let mut tt = Tt::new();
 //! tt.resize(16);
 //! let tt = Arc::new(tt);
 //! let fen = "8/8/8/8/8/7k/7q/7K w - - 0 1";
-//! let position = Box::new(Position::from_fen(fen).ok().unwrap());
+//! let position = Box::new(Position::<MaterialEvaluator>::from_fen(fen).ok().unwrap());
 //! let mut searcher: DeepeningSearcher<AspirationSearcher<AlphabetaSearcher>> =
 //!     DeepeningSearcher::new(tt.clone());
 //! searcher.start_search(SearchParams {
@@ -86,83 +78,12 @@
 
 use std::cmp::{min, max};
 use std::time::Duration;
-use std::thread;
-use std::sync::{Arc, Mutex, Condvar};
-use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
+use std::sync::Arc;
+use std::sync::mpsc::TryRecvError;
 use basetypes::*;
 use moves::*;
 use tt::*;
 use search::*;
-use search::threading::*;
-
-
-/// Executes alpha-beta searches.
-///
-/// **Important note:** `AlphabetaSearcher` ignores the `searchmoves`
-/// search parameter. It always analyses all legal moves in the root
-/// position, and always gives an empty list of `sorted_moves` in its
-/// progress reports.
-pub struct AlphabetaSearcher {
-    thread_join_handle: Option<thread::JoinHandle<()>>,
-    thread_commands: Sender<Command>,
-    thread_reports: Receiver<SearchReport>,
-    has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
-}
-
-impl SearchExecutor for AlphabetaSearcher {
-    fn new(tt: Arc<Tt>) -> AlphabetaSearcher {
-        let (commands_tx, commands_rx) = channel();
-        let (reports_tx, reports_rx) = channel();
-        let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
-        AlphabetaSearcher {
-            thread_commands: commands_tx,
-            thread_reports: reports_rx,
-            has_reports_condition: has_reports_condition.clone(),
-
-            // Spawn a thread that will do the real work.
-            thread_join_handle: Some(thread::spawn(move || {
-                serve_simple(tt, commands_rx, reports_tx, has_reports_condition);
-            })),
-        }
-    }
-
-    fn start_search(&mut self, params: SearchParams) {
-        debug_assert!(params.depth <= MAX_DEPTH);
-        debug_assert!(params.lower_bound < params.upper_bound);
-        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
-        debug_assert!(!contains_dups(&params.searchmoves));
-        debug_assert!(params.variation_count != 0);
-        self.thread_commands.send(Command::Start(params)).unwrap();
-    }
-
-    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
-        let mut has_reports = self.has_reports_condition.0.lock().unwrap();
-        let result = self.thread_reports.try_recv();
-        if result.is_err() {
-            *has_reports = false;
-        }
-        result
-    }
-
-    fn wait_report(&self, duration: Duration) {
-        let &(ref has_reports, ref condition) = &*self.has_reports_condition;
-        let has_reports = has_reports.lock().unwrap();
-        if !*has_reports {
-            condition.wait_timeout(has_reports, duration).unwrap();
-        }
-    }
-
-    fn terminate_search(&mut self) {
-        self.thread_commands.send(Command::Terminate).unwrap();
-    }
-}
-
-impl Drop for AlphabetaSearcher {
-    fn drop(&mut self) {
-        self.thread_commands.send(Command::Exit).unwrap();
-        self.thread_join_handle.take().unwrap().join().unwrap();
-    }
-}
 
 
 /// Executes searches with iterative deepening.
