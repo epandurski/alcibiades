@@ -1,81 +1,4 @@
 //! Implements iterative deepening, aspiration windows, multi-PV.
-//!
-//! Iterative deepening works as follows: the program starts with a
-//! one ply search, then increments the search depth and does another
-//! search. This process is repeated until the time allocated for the
-//! search is exhausted or the maximum search depth is reached. In
-//! case of an unfinished search, the program can always fall back to
-//! the move selected in the last iteration of the search.
-//!
-//! Aspiration windows are a way to reduce the search space in the
-//! search. The way it works is that we get the value from the last
-//! search iteration, calculate a window around it, and use this as
-//! alpha-beta bounds for the next search. Because the window is
-//! narrower, more beta cutoffs are achieved, and the search takes a
-//! shorter time. The drawback is that if the true score is outside
-//! this window, then a costly re-search must be made.
-//!
-//! In multi-PV mode the engine calculates and sends to the GUI
-//! several principal variations (PV), each one starting with a
-//! different first move. This mode makes the search slower, but is
-//! very useful for chess analysis.
-//!
-//! # Usage
-//!
-//! To execute a game search, instantiate one of the following types:
-//!
-//! * `DeepeningSearcher<StandardSearcher>`
-//! * `DeepeningSearcher<AspirationSearcher<StandardSearcher>>`
-//! * `DeepeningSearcher<MultipvSearcher<StandardSearcher>>`
-//!
-//! then:
-//!
-//! 1. Call the `start_search` method.
-//!
-//! 2. Continue calling `wait_report` and `try_recv_report` methods
-//! periodically, until the search is done.
-//!
-//! 3. Usually, when the search is done (or at least partially
-//! completed), `extract_pv` will be called to obtain the primary
-//! variation from the transposition table.
-//!
-//! # Example:
-//! ```rust
-//! use std::time::Duration;
-//! use tt::*;
-//! use search::*;
-//! use board::evaluation::MaterialEvaluator;
-//! use board::rules::Position;
-//!
-//! let mut tt = Tt::new();
-//! tt.resize(16);
-//! let tt = Arc::new(tt);
-//! let fen = "8/8/8/8/8/7k/7q/7K w - - 0 1";
-//! let position = Box::new(Position::<MaterialEvaluator>::from_fen(fen).ok().unwrap());
-//! let mut searcher: DeepeningSearcher<AspirationSearcher<StandardSearcher>> =
-//!     DeepeningSearcher::new(tt.clone());
-//! searcher.start_search(SearchParams {
-//!     search_id: 0,
-//!     position: position.copy(),
-//!     depth: 10,
-//!     lower_bound: VALUE_MIN,
-//!     upper_bound: VALUE_MAX,
-//!     searchmoves: position.legal_moves(),
-//!     variation_count: 1,
-//! });
-//! loop {
-//!     searcher.wait_report(Duration::from_millis(20));
-//!     if let Ok(report) = searcher.try_recv_report() {
-//!         // Process the report here!
-//!         if report.done {
-//!             break;
-//!         }
-//!     }
-//!     // Do something else here!
-//! }
-//! let pv = extract_pv(&tt, position.as_ref(), 10);
-//! ```
-
 use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::Arc;
@@ -87,6 +10,13 @@ use super::{SearchExecutor, SearchParams, SearchReport, contains_dups, contains_
 
 
 /// Executes searches with iterative deepening.
+///
+/// Iterative deepening works as follows: the program starts with a
+/// one ply search, then increments the search depth and does another
+/// search. This process is repeated until the time allocated for the
+/// search is exhausted or the maximum search depth is reached. In
+/// case of an unfinished search, the program can always fall back to
+/// the move selected in the last iteration of the search.
 pub struct DeepeningSearcher<T: SearchExecutor> {
     params: SearchParams,
     search_is_terminated: bool,
@@ -181,6 +111,14 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
 
 
 /// Executes searches with aspiration windows.
+///
+/// Aspiration windows are a way to reduce the search space in the
+/// search. The way it works is that we get the value from the last
+/// search iteration, calculate a window around it, and use this as
+/// alpha-beta bounds for the next search. Because the window is
+/// narrower, more beta cutoffs are achieved, and the search takes a
+/// shorter time. The drawback is that if the true score is outside
+/// this window, then a costly re-search must be made.
 pub struct AspirationSearcher<T: SearchExecutor> {
     tt: Arc<Tt>,
     params: SearchParams,
@@ -354,6 +292,11 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
 
 
 /// Executes mulit-PV searches.
+///
+/// In multi-PV mode the engine calculates and sends to the GUI
+/// several principal variations (PV), each one starting with a
+/// different first move. This mode makes the search slower, but is
+/// very useful for chess analysis.
 pub struct MultipvSearcher<T: SearchExecutor> {
     tt: Arc<Tt>,
     params: SearchParams,
