@@ -1,7 +1,6 @@
 //! Functions and constants for working with bit-sets.
 //!
-//! **Note:** The term "LS1B" used in the code means "least
-//! significant `1` bit".
+//! **Note:** "LS1B" means "least significant `1` bit".
 
 use std::num::Wrapping;
 use basetypes::*;

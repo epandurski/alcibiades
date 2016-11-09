@@ -5,7 +5,7 @@ use basetypes::*;
 use board::bitsets::*;
 
 
-/// Loop-up tables for calculating Zobrist hashes.
+/// Tables for calculating Zobrist hashes.
 ///
 /// Zobrist hashing is a technique to transform a board position into
 /// a number of a fixed length, with an equal distribution over all
@@ -111,7 +111,8 @@ impl ZobristArrays {
 }
 
 
-/// Look-up tables and look-up methods for move generation.
+/// Tables and methods useful for move generation and position
+/// evaluation.
 pub struct BoardGeometry {
     /// Contains bitboards with all squares lying at the line
     /// determined by two squares.

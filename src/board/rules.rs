@@ -14,8 +14,8 @@ use board::bitsets::*;
 use board::evaluation::RandomEvaluator;
 
 
-/// Holds a chess position, can evaluate the odds, knows the rules of
-/// chess.
+/// Implements the `SearchNode` trait, connecting the static evaluator
+/// to the game-tree searcher.
 pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
     /// The underlying `Board` instance.
     ///

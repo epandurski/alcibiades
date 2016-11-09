@@ -50,7 +50,8 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Updates evaluator's state to keep up with a move that was
     /// played.
     ///
-    /// `board` points to the position to which the instance is bound.
+    /// `board` points to the new position to which the instance is
+    /// bound.
     #[inline]
     #[allow(unused_variables)]
     fn done_move(&mut self, board: &Board<Self>, m: Move) {}
@@ -66,7 +67,8 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Updates evaluator's state in accordance with a move that was
     /// taken back.
     ///
-    /// `board` points to the position to which the instance is bound.
+    /// `board` points to the new position to which the instance is
+    /// bound.
     #[inline]
     #[allow(unused_variables)]
     fn undone_move(&mut self, board: &Board<Self>, m: Move) {}
