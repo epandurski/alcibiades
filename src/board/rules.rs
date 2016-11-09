@@ -39,9 +39,9 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
     /// Information needed so as to be able to undo the played moves.
     state_stack: Vec<PositionInfo>,
 
-    /// A list of hashes values for the `Board` instances ("boards"
-    /// for short) that had occurred during the game. This is needed
-    /// so as to be able to detect repeated positions.
+    /// A list of hash values for the `Board` instances ("boards" for
+    /// short) that had occurred during the game. This is needed so as
+    /// to be able to detect repeated positions.
     encountered_boards: Vec<u64>,
 
     /// A hash value for the set of boards that had occurred at least
