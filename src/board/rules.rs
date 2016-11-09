@@ -7,7 +7,7 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
-use search::SearchNode;
+use search::{SearchNode, NodeCount};
 use super::{Board, BoardEvaluator, IllegalBoard};
 use super::notation::parse_fen;
 use super::bitsets::*;

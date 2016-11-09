@@ -125,11 +125,6 @@ pub const H8: Square = 7 + 7 * 8;
 
 
 
-/// Number of searched positions.
-pub type NodeCount = u64;
-
-
-
 /// A set of squares on the chessboard.
 ///
 /// `u64` bit-sets called *bitboards* can be used to represent a set

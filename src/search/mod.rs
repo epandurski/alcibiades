@@ -71,6 +71,10 @@ pub use self::deepening::AspirationSearcher;
 pub use self::standard::StandardSearcher;
 
 
+/// Number of searched positions.
+pub type NodeCount = u64;
+
+
 /// Parameters describing a new search.
 pub struct SearchParams {
     /// A number identifying the new search.

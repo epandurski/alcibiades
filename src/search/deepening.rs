@@ -6,8 +6,8 @@ use std::sync::mpsc::TryRecvError;
 use basetypes::*;
 use moves::*;
 use tt::*;
-use super::{SearchExecutor, SearchParams, SearchReport, contains_dups, contains_same_moves};
-
+use super::*;
+use super::{contains_dups, contains_same_moves};
 
 /// Executes searches with iterative deepening.
 ///
