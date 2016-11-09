@@ -194,6 +194,20 @@ pub trait SearchNode: Send {
     /// the rule-50 limit.
     fn hash(&self) -> u64;
 
+    /// Returns a description of the placement of the pieces on the
+    /// board.
+    fn pieces(&self) -> &PiecesPlacement;
+
+    /// Returns the side to move.
+    fn to_move(&self) -> Color;
+
+    /// Returns the castling rights.
+    fn castling(&self) -> CastlingRights;
+
+    /// Returns the file on which an en-passant pawn capture is
+    /// possible.
+    fn en_passant_file(&self) -> Option<File>;
+
     /// Returns if the side to move is in check.
     fn is_check(&self) -> bool;
 

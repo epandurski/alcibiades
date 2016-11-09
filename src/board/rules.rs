@@ -487,6 +487,22 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
         }
     }
 
+    fn pieces(&self) -> &PiecesPlacement {
+        self.board().pieces()
+    }
+
+    fn to_move(&self) -> Color {
+        self.board().to_move()
+    }
+
+    fn castling(&self) -> CastlingRights {
+        self.board().castling()
+    }
+
+    fn en_passant_file(&self) -> Option<File> {
+        self.board().en_passant_file()
+    }
+
     fn is_check(&self) -> bool {
         self.board().checkers() != 0
     }
