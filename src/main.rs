@@ -12,10 +12,11 @@ pub mod tt;
 pub mod engine;
 
 use std::process::exit;
-use engine::EngineFactory;
+use uci::Server;
+use engine::Engine;
 
 fn main() {
-    if let Ok(mut uci_loop) = uci::Server::wait_for_hanshake(EngineFactory) {
+    if let Ok(mut uci_loop) = Server::<Engine>::wait_for_hanshake() {
         match uci_loop.serve() {
             Ok(_) => {
                 exit(0);

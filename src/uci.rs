@@ -11,16 +11,16 @@
 //! output with text commands.
 //!
 //! This module handles the low-level details of the UCI protocol. It
-//! only requires the programmer to define two `struct`s that
-//! implement the `UciEngine` and `UciEngineFactory` traits. Then
-//! `Server` will handle the communication with the GUI all by itself.
+//! only requires the programmer to define a type that implements the
+//! `UciEngine` trait. Then `Server` will handle the communication
+//! with the GUI all by itself.
 //!
 //! # Example:
 //! ```rust
-//! use uci;
+//! use uci::Server;
 //!
 //! fn main() {
-//!     if let Ok(mut server) = uci::Server::wait_for_hanshake(MyEngineFactory) {
+//!     if let Ok(mut server) = Server::<MyEngine>::wait_for_hanshake() {
 //!         match server.serve() {
 //!             Ok(_) => {
 //!                 exit(0);
@@ -167,6 +167,7 @@ pub struct InfoItem {
     pub value: String,
 }
 
+
 /// A reply from the engine to the GUI.
 ///
 /// The engine reply is either a best move found, or a new/updated
@@ -233,7 +234,7 @@ pub trait SetOption {
 }
 
 
-/// UCI-compatible chess engine.
+/// A trait for UCI-compatible chess engines.
 ///
 /// Except the method `wait_for_reply`, the methods in this trait
 /// **must not** block the current thread.
@@ -243,6 +244,12 @@ pub trait UciEngine: SetOption {
 
     /// Returns the author of the engine.
     fn author() -> String;
+
+    /// Creates a new instance.
+    ///
+    /// `tt_size_mb` is the preferred size of the transposition table
+    /// in Mbytes.
+    fn new(tt_size_mb: Option<usize>) -> Self;
 
     /// Tells the engine that the next position will be from a
     /// different game.
@@ -286,50 +293,19 @@ pub trait UciEngine: SetOption {
 }
 
 
-/// UCI-compatible chess engine factory.
-pub trait UciEngineFactory<E: UciEngine> {
-    /// Returns the name of the engine.
-    fn name(&self) -> String;
-
-    /// Returns the author of the engine.
-    fn author(&self) -> String;
-
-    /// Returns all configuration options supported by the engine.
-    ///
-    /// The GUI will use this information to configure the
-    /// engine. Most commonly it will build a dialog box according to
-    /// the received option names and descriptions so that GUI users
-    /// can configure the engine themselves.
-    fn options(&self) -> Vec<(OptionName, OptionDescription)>;
-
-    /// Returns a fully initialized engine.
-    ///
-    /// `hash_size_mb` is the preferred total size of the hash tables
-    /// in Mbytes.
-    fn create(&self, hash_size_mb: Option<usize>) -> E;
-}
-
-
 /// UCI protocol server -- connects the engine to the GUI.
-pub struct Server<F, E>
-    where F: UciEngineFactory<E>,
-          E: UciEngine
-{
-    engine_factory: F,
+pub struct Server<E: UciEngine> {
     engine: Option<E>,
 }
 
 
-impl<F, E> Server<F, E>
-    where F: UciEngineFactory<E>,
-          E: UciEngine
-{
+impl<E: UciEngine> Server<E> {
     /// Waits for UCI handshake from the GUI.
     ///
     /// Will return `Err` if the handshake was unsuccessful, or if an
     /// IO error had occurred. The current thread will be blocked
     /// until the handshake is finalized.
-    pub fn wait_for_hanshake(engine_factory: F) -> io::Result<Self> {
+    pub fn wait_for_hanshake() -> io::Result<Self> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"\buci(?:\s|$)").unwrap();
         }
@@ -343,9 +319,9 @@ impl<F, E> Server<F, E>
         if !RE.is_match(line.as_str()) {
             return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
         }
-        try!(write!(writer, "id name {}\n", engine_factory.name()));
-        try!(write!(writer, "id author {}\n", engine_factory.author()));
-        for (name, description) in engine_factory.options() {
+        try!(write!(writer, "id name {}\n", E::name()));
+        try!(write!(writer, "id author {}\n", E::author()));
+        for (name, description) in E::options() {
             try!(write!(writer,
                         "option name {} type {}\n",
                         name,
@@ -373,10 +349,7 @@ impl<F, E> Server<F, E>
         }
         try!(write!(writer, "uciok\n"));
         try!(writer.flush());
-        Ok(Server {
-            engine_factory: engine_factory,
-            engine: None,
-        })
+        Ok(Server { engine: None })
     }
 
     /// Blocks the current thread and serves UCI commands until a
@@ -423,11 +396,11 @@ impl<F, E> Server<F, E>
                     if let UciCommand::SetOption { ref name, ref value } = cmd {
                         if name == "Hash" {
                             let hash_size_mb = value.parse::<usize>().ok();
-                            self.engine = Some(self.engine_factory.create(hash_size_mb));
+                            self.engine = Some(E::new(hash_size_mb));
                             continue 'read_commands;
                         }
                     }
-                    self.engine = Some(self.engine_factory.create(None));
+                    self.engine = Some(E::new(None));
                     self.engine.as_mut().unwrap()
                 };
 

@@ -70,29 +70,6 @@ pub struct Engine {
 
 
 impl Engine {
-    /// Creates a new instance.
-    ///
-    /// `tt_size_mb` is the preferred size of the transposition
-    /// table in Mbytes.
-    pub fn new(tt_size_mb: usize) -> Engine {
-        let mut tt = Tt::new();
-        tt.resize(tt_size_mb);
-        let tt = Arc::new(tt);
-
-        Engine {
-            tt: tt.clone(),
-            position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
-            current_depth: 0,
-            search_thread: SearchThread::new(tt),
-            play_when: PlayWhen::Never,
-            variation_count: 1,
-            pondering_is_allowed: false,
-            is_pondering: false,
-            silent_since: SystemTime::now(),
-            queue: VecDeque::new(),
-        }
-    }
-
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -188,6 +165,27 @@ impl UciEngine for Engine {
 
     fn author() -> String {
         AUTHOR.to_string()
+    }
+
+    fn new(tt_size_mb: Option<usize>) -> Engine {
+        let mut tt = Tt::new();
+        if let Some(tt_size_mb) = tt_size_mb {
+            tt.resize(tt_size_mb);
+        }
+        let tt = Arc::new(tt);
+
+        Engine {
+            tt: tt.clone(),
+            position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
+            current_depth: 0,
+            search_thread: SearchThread::new(tt),
+            play_when: PlayWhen::Never,
+            variation_count: 1,
+            pondering_is_allowed: false,
+            is_pondering: false,
+            silent_since: SystemTime::now(),
+            queue: VecDeque::new(),
+        }
     }
 
     fn new_game(&mut self) {
@@ -302,29 +300,6 @@ impl UciEngine for Engine {
 
     fn exit(&mut self) {
         self.search_thread.stop();
-    }
-}
-
-
-/// Implements `UciEngineFactory` trait.
-pub struct EngineFactory;
-
-
-impl UciEngineFactory<Engine> for EngineFactory {
-    fn name(&self) -> String {
-        Engine::name()
-    }
-
-    fn author(&self) -> String {
-        Engine::author()
-    }
-
-    fn options(&self) -> Vec<(OptionName, OptionDescription)> {
-        Engine::options()
-    }
-
-    fn create(&self, hash_size_mb: Option<usize>) -> Engine {
-        Engine::new(hash_size_mb.unwrap_or(16))
     }
 }
 
