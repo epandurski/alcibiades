@@ -44,11 +44,11 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
     /// to be able to detect repeated positions.
     encountered_boards: Vec<u64>,
 
-    /// A hash value for the set of boards that had occurred at least
-    /// twice before the root position (the earliest position in
-    /// `state_stack`), and are still reachable from the root
-    /// position. An empty set has a hash of `0`. We use this value
-    /// when we generate position's hash.
+    /// A collective hash value for the set of boards that had
+    /// occurred at least twice before the root position (the earliest
+    /// position in `state_stack`), and are still reachable from the
+    /// root position. An empty set has a hash of `0`. We use this
+    /// value when we generate position's hash.
     repeated_boards_hash: u64,
 }
 
@@ -65,8 +65,10 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
 // 6. 50 move rule awareness.
 // 7. Threefold/twofold repetition detection.
 impl<E: BoardEvaluator + 'static> Position<E> {
-    /// Creates a new instance from a string in Forsyth–Edwards
-    /// Notation (FEN).
+    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
+    /// string.
+    ///
+    /// Verifies that the position is legal.
     pub fn from_fen(fen: &str) -> Result<Position<E>, IllegalBoard> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(parse_fen(fen).map_err(|_| IllegalBoard));
@@ -121,13 +123,6 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         unsafe { &*self.board.get() }
     }
 
-    /// Returns the number of half-moves since the last piece capture
-    /// or pawn advance.
-    #[inline]
-    pub fn halfmove_clock(&self) -> u8 {
-        self.state().halfmove_clock
-    }
-
     /// Returns the count of half-moves since the beginning of the
     /// game.
     ///
@@ -136,6 +131,13 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     #[inline]
     pub fn halfmove_count(&self) -> u16 {
         self.halfmove_count
+    }
+
+    /// Returns the number of half-moves since the last piece capture
+    /// or pawn advance.
+    #[inline]
+    pub fn halfmove_clock(&self) -> u8 {
+        self.state().halfmove_clock
     }
 
     /// Performs a "quiescence search" and returns an evaluation.
@@ -375,8 +377,8 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         gain[0]
     }
 
-    /// Forgets the playing history, preserves only the set of
-    /// previously repeated, still reachable boards.
+    /// Forgets the previous playing history, preserves only the set
+    /// of previously repeated, still reachable boards.
     fn declare_as_root(&mut self) {
         let state = *self.state();
 
@@ -603,12 +605,12 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
                     let mut i = (boards.len() - 4) as isize;
                     while i >= last_irrev {
                         if self.board_hash == *boards.get_unchecked(i as usize) {
-                            // Note that the position is deemed a draw after the first
-                            // repetition, not after the second one as the official
+                            // Note that the position is deemed a draw after the
+                            // first repetition, not after the second one as the
                             // chess rules prescribe. This is done in the sake of
                             // efficiency. In order to compensate for that,
-                            // `Position::from_history` "forgets" all positions that
-                            // have occurred exactly once.
+                            // `Position::from_history` "forgets" all positions
+                            // that have occurred exactly once.
                             self.repeated_or_rule50 = true;
                             break;
                         }

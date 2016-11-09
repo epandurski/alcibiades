@@ -120,7 +120,7 @@ pub struct Board<E: BoardEvaluator> {
 impl<E: BoardEvaluator> Board<E> {
     /// Creates a new instance.
     ///
-    /// This function verifies that the resulting new position is legal.
+    /// Verifies that the position is legal.
     fn create(pieces: &PiecesPlacement,
               to_move: Color,
               castling: CastlingRights,
@@ -157,11 +157,10 @@ impl<E: BoardEvaluator> Board<E> {
         }
     }
 
-    /// Creates a new instance from a string in Forsyth–Edwards
-    /// Notation (FEN).
+    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
+    /// string.
     ///
-    /// This function verifies that the resulting new position is
-    /// legal.
+    /// Verifies that the position is legal.
     pub fn from_fen(fen: &str) -> Result<Board<E>, IllegalBoard> {
         let (ref placement, to_move, castling, en_passant_square, _, _) = try!(parse_fen(fen)
                                                                                    .map_err(|_| {
