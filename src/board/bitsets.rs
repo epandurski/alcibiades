@@ -6,13 +6,11 @@ use std::num::Wrapping;
 use basetypes::*;
 
 
-/// The empty set.
+/// Empty set of squares.
 pub const BB_EMPTY_SET: Bitboard = 0;
-
 
 /// The set of all 64 squares on the board.
 pub const BB_UNIVERSAL_SET: Bitboard = 0xffffffffffffffff;
-
 
 // Ranks 1-8.
 pub const BB_RANK_1: Bitboard = 0b11111111;
@@ -24,7 +22,6 @@ pub const BB_RANK_6: Bitboard = BB_RANK_5 << 8;
 pub const BB_RANK_7: Bitboard = BB_RANK_6 << 8;
 pub const BB_RANK_8: Bitboard = BB_RANK_7 << 8;
 
-
 // Files A-H.
 pub const BB_FILE_A: Bitboard = 0x0101010101010101;
 pub const BB_FILE_B: Bitboard = BB_FILE_A << 1;
@@ -35,10 +32,8 @@ pub const BB_FILE_F: Bitboard = BB_FILE_E << 1;
 pub const BB_FILE_G: Bitboard = BB_FILE_F << 1;
 pub const BB_FILE_H: Bitboard = BB_FILE_G << 1;
 
-
 /// Rank 1 and rank 8.
 pub const BB_PAWN_PROMOTION_RANKS: Bitboard = BB_RANK_1 | BB_RANK_8;
-
 
 /// The main diagonal (A1-H8)
 pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
@@ -47,7 +42,7 @@ pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
 pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
 
 
-/// Returns only LS1B of a value.
+/// Returns the LS1B of a value.
 ///
 /// The way to calculate this is: `ls1b(x) = x & -x;`.
 ///
@@ -318,27 +313,27 @@ pub fn bb_anti_diag(square: Square) -> Bitboard {
 }
 
 
-/// Returns the set of squares that are attacked by a rook from a
+/// Calculates the set of squares that are attacked by a rook from a
 /// given square.
 ///
 /// This function calculates and returns the set of squares that are
 /// attacked by a rook from the square `from_square`, on a board which
 /// is occupied with pieces according to the `occupied` bitboard. It
 /// does not matter if `from_square` is occupied or not.
-pub fn bb_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+pub fn calc_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
     calc_line_attacks(bb_file(from_square), from_square, occupied) |
     calc_line_attacks(bb_rank(from_square), from_square, occupied)
 }
 
 
-/// Returns the set of squares that are attacked by a bishop from a
+/// Calculates the set of squares that are attacked by a bishop from a
 /// given square.
 ///
 /// This function calculates and returns the set of squares that are
 /// attacked by a bishop from the square `from_square`, on a board
 /// which is occupied with pieces according to the `occupied`
 /// bitboard. It does not matter if `from_square` is occupied or not.
-pub fn bb_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+pub fn calc_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
     calc_line_attacks(bb_diag(from_square), from_square, occupied) |
     calc_line_attacks(bb_anti_diag(from_square), from_square, occupied)
 }

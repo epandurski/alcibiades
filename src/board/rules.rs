@@ -46,9 +46,9 @@ pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
 
     /// A collective hash value for the set of boards that had
     /// occurred at least twice before the root position (the earliest
-    /// position in `state_stack`), and are still reachable from the
-    /// root position. An empty set has a hash of `0`. We use this
-    /// value when we generate position's hash.
+    /// position in `state_stack`), and can still be reached by
+    /// playing moves from the root position. An empty set has a hash
+    /// of `0`. We use this value when we generate position's hash.
     repeated_boards_hash: u64,
 }
 
