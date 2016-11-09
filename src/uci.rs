@@ -139,7 +139,7 @@ pub struct GoParams {
 }
 
 
-/// Information item that the engine sends to the GUI.
+/// An information item that the engine sends to the GUI.
 ///
 /// The GUI requires the engine to send various types of information
 /// during its working. Here are some standard ones:
@@ -283,7 +283,9 @@ pub trait UciEngine: SetOption {
 }
 
 
-/// UCI protocol server -- connects the engine to the GUI.
+/// A UCI protocol server.
+///
+/// Connects the engine to the GUI.
 pub struct Server<E: UciEngine> {
     engine: Option<E>,
 }
@@ -293,7 +295,7 @@ impl<E: UciEngine> Server<E> {
     /// Waits for UCI handshake from the GUI.
     ///
     /// Will return `Err` if the handshake was unsuccessful, or if an
-    /// IO error had occurred. The current thread will be blocked
+    /// IO error has occurred. The current thread will be blocked
     /// until the handshake is finalized.
     pub fn wait_for_hanshake() -> io::Result<Self> {
         lazy_static! {
@@ -345,7 +347,7 @@ impl<E: UciEngine> Server<E> {
     /// Blocks the current thread and serves UCI commands until a
     /// "quit" command is received.
     ///
-    /// Will return `Err` if an IO error had occurred.
+    /// Will return `Err` if an IO error has occurred.
     pub fn serve(&mut self) -> io::Result<()> {
         let mut writer = BufWriter::new(io::stdout());
         let (tx, rx) = channel();
