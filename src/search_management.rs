@@ -5,9 +5,10 @@ use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use basetypes::*;
 use tt::*;
+use search::*;
 use board::START_POSITION_FEN;
 use board::rules::Position;
-use search::*;
+use board::evaluation::RandomEvaluator;
 
 
 /// Contains information about the current progress of a search.
@@ -208,7 +209,7 @@ impl TimeManager {
     /// be incremented on each move (for black and white). `movestogo`
     /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
-    pub fn new(position: &Position,
+    pub fn new(position: &Position<RandomEvaluator>,
                pondering_is_allowed: bool,
                wtime_millis: Option<u64>,
                btime_millis: Option<u64>,

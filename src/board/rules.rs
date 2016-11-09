@@ -11,12 +11,11 @@ use search::SearchNode;
 use board::{Board, BoardEvaluator, IllegalBoard};
 use board::notation::parse_fen;
 use board::bitsets::*;
-use board::evaluation::RandomEvaluator;
 
 
 /// Implements the `SearchNode` trait, connecting the static evaluator
 /// to the game-tree searcher.
-pub struct Position<E: BoardEvaluator + 'static = RandomEvaluator> {
+pub struct Position<E: BoardEvaluator> {
     /// The underlying `Board` instance.
     ///
     /// We use `UnsafeCell` for this, because the

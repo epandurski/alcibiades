@@ -17,10 +17,11 @@ use std::time::{SystemTime, Duration};
 use std::collections::VecDeque;
 use basetypes::NodeCount;
 use tt::{Tt, BOUND_EXACT, BOUND_UPPER, BOUND_LOWER};
-use board::START_POSITION_FEN;
-use board::rules::Position;
 use search::Variation;
 use uci::{UciEngine, UciEngineFactory, GoParams};
+use board::START_POSITION_FEN;
+use board::rules::Position;
+use board::evaluation::RandomEvaluator;
 use search_management::{SearchThread, SearchStatus, TimeManager};
 
 /// The version of the program.
@@ -46,7 +47,7 @@ enum PlayWhen {
 /// Implements `UciEngine` trait.
 pub struct Engine {
     tt: Arc<Tt>,
-    position: Position,
+    position: Position<RandomEvaluator>,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
