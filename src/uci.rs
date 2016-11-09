@@ -139,37 +139,33 @@ pub struct GoParams {
 }
 
 
-/// A specific information item that the engine sends to the GUI.
+/// Information item that the engine sends to the GUI.
 ///
 /// The GUI requires the engine to send various types of information
 /// during its working. Here are some standard ones:
 ///
-/// * `"depth"`: search depth in plies;
+/// * `"depth"`: The search depth in half-moves.
 /// 
-/// * `"time"`: the time searched in milliseconds, this should be sent
-///   together with the PV;
+/// * `"time"`: The time searched in milliseconds, this should be sent
+///   together with the PV.
 /// 
-/// * `"nodes"`: nodes searched, the engine should send this info
-///   regularly;
+/// * `"nodes"`: Nodes searched, the engine should send this info
+///   regularly.
 /// 
-/// * `"pv"`: the best line found;
+/// * `"pv"`: The best line found.
 /// 
-/// * `"multipv"`: for the multi PV mode;
+/// * `"multipv"`: For the multi PV mode.
 ///
-/// * `"score"`: the score from the engine's point of view;
+/// * `"score"`: The score from the engine's point of view.
 ///
-/// * `"nps"`: nodes per second searched, the engine should send this
-///   info regularly;
+/// * `"nps"`: Nodes per second searched, the engine should send this
+///   info regularly.
 /// 
-/// * `"string"`: any string that will be displayed;
-///
-/// * `"currmove"`: currently searching this move;
-/// 
-/// * `"currmovenumber"`: currently searching this move number;
-/// 
-/// * `"currline"`: the current line the engine is calculating.
-pub type InfoType = String;
-
+/// * `"string"`: Any string that will be displayed.
+pub struct InfoItem {
+    pub info_type: String,
+    pub value: String,
+}
 
 /// A reply from the engine to the GUI.
 ///
@@ -179,11 +175,11 @@ pub type InfoType = String;
 /// `e7e8q` (for promotion). If supplied, `ponder_move` is the
 /// response on which the engine would like to ponder.
 pub enum EngineReply {
+    Info(Vec<InfoItem>),
     BestMove {
         best_move: String,
         ponder_move: Option<String>,
     },
-    Info(Vec<(InfoType, String)>),
 }
 
 
@@ -479,8 +475,8 @@ impl<F, E> Server<F, E>
                         EngineReply::Info(infos) => {
                             if infos.len() > 0 {
                                 try!(write!(writer, "info"));
-                                for (name, value) in infos {
-                                    try!(write!(writer, " {} {}", name, value));
+                                for InfoItem { info_type, value } in infos {
+                                    try!(write!(writer, " {} {}", info_type, value));
                                 }
                                 try!(write!(writer, "\n"));
                             }
