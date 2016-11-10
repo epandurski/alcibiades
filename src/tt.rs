@@ -128,7 +128,7 @@ impl TtEntry {
     ///   available.
     /// 
     /// * `eval_value` -- The calculated static evaluation for the
-    ///   position.
+    ///   position, or `VALUE_UNKNOWN`.
     pub fn new(value: Value,
                bound: BoundType,
                depth: u8,
