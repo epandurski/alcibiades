@@ -217,7 +217,8 @@ impl Move {
             0 => QUEEN,
             1 => ROOK,
             2 => BISHOP,
-            _ => KNIGHT,
+            3 => KNIGHT,
+            _ => panic!("invalid pp_code"),
         }
     }
 
