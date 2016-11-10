@@ -3,7 +3,6 @@ use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
-use basetypes::*;
 use moves::*;
 use tt::*;
 use super::*;
@@ -56,7 +55,7 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
 
     fn start_search(&mut self, params: SearchParams) {
         assert!(params.depth > 0);
-        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
@@ -240,7 +239,7 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
     }
 
     fn start_search(&mut self, params: SearchParams) {
-        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
@@ -390,7 +389,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 
     fn start_search(&mut self, params: SearchParams) {
         assert!(params.depth > 0);
-        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));

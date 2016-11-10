@@ -7,6 +7,7 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
 use moves::*;
+use tt::*;
 use search::{SearchNode, NodeCount};
 use super::{Board, BoardEvaluator, IllegalBoard};
 use super::notation::parse_fen;
@@ -749,8 +750,8 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use basetypes::*;
     use moves::*;
+    use tt::*;
     use search::SearchNode;
     use board::evaluation::MaterialEvaluator;
 

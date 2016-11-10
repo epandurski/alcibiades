@@ -428,7 +428,7 @@ impl SearchThread {
         self.searcher.start_search(SearchParams {
             search_id: 0,
             position: position.copy(),
-            depth: MAX_DEPTH,
+            depth: DEPTH_MAX,
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
             searchmoves: searchmoves,

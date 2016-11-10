@@ -10,6 +10,7 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
 use moves::*;
+use tt::*;
 use uci::SetOption;
 use board::notation::parse_fen;
 use board::bitsets::*;

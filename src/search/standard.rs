@@ -62,7 +62,7 @@ impl SearchExecutor for StandardSearcher {
     }
 
     fn start_search(&mut self, params: SearchParams) {
-        debug_assert!(params.depth <= MAX_DEPTH);
+        debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(params.variation_count != 0);
@@ -555,7 +555,7 @@ impl<'a> Search<'a> {
         // Killer moves for distant plys are gradually becoming
         // outdated, so we should downgrade them.
         let downgraded_ply = self.state_stack.len() + KILLERS_DOWNGRADE_DISTANCE;
-        if downgraded_ply < MAX_DEPTH as usize {
+        if downgraded_ply < DEPTH_MAX as usize {
             self.killers.downgrade(downgraded_ply);
         }
     }
@@ -579,7 +579,7 @@ impl<'a> Search<'a> {
         } else {
             true
         });
-        debug_assert!(ply < MAX_DEPTH as usize);
+        debug_assert!(ply < DEPTH_MAX as usize);
 
         // Try the hash move.
         if let NodePhase::ConsideredNullMove = state.phase {
@@ -797,14 +797,14 @@ struct NodeState {
 /// distance to the root position. The idea is to try that move early
 /// -- directly after the hash move and the winning captures.
 struct KillerTable {
-    array: [KillerPair; MAX_DEPTH as usize],
+    array: [KillerPair; DEPTH_MAX as usize],
 }
 
 impl KillerTable {
     /// Creates a new instance.
     #[inline]
     pub fn new() -> KillerTable {
-        KillerTable { array: [Default::default(); MAX_DEPTH as usize] }
+        KillerTable { array: [Default::default(); DEPTH_MAX as usize] }
     }
 
     /// Registers a new killer move for the specified `half_move`.
@@ -915,7 +915,6 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
-    use basetypes::*;
     use tt::*;
     use moves::*;
     use board::rules::Position;

@@ -2,6 +2,7 @@
 
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;
+use tt::*;
 use uci::SetOption;
 use super::{Board, BoardEvaluator};
 use super::bitsets::*;
