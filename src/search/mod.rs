@@ -382,9 +382,6 @@ pub struct Variation {
     pub moves: Vec<Move>,
 
     /// The value assigned to the final position.
-    /// 
-    /// **Important note:** Values under `-9999` or over `9999` may be
-    /// chopped, because they often look ugly in GUIs.
     pub value: Value,
 
     /// The accuracy of the assigned value.
@@ -394,6 +391,9 @@ pub struct Variation {
 
 /// Extracts the primary variation for a given position from the
 /// transposition table and returns it.
+/// 
+/// **Important note:** Values under `-9999`, or over `9999` will be
+/// chopped.
 pub fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
     let mut p = position.copy();
     let mut our_turn = true;
