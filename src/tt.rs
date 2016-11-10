@@ -117,7 +117,7 @@ impl TtEntry {
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. (Must not be
-    ///   equal to `VALUE_UNKNOWN`.)
+    ///   `VALUE_UNKNOWN`.)
     /// 
     /// * `bound` -- The accuracy of the assigned `value`.
     /// 
