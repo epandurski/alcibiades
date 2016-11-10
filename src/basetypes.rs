@@ -162,10 +162,10 @@ pub type Value = i16;
 /// Equals `-32768` and has the special meaning of "unknown value".
 pub const VALUE_UNKNOWN: Value = VALUE_MIN - 1;
 
-/// Equals `32767`, and designates a checkmate (a win).
+/// Equals `32767` and designates a checkmate (a win).
 pub const VALUE_MAX: Value = ::std::i16::MAX;
 
-/// Equals `-32767`, and designates a checkmate (a loss).
+/// Equals `-32767` and designates a checkmate (a loss).
 pub const VALUE_MIN: Value = -VALUE_MAX;
 
 /// Equals `29999`, values bigger than that designate a win by
