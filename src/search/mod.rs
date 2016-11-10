@@ -76,6 +76,14 @@ pub type NodeCount = u64;
 
 
 /// Parameters describing a new search.
+///
+/// **Important note:** `lower_bound` and `upper_bound` fields
+/// together give the interval within which an as precise as possible
+/// evaluation is required. If during the search is determined that
+/// the exact evaluation is outside of this interval, the search may
+/// return a value that is closer to the the interval bounds than the
+/// exact evaluation, but always staying on the correct side of the
+/// interval.
 pub struct SearchParams {
     /// A number identifying the new search.
     pub search_id: usize,
@@ -83,13 +91,15 @@ pub struct SearchParams {
     /// The root position for the new search.
     pub position: Box<SearchNode>,
 
-    /// The requested search depth.
+    /// The requested search depth (no greater than `DEPTH_MAX`).
     pub depth: u8,
 
-    /// The lower bound for the new search (alpha).
+    /// The lower bound for the new search (no lesser than
+    /// `VALUE_MIN`).
     pub lower_bound: Value,
 
-    /// The upper bound for the new search (beta).
+    /// The upper bound for the new search (greater than
+    /// `lower_bound`).
     pub upper_bound: Value,
 
     /// Restricts the analysis to the supplied list of moves only.
