@@ -360,14 +360,3 @@ pub fn file(square: Square) -> File {
     debug_assert!(square <= 63);
     square % 8
 }
-
-/// Returns the algebraic notation for a given square.
-pub fn notation(square: Square) -> &'static str {
-    lazy_static! {
-        static ref NOTATION: Vec<String> = (0..64).map(|i| format!("{}{}",
-            ["a", "b", "c", "d", "e", "f", "g", "h"][file(i)],
-            ["1", "2", "3", "4", "5", "6", "7", "8"][rank(i)])
-        ).collect();
-    }
-    NOTATION[square].as_str()
-}

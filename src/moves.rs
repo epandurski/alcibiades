@@ -552,6 +552,18 @@ const M_MASK_DEST_SQUARE: usize = 0b111111 << M_SHIFT_DEST_SQUARE;
 const M_MASK_AUX_DATA: usize = 0b11 << M_SHIFT_AUX_DATA;
 
 
+/// Returns the algebraic notation for a given square.
+fn notation(square: Square) -> &'static str {
+    lazy_static! {
+        static ref NOTATION: Vec<String> = (0..64).map(|i| format!("{}{}",
+            ["a", "b", "c", "d", "e", "f", "g", "h"][file(i)],
+            ["1", "2", "3", "4", "5", "6", "7", "8"][rank(i)])
+        ).collect();
+    }
+    NOTATION[square].as_str()
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
