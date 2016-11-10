@@ -1,4 +1,4 @@
-//! Basic facilities for implementing game-tree searchers.
+//! Facilities for implementing game-tree searchers.
 //!
 //! # Usage
 //!

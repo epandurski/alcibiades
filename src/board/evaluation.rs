@@ -1,4 +1,4 @@
-//! Implements various position evaluators.
+//! Implements various static position evaluators.
 
 use std::hash::{Hasher, SipHasher};
 use basetypes::*;

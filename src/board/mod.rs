@@ -1,4 +1,20 @@
-//! Basic facilities for implementing position evaluation.
+//! Facilities for implementing static position evaluation.
+//!
+//! An evaluation function is used to heuristically determine the
+//! relative value of a position, i.e. the chances of winning. If we
+//! could see to the end of the game in every line, the evaluation
+//! would only have values of "loss", "draw", and "win". In practice,
+//! however, we do not know the exact value of a position, so we must
+//! make an approximation. Beginning chess players learn to do this
+//! starting with the value of the pieces themselves. Computer
+//! evaluation functions also use the value of the material as the
+//! most significant aspect and then add other considerations.
+//!
+//! Static evaluation is an evaluation that considers only the static
+//! material and positional properties of the current position,
+//! without analyzing any tactical variations. Therefore, if the
+//! position has pending tactical threats, the static evaluation will
+//! be grossly incorrect.
 
 mod notation;
 pub mod tables;
@@ -19,7 +35,7 @@ pub use self::evaluation::MaterialEvaluator;
 pub use self::evaluation::RandomEvaluator;
 
 
-/// A trait used to evaluate positions.
+/// A trait used to statically evaluate positions.
 pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Creates a new instance and binds it to a given position.
     ///
@@ -38,8 +54,8 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     ///
     /// The returned value must be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
-
     fn evaluate(&self, board: &Board<Self>) -> Value;
+
     /// Updates evaluator's state to keep up with a move that will be
     /// played.
     ///
@@ -857,7 +873,7 @@ impl<E: BoardEvaluator> Board<E> {
         hash
     }
 
-    /// Evaluates the position.
+    /// Statically evaluates the position.
     ///
     /// The returned value will be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
