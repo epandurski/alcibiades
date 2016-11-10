@@ -116,13 +116,12 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 /// "En-passant file" tells on what vertical line on the board there
 /// was a passing pawn before the move was played (a value between 0
 /// and 7). If there was no passing pawn, "en-passant file" will be
-/// between 8 and 15. "Castling rights" holds the castling rights
-/// before the move was played. When "Captured piece" is stored, its
-/// bits are inverted, so that MVV-LVA (Most valuable victim -- least
-/// valuable aggressor) ordering of the moves is preserved, even when
-/// the other fields stay the same. The "Move score" field (2 bits on
-/// 32-bit platforms, 34 bits on 64-bit platforms) is used to
-/// influence move ordering.
+/// 8. "Castling rights" holds the castling rights before the move was
+/// played. When "Captured piece" is stored, its bits are inverted, so
+/// that MVV-LVA (Most valuable victim -- least valuable aggressor)
+/// ordering of the moves is preserved, even when the other fields
+/// stay the same. The "Move score" field (2 bits on 32-bit platforms,
+/// 34 bits on 64-bit platforms) is used to influence move ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
@@ -134,10 +133,9 @@ impl Move {
     /// `castling` are the castling rights before the move was
     /// played. `en_passant_file` is the file on which there were a
     /// passing pawn before the move was played (a value between 0 and
-    /// 7), or a value between 8 and 15 if there was no passing
-    /// pawn. `promoted_piece_code` should be a number between 0 and 3
-    /// and is used only when the `move_type` is a pawn promotion,
-    /// otherwise it is ignored.
+    /// 7), or `8` if there was no passing pawn. `promoted_piece_code`
+    /// should be a number between 0 and 3 and is used only when the
+    /// `move_type` is a pawn promotion, otherwise it is ignored.
     ///
     /// The initial move score for the new move will be:
     ///
@@ -162,7 +160,7 @@ impl Move {
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
         debug_assert!(captured_piece != KING && captured_piece <= NO_PIECE);
-        debug_assert!(en_passant_file <= 0b1111);
+        debug_assert!(en_passant_file <= 8);
         debug_assert!(promoted_piece_code <= 0b11);
         debug_assert!(orig_square != dest_square ||
                       move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
@@ -276,8 +274,8 @@ impl Move {
     }
 
     /// Returns the file on which there were a passing pawn before the
-    /// move was played (a value between 0 and 7), or a value between
-    /// 8 and 15 if there was no passing pawn.
+    /// move was played (a value between 0 and 7), or `8` if there was
+    /// no passing pawn.
     #[inline(always)]
     pub fn en_passant_file(&self) -> usize {
         (self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
