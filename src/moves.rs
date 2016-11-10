@@ -141,8 +141,7 @@ impl Move {
     ///
     /// * `0` for all pawn promotions to pieces other than queen.
     ///
-    /// * `Move::max_score()` for captures and pawn promotions to
-    ///   queen.
+    /// * `MOVE_SCORE_MAX` for captures and pawn promotions to queen.
     /// 
     /// * `0` for all other moves.
     #[inline(always)]
@@ -169,7 +168,7 @@ impl Move {
         let mut score_shifted = if captured_piece == NO_PIECE {
             0 << M_SHIFT_SCORE
         } else {
-            MAX_MOVE_SCORE << M_SHIFT_SCORE
+            MOVE_SCORE_MAX << M_SHIFT_SCORE
         };
 
         // Figure out what `aux_data` should contain. In the mean
@@ -177,7 +176,7 @@ impl Move {
         // scores.
         let aux_data = if move_type == MOVE_PROMOTION {
             score_shifted = if promoted_piece_code == 0 {
-                MAX_MOVE_SCORE << M_SHIFT_SCORE
+                MOVE_SCORE_MAX << M_SHIFT_SCORE
             } else {
                 0 << M_SHIFT_SCORE
             };
@@ -195,9 +194,9 @@ impl Move {
 
     /// Creates an invalid move instance.
     ///
-    /// The returned instance mimics a legal move, but its move digest
-    /// equals `0`. It is sometimes useful in places where any move is
-    /// required but no is available.
+    /// The returned instance tries to mimic a legal move, but its
+    /// move digest equals `0`. This is sometimes useful in places
+    /// where any move is required but no is available.
     #[inline(always)]
     pub fn invalid() -> Move {
         Move((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE)
@@ -220,17 +219,12 @@ impl Move {
         }
     }
 
-    /// Returns the highest possible move score.
-    #[inline(always)]
-    pub fn max_score() -> usize {
-        MAX_MOVE_SCORE
-    }
-
-    /// Assigns a new score for the move (between `0` and
-    /// `Move::max_score()`).
+    /// Assigns a new score for the move.
+    ///
+    /// `score` must be between `0` and `MOVE_SCORE_MAX`.
     #[inline(always)]
     pub fn set_score(&mut self, score: usize) {
-        debug_assert!(score <= MAX_MOVE_SCORE);
+        debug_assert!(score <= MOVE_SCORE_MAX);
         self.0 &= !M_MASK_SCORE;
         self.0 |= score << M_SHIFT_SCORE;
     }
@@ -523,8 +517,8 @@ impl MoveStack {
 }
 
 
-/// The highest possible move score.
-const MAX_MOVE_SCORE: usize = 3;
+/// Equals `3` -- the highest possible move score.
+pub const MOVE_SCORE_MAX: usize = 3;
 
 
 // Field shifts
@@ -567,7 +561,6 @@ fn notation(square: Square) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::MAX_MOVE_SCORE;
     use basetypes::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
@@ -595,7 +588,7 @@ mod tests {
 
     #[test]
     fn test_move() {
-        assert!(MAX_MOVE_SCORE >= 3);
+        assert!(MOVE_SCORE_MAX >= 3);
         let cr = CastlingRights::new(0b1011);
         let mut m = Move::new(MOVE_NORMAL,
                               PAWN,
@@ -656,8 +649,8 @@ mod tests {
         assert_eq!(m.castling().value(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
-        m.set_score(MAX_MOVE_SCORE);
-        assert_eq!(m.score(), MAX_MOVE_SCORE);
+        m.set_score(MOVE_SCORE_MAX);
+        assert_eq!(m.score(), MOVE_SCORE_MAX);
         m.set_score(3);
         assert_eq!(m.score(), 3);
         assert!(m > m2);

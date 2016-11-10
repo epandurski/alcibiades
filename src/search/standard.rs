@@ -586,7 +586,7 @@ impl<'a> Search<'a> {
             state.phase = NodePhase::TriedHashMove;
             if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
                 if self.position.do_move(m) {
-                    m.set_score(Move::max_score());
+                    m.set_score(MOVE_SCORE_MAX);
                     return Some(m);
                 }
             }
@@ -606,12 +606,12 @@ impl<'a> Search<'a> {
             // We set new move scores to all captures and promotions
             // to queen according to their static exchange evaluation.
             for m in self.moves.iter_mut() {
-                if m.score() == Move::max_score() {
+                if m.score() == MOVE_SCORE_MAX {
                     let see = self.position.evaluate_move(*m);
                     let new_move_score = if see > 0 {
-                        Move::max_score() - 1
+                        MOVE_SCORE_MAX - 1
                     } else if see == 0 {
-                        Move::max_score() - 2
+                        MOVE_SCORE_MAX - 2
                     } else {
                         0
                     };
@@ -659,7 +659,7 @@ impl<'a> Search<'a> {
                 if killer != 0 {
                     if let Some(mut m) = self.moves.remove(killer) {
                         if self.position.do_move(m) {
-                            m.set_score(Move::max_score());
+                            m.set_score(MOVE_SCORE_MAX);
                             return Some(m);
                         }
                     }
@@ -671,7 +671,7 @@ impl<'a> Search<'a> {
             if let NodePhase::TriedKillerMoves = state.phase {
                 if m.captured_piece() < NO_PIECE {
                     if self.position.do_move(m) {
-                        m.set_score(Move::max_score());
+                        m.set_score(MOVE_SCORE_MAX);
                         return Some(m);
                     }
                     continue;
@@ -691,7 +691,7 @@ impl<'a> Search<'a> {
                     // When evading check, giving check, or promoting
                     // a pawn -- set a high move score to avoid search
                     // depth reductions.
-                    m.set_score(Move::max_score());
+                    m.set_score(MOVE_SCORE_MAX);
                 }
                 return Some(m);
             }
@@ -924,7 +924,7 @@ mod tests {
 
     #[test]
     fn test_search() {
-        assert!(Move::max_score() - 2 > super::REDUCTION_THRESHOLD);
+        assert!(MOVE_SCORE_MAX - 2 > super::REDUCTION_THRESHOLD);
         let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1")
                     .ok()
                     .unwrap();
