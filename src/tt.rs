@@ -116,16 +116,18 @@ pub struct TtEntry {
 impl TtEntry {
     /// Creates a new instance.
     ///
-    /// * `value` -- the value assigned to the position;
+    /// * `value` -- The value assigned to the position. (Must not be
+    ///   equal to `VALUE_UNKNOWN`.)
     /// 
-    /// * `bound` -- the accuracy of the assigned `value`;
+    /// * `bound` -- The accuracy of the assigned `value`.
     /// 
-    /// * `depth` -- the depth of search;
+    /// * `depth` -- The depth of search. (Must be no greater than
+    ///   `DEPTH_MAX`.)
     /// 
-    /// * `move16` -- best or refutation move, or `0` if no move is
-    ///   available;
+    /// * `move16` -- Best or refutation move, or `0` if no move is
+    ///   available.
     /// 
-    /// * `eval_value` -- the calculated static evaluation for the
+    /// * `eval_value` -- The calculated static evaluation for the
     ///   position.
     pub fn new(value: Value,
                bound: BoundType,
