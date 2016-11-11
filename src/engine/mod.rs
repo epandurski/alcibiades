@@ -1,16 +1,17 @@
 //! Implements higher-level facilities.
 
+pub mod time_manager;
+
 use std::collections::VecDeque;
-use std::cmp::min;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use chesstypes::*;
 use tt::*;
 use uci::*;
 use search::*;
-use board::START_POSITION_FEN;
+use board::*;
 use board::rules::Position;
-use board::evaluators::RandomEvaluator;
+use self::time_manager::*;
 
 
 /// The version of the program.
@@ -34,13 +35,16 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-pub struct Engine {
+pub struct Engine<S, E>
+    where S: SearchExecutor,
+          E: BoardEvaluator
+{
     tt: Arc<Tt>,
-    position: Position<RandomEvaluator>,
+    position: Position<E>,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
-    search_thread: SearchThread,
+    search_thread: SearchThread<S>,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -69,7 +73,7 @@ pub struct Engine {
 }
 
 
-impl Engine {
+impl<S: SearchExecutor, E: BoardEvaluator + 'static> Engine<S, E> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -125,7 +129,7 @@ impl Engine {
 }
 
 
-impl SetOption for Engine {
+impl<S: SearchExecutor, E: BoardEvaluator + 'static> SetOption for Engine<S, E> {
     fn options() -> Vec<(String, OptionDescription)> {
         vec![
             // TODO: Calculate a sane limit for the hash size.
@@ -158,7 +162,7 @@ impl SetOption for Engine {
 }
 
 
-impl UciEngine for Engine {
+impl<S: SearchExecutor, E: BoardEvaluator + 'static> UciEngine for Engine<S, E> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
     }
@@ -167,13 +171,12 @@ impl UciEngine for Engine {
         AUTHOR.to_string()
     }
 
-    fn new(tt_size_mb: Option<usize>) -> Engine {
+    fn new(tt_size_mb: Option<usize>) -> Engine<S, E> {
         let mut tt = Tt::new();
         if let Some(tt_size_mb) = tt_size_mb {
             tt.resize(tt_size_mb);
         }
         let tt = Arc::new(tt);
-
         Engine {
             tt: tt.clone(),
             position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
@@ -305,7 +308,7 @@ impl UciEngine for Engine {
 
 
 /// Contains information about the current progress of a search.
-struct SearchStatus {
+pub struct SearchStatus {
     /// `true` if the search is done, `false` otherwise.
     pub done: bool,
 
@@ -337,16 +340,16 @@ struct SearchStatus {
 
 /// A thread that executes consecutive searches in different starting
 /// positions.
-struct SearchThread {
+struct SearchThread<S: SearchExecutor> {
     tt: Arc<Tt>,
     position: Box<SearchNode>,
     status: SearchStatus,
-    searcher: DeepeningSearcher<MultipvSearcher<StandardSearcher>>,
+    searcher: S,
 }
 
-impl SearchThread {
+impl<S: SearchExecutor> SearchThread<S> {
     /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> SearchThread {
+    pub fn new(tt: Arc<Tt>) -> SearchThread<S> {
         use board::evaluators::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
@@ -367,7 +370,7 @@ impl SearchThread {
                 duration_millis: 0,
                 nps: 0,
             },
-            searcher: DeepeningSearcher::new(tt),
+            searcher: S::new(tt),
         }
     }
 
@@ -481,60 +484,5 @@ impl SearchThread {
                                                      report.depth)];
         }
         self.status.done = report.done;
-    }
-}
-
-
-/// Decides when the search must be terminated.
-struct TimeManager {
-    move_time_millis: u64, // move time in milliseconds
-    must_play: bool,
-}
-
-impl TimeManager {
-    /// Creates a new instance.
-    ///
-    /// `position` gives the current position. `pondering_is_allowed`
-    /// tells if the engine is allowed to use opponent's time for
-    /// thinking. `wtime_millis`, `btime_millis`, `winc_millis`, and
-    /// `binc_millis` specify the remaining time in milliseconds, and
-    /// the number of milliseconds with which the remaining time will
-    /// be incremented on each move (for black and white). `movestogo`
-    /// specifies the number of moves to the next time control.
-    #[allow(unused_variables)]
-    pub fn new(position: &Position<RandomEvaluator>,
-               pondering_is_allowed: bool,
-               wtime_millis: Option<u64>,
-               btime_millis: Option<u64>,
-               winc_millis: Option<u64>,
-               binc_millis: Option<u64>,
-               movestogo: Option<u64>)
-               -> TimeManager {
-        // TODO: We ignore "pondering_is_allowed".
-
-        let (time, inc) = if position.board().to_move() == WHITE {
-            (wtime_millis, winc_millis.unwrap_or(0))
-        } else {
-            (btime_millis, binc_millis.unwrap_or(0))
-        };
-        let time = time.unwrap_or(0);
-        let movestogo = movestogo.unwrap_or(40);
-        let movetime = (time + inc * movestogo) / movestogo;
-        TimeManager {
-            move_time_millis: min(movetime, time / 2),
-            must_play: false,
-        }
-    }
-
-    /// Registers the current search status with the time manager.
-    pub fn update_status(&mut self, new_status: &SearchStatus) {
-        // TODO: Implement smarter time management.
-        self.must_play = new_status.duration_millis >= self.move_time_millis;
-    }
-
-    /// Decides if the search must be terminated.
-    #[inline]
-    pub fn must_play(&self) -> bool {
-        self.must_play
     }
 }

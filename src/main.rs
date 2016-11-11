@@ -12,10 +12,15 @@ pub mod engine;
 
 use std::process::exit;
 use uci::Server;
+use search::{DeepeningSearcher, MultipvSearcher, StandardSearcher};
+use board::RandomEvaluator;
 use engine::Engine;
 
 fn main() {
-    if let Ok(mut uci_loop) = Server::<Engine>::wait_for_hanshake() {
+    if let Ok(mut uci_loop) = Server::<Engine<
+            DeepeningSearcher<MultipvSearcher<StandardSearcher>>,
+            RandomEvaluator
+            >>::wait_for_hanshake() {
         match uci_loop.serve() {
             Ok(_) => {
                 exit(0);
