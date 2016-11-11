@@ -7,10 +7,7 @@ use super::*;
 /// `QUEENSIDE` or `KINGSIDE`.
 pub type CastlingSide = usize;
 
-/// Queen-side castling.
 pub const QUEENSIDE: CastlingSide = 0;
-
-/// King-side castling.
 pub const KINGSIDE: CastlingSide = 1;
 
 
@@ -120,9 +117,3 @@ impl fmt::Display for CastlingRights {
         Ok(())
     }
 }
-
-
-/// Bitboards that describe how the castling rook moves during the
-/// castling move.
-pub const CASTLING_ROOK_MASKS: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
-                                                     [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];

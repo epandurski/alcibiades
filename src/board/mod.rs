@@ -25,7 +25,6 @@ pub mod evaluators;
 use std::mem::uninitialized;
 use std::cell::Cell;
 use chesstypes::*;
-use chesstypes::castling::CASTLING_ROOK_MASKS;
 use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
 use search::MoveStack;
 use uci::SetOption;
@@ -1253,6 +1252,11 @@ const PAWN_EAST_CAPTURE: usize = 3;
 /// be: `gen_shift(1 << E2, PAWN_MOVE_SHIFTS[WHITE][PAWN_PUSH])`
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
+
+/// Bitboards that describe how the castling rook moves during the
+/// castling move.
+const CASTLING_ROOK_MASKS: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
+                                                 [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
 
 /// A helper function. It calculates the pseudo-legal destinations
 /// for a given set of `pawns`, and writes them to the supplied
