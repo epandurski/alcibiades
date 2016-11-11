@@ -386,13 +386,11 @@ fn notation(square: Square) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::MOVE_SCORE_MAX;
-    use basetypes::*;
+    use chesstypes::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]
     fn test_castling_rights() {
-        use basetypes::*;
-
         let mut c = CastlingRights::new(0b1110);
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);

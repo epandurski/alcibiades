@@ -1,7 +1,7 @@
 //! Implements parsing of various chess notations.
 
 use regex::Regex;
-use basetypes::*;
+use chesstypes::*;
 
 
 /// Represents a parse error.

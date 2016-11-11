@@ -14,7 +14,7 @@
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
-use basetypes::*;
+use chesstypes::*;
 
 
 /// The maximum search depth in half-moves.

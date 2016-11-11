@@ -3,7 +3,7 @@
 //! **Note:** "LS1B" means "least significant `1` bit".
 
 use std::num::Wrapping;
-use basetypes::*;
+use chesstypes::*;
 
 
 /// Empty set of squares.

@@ -24,9 +24,9 @@ pub mod evaluators;
 
 use std::mem::uninitialized;
 use std::cell::Cell;
-use basetypes::*;
-use basetypes::castling::CASTLING_ROOK_MASKS;
-use basetypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
+use chesstypes::*;
+use chesstypes::castling::CASTLING_ROOK_MASKS;
+use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
 use search::MoveStack;
 use uci::SetOption;
 use board::notation::parse_fen;
@@ -1299,7 +1299,7 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use basetypes::*;
+    use chesstypes::*;
     use search::MoveStack;
 
     #[test]
@@ -1602,7 +1602,6 @@ mod tests {
 
     #[test]
     fn test_find_pinned() {
-        use basetypes::*;
         let b = Board::<RandomEvaluator>::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/6b1 w - - 0 \
                                                     1")
                     .ok()

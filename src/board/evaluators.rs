@@ -1,7 +1,7 @@
 //! Implements various static position evaluators.
 
 use std::hash::{Hasher, SipHasher};
-use basetypes::*;
+use chesstypes::*;
 use uci::SetOption;
 use super::{Board, BoardEvaluator};
 use super::bitsets::*;

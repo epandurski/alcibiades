@@ -63,7 +63,7 @@ use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use std::slice;
-use basetypes::*;
+use chesstypes::*;
 use tt::*;
 pub use self::deepening::DeepeningSearcher;
 pub use self::deepening::MultipvSearcher;
@@ -667,7 +667,7 @@ fn contains_dups(list: &Vec<Move>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use basetypes::*;
+    use chesstypes::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

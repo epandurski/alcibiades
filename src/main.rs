@@ -3,7 +3,7 @@ extern crate lazy_static;
 extern crate regex;
 extern crate rand;
 
-pub mod basetypes;
+pub mod chesstypes;
 pub mod board;
 pub mod search;
 pub mod uci;

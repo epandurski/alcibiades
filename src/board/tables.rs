@@ -1,7 +1,7 @@
 //! Look-up tables and look-up methods.
 
 use rand::{Rng, thread_rng};
-use basetypes::*;
+use chesstypes::*;
 use super::bitsets::*;
 
 
@@ -640,7 +640,7 @@ const ROOK_MAGICS: [u64; 64] = [36028867955671040,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use basetypes::*;
+    use chesstypes::*;
 
     #[test]
     fn test_line_sets() {

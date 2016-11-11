@@ -23,7 +23,7 @@ use std::cell::UnsafeCell;
 use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvError};
 use std::time::Duration;
-use basetypes::*;
+use chesstypes::*;
 use tt::*;
 use super::*;
 use super::contains_same_moves;
@@ -919,7 +919,7 @@ impl Default for KillerPair {
 mod tests {
     use super::{Search, KillerTable};
     use tt::*;
-    use basetypes::*;
+    use chesstypes::*;
     use search::MoveStack;
     use board::rules::Position;
     use board::evaluators::RandomEvaluator;
@@ -947,7 +947,6 @@ mod tests {
 
     #[test]
     fn test_killers() {
-        use basetypes::*;
         let mut killers = KillerTable::new();
         let mut p = Position::<RandomEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 \
                                                            w - - 0 1")

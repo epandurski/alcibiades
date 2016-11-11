@@ -3,7 +3,7 @@ use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
-use basetypes::*;
+use chesstypes::*;
 use tt::*;
 use super::*;
 use super::{contains_dups, contains_same_moves};

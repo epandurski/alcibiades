@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use std::cmp::min;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
-use basetypes::*;
+use chesstypes::*;
 use tt::*;
 use uci::*;
 use search::*;
