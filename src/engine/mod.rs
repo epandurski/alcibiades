@@ -307,37 +307,6 @@ impl<S: SearchExecutor, E: BoardEvaluator + 'static> UciEngine for Engine<S, E> 
 }
 
 
-/// Contains information about the current progress of a search.
-pub struct SearchStatus {
-    /// `true` if the search is done, `false` otherwise.
-    pub done: bool,
-
-    /// The search depth completed so far.
-    pub depth: u8,
-
-    /// The number of different first moves that are being considered
-    /// (from the root position).
-    pub searchmoves_count: usize,
-
-    /// The best variations found so far, sorted by descending first
-    /// move strength. The first move in each variation will be
-    /// different.
-    pub variations: Vec<Variation>,
-
-    /// The starting time for the search.
-    pub started_at: SystemTime,
-
-    /// The duration of the search in milliseconds.
-    pub duration_millis: u64,
-
-    /// The number of analyzed nodes.
-    pub searched_nodes: NodeCount,
-
-    /// Average number of analyzed nodes per second.
-    pub nps: NodeCount,
-}
-
-
 /// A thread that executes consecutive searches in different starting
 /// positions.
 struct SearchThread<S: SearchExecutor> {
