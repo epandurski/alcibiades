@@ -4,7 +4,6 @@ extern crate regex;
 extern crate rand;
 
 pub mod basetypes;
-pub mod moves;
 pub mod board;
 pub mod search;
 pub mod uci;

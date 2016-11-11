@@ -24,7 +24,6 @@ use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvError};
 use std::time::Duration;
 use basetypes::*;
-use moves::*;
 use tt::*;
 use super::*;
 use super::contains_same_moves;
@@ -742,6 +741,10 @@ impl<'a> Search<'a> {
 }
 
 
+/// The highest possible move score.
+const MOVE_SCORE_MAX: usize = 3;
+
+
 /// The number of nodes that will be searched without reporting search
 /// progress.
 ///
@@ -916,14 +919,14 @@ impl Default for KillerPair {
 mod tests {
     use super::{Search, KillerTable};
     use tt::*;
-    use moves::*;
+    use basetypes::*;
+    use search::MoveStack;
     use board::rules::Position;
-    use board::evaluation::RandomEvaluator;
+    use board::evaluators::RandomEvaluator;
     use search::SearchNode;
 
     #[test]
     fn test_search() {
-        assert!(MOVE_SCORE_MAX - 2 > super::REDUCTION_THRESHOLD);
         let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1")
                     .ok()
                     .unwrap();

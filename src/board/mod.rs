@@ -20,19 +20,20 @@ mod notation;
 pub mod tables;
 pub mod rules;
 pub mod bitsets;
-pub mod evaluation;
+pub mod evaluators;
 
 use std::mem::uninitialized;
 use std::cell::Cell;
 use basetypes::*;
-use moves::*;
-use tt::*;
+use basetypes::castling::CASTLING_ROOK_MASKS;
+use basetypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
+use search::MoveStack;
 use uci::SetOption;
 use board::notation::parse_fen;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
-pub use self::evaluation::MaterialEvaluator;
-pub use self::evaluation::RandomEvaluator;
+pub use self::evaluators::MaterialEvaluator;
+pub use self::evaluators::RandomEvaluator;
 
 
 /// A trait used to statically evaluate positions.
@@ -689,7 +690,7 @@ impl<E: BoardEvaluator> Board<E> {
             } else {
                 QUEENSIDE
             };
-            let mask = CASTLING_ROOK_MASK[us][side];
+            let mask = CASTLING_ROOK_MASKS[us][side];
             self.pieces.piece_type[ROOK] ^= mask;
             self.pieces.color[us] ^= mask;
             h ^= self.zobrist._castling_rook_movement[us][side];
@@ -829,7 +830,7 @@ impl<E: BoardEvaluator> Board<E> {
             } else {
                 QUEENSIDE
             };
-            let mask = CASTLING_ROOK_MASK[us][side];
+            let mask = CASTLING_ROOK_MASKS[us][side];
             self.pieces.piece_type[ROOK] ^= mask;
             self.pieces.color[us] ^= mask;
         }
@@ -1295,17 +1296,11 @@ fn calc_pawn_dest_sets(us: Color,
 }
 
 
-/// Bitboards that describe how the castling rook moves during the
-/// castling move.
-const CASTLING_ROOK_MASK: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
-                                                [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use basetypes::*;
-    use moves::*;
+    use search::MoveStack;
 
     #[test]
     fn test_attacks_from() {

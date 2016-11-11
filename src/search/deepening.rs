@@ -3,7 +3,7 @@ use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
-use moves::*;
+use basetypes::*;
 use tt::*;
 use super::*;
 use super::{contains_dups, contains_same_moves};
@@ -460,7 +460,7 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 fn bogus_params() -> SearchParams {
     use board::START_POSITION_FEN;
     use board::rules::Position;
-    use board::evaluation::RandomEvaluator;
+    use board::evaluators::RandomEvaluator;
     SearchParams {
         search_id: 0,
         position: Box::new(Position::<RandomEvaluator>::from_fen(START_POSITION_FEN).ok().unwrap()),

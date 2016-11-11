@@ -10,7 +10,7 @@ use uci::*;
 use search::*;
 use board::START_POSITION_FEN;
 use board::rules::Position;
-use board::evaluation::RandomEvaluator;
+use board::evaluators::RandomEvaluator;
 
 
 /// The version of the program.
@@ -347,7 +347,7 @@ struct SearchThread {
 impl SearchThread {
     /// Creates a new instance.
     pub fn new(tt: Arc<Tt>) -> SearchThread {
-        use board::evaluation::RandomEvaluator;
+        use board::evaluators::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
             position: Box::new(Position::<RandomEvaluator>::from_fen(START_POSITION_FEN)
