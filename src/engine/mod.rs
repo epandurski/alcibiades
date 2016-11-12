@@ -173,9 +173,8 @@ impl<S: SearchExecutor, E: BoardEvaluator + 'static> UciEngine for Engine<S, E> 
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S, E> {
         let mut tt = Tt::new();
-        if let Some(tt_size_mb) = tt_size_mb {
-            tt.resize(tt_size_mb);
-        }
+        let tt_size_mb = tt_size_mb.unwrap_or(16);
+        tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
         Engine {
             tt: tt.clone(),
