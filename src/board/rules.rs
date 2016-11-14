@@ -6,7 +6,7 @@ use std::cmp::{min, max};
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
-use search::{SearchNode, NodeCount, MoveStack};
+use search::{SearchNode, MoveStack};
 use super::{Board, BoardEvaluator, IllegalBoard};
 use super::notation::parse_fen;
 use super::bitsets::*;
@@ -152,7 +152,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
                mut recapture_squares: Bitboard,
                ply: u8, // the reached `qsearch` depth
                move_stack: &mut MoveStack,
-               searched_nodes: &mut NodeCount)
+               searched_nodes: &mut u64)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(stand_pat == VALUE_UNKNOWN || stand_pat == self.board().evaluate());
@@ -531,7 +531,7 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
                            lower_bound: Value,
                            upper_bound: Value,
                            static_evaluation: Value)
-                           -> (Value, NodeCount) {
+                           -> (Value, u64) {
         debug_assert!(lower_bound < upper_bound);
         if self.repeated_or_rule50 {
             (0, 0)

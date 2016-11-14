@@ -19,7 +19,7 @@ use super::{contains_dups, contains_same_moves};
 pub struct DeepeningSearcher<T: SearchExecutor> {
     params: SearchParams,
     search_is_terminated: bool,
-    previously_searched_nodes: NodeCount,
+    previously_searched_nodes: u64,
 
     // The real work will be handed over to `searcher`.
     searcher: T,
@@ -122,7 +122,7 @@ pub struct AspirationSearcher<T: SearchExecutor> {
     tt: Arc<Tt>,
     params: SearchParams,
     search_is_terminated: bool,
-    previously_searched_nodes: NodeCount,
+    previously_searched_nodes: u64,
     lmr_mode: bool,
 
     // The real work will be handed over to `searcher`.
@@ -300,7 +300,7 @@ pub struct MultipvSearcher<T: SearchExecutor> {
     tt: Arc<Tt>,
     params: SearchParams,
     search_is_terminated: bool,
-    previously_searched_nodes: NodeCount,
+    previously_searched_nodes: u64,
 
     // The real work will be handed over to `searcher`.
     searcher: AspirationSearcher<T>,

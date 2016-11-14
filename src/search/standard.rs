@@ -244,9 +244,9 @@ struct Search<'a> {
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
     state_stack: Vec<NodeState>,
-    reported_nodes: NodeCount,
-    unreported_nodes: NodeCount,
-    report_function: &'a mut FnMut(NodeCount) -> bool,
+    reported_nodes: u64,
+    unreported_nodes: u64,
+    report_function: &'a mut FnMut(u64) -> bool,
 }
 
 
@@ -261,7 +261,7 @@ impl<'a> Search<'a> {
     pub fn new(root: Box<SearchNode>,
                tt: &'a Tt,
                move_stack: &'a mut MoveStack,
-               report_function: &'a mut FnMut(NodeCount) -> bool)
+               report_function: &'a mut FnMut(u64) -> bool)
                -> Search<'a> {
         let moves_starting_ply = move_stack.ply();
         Search {
@@ -412,7 +412,7 @@ impl<'a> Search<'a> {
 
     /// Returns the number of searched positions.
     #[inline(always)]
-    pub fn node_count(&self) -> NodeCount {
+    pub fn node_count(&self) -> u64 {
         self.reported_nodes + self.unreported_nodes
     }
 
@@ -720,7 +720,7 @@ impl<'a> Search<'a> {
     /// searched since the beginning of the search. This also gives an
     /// opportunity for the search to be terminated.
     #[inline]
-    fn report_progress(&mut self, new_nodes: NodeCount) -> Result<(), TerminatedSearch> {
+    fn report_progress(&mut self, new_nodes: u64) -> Result<(), TerminatedSearch> {
         self.unreported_nodes += new_nodes;
         if self.unreported_nodes >= NODE_COUNT_REPORT_INTERVAL {
             self.reported_nodes += self.unreported_nodes;
@@ -750,7 +750,7 @@ const MOVE_SCORE_MAX: usize = 3;
 ///
 /// If this value is too small the engine may become slow, if this
 /// value is too big the engine may become unresponsive.
-const NODE_COUNT_REPORT_INTERVAL: NodeCount = 10000;
+const NODE_COUNT_REPORT_INTERVAL: u64 = 10000;
 
 
 /// The number of half-moves with which the search depth will be

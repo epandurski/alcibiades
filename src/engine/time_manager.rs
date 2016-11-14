@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::time::SystemTime;
 use chesstypes::*;
-use search::{SearchNode, NodeCount, Variation};
+use search::{SearchNode, Variation};
 
 
 /// Contains information about the current progress of a search.
@@ -28,10 +28,10 @@ pub struct SearchStatus {
     pub duration_millis: u64,
 
     /// The number of analyzed nodes.
-    pub searched_nodes: NodeCount,
+    pub searched_nodes: u64,
 
     /// Average number of analyzed nodes per second.
-    pub nps: NodeCount,
+    pub nps: u64,
 }
 
 

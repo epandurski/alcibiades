@@ -67,10 +67,6 @@ use chesstypes::*;
 use tt::*;
 
 
-/// Number of searched positions.
-pub type NodeCount = u64;
-
-
 /// Parameters describing a new search.
 ///
 /// **Important note:** `lower_bound` and `upper_bound` fields
@@ -131,7 +127,7 @@ pub struct SearchReport {
     pub search_id: usize,
 
     /// The number of positions searched so far.
-    pub searched_nodes: NodeCount,
+    pub searched_nodes: u64,
 
     /// The search depth completed so far.
     pub depth: u8,
@@ -275,9 +271,12 @@ pub trait SearchNode: Send {
     /// of the interval. `static_evaluation` should be the value
     /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`.
     ///
-    /// The returned value will be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions `0` is
-    /// returned.
+    /// The first slot in the returned tuple is the calculated
+    /// evaluation. It will always be between `VALUE_EVAL_MIN` and
+    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions it will
+    /// be `0`. The second slot in the returned tuple is the number of
+    /// positions that were searched in order to calculate the
+    /// evaluation.
     ///
     /// **Note:** This method will return a reliable result even when
     /// the side to move is in check. In this case the all possible
@@ -287,7 +286,7 @@ pub trait SearchNode: Send {
                            lower_bound: Value,
                            upper_bound: Value,
                            static_evaluation: Value)
-                           -> (Value, NodeCount);
+                           -> (Value, u64);
 
     /// Returns the likely evaluation change (material) to be lost or
     /// gained as a result of a given move.
