@@ -31,8 +31,6 @@ use uci::SetOption;
 use board::notation::parse_fen;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
-pub use self::evaluators::MaterialEvaluator;
-pub use self::evaluators::RandomEvaluator;
 
 
 /// A trait used to statically evaluate positions.
@@ -1303,6 +1301,7 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::evaluators::RandomEvaluator;
     use chesstypes::*;
     use search::MoveStack;
 
