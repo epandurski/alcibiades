@@ -65,10 +65,6 @@ use std::sync::mpsc::TryRecvError;
 use std::slice;
 use chesstypes::*;
 use tt::*;
-pub use self::deepening::DeepeningSearcher;
-pub use self::deepening::MultipvSearcher;
-pub use self::deepening::AspirationSearcher;
-pub use self::standard::StandardSearcher;
 
 
 /// Number of searched positions.
