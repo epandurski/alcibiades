@@ -187,7 +187,6 @@ pub trait SearchExecutor {
 /// **Important note:** Repeating positions are considered a draw
 /// after the first repetition, not after the second one as the chess
 /// rules prescribe. This is done in the sake of efficiency.
-
 pub trait SearchNode: Send {
     /// Returns an almost unique hash value for the position.
     ///
