@@ -1,4 +1,13 @@
 //! Implements iterative deepening, aspiration windows, multi-PV.
+//!
+//! # Usage
+//!
+//! To turn `StandardSearcher` into a deepening searcher, instantiate
+//! one of the following types:
+//!
+//! * `Deepening<StandardSearcher>`
+//! * `Deepening<Aspiration<StandardSearcher>>`
+//! * `Deepening<Multipv<StandardSearcher>>`
 use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::Arc;
