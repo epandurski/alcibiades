@@ -11,25 +11,15 @@ pub mod tt;
 pub mod engine;
 
 use std::process::exit;
-use uci::Server;
+use uci::run_server;
 use search::deepening::{Deepening, Multipv};
 use search::searchers::StandardSearcher;
 use board::evaluators::RandomEvaluator;
 use engine::Engine;
 
 fn main() {
-    if let Ok(mut uci_loop) = Server::<Engine<
-            Deepening<Multipv<StandardSearcher>>,
-            RandomEvaluator
-            >>::wait_for_hanshake() {
-        match uci_loop.serve() {
-            Ok(_) => {
-                exit(0);
-            }
-            Err(_) => {
-                exit(1);
-            }
-        }
-    }
-    exit(2);
+    exit(match run_server::<Engine<Deepening<Multipv<StandardSearcher>>, RandomEvaluator>>() {
+        Ok(_) => 0,
+        Err(_) => 1,
+    })
 }

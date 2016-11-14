@@ -12,28 +12,21 @@
 //!
 //! This module handles the low-level details of the UCI protocol. It
 //! only requires the programmer to define a type that implements the
-//! `UciEngine` trait. Then `Server` will handle the communication
+//! `UciEngine` trait. Then `run_server` will handle the communication
 //! with the GUI all by itself.
 //!
 //! # Example:
 //! ```rust
-//! use uci::Server;
+//! use std::process::exit;
+//! use uci::run_server;
 //!
 //! fn main() {
-//!     if let Ok(mut server) = Server::<MyEngine>::wait_for_hanshake() {
-//!         match server.serve() {
-//!             Ok(_) => {
-//!                 exit(0);
-//!             }
-//!             Err(_) => {
-//!                 exit(1);
-//!             }
-//!         }
-//!     }
-//!     exit(2);
+//!     exit(match run_server::<MyEngine>() {
+//!         Ok(_) => 0,
+//!         Err(_) => 1,
+//!     })
 //! }
 //! ```
-
 
 use std::default::Default;
 use std::time::Duration;
@@ -89,12 +82,17 @@ enum UciCommand {
 /// Parameters influencing engine's thinking.
 #[derive(Default)]
 pub struct GoParams {
-    /// Restricts the search to a subset of moves only. The move
-    /// format is long algebraic notation. Examples: `e2e4`, `e7e5`,
-    /// `e1g1` (white short castling), `e7e8q` (for promotion).
+    /// Restricts the search to a subset of moves only.
+    ///
+    /// No restrictions should be applied when the supplied list is
+    /// empty. The move format is long algebraic notation. Examples:
+    /// `e2e4`, `e7e5`, `e1g1` (white short castling), `e7e8q` (for
+    /// promotion).
     pub searchmoves: Vec<String>,
 
-    /// Starts searching in pondering mode. The last move sent in the
+    /// Whether to starts searching in pondering mode.
+    ///
+    /// When searching in pondering mode the last move sent in the
     /// "position" command is the ponder move. The engine can do what
     /// it wants to do, but after a "ponder hit" command it should
     /// execute the suggested move to ponder on. This means that the
@@ -133,8 +131,10 @@ pub struct GoParams {
     /// Search for exactly that many milliseconds.
     pub movetime: Option<u64>,
 
-    /// Search until the "stop" command. Do not exit the search
-    /// without being told so in this mode!
+    /// Search until the "stop" command.
+    ///
+    /// The engine must not exit the search without being told so in
+    /// this mode.
     pub infinite: bool,
 }
 
@@ -170,8 +170,8 @@ pub struct InfoItem {
 
 /// A reply from the engine to the GUI.
 ///
-/// The engine reply is either a best move found, or a new/updated
-/// information item. The move format is long algebraic
+/// The engine reply is either a best move found, or new/updated
+/// information items. The move format is long algebraic
 /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
 /// `e7e8q` (for promotion). If supplied, `ponder_move` is the
 /// response on which the engine would like to ponder.
@@ -283,10 +283,22 @@ pub trait UciEngine: SetOption {
 }
 
 
+/// Serves UCI commands until a "quit" command is received.
+///
+/// The current thread will block until the UCI session is closed.
+///
+/// Returns `Err` if the handshake was unsuccessful, or if an IO error
+/// occurred.
+pub fn run_server<E: UciEngine>() -> io::Result<()> {
+    let mut server = try!(Server::<E>::wait_for_hanshake());
+    server.serve()
+}
+
+
 /// A UCI protocol server.
 ///
 /// Connects the engine to the GUI.
-pub struct Server<E: UciEngine> {
+struct Server<E: UciEngine> {
     engine: Option<E>,
 }
 
