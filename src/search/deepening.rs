@@ -458,12 +458,13 @@ impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
 
 /// A helper function. It returns bogus search parameters.
 fn bogus_params() -> SearchParams {
-    use board::START_POSITION_FEN;
     use board::rules::Position;
     use board::evaluators::RandomEvaluator;
     SearchParams {
         search_id: 0,
-        position: Box::new(Position::<RandomEvaluator>::from_fen(START_POSITION_FEN).ok().unwrap()),
+        position: Box::new(Position::<RandomEvaluator>::from_fen("7k/8/8/8/8/8/8/7K w - - 0 1")
+                               .ok()
+                               .unwrap()),
         depth: 1,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,

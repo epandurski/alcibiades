@@ -1225,10 +1225,6 @@ impl<E: BoardEvaluator> Board<E> {
 }
 
 
-/// The chess starting position in Forsyth–Edwards notation (FEN).
-pub const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk \
-                                              - 0 1";
-
 /// Pawn move sub-type -- a single push.
 const PAWN_PUSH: usize = 0;
 

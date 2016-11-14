@@ -14,6 +14,9 @@ use board::rules::Position;
 use self::time_manager::*;
 
 
+/// The chess starting position in Forsyth–Edwards notation (FEN).
+const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
+
 /// The version of the program.
 const VERSION: &'static str = "0.1";
 
