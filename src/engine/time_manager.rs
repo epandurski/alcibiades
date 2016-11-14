@@ -1,7 +1,8 @@
 use std::cmp::min;
 use std::time::SystemTime;
 use chesstypes::*;
-use search::{SearchNode, Variation};
+use search::SearchNode;
+use super::Variation;
 
 
 /// Contains information about the current progress of a search.
