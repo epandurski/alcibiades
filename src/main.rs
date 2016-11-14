@@ -12,14 +12,14 @@ pub mod engine;
 
 use std::process::exit;
 use uci::Server;
-use search::deepening::{DeepeningSearcher, MultipvSearcher};
+use search::deepening::{Deepening, Multipv};
 use search::standard::StandardSearcher;
 use board::evaluators::RandomEvaluator;
 use engine::Engine;
 
 fn main() {
     if let Ok(mut uci_loop) = Server::<Engine<
-            DeepeningSearcher<MultipvSearcher<StandardSearcher>>,
+            Deepening<Multipv<StandardSearcher>>,
             RandomEvaluator
             >>::wait_for_hanshake() {
         match uci_loop.serve() {

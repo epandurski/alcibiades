@@ -16,7 +16,7 @@ use super::{contains_dups, contains_same_moves};
 /// search is exhausted or the maximum search depth is reached. In
 /// case of an unfinished search, the program can always fall back to
 /// the move selected in the last iteration of the search.
-pub struct DeepeningSearcher<T: SearchExecutor> {
+pub struct Deepening<T: SearchExecutor> {
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -31,7 +31,7 @@ pub struct DeepeningSearcher<T: SearchExecutor> {
     value: Value,
 }
 
-impl<T: SearchExecutor> DeepeningSearcher<T> {
+impl<T: SearchExecutor> Deepening<T> {
     fn search_next_depth(&mut self) {
         self.searcher.start_search(SearchParams {
             search_id: 0,
@@ -41,9 +41,9 @@ impl<T: SearchExecutor> DeepeningSearcher<T> {
     }
 }
 
-impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
-    fn new(tt: Arc<Tt>) -> DeepeningSearcher<T> {
-        DeepeningSearcher {
+impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
+    fn new(tt: Arc<Tt>) -> Deepening<T> {
+        Deepening {
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
@@ -118,7 +118,7 @@ impl<T: SearchExecutor> SearchExecutor for DeepeningSearcher<T> {
 /// narrower, more beta cutoffs are achieved, and the search takes a
 /// shorter time. The drawback is that if the true score is outside
 /// this window, then a costly re-search must be made.
-pub struct AspirationSearcher<T: SearchExecutor> {
+pub struct Aspiration<T: SearchExecutor> {
     tt: Arc<Tt>,
     params: SearchParams,
     search_is_terminated: bool,
@@ -142,16 +142,16 @@ pub struct AspirationSearcher<T: SearchExecutor> {
     expected_to_fail_high: bool,
 }
 
-impl<T: SearchExecutor> AspirationSearcher<T> {
-    fn lmr_mode(mut self) -> AspirationSearcher<T> {
+impl<T: SearchExecutor> Aspiration<T> {
+    fn lmr_mode(mut self) -> Aspiration<T> {
         self.lmr_mode = true;
         self
     }
 
     fn start_aspirated_search(&mut self) {
         let depth = if self.lmr_mode && self.expected_to_fail_high && self.params.depth > 0 {
-            // `MultipvSearcher` implements late move reductions by
-            // using `AspirationSearcher` in a special mode.
+            // `Multipv` implements late move reductions by using
+            // `Aspiration` in a special mode.
             self.params.depth - 1
         } else {
             self.params.depth
@@ -222,9 +222,9 @@ impl<T: SearchExecutor> AspirationSearcher<T> {
     }
 }
 
-impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
-    fn new(tt: Arc<Tt>) -> AspirationSearcher<T> {
-        AspirationSearcher {
+impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
+    fn new(tt: Arc<Tt>) -> Aspiration<T> {
+        Aspiration {
             tt: tt.clone(),
             params: bogus_params(),
             search_is_terminated: false,
@@ -296,14 +296,14 @@ impl<T: SearchExecutor> SearchExecutor for AspirationSearcher<T> {
 /// several principal variations (PV), each one starting with a
 /// different first move. This mode makes the search slower, but is
 /// very useful for chess analysis.
-pub struct MultipvSearcher<T: SearchExecutor> {
+pub struct Multipv<T: SearchExecutor> {
     tt: Arc<Tt>,
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
 
     // The real work will be handed over to `searcher`.
-    searcher: AspirationSearcher<T>,
+    searcher: Aspiration<T>,
 
     // The index in `self.params.searchmoves` of the currently
     // considered move.
@@ -313,7 +313,7 @@ pub struct MultipvSearcher<T: SearchExecutor> {
     values: Vec<Value>,
 }
 
-impl<T: SearchExecutor> MultipvSearcher<T> {
+impl<T: SearchExecutor> Multipv<T> {
     fn search_current_move(&mut self) -> bool {
         if self.current_move_index < self.params.searchmoves.len() {
             let variation_count = min(self.params.variation_count, self.params.searchmoves.len());
@@ -374,14 +374,14 @@ impl<T: SearchExecutor> MultipvSearcher<T> {
     }
 }
 
-impl<T: SearchExecutor> SearchExecutor for MultipvSearcher<T> {
-    fn new(tt: Arc<Tt>) -> MultipvSearcher<T> {
-        MultipvSearcher {
+impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
+    fn new(tt: Arc<Tt>) -> Multipv<T> {
+        Multipv {
             tt: tt.clone(),
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            searcher: AspirationSearcher::new(tt).lmr_mode(),
+            searcher: Aspiration::new(tt).lmr_mode(),
             current_move_index: 0,
             values: vec![VALUE_MIN],
         }
