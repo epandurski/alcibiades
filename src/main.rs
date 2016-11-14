@@ -13,7 +13,7 @@ pub mod engine;
 use std::process::exit;
 use uci::Server;
 use search::deepening::{Deepening, Multipv};
-use search::standard::StandardSearcher;
+use search::searchers::StandardSearcher;
 use board::evaluators::RandomEvaluator;
 use engine::Engine;
 

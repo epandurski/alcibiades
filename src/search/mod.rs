@@ -55,7 +55,7 @@
 //! let pv = extract_pv(&tt, position.as_ref(), 10);
 //! ```
 pub mod deepening;
-pub mod standard;
+pub mod searchers;
 
 use std::cmp::Ordering;
 use std::time::Duration;

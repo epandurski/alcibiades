@@ -1,21 +1,4 @@
-//! Implements alpha-beta searching with null move pruning and late
-//! move reductions.
-//!
-//! The alpha-beta algorithm is an enhancement to the minimax search
-//! algorithm. It maintains two values, alpha and beta. They represent
-//! the minimum score that the maximizing player is assured of (lower
-//! bound) and the maximum score that the minimizing player is assured
-//! of (upper bound) respectively.
-//!
-//! Null move pruning is a method to reduce the search space by trying
-//! a "null" or "passing" move, then seeing if the score of the
-//! subtree search is still high enough to cause a beta cutoff. Nodes
-//! are saved by reducing the depth of the subtree under the null
-//! move.
-//!
-//! Late move reductions save search space by reducing the search
-//! depth for moves that are ordered closer to the end (likely
-//! fail-low nodes).
+//! Implements various game-tree searchers.
 use std::mem;
 use std::cmp::max;
 use std::thread;
@@ -31,6 +14,22 @@ use super::contains_same_moves;
 
 /// Executes alpha-beta searches with null move pruning and late move
 /// reductions.
+///
+/// The alpha-beta algorithm is an enhancement to the minimax search
+/// algorithm. It maintains two values, alpha and beta. They represent
+/// the minimum score that the maximizing player is assured of (lower
+/// bound) and the maximum score that the minimizing player is assured
+/// of (upper bound) respectively.
+///
+/// Null move pruning is a method to reduce the search space by trying
+/// a "null" or "passing" move, then seeing if the score of the
+/// subtree search is still high enough to cause a beta cutoff. Nodes
+/// are saved by reducing the depth of the subtree under the null
+/// move.
+///
+/// Late move reductions save search space by reducing the search
+/// depth for moves that are ordered closer to the end (likely
+/// fail-low nodes).
 ///
 /// **Important note:** `StandardSearcher` ignores the `searchmoves`
 /// search parameter. It always analyses all legal moves in the root
