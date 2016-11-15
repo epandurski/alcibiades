@@ -278,6 +278,20 @@ impl<E: BoardEvaluator> Board<E> {
         self._checkers.get()
     }
 
+    /// Statically evaluates the position.
+    ///
+    /// The returned value will be between `VALUE_EVAL_MIN` and
+    /// `VALUE_EVAL_MAX`.
+    #[inline]
+    pub fn evaluate(&self) -> Value {
+        unsafe {
+            let board_ptr: *const Board<E> = self;
+            let v = self.evaluator.evaluate(board_ptr.as_ref().unwrap());
+            debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
+            v
+        }
+    }
+    
     /// Generates pseudo-legal moves.
     ///
     /// A pseudo-legal move is a move that is otherwise legal, except
@@ -874,20 +888,6 @@ impl<E: BoardEvaluator> Board<E> {
             hash ^= self.zobrist.to_move;
         }
         hash
-    }
-
-    /// Statically evaluates the position.
-    ///
-    /// The returned value will be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`.
-    #[inline]
-    pub fn evaluate(&self) -> Value {
-        unsafe {
-            let board_ptr: *const Board<E> = self;
-            let v = self.evaluator.evaluate(board_ptr.as_ref().unwrap());
-            debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
-            v
-        }
     }
 
     /// A helper method for `create`. It analyzes the position on the
