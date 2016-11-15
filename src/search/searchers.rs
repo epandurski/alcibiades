@@ -919,10 +919,9 @@ mod tests {
     use super::{Search, KillerTable};
     use tt::*;
     use chesstypes::*;
-    use search::MoveStack;
+    use search::{SearchNode, SearchNodeFactory, MoveStack};
     use board::rules::Position;
     use board::evaluators::RandomEvaluator;
-    use search::SearchNode;
 
     #[test]
     fn test_search() {

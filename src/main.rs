@@ -14,11 +14,13 @@ use std::process::exit;
 use uci::run_server;
 use search::deepening::{Deepening, Multipv};
 use search::searchers::StandardSearcher;
+use board::rules::Position;
 use board::evaluators::RandomEvaluator;
 use engine::Engine;
 
 fn main() {
-    exit(match run_server::<Engine<Deepening<Multipv<StandardSearcher>>, RandomEvaluator>>() {
+    exit(match run_server::<Engine<Deepening<Multipv<StandardSearcher>>,
+                                   Position<RandomEvaluator>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })

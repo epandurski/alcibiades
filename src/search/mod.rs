@@ -167,6 +167,17 @@ pub trait SearchNode: Send {
     /// possible.
     fn en_passant_file(&self) -> Option<File>;
 
+    /// Returns the number of half-moves since the last piece capture
+    /// or pawn advance.
+    fn halfmove_clock(&self) -> u8;
+
+    /// Returns the count of half-moves since the beginning of the
+    /// game.
+    ///
+    /// At the beginning of the game it starts at `0`, and is
+    /// incremented after anyone's move.
+    fn halfmove_count(&self) -> u16;
+
     /// Returns if the side to move is in check.
     fn is_check(&self) -> bool;
 
@@ -321,6 +332,27 @@ pub trait SearchNode: Send {
 
     /// Returns an exact copy of the position.
     fn copy(&self) -> Box<SearchNode>;
+}
+
+
+/// A trait for instantiating chess positions.
+pub trait SearchNodeFactory {
+    type T: SearchNode;
+
+    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
+    /// string.
+    ///
+    /// Verifies that the position is legal.
+    fn from_fen(fen: &str) -> Result<Self::T, String>;
+
+    /// Creates a new instance from playing history.
+    ///
+    /// `fen` should be the Forsyth–Edwards Notation of a legal
+    /// starting position. `moves` should be an iterator over all the
+    /// moves that were played from that position. The move format is
+    /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
+    /// (white short castling), `e7e8q` (for promotion).
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self::T, String>;
 }
 
 

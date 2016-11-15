@@ -1,5 +1,7 @@
 //! Facilities for implementing static position evaluation.
 //!
+//! # Static position evaluation
+//!
 //! An evaluation function is used to heuristically determine the
 //! relative value of a position, i.e. the chances of winning. If we
 //! could see to the end of the game in every line, the evaluation
@@ -15,10 +17,22 @@
 //! without analyzing any tactical variations. Therefore, if the
 //! position has pending tactical threats, the static evaluation will
 //! be grossly incorrect.
-
+//!
+//! Writing a new static evaluator is as simple as implementing the
+//! `BoardEvaluator` trait.
+//!
+//! # Writing your own move generator
+//!
+//! The generation of moves is at the heart of every chess
+//! engine. `board::rules::Position` implements a very fast move
+//! generator, and also: quiescence search, static exchange
+//! evaluation, move legality check, hashing. Re-writing those things
+//! is a lot of work. Still, if you decide to do this, you should
+//! write your own implementations of `SearchNode` and
+//! `SearchNodeFactory` traits.
 mod notation;
-pub mod tables;
 pub mod rules;
+pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
 
@@ -92,10 +106,6 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
 }
 
 
-/// Illegal possiton error.
-pub struct IllegalBoard;
-
-
 /// Holds a chess position, can evaluate the odds.
 #[derive(Clone)]
 pub struct Board<E: BoardEvaluator> {
@@ -144,17 +154,16 @@ impl<E: BoardEvaluator> Board<E> {
               to_move: Color,
               castling: CastlingRights,
               en_passant_square: Option<Square>)
-              -> Result<Board<E>, IllegalBoard> {
-
+              -> Result<Board<E>, String> {
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
             BLACK => RANK_3,
-            _ => return Err(IllegalBoard),
+            _ => return Err(format!("illegal position")),
         };
         let en_passant_file = match en_passant_square {
             None => 8,
             Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
-            _ => return Err(IllegalBoard),
+            _ => return Err(format!("illegal position")),
         };
         let mut b = Board {
             geometry: BoardGeometry::get(),
@@ -167,25 +176,21 @@ impl<E: BoardEvaluator> Board<E> {
             _occupied: pieces.color[WHITE] | pieces.color[BLACK],
             _checkers: Cell::new(BB_UNIVERSAL_SET),
         };
-
-        if b.is_legal() {
-            b.evaluator = E::new(&b);
-            Ok(b)
-        } else {
-            Err(IllegalBoard)
+        if !b.is_legal() {
+            return Err(format!("illegal position"));
         }
+        b.evaluator = E::new(&b);
+        Ok(b)
     }
 
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     ///
     /// Verifies that the position is legal.
-    pub fn from_fen(fen: &str) -> Result<Board<E>, IllegalBoard> {
-        let (ref placement, to_move, castling, en_passant_square, _, _) = try!(parse_fen(fen)
-                                                                                   .map_err(|_| {
-                                                                                       IllegalBoard
-                                                                                   }));
-        Board::create(placement, to_move, castling, en_passant_square)
+    pub fn from_fen(fen: &str) -> Result<Board<E>, String> {
+        let parts = try!(parse_fen(fen).map_err(|_| fen));
+        let (ref placement, to_move, castling, en_passant_square, _, _) = parts;
+        Board::create(placement, to_move, castling, en_passant_square).map_err(|_| fen.to_string())
     }
 
     /// Returns a reference to a properly initialized `BoardGeometry`

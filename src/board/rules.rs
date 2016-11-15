@@ -6,14 +6,17 @@ use std::cmp::{min, max};
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
-use search::{SearchNode, MoveStack};
-use super::{Board, BoardEvaluator, IllegalBoard};
+use search::{SearchNode, SearchNodeFactory, MoveStack};
+use super::{Board, BoardEvaluator};
 use super::notation::parse_fen;
 use super::bitsets::*;
 
 
-/// Implements the `SearchNode` trait, connecting the static evaluator
-/// to the game-tree searcher.
+/// Holds a chess position, can evaluate the odds, knows the rules of
+/// chess.
+/// 
+/// `Position` implements `SearchNode` and `SearchNodeFactory` traits,
+/// connecting the static evaluator `E` to the game-tree searcher.
 pub struct Position<E: BoardEvaluator> {
     /// The underlying `Board` instance.
     ///
@@ -63,79 +66,10 @@ pub struct Position<E: BoardEvaluator> {
 // 6. 50 move rule awareness.
 // 7. Threefold/twofold repetition detection.
 impl<E: BoardEvaluator + 'static> Position<E> {
-    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
-    /// string.
-    ///
-    /// Verifies that the position is legal.
-    pub fn from_fen(fen: &str) -> Result<Position<E>, IllegalBoard> {
-        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
-            try!(parse_fen(fen).map_err(|_| IllegalBoard));
-        let board = try!(Board::create(placement, to_move, castling, en_passant_square)
-                             .map_err(|_| IllegalBoard));
-        Ok(Position {
-            board_hash: board.calc_hash(),
-            board: UnsafeCell::new(board),
-            halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
-            repeated_or_rule50: false,
-            repeated_boards_hash: 0,
-            encountered_boards: vec![0; halfmove_clock as usize],
-            state_stack: vec![PositionInfo {
-                                  halfmove_clock: min(halfmove_clock, 99),
-                                  last_move: Move::invalid(),
-                              }],
-        })
-    }
-
-    /// Creates a new instance from playing history.
-    ///
-    /// `fen` should be the Forsyth–Edwards Notation of a legal
-    /// starting position. `moves` should be an iterator over all the
-    /// moves that were played from that position. The move format is
-    /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
-    /// (white short castling), `e7e8q` (for promotion).
-    pub fn from_history(fen: &str,
-                        moves: &mut Iterator<Item = &str>)
-                        -> Result<Position<E>, IllegalBoard> {
-        let mut p = try!(Position::from_fen(fen));
-        let mut move_stack = MoveStack::new();
-        'played_moves: for played_move in moves {
-            move_stack.clear();
-            p.board().generate_moves(true, &mut move_stack);
-            for m in move_stack.iter() {
-                if played_move == m.notation() {
-                    if p.do_move(*m) {
-                        continue 'played_moves;
-                    }
-                    break;
-                }
-            }
-            return Err(IllegalBoard);
-        }
-        p.declare_as_root();
-        Ok(p)
-    }
-
     /// Returns a reference to the underlying `Board` instance.
     #[inline(always)]
     pub fn board(&self) -> &Board<E> {
         unsafe { &*self.board.get() }
-    }
-
-    /// Returns the count of half-moves since the beginning of the
-    /// game.
-    ///
-    /// At the beginning of the game it starts at `0`, and is
-    /// incremented after anyone's move.
-    #[inline]
-    pub fn halfmove_count(&self) -> u16 {
-        self.halfmove_count
-    }
-
-    /// Returns the number of half-moves since the last piece capture
-    /// or pawn advance.
-    #[inline]
-    pub fn halfmove_clock(&self) -> u8 {
-        self.state().halfmove_clock
     }
 
     /// Performs a "quiescence search" and returns an evaluation.
@@ -453,6 +387,50 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     }
 }
 
+impl<E: BoardEvaluator + 'static> SearchNodeFactory for Position<E> {
+    type T = Position<E>;
+
+    fn from_fen(fen: &str) -> Result<Position<E>, String> {
+        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
+            try!(parse_fen(fen).map_err(|_| fen));
+        let board = try!(Board::create(placement, to_move, castling, en_passant_square)
+                             .map_err(|_| fen));
+        Ok(Position {
+            board_hash: board.calc_hash(),
+            board: UnsafeCell::new(board),
+            halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
+            repeated_or_rule50: false,
+            repeated_boards_hash: 0,
+            encountered_boards: vec![0; halfmove_clock as usize],
+            state_stack: vec![PositionInfo {
+                                  halfmove_clock: min(halfmove_clock, 99),
+                                  last_move: Move::invalid(),
+                              }],
+        })
+    }
+
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Position<E>, String> {
+        let mut p: Position<E> = try!(Position::from_fen(fen));
+        let mut move_stack = MoveStack::new();
+        'played_moves: for played_move in moves {
+            move_stack.clear();
+            p.board().generate_moves(true, &mut move_stack);
+            for m in move_stack.iter() {
+                if played_move == m.notation() {
+                    if p.do_move(*m) {
+                        continue 'played_moves;
+                    }
+                    break;
+                }
+            }
+            return Err(format!("illegal move"));
+        }
+        p.declare_as_root();
+        Ok(p)
+    }
+}
+
+
 impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
     fn hash(&self) -> u64 {
         if self.repeated_or_rule50 {
@@ -500,6 +478,14 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
 
     fn en_passant_file(&self) -> Option<File> {
         self.board().en_passant_file()
+    }
+
+    fn halfmove_clock(&self) -> u8 {
+        self.state().halfmove_clock
+    }
+
+    fn halfmove_count(&self) -> u16 {
+        self.halfmove_count
     }
 
     fn is_check(&self) -> bool {
@@ -749,7 +735,7 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 mod tests {
     use super::*;
     use chesstypes::*;
-    use search::{SearchNode, MoveStack};
+    use search::{SearchNode, SearchNodeFactory, MoveStack};
     use board::evaluators::MaterialEvaluator;
 
     #[test]

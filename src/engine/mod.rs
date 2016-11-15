@@ -10,7 +10,6 @@ use chesstypes::*;
 use tt::*;
 use uci::*;
 use search::*;
-use board::*;
 use board::rules::Position;
 use self::time_manager::*;
 
@@ -39,12 +38,12 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-pub struct Engine<S, E>
+pub struct Engine<S, F>
     where S: SearchExecutor,
-          E: BoardEvaluator
+          F: SearchNodeFactory
 {
     tt: Arc<Tt>,
-    position: Position<E>,
+    position: F::T,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
@@ -77,7 +76,7 @@ pub struct Engine<S, E>
 }
 
 
-impl<S: SearchExecutor, E: BoardEvaluator + 'static> Engine<S, E> {
+impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -133,7 +132,7 @@ impl<S: SearchExecutor, E: BoardEvaluator + 'static> Engine<S, E> {
 }
 
 
-impl<S: SearchExecutor, E: BoardEvaluator + 'static> SetOption for Engine<S, E> {
+impl<S: SearchExecutor, F: SearchNodeFactory> SetOption for Engine<S, F> {
     fn options() -> Vec<(String, OptionDescription)> {
         vec![
             // TODO: Calculate a sane limit for the hash size.
@@ -166,7 +165,7 @@ impl<S: SearchExecutor, E: BoardEvaluator + 'static> SetOption for Engine<S, E> 
 }
 
 
-impl<S: SearchExecutor, E: BoardEvaluator + 'static> UciEngine for Engine<S, E> {
+impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
     }
@@ -175,14 +174,14 @@ impl<S: SearchExecutor, E: BoardEvaluator + 'static> UciEngine for Engine<S, E> 
         AUTHOR.to_string()
     }
 
-    fn new(tt_size_mb: Option<usize>) -> Engine<S, E> {
+    fn new(tt_size_mb: Option<usize>) -> Engine<S, F> {
         let mut tt = Tt::new();
         let tt_size_mb = tt_size_mb.unwrap_or(16);
         tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
         Engine {
             tt: tt.clone(),
-            position: Position::from_fen(START_POSITION_FEN).ok().unwrap(),
+            position: F::from_fen(START_POSITION_FEN).ok().unwrap(),
             current_depth: 0,
             search_thread: SearchThread::new(tt),
             play_when: PlayWhen::Never,
@@ -199,7 +198,7 @@ impl<S: SearchExecutor, E: BoardEvaluator + 'static> UciEngine for Engine<S, E> 
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if let Ok(p) = Position::from_history(fen, moves) {
+        if let Ok(p) = F::from_history(fen, moves) {
             self.position = p;
         }
     }
