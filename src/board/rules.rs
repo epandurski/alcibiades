@@ -655,18 +655,14 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
     }
 
     fn copy(&self) -> Box<SearchNode> {
-        let mut encountered_boards = Vec::with_capacity(self.encountered_boards.capacity());
-        let mut state_stack = Vec::with_capacity(self.state_stack.capacity());
-        encountered_boards.extend_from_slice(&self.encountered_boards);
-        state_stack.extend_from_slice(&self.state_stack);
         Box::new(Position {
             board: UnsafeCell::new(self.board().clone()),
             board_hash: self.board_hash,
             halfmove_count: self.halfmove_count,
             repeated_or_rule50: self.repeated_or_rule50,
             repeated_boards_hash: self.repeated_boards_hash,
-            encountered_boards: encountered_boards,
-            state_stack: state_stack,
+            encountered_boards: self.encountered_boards.clone(),
+            state_stack: self.state_stack.clone(),
         })
     }
 }
