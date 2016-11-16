@@ -10,11 +10,11 @@
 //! * `Deepening<Multipv<StandardSearcher>>`
 use std::cmp::{min, max};
 use std::time::Duration;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
 use chesstypes::*;
 use tt::*;
-use uci::SetOption;
+use uci::{SetOption, OptionDescription};
 use super::*;
 use super::{contains_dups, contains_same_moves};
 
@@ -51,7 +51,15 @@ impl<T: SearchExecutor> Deepening<T> {
     }
 }
 
-impl<T: SearchExecutor> SetOption for Deepening<T> {}
+impl<T: SearchExecutor> SetOption for Deepening<T> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        T::options()
+    }
+
+    fn set_option(name: &str, value: &str) {
+        T::set_option(name, value)
+    }
+}
 
 impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     fn new(tt: Arc<Tt>) -> Deepening<T> {
@@ -71,7 +79,6 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
-        debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
@@ -234,7 +241,15 @@ impl<T: SearchExecutor> Aspiration<T> {
     }
 }
 
-impl<T: SearchExecutor> SetOption for Aspiration<T> {}
+impl<T: SearchExecutor> SetOption for Aspiration<T> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        T::options()
+    }
+
+    fn set_option(name: &str, value: &str) {
+        T::set_option(name, value)
+    }
+}
 
 impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
     fn new(tt: Arc<Tt>) -> Aspiration<T> {
@@ -257,7 +272,6 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
-        debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
@@ -319,6 +333,9 @@ pub struct Multipv<T: SearchExecutor> {
     // The real work will be handed over to `searcher`.
     searcher: Aspiration<T>,
 
+    // How many best lines of play to calculate.
+    variation_count: usize,
+
     // The index in `self.params.searchmoves` of the currently
     // considered move.
     current_move_index: usize,
@@ -327,11 +344,14 @@ pub struct Multipv<T: SearchExecutor> {
     values: Vec<Value>,
 }
 
+lazy_static! {
+    static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
+}
+
 impl<T: SearchExecutor> Multipv<T> {
     fn search_current_move(&mut self) -> bool {
         if self.current_move_index < self.params.searchmoves.len() {
-            let variation_count = min(self.params.variation_count, self.params.searchmoves.len());
-            let alpha = self.values[variation_count - 1];
+            let alpha = self.values[self.variation_count - 1];
             if alpha < self.params.upper_bound {
                 assert!(self.params
                             .position
@@ -388,7 +408,23 @@ impl<T: SearchExecutor> Multipv<T> {
     }
 }
 
-impl<T: SearchExecutor> SetOption for Multipv<T> {}
+impl<T: SearchExecutor> SetOption for Multipv<T> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        // Add up all suported options.
+        let mut options = vec![
+            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
+        ];
+        options.extend(Aspiration::<T>::options());
+        options
+    }
+
+    fn set_option(name: &str, value: &str) {
+        if name == "MultiPV" {
+            *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
+        }
+        Aspiration::<T>::set_option(name, value)
+    }
+}
 
 impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     fn new(tt: Arc<Tt>) -> Multipv<T> {
@@ -398,6 +434,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
             search_is_terminated: false,
             previously_searched_nodes: 0,
             searcher: Aspiration::new(tt).lmr_mode(),
+            variation_count: 1,
             current_move_index: 0,
             values: vec![VALUE_MIN],
         }
@@ -409,12 +446,13 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
-        debug_assert!(params.variation_count != 0);
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.values = vec![VALUE_MIN; self.params.searchmoves.len()];
+        self.variation_count = min(*VARIATION_COUNT.read().unwrap(),
+                                   self.params.searchmoves.len());
         self.current_move_index = 0;
+        self.values = vec![VALUE_MIN; self.params.searchmoves.len()];
         self.search_current_move();
     }
 
@@ -485,6 +523,5 @@ fn bogus_params() -> SearchParams {
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,
         searchmoves: vec![Move::invalid()],
-        variation_count: 1,
     }
 }

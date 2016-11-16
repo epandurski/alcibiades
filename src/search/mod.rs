@@ -56,12 +56,6 @@ pub struct SearchParams {
     /// is undefined if `searchmoves` is empty, but the supplied root
     /// position is not final.
     pub searchmoves: Vec<Move>,
-
-    /// Specifies how many best lines of play to calculate (for the
-    /// multi-PV mode).
-    ///
-    /// Must be greater than zero.
-    pub variation_count: usize,
 }
 
 impl Clone for SearchParams {

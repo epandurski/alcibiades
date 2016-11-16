@@ -5,7 +5,7 @@ pub mod time_manager;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
-use std::cmp::Ordering;
+use std::cmp::{max, Ordering};
 use chesstypes::*;
 use tt::*;
 use uci::*;
@@ -146,7 +146,6 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
         let mut options = vec![
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 1024 * 1024, default: 16 }),
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
         ];
         options.extend(S::options());
         options.extend(F::options());
@@ -190,21 +189,17 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
                 self.pondering_is_allowed = value == "true";
             }
             "MultiPV" => {
-                self.variation_count = match value.parse::<usize>().unwrap_or(0) {
-                    0 => 1,
-                    n if n > 500 => 500,
-                    n => n,
-                };
+                self.variation_count = max(value.parse::<usize>().unwrap_or(0), 1);
             }
             "Hash" => {
                 // We do not support re-sizing of the transposition
                 // table once the engine has been started.
+                return;
             }
-            _ => {
-                S::set_option(name, value);
-                F::set_option(name, value);
-            }
+            _ => (),
         }
+        S::set_option(name, value);
+        F::set_option(name, value);
     }
 
     fn new_game(&mut self) {
@@ -254,7 +249,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
                                                       movestogo))
         };
         self.silent_since = SystemTime::now();
-        self.search_thread.search(&self.position, self.variation_count, searchmoves);
+        self.search_thread.search(&self.position, searchmoves);
     }
 
     fn ponder_hit(&mut self) {
@@ -363,17 +358,12 @@ impl<S: SearchExecutor> SearchThread<S> {
     /// search, updates the status.
     ///
     /// `position` is the starting position for the new
-    /// search. `variation_count` specifies how many best lines of
-    /// play to calculate (the first move in each line will be
-    /// different). `searchmoves` restricts the analysis to the
-    /// supplied list of moves only (no restrictions if the suppied
-    /// list is empty). The move format is long algebraic
-    /// notation. Examples: e2e4, e7e5, e1g1 (white short castling),
-    /// e7e8q (for promotion).
-    pub fn search(&mut self,
-                  position: &SearchNode,
-                  variation_count: usize,
-                  mut searchmoves: Vec<String>) {
+    /// search. `searchmoves` restricts the analysis to the supplied
+    /// list of moves only (no restrictions if the suppied list is
+    /// empty). The move format is long algebraic notation. Examples:
+    /// e2e4, e7e5, e1g1 (white short castling), e7e8q (for
+    /// promotion).
+    pub fn search(&mut self, position: &SearchNode, mut searchmoves: Vec<String>) {
         self.position = position.copy();
 
         // Validate `searchmoves`.
@@ -420,7 +410,6 @@ impl<S: SearchExecutor> SearchThread<S> {
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
             searchmoves: searchmoves,
-            variation_count: variation_count,
         });
     }
 

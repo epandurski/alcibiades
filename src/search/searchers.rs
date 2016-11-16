@@ -66,7 +66,6 @@ impl SearchExecutor for StandardSearcher {
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
-        debug_assert!(params.variation_count != 0);
         debug_assert!(params.searchmoves.is_empty() ||
                       contains_same_moves(&params.searchmoves, &params.position.legal_moves()),
                       "StandardSearcher ignores searchmoves");
