@@ -144,7 +144,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
     fn options() -> Vec<(String, OptionDescription)> {
         // Add up all suported options.
         let mut options = vec![
-            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 1024 * 1024, default: 16 }),
+            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 64 * 1024, default: 16 }),
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
         ];
         options.extend(S::options());
