@@ -132,39 +132,6 @@ impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
 }
 
 
-impl<S: SearchExecutor, F: SearchNodeFactory> SetOption for Engine<S, F> {
-    fn options() -> Vec<(String, OptionDescription)> {
-        vec![
-            // TODO: Calculate a sane limit for the hash size.
-            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 2048, default: 16 }),
-            ("Ponder".to_string(), OptionDescription::Check { default: false }),
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
-        ]
-    }
-
-    fn set_option(&mut self, name: &str, value: &str) {
-        match name {
-            "Ponder" => {
-                self.pondering_is_allowed = value == "true";
-            }
-
-            "MultiPV" => {
-                self.variation_count = match value.parse::<usize>().unwrap_or(0) {
-                    0 => 1,
-                    n if n > 500 => 500,
-                    n => n,
-                };
-            }
-
-            // An invalid option. Notice that we do not support
-            // re-sizing of the transposition table once the engine
-            // had started.
-            _ => (),
-        }
-    }
-}
-
-
 impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
@@ -172,6 +139,30 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
 
     fn author() -> String {
         AUTHOR.to_string()
+    }
+
+    fn options() -> Vec<(String, OptionDescription)> {
+        // Add up all suported options.
+        let mut options = vec![
+            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 1024 * 1024, default: 16 }),
+            ("Ponder".to_string(), OptionDescription::Check { default: false }),
+            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
+        ];
+        options.extend(S::options());
+        options.extend(F::options());
+
+        // Remove duplicated options.
+        options.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut options_dedup = vec![];
+        let mut prev_name = String::from("");
+        for o in options.drain(..) {
+            if o.0 == prev_name {
+                continue;
+            }
+            prev_name = o.0.clone();
+            options_dedup.push(o);
+        }
+        options_dedup
     }
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S, F> {
@@ -190,6 +181,29 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
             is_pondering: false,
             silent_since: SystemTime::now(),
             queue: VecDeque::new(),
+        }
+    }
+
+    fn set_option(&mut self, name: &str, value: &str) {
+        match name {
+            "Ponder" => {
+                self.pondering_is_allowed = value == "true";
+            }
+            "MultiPV" => {
+                self.variation_count = match value.parse::<usize>().unwrap_or(0) {
+                    0 => 1,
+                    n if n > 500 => 500,
+                    n => n,
+                };
+            }
+            "Hash" => {
+                // We do not support re-sizing of the transposition
+                // table once the engine has been started.
+            }
+            _ => {
+                S::set_option(name, value);
+                F::set_option(name, value);
+            }
         }
     }
 

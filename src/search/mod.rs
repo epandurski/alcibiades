@@ -19,6 +19,7 @@ use std::sync::mpsc::TryRecvError;
 use std::slice;
 use chesstypes::*;
 use tt::*;
+use uci::SetOption;
 
 
 /// Parameters describing a new search.
@@ -101,7 +102,7 @@ pub struct SearchReport {
 
 /// A trait for executing consecutive searches in different starting
 /// positions.
-pub trait SearchExecutor {
+pub trait SearchExecutor: SetOption {
     /// Creates a new instance.
     fn new(tt: Arc<Tt>) -> Self;
 
@@ -336,7 +337,7 @@ pub trait SearchNode: Send {
 
 
 /// A trait for instantiating chess positions.
-pub trait SearchNodeFactory {
+pub trait SearchNodeFactory: SetOption {
     type T: SearchNode;
 
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)

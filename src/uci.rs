@@ -209,8 +209,7 @@ pub enum OptionDescription {
 }
 
 
-/// A trait for announcing configuration options, and changing
-/// configuration parameters.
+/// A trait for announcing and changing configuration options.
 pub trait SetOption {
     /// Returns a list of supported configuration options (name and
     /// description).
@@ -218,9 +217,11 @@ pub trait SetOption {
         vec![]
     }
 
-    /// Sets a new value for a given configuration parameter.
+    /// Sets a new value for a given configuration option.
+    ///
+    /// Does nothing if called with unsupported option name.
     #[allow(unused_variables)]
-    fn set_option(&mut self, name: &str, value: &str) {}
+    fn set_option(name: &str, value: &str) {}
 }
 
 
@@ -228,18 +229,25 @@ pub trait SetOption {
 ///
 /// The methods in this trait, except the method `wait_for_reply`,
 /// must not block the current thread.
-pub trait UciEngine: SetOption {
+pub trait UciEngine {
     /// Returns the name of the engine.
     fn name() -> String;
 
     /// Returns the author of the engine.
     fn author() -> String;
 
+    /// Returns a list of supported configuration options (name and
+    /// description).
+    fn options() -> Vec<(String, OptionDescription)>;
+
     /// Creates a new instance.
     ///
     /// `tt_size_mb` is the preferred size of the transposition table
     /// in Mbytes.
     fn new(tt_size_mb: Option<usize>) -> Self;
+
+    /// Sets a new value for a given configuration option.
+    fn set_option(&mut self, name: &str, value: &str);
 
     /// Tells the engine that the next position will be from a
     /// different game.

@@ -7,6 +7,7 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use search::{SearchNode, SearchNodeFactory, MoveStack};
+use uci::{SetOption, OptionDescription};
 use super::{Board, BoardEvaluator};
 use super::notation::parse_fen;
 use super::bitsets::*;
@@ -386,6 +387,18 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         &mut *self.board.get()
     }
 }
+
+
+impl<E: BoardEvaluator + 'static> SetOption for Position<E> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        E::options()
+    }
+
+    fn set_option(name: &str, value: &str) {
+        E::set_option(name, value)
+    }
+}
+
 
 impl<E: BoardEvaluator + 'static> SearchNodeFactory for Position<E> {
     type T = Position<E>;

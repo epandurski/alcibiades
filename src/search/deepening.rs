@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use chesstypes::*;
 use tt::*;
+use uci::SetOption;
 use super::*;
 use super::{contains_dups, contains_same_moves};
 
@@ -49,6 +50,8 @@ impl<T: SearchExecutor> Deepening<T> {
         });
     }
 }
+
+impl<T: SearchExecutor> SetOption for Deepening<T> {}
 
 impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     fn new(tt: Arc<Tt>) -> Deepening<T> {
@@ -231,6 +234,8 @@ impl<T: SearchExecutor> Aspiration<T> {
     }
 }
 
+impl<T: SearchExecutor> SetOption for Aspiration<T> {}
+
 impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
     fn new(tt: Arc<Tt>) -> Aspiration<T> {
         Aspiration {
@@ -382,6 +387,8 @@ impl<T: SearchExecutor> Multipv<T> {
         }
     }
 }
+
+impl<T: SearchExecutor> SetOption for Multipv<T> {}
 
 impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     fn new(tt: Arc<Tt>) -> Multipv<T> {

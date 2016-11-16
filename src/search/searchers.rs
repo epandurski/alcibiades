@@ -8,6 +8,7 @@ use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvError};
 use std::time::Duration;
 use chesstypes::*;
 use tt::*;
+use uci::SetOption;
 use super::*;
 use super::contains_same_moves;
 
@@ -41,6 +42,8 @@ pub struct StandardSearcher {
     thread_reports: Receiver<SearchReport>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
+
+impl SetOption for StandardSearcher {}
 
 impl SearchExecutor for StandardSearcher {
     fn new(tt: Arc<Tt>) -> StandardSearcher {
