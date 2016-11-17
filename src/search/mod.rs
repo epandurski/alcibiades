@@ -111,10 +111,10 @@ pub struct SearchReport {
 /// 3. On each completed search depth, the primary variation is
 ///    obtained from the transposition table.
 ///
-/// **Important note:** Executing searches must send periodic reports,
-/// informing about their current progress. Also, executing searches
-/// must continuously update the transposition table so that, at each
-/// moment, it contains the results of their work so far.
+/// **Important note:** The executing search must send periodic
+/// reports, informing about its current progress. Also, the executing
+/// search must continuously update the transposition table so that,
+/// at each moment, it contains the results of the work done so far.
 pub trait SearchExecutor: SetOption {
     /// Creates a new instance.
     fn new(tt: Arc<Tt>) -> Self;
