@@ -105,12 +105,11 @@ pub struct SearchReport {
 /// 1. The engine calls the `start_search` method.
 ///
 /// 2. The engine continues calling `wait_report` and
-///    `try_recv_report` methods periodically, until the search is
-///    done.
+///    `try_recv_report` methods periodically, until the returned
+///    report indicates that the search is done.
 ///
-/// 3. When the search is done (or at least partially completed), the
-///    primary variation will be obtained from the transposition
-///    table.
+/// 3. On each completed search depth, the primary variation is
+///    obtained from the transposition table.
 ///
 /// **Important note:** Executing searches must send periodic reports,
 /// informing about their current progress. Also, executing searches
@@ -122,9 +121,9 @@ pub trait SearchExecutor: SetOption {
 
     /// Starts a new search.
     ///
-    /// After calling `start_search`, `try_recv_report` must be called
+    /// After calling `start_search`, `try_recv_report` will be called
     /// periodically until the returned report indicates that the
-    /// search is done. A new search must not be started until the
+    /// search is done. A new search will not be started until the
     /// previous search is done.
     fn start_search(&mut self, params: SearchParams);
 
@@ -137,7 +136,7 @@ pub trait SearchExecutor: SetOption {
 
     /// Requests the termination of the current search.
     ///
-    /// After calling `terminate`, `try_recv_report` must continue to
+    /// After calling `terminate`, `try_recv_report` will continue to
     /// be called periodically until the returned report indicates
     /// that the search is done.
     fn terminate_search(&mut self);
