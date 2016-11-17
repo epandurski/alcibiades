@@ -38,15 +38,19 @@ pub struct SearchParams {
     /// The root position for the new search.
     pub position: Box<SearchNode>,
 
-    /// The requested search depth (no greater than `DEPTH_MAX`).
+    /// The requested search depth.
+    ///
+    /// No greater than `DEPTH_MAX`.
     pub depth: u8,
 
-    /// The lower bound for the new search (no lesser than
-    /// `VALUE_MIN`).
+    /// The lower bound for the new search.
+    ///
+    /// Lesser than `upper_bound`, no lesser than `VALUE_MIN`.
     pub lower_bound: Value,
 
-    /// The upper bound for the new search (greater than
-    /// `lower_bound`).
+    /// The upper bound for the new search.
+    ///
+    /// Greater than `lower_bound`, no greater than `VALUE_MAX`.
     pub upper_bound: Value,
 
     /// Restricts the analysis to the supplied list of moves only.
