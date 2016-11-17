@@ -922,7 +922,7 @@ mod tests {
     use tt::*;
     use chesstypes::*;
     use search::{SearchNode, SearchNodeFactory, MoveStack};
-    use board::rules::Position;
+    use board::Position;
     use board::evaluators::RandomEvaluator;
 
     #[test]

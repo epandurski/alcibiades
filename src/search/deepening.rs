@@ -362,7 +362,7 @@ impl<T: SearchExecutor> Multipv<T> {
                     depth: self.params.depth - 1,
                     lower_bound: -self.params.upper_bound,
                     upper_bound: -max(alpha, self.params.lower_bound),
-                    searchmoves: vec![],
+                    searchmoves: self.params.position.legal_moves(),
                     ..self.params.clone()
                 });
                 return true;
