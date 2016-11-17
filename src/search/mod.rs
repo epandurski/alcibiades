@@ -9,16 +9,6 @@
 //! To implement your own search algorithm, you must define a type
 //! that implements the `SearchExecutor` trait.
 
-// !
-// ! 1. Call the `start_search` method.
-// !
-// ! 2. Continue calling `wait_report` and `try_recv_report` methods
-// ! periodically, until the search is done.
-// !
-// ! 3. Usually, when the search is done (or at least partially
-// ! completed), `extract_pv` will be called to obtain the primary
-// ! variation from the transposition table.
-// !
 pub mod deepening;
 pub mod searchers;
 
@@ -109,6 +99,18 @@ pub struct SearchReport {
 
 /// A trait for executing consecutive searches in different starting
 /// positions.
+///
+/// Here is what the engine does on each move:
+///
+/// 1. The engine calls the `start_search` method.
+///
+/// 2. The engine continues calling `wait_report` and
+///    `try_recv_report` methods periodically, until the search is
+///    done.
+///
+/// 3. When the search is done (or at least partially completed), the
+///    primary variation will be obtained from the transposition
+///    table.
 ///
 /// **Important note:** Executing searches must send periodic reports,
 /// informing about their current progress. Also, executing searches
