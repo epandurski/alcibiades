@@ -1,4 +1,13 @@
 //! Facilities for implementing game-tree searchers.
+//!
+//! Chess programs must rely on some type of search in order to play
+//! reasonably. Searching involves looking ahead at different move
+//! sequences and evaluating the positions after making the
+//! moves. Normally, this is done by traversing and min-maxing a
+//! tree-like data-structure by some algorithm.
+//!
+//! To implement your own search algorithm, you must define a type
+//! that implements the `SearchExecutor` trait.
 
 // !
 // ! 1. Call the `start_search` method.
@@ -100,6 +109,11 @@ pub struct SearchReport {
 
 /// A trait for executing consecutive searches in different starting
 /// positions.
+///
+/// **Important note:** Executing searches must send periodic reports,
+/// informing about their current progress. Also, executing searches
+/// must continuously update the transposition table so that, at each
+/// moment, it contains the results of their work so far.
 pub trait SearchExecutor: SetOption {
     /// Creates a new instance.
     fn new(tt: Arc<Tt>) -> Self;
