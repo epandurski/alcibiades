@@ -13,11 +13,10 @@ use super::notation::parse_fen;
 use super::bitsets::*;
 
 
-/// Holds a chess position, can evaluate the odds, knows the rules of
-/// chess.
+/// Implements `SearchNode` and `SearchNodeFactory` traits.
 /// 
-/// `Position` implements `SearchNode` and `SearchNodeFactory` traits,
-/// connecting the static evaluator `E` to the game-tree searcher.
+/// `Position` implements the rules of chess, thus connecting the
+/// static evaluator `E` to the game-tree searcher.
 pub struct Position<E: BoardEvaluator> {
     /// The underlying `Board` instance.
     ///

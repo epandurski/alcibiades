@@ -14,7 +14,7 @@ use std::process::exit;
 use uci::run_server;
 use search::deepening::{Deepening, Multipv};
 use search::searchers::StandardSearcher;
-use board::rules::Position;
+use board::Position;
 use board::evaluators::RandomEvaluator;
 use engine::Engine;
 

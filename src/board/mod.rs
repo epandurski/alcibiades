@@ -18,20 +18,20 @@
 //! position has pending tactical threats, the static evaluation will
 //! be grossly incorrect.
 //!
-//! Writing a new static evaluator is as simple as implementing the
-//! `BoardEvaluator` trait.
+//! Writing a new static evaluator is as simple as defining a type
+//! that implements the `BoardEvaluator` trait. Then you pass that as
+//! a type parameter to `Position`.
 //!
 //! # Writing your own move generator
 //!
 //! The generation of moves is at the heart of every chess
-//! engine. `board::rules::Position` implements a very fast move
-//! generator, and also: quiescence search, static exchange
-//! evaluation, move legality check, hashing. Re-writing those things
-//! is a lot of work. Still, if you decide to do this, you should
-//! write your own implementations of `SearchNode` and
-//! `SearchNodeFactory` traits.
+//! engine. `Position` implements a very fast move generator, and
+//! also: quiescence search, static exchange evaluation, move legality
+//! check, hashing. Re-writing those things is a lot of work. Still,
+//! if you decide to do this, you should write your own
+//! implementations of `SearchNode` and `SearchNodeFactory` traits.
 mod notation;
-pub mod rules;
+mod rules;
 pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
@@ -45,6 +45,7 @@ use uci::SetOption;
 use board::notation::parse_fen;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
+pub use board::rules::Position;
 
 
 /// A trait used to statically evaluate positions.
@@ -106,7 +107,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
 }
 
 
-/// Holds a chess position, can evaluate the odds.
+/// Holds a chess position.
 #[derive(Clone)]
 pub struct Board<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,

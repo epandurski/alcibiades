@@ -10,7 +10,7 @@ use chesstypes::*;
 use tt::*;
 use uci::*;
 use search::*;
-use board::rules::Position;
+use board::Position;
 use self::time_manager::*;
 
 
