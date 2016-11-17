@@ -641,16 +641,20 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
     }
 
     fn legal_moves(&self) -> Vec<Move> {
-        let mut legal_moves = vec![];
-        let mut board = unsafe { self.board_mut() };
-        let mut move_stack = MoveStack::new();
-        self.generate_moves(&mut move_stack);
-        while let Some(m) = move_stack.pop() {
-            if board.do_move(m).is_some() {
-                legal_moves.push(m);
-                board.undo_move(m);
+        let mut legal_moves = Vec::with_capacity(96);
+        MOVE_STACK.with(|s| unsafe {
+            let board = self.board_mut();
+            let move_stack = &mut *s.get();
+            move_stack.save();
+            self.generate_moves(move_stack);
+            for m in move_stack.iter() {
+                if board.do_move(*m).is_some() {
+                    legal_moves.push(*m);
+                    board.undo_move(*m);
+                }
             }
-        }
+            move_stack.restore();
+        });
         legal_moves
     }
 
