@@ -66,12 +66,6 @@ pub struct Position<E: BoardEvaluator> {
 // 6. 50 move rule awareness.
 // 7. Threefold/twofold repetition detection.
 impl<E: BoardEvaluator + 'static> Position<E> {
-    /// Returns a reference to the underlying `Board` instance.
-    #[inline(always)]
-    pub fn board(&self) -> &Board<E> {
-        unsafe { &*self.board.get() }
-    }
-
     /// Performs a "quiescence search" and returns an evaluation.
     ///
     /// The "quiescence search" is a restricted search which considers
@@ -377,6 +371,11 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     }
 
     #[inline(always)]
+    fn board(&self) -> &Board<E> {
+        unsafe { &*self.board.get() }
+    }
+
+    #[inline(always)]
     fn state(&self) -> &PositionInfo {
         self.state_stack.last().unwrap()
     }
@@ -384,17 +383,6 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     #[inline(always)]
     unsafe fn board_mut(&self) -> &mut Board<E> {
         &mut *self.board.get()
-    }
-}
-
-
-impl<E: BoardEvaluator + 'static> SetOption for Position<E> {
-    fn options() -> Vec<(String, OptionDescription)> {
-        E::options()
-    }
-
-    fn set_option(name: &str, value: &str) {
-        E::set_option(name, value)
     }
 }
 
@@ -676,6 +664,17 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
             encountered_boards: self.encountered_boards.clone(),
             state_stack: self.state_stack.clone(),
         })
+    }
+}
+
+
+impl<E: BoardEvaluator + 'static> SetOption for Position<E> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        E::options()
+    }
+
+    fn set_option(name: &str, value: &str) {
+        E::set_option(name, value)
     }
 }
 
