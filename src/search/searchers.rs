@@ -743,7 +743,7 @@ impl<'a> Search<'a> {
 
 
 /// The highest possible move score.
-const MOVE_SCORE_MAX: usize = 3;
+const MOVE_SCORE_MAX: u32 = ::std::u32::MAX;
 
 
 /// The number of nodes that will be searched without reporting search
@@ -762,7 +762,7 @@ const NULL_MOVE_REDUCTION: u8 = 3;
 /// Moves with move scores higher than this number will be searched at
 /// full depth. Moves with move scores lesser or equal to this number
 /// will be searched at reduced depth.
-const REDUCTION_THRESHOLD: usize = 0;
+const REDUCTION_THRESHOLD: u32 = 0;
 
 
 /// When this distance in half-moves is reached, the old killer moves

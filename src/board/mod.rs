@@ -292,7 +292,7 @@ impl<E: BoardEvaluator> Board<E> {
             v
         }
     }
-    
+
     /// Generates pseudo-legal moves.
     ///
     /// A pseudo-legal move is a move that is otherwise legal, except

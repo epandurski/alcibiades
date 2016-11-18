@@ -68,7 +68,7 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 
 /// Represents a move on the chessboard.
 ///
-/// `Move` is a `usize` number. It contains 3 types of information:
+/// `Move` is a `u64` number. It contains 3 types of information:
 ///
 /// 1. Information about the played move itself.
 ///
@@ -78,8 +78,8 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 /// 3. Move ordering info -- moves with higher move score are tried
 ///    first.
 ///
-/// Bits 0-15 contain the whole information about the move itself
-/// (type 1). This is called **"move digest"** and is laid out the
+/// Bits 0-15 contain the whole information about the move
+/// itself. This is called **"move digest"** and is laid out the
 /// following way:
 ///
 ///  ```text
@@ -98,17 +98,16 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 /// type of the promoted piece if the move type is pawn promotion,
 /// otherwise it is zero.
 ///
-/// Bits 16-31 contain the information needed to undo the move, as
-/// well as move ordering info:
+/// Bits 16-31 contain the information needed to undo the move:
 ///
 ///  ```text
 ///   31                                                          16
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
-///  | Move  |  Captured |  Played   |   Castling    |   En-passant  |
-///  | score |  piece    |  piece    |    rights     |      file     |
-///  | 2 bits|  3 bits   |  3 bits   |    4 bits     |     4 bits    |
-///  |   |   |   |   |   |   |   |   |   |   |   |       |   |   |   |   |
+///  |   |   |  Captured |  Played   |   Castling    |   En-passant  |
+///  | 0 | 0 |  piece    |  piece    |    rights     |      file     |
+///  |   |   |  3 bits   |  3 bits   |    4 bits     |     4 bits    |
+///  |   |   |   |   |   |   |   |   |   |   |   |       |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
@@ -119,12 +118,14 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 /// played. When "Captured piece" is stored, its bits are inverted, so
 /// that MVV-LVA (Most valuable victim -- least valuable aggressor)
 /// ordering of the moves is preserved, even when the other fields
-/// stay the same. The "Move score" field is used to influence move
-/// ordering.
+/// stay the same.
+///
+/// Bits 32-63 contain the "Move score" field, which is used to
+/// influence move ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
-pub struct Move(usize);
+pub struct Move(u64);
 
 impl Move {
     /// Creates a new instance.
@@ -140,7 +141,7 @@ impl Move {
     ///
     /// * `0` for all pawn promotions to pieces other than queen.
     ///
-    /// * `3` for captures and pawn promotions to queen.
+    /// * `u32::MAX` for captures and pawn promotions to queen.
     /// 
     /// * `0` for all other moves.
     #[inline(always)]
@@ -165,9 +166,9 @@ impl Move {
 
         // Captures get higher move scores than quiet moves.
         let mut score_shifted = if captured_piece == NO_PIECE {
-            0 << M_SHIFT_SCORE
+            0
         } else {
-            MOVE_SCORE_MAX << M_SHIFT_SCORE
+            M_MASK_SCORE
         };
 
         // Figure out what `aux_data` should contain. In the mean
@@ -175,20 +176,22 @@ impl Move {
         // scores.
         let aux_data = if move_type == MOVE_PROMOTION {
             score_shifted = if promoted_piece_code == 0 {
-                MOVE_SCORE_MAX << M_SHIFT_SCORE
+                M_MASK_SCORE
             } else {
-                0 << M_SHIFT_SCORE
+                0
             };
             promoted_piece_code
         } else {
             0
         };
 
-        Move(score_shifted | (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-             piece << M_SHIFT_PIECE | castling.value() << M_SHIFT_CASTLING_DATA |
-             en_passant_file << M_SHIFT_ENPASSANT_FILE |
-             move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
-             dest_square << M_SHIFT_DEST_SQUARE | aux_data << M_SHIFT_AUX_DATA)
+        Move(score_shifted |
+             ((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | piece << M_SHIFT_PIECE |
+              castling.value() << M_SHIFT_CASTLING_DATA |
+              en_passant_file << M_SHIFT_ENPASSANT_FILE |
+              move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
+              dest_square << M_SHIFT_DEST_SQUARE |
+              aux_data << M_SHIFT_AUX_DATA) as u64)
     }
 
     /// Creates an invalid move instance.
@@ -198,7 +201,7 @@ impl Move {
     /// where any move is required but no is available.
     #[inline(always)]
     pub fn invalid() -> Move {
-        Move((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE)
+        Move(((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
     }
 
     /// Decodes the promoted piece type from the raw value returned by
@@ -219,25 +222,22 @@ impl Move {
     }
 
     /// Assigns a new score for the move.
-    ///
-    /// `score` must be between `0` and `3`.
     #[inline(always)]
-    pub fn set_score(&mut self, score: usize) {
-        debug_assert!(score <= MOVE_SCORE_MAX);
+    pub fn set_score(&mut self, score: u32) {
         self.0 &= !M_MASK_SCORE;
-        self.0 |= score << M_SHIFT_SCORE;
+        self.0 |= (score as u64) << M_SHIFT_SCORE;
     }
 
     /// Returns the assigned move score.
     #[inline(always)]
-    pub fn score(&self) -> usize {
-        self.0 >> M_SHIFT_SCORE
+    pub fn score(&self) -> u32 {
+        (self.0 >> M_SHIFT_SCORE) as u32
     }
 
     /// Returns the move type.
     #[inline(always)]
     pub fn move_type(&self) -> MoveType {
-        (self.0 & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE
+        (self.0 as usize & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE
     }
 
     /// Returns the played piece type.
@@ -245,13 +245,13 @@ impl Move {
     /// Castling is considered as king's move.
     #[inline(always)]
     pub fn piece(&self) -> PieceType {
-        (self.0 & M_MASK_PIECE) >> M_SHIFT_PIECE
+        (self.0 as usize & M_MASK_PIECE) >> M_SHIFT_PIECE
     }
 
     /// Returns the origin square of the played piece.
     #[inline(always)]
     pub fn orig_square(&self) -> Square {
-        (self.0 & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE
+        (self.0 as usize & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE
     }
 
     /// Returns the destination square for the played piece.
@@ -263,7 +263,7 @@ impl Move {
     /// Returns the captured piece type.
     #[inline(always)]
     pub fn captured_piece(&self) -> PieceType {
-        (!self.0 & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE
+        (!(self.0 as usize) & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE
     }
 
     /// Returns the file on which there were a passing pawn before the
@@ -271,14 +271,14 @@ impl Move {
     /// no passing pawn.
     #[inline(always)]
     pub fn en_passant_file(&self) -> usize {
-        (self.0 & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
+        (self.0 as usize & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
     }
 
     /// Returns the castling rights as they were before the move was
     /// played.
     #[inline(always)]
     pub fn castling(&self) -> CastlingRights {
-        CastlingRights::new(self.0 >> M_SHIFT_CASTLING_DATA)
+        CastlingRights::new(self.0 as usize >> M_SHIFT_CASTLING_DATA)
     }
 
     /// Returns a value between 0 and 3 representing the auxiliary
@@ -289,7 +289,7 @@ impl Move {
     /// zero.
     #[inline(always)]
     pub fn aux_data(&self) -> usize {
-        (self.0 & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
+        (self.0 as usize & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
     }
 
     /// Returns the least significant 16 bits of the raw move value.
@@ -319,7 +319,8 @@ impl Move {
         // We use clever bit manipulations to avoid branches.
         const P: usize = (!PAWN & 0b111) << M_SHIFT_PIECE;
         const C: usize = (!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE;
-        (self.0 & M_MASK_PIECE | C) ^ (self.0 & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
+        let v = self.0 as usize; 
+        (v & M_MASK_PIECE | C) ^ (v & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
     }
 
     /// Returns if the move is a null move.
@@ -342,12 +343,8 @@ impl fmt::Display for Move {
 }
 
 
-/// The highest possible move score.
-const MOVE_SCORE_MAX: usize = 3;
-
-
 // Field shifts
-const M_SHIFT_SCORE: usize = 30;
+const M_SHIFT_SCORE: usize = 32;
 const M_SHIFT_CAPTURED_PIECE: usize = 27;
 const M_SHIFT_PIECE: usize = 24;
 const M_SHIFT_CASTLING_DATA: usize = 20;
@@ -361,7 +358,6 @@ const M_SHIFT_AUX_DATA: usize = 0;
 // Field masks
 #[allow(dead_code)]
 const M_MASK_CASTLING_DATA: usize = 0b1111 << M_SHIFT_CASTLING_DATA;
-const M_MASK_SCORE: usize = ::std::usize::MAX << M_SHIFT_SCORE;
 const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
 const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
 const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
@@ -369,6 +365,7 @@ const M_MASK_MOVE_TYPE: usize = 0b11 << M_SHIFT_MOVE_TYPE;
 const M_MASK_ORIG_SQUARE: usize = 0b111111 << M_SHIFT_ORIG_SQUARE;
 const M_MASK_DEST_SQUARE: usize = 0b111111 << M_SHIFT_DEST_SQUARE;
 const M_MASK_AUX_DATA: usize = 0b11 << M_SHIFT_AUX_DATA;
+const M_MASK_SCORE: u64 = (::std::u32::MAX as u64) << M_SHIFT_SCORE;
 
 
 /// Returns the algebraic notation for a given square.
@@ -385,7 +382,6 @@ fn notation(square: Square) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::MOVE_SCORE_MAX;
     use chesstypes::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
@@ -411,7 +407,6 @@ mod tests {
 
     #[test]
     fn test_move() {
-        assert!(MOVE_SCORE_MAX >= 3);
         let cr = CastlingRights::new(0b1011);
         let mut m = Move::new(MOVE_NORMAL,
                               PAWN,
@@ -472,8 +467,8 @@ mod tests {
         assert_eq!(m.castling().value(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
-        m.set_score(MOVE_SCORE_MAX);
-        assert_eq!(m.score(), MOVE_SCORE_MAX);
+        m.set_score(::std::u32::MAX);
+        assert_eq!(m.score(), ::std::u32::MAX);
         m.set_score(3);
         assert_eq!(m.score(), 3);
         assert!(m > m2);
