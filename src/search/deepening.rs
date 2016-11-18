@@ -441,12 +441,17 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     }
 
     fn start_search(&mut self, params: SearchParams) {
-        assert!(params.depth > 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
         self.params = params;
+        if self.params.depth == 0 {
+            // If this happens, we probably have two nested Multipv
+            // searchers, which is an awful idea. Nevertheless, we OK
+            // this by applying a small cheat.
+            self.params.searchmoves = vec![];
+        }
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
         self.variation_count = min(*VARIATION_COUNT.read().unwrap(),
