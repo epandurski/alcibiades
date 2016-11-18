@@ -26,7 +26,7 @@ pub const MOVE_NORMAL: MoveType = 3;
 ///  | Move  |    Origin square      |   Destination square  | Aux   |
 ///  | type  |       6 bits          |        6 bits         | data  |
 ///  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
-///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |       |
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///  
@@ -89,7 +89,7 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 ///  | Move  |    Origin square      |   Destination square  | Aux   |
 ///  | type  |       6 bits          |        6 bits         | data  |
 ///  | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
-///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |       |
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
@@ -107,7 +107,7 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 ///  |   |   |  Captured |  Played   |   Castling    |   En-passant  |
 ///  | 0 | 0 |  piece    |  piece    |    rights     |      file     |
 ///  |   |   |  3 bits   |  3 bits   |    4 bits     |     4 bits    |
-///  |   |   |   |   |   |   |   |   |   |   |   |       |   |   |   |
+///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
