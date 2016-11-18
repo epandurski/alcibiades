@@ -421,12 +421,13 @@ impl<E: BoardEvaluator> Board<E> {
             for side in 0..2 {
                 if self.can_castle(side) {
                     move_stack.push(Move::new(MOVE_CASTLING,
-                                              KING,
                                               king_square,
                                               [[C1, C8], [G1, G8]][side][self.to_move],
+                                              0,
                                               NO_PIECE,
-                                              self.en_passant_file,
+                                              KING,
                                               self.castling,
+                                              self.en_passant_file,
                                               0));
                 }
             }
@@ -449,12 +450,13 @@ impl<E: BoardEvaluator> Board<E> {
         // destination square equals the origin square.
         let king_square = self.king_square();
         Move::new(MOVE_NORMAL,
-                  KING,
                   king_square,
                   king_square,
+                  0,
                   NO_PIECE,
-                  self.en_passant_file,
+                  KING,
                   self.castling,
+                  self.en_passant_file,
                   0)
     }
 
@@ -512,12 +514,13 @@ impl<E: BoardEvaluator> Board<E> {
                 return None;
             }
             let m = Move::new(MOVE_CASTLING,
-                              KING,
                               orig_square,
                               dest_square,
+                              0,
                               NO_PIECE,
-                              self.en_passant_file,
+                              KING,
                               self.castling,
+                              self.en_passant_file,
                               0);
             debug_assert_eq!(generated_move, Some(m));
             return Some(m);
@@ -527,6 +530,7 @@ impl<E: BoardEvaluator> Board<E> {
         let orig_square_bb = occupied_by_us & (1 << orig_square);
         let dest_square_bb = 1 << dest_square;
         let mut captured_piece = self.get_piece_type_at(dest_square);
+        let move_score;
 
         // Figure out what is the type of the moved piece.
         let piece;
@@ -596,6 +600,7 @@ impl<E: BoardEvaluator> Board<E> {
                         debug_assert!(generated_move.is_none());
                         return None;
                     }
+                    move_score = MOVE_SCORE_MAX;
                     captured_piece = PAWN;
                 }
                 x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
@@ -603,11 +608,21 @@ impl<E: BoardEvaluator> Board<E> {
                         debug_assert!(generated_move.is_none());
                         return None;
                     }
+                    move_score = if promoted_piece_code == 0 {
+                        MOVE_SCORE_MAX
+                    } else {
+                        0
+                    }
                 }
                 _ => {
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
                         debug_assert!(generated_move.is_none());
                         return None;
+                    }
+                    move_score = if captured_piece < NO_PIECE {
+                        MOVE_SCORE_MAX
+                    } else {
+                        0
                     }
                 }
             }
@@ -620,16 +635,22 @@ impl<E: BoardEvaluator> Board<E> {
                 debug_assert!(generated_move.is_none());
                 return None;
             }
+            move_score = if captured_piece < NO_PIECE {
+                MOVE_SCORE_MAX
+            } else {
+                0
+            }
         }
 
         let m = Move::new(move_type,
-                          piece,
                           orig_square,
                           dest_square,
+                          promoted_piece_code,
                           captured_piece,
-                          self.en_passant_file,
+                          piece,
                           self.castling,
-                          promoted_piece_code);
+                          self.en_passant_file,
+                          move_score);
         debug_assert_eq!(generated_move, Some(m));
         Some(m)
     }
@@ -1007,14 +1028,20 @@ impl<E: BoardEvaluator> Board<E> {
         while piece_legal_dests != 0 {
             let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
+            let move_score = if captured_piece < NO_PIECE {
+                MOVE_SCORE_MAX
+            } else {
+                0
+            };
             move_stack.push(Move::new(MOVE_NORMAL,
-                                      piece,
                                       orig_square,
                                       dest_square,
+                                      0,
                                       captured_piece,
-                                      self.en_passant_file,
+                                      piece,
                                       self.castling,
-                                      0));
+                                      self.en_passant_file,
+                                      move_score));
         }
     }
 
@@ -1061,27 +1088,34 @@ impl<E: BoardEvaluator> Board<E> {
                     x if x == en_passant_bb => {
                         if self.en_passant_special_check_is_ok(orig_square, dest_square) {
                             move_stack.push(Move::new(MOVE_ENPASSANT,
-                                                      PAWN,
                                                       orig_square,
                                                       dest_square,
+                                                      0,
                                                       PAWN,
-                                                      self.en_passant_file,
+                                                      PAWN,
                                                       self.castling,
-                                                      0));
+                                                      self.en_passant_file,
+                                                      MOVE_SCORE_MAX));
                         }
                     }
 
                     // pawn promotion
                     x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
+                            let move_score = if p == 0 {
+                                MOVE_SCORE_MAX
+                            } else {
+                                0
+                            };
                             move_stack.push(Move::new(MOVE_PROMOTION,
-                                                      PAWN,
                                                       orig_square,
                                                       dest_square,
+                                                      p,
                                                       captured_piece,
-                                                      self.en_passant_file,
+                                                      PAWN,
                                                       self.castling,
-                                                      p));
+                                                      self.en_passant_file,
+                                                      move_score));
                             if only_queen_promotions {
                                 break;
                             }
@@ -1090,14 +1124,20 @@ impl<E: BoardEvaluator> Board<E> {
 
                     // normal pawn move
                     _ => {
+                        let move_score = if captured_piece < NO_PIECE {
+                            MOVE_SCORE_MAX
+                        } else {
+                            0
+                        };
                         move_stack.push(Move::new(MOVE_NORMAL,
-                                                  PAWN,
                                                   orig_square,
                                                   dest_square,
+                                                  0,
                                                   captured_piece,
-                                                  self.en_passant_file,
+                                                  PAWN,
                                                   self.castling,
-                                                  0));
+                                                  self.en_passant_file,
+                                                  move_score));
                     }
                 }
             }
@@ -1257,6 +1297,11 @@ static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 /// castling move.
 const CASTLING_ROOK_MASKS: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
                                                  [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
+
+
+/// The highest possible move score.
+const MOVE_SCORE_MAX: u32 = ::std::u32::MAX;
+
 
 /// A helper function. It calculates the pseudo-legal destinations
 /// for a given set of `pawns`, and writes them to the supplied

@@ -575,12 +575,13 @@ mod tests {
     #[test]
     fn test_move_stack() {
         let m = Move::new(MOVE_NORMAL,
-                          PAWN,
                           E2,
                           E4,
+                          0,
                           NO_PIECE,
-                          NO_ENPASSANT_FILE,
+                          PAWN,
                           CastlingRights::new(0),
+                          NO_ENPASSANT_FILE,
                           0);
         let mut s = MoveStack::new();
         assert!(s.remove_best().is_none());

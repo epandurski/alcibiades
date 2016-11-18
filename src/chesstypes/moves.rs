@@ -113,7 +113,7 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 ///
 /// "En-passant file" tells on what vertical line on the board there
 /// was a passing pawn before the move was played (a value between 0
-/// and 7). If there was no passing pawn, "en-passant file" will be
+/// and 7). If there was no passing pawn, "en-passant file" is
 /// 8. "Castling rights" holds the castling rights before the move was
 /// played. When "Captured piece" is stored, its bits are inverted, so
 /// that MVV-LVA (Most valuable victim -- least valuable aggressor)
@@ -129,65 +129,30 @@ pub struct Move(u64);
 
 impl Move {
     /// Creates a new instance.
-    ///
-    /// `castling` are the castling rights before the move was
-    /// played. `en_passant_file` is the file on which there were a
-    /// passing pawn before the move was played (a value between 0 and
-    /// 7), or `8` if there was no passing pawn. `promoted_piece_code`
-    /// should be a number between 0 and 3 and is used only when the
-    /// `move_type` is a pawn promotion, otherwise it is ignored.
-    ///
-    /// The initial move score for the new move will be:
-    ///
-    /// * `0` for all pawn promotions to pieces other than queen.
-    ///
-    /// * `u32::MAX` for captures and pawn promotions to queen.
-    /// 
-    /// * `0` for all other moves.
     #[inline(always)]
     pub fn new(move_type: MoveType,
-               piece: PieceType,
                orig_square: Square,
                dest_square: Square,
+               aux_data: usize,
                captured_piece: PieceType,
+               played_piece: PieceType,
+               castling_rights: CastlingRights,
                en_passant_file: usize,
-               castling: CastlingRights,
-               promoted_piece_code: usize)
+               move_score: u32)
                -> Move {
         debug_assert!(move_type <= 0x11);
-        debug_assert!(piece < NO_PIECE);
+        debug_assert!(played_piece < NO_PIECE);
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
         debug_assert!(captured_piece != KING && captured_piece <= NO_PIECE);
         debug_assert!(en_passant_file <= 8);
-        debug_assert!(promoted_piece_code <= 0b11);
+        debug_assert!(aux_data <= 0b11);
+        debug_assert!(move_type == MOVE_PROMOTION || aux_data == 0);
         debug_assert!(orig_square != dest_square ||
                       move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
-
-        // Captures get higher move scores than quiet moves.
-        let mut score_shifted = if captured_piece == NO_PIECE {
-            0
-        } else {
-            M_MASK_SCORE
-        };
-
-        // Figure out what `aux_data` should contain. In the mean
-        // time, make sure pawn promotions get appropriate move
-        // scores.
-        let aux_data = if move_type == MOVE_PROMOTION {
-            score_shifted = if promoted_piece_code == 0 {
-                M_MASK_SCORE
-            } else {
-                0
-            };
-            promoted_piece_code
-        } else {
-            0
-        };
-
-        Move(score_shifted |
-             ((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | piece << M_SHIFT_PIECE |
-              castling.value() << M_SHIFT_CASTLING_DATA |
+        Move((move_score as u64) << M_SHIFT_SCORE |
+             ((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | played_piece << M_SHIFT_PIECE |
+              castling_rights.value() << M_SHIFT_CASTLING_DATA |
               en_passant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
               dest_square << M_SHIFT_DEST_SQUARE |
@@ -319,7 +284,7 @@ impl Move {
         // We use clever bit manipulations to avoid branches.
         const P: usize = (!PAWN & 0b111) << M_SHIFT_PIECE;
         const C: usize = (!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE;
-        let v = self.0 as usize; 
+        let v = self.0 as usize;
         (v & M_MASK_PIECE | C) ^ (v & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
     }
 
@@ -409,53 +374,59 @@ mod tests {
     fn test_move() {
         let cr = CastlingRights::new(0b1011);
         let mut m = Move::new(MOVE_NORMAL,
-                              PAWN,
                               E2,
                               E4,
+                              0,
                               NO_PIECE,
-                              NO_ENPASSANT_FILE,
+                              PAWN,
                               cr,
+                              NO_ENPASSANT_FILE,
                               0);
         let n1 = Move::new(MOVE_NORMAL,
-                           PAWN,
                            F3,
                            E4,
+                           0,
                            KNIGHT,
-                           NO_ENPASSANT_FILE,
+                           PAWN,
                            CastlingRights::new(0),
-                           0);
+                           NO_ENPASSANT_FILE,
+                           ::std::u32::MAX);
         let n2 = Move::new(MOVE_NORMAL,
-                           KING,
                            F3,
                            E4,
+                           0,
                            NO_PIECE,
-                           NO_ENPASSANT_FILE,
+                           KING,
                            CastlingRights::new(0),
+                           NO_ENPASSANT_FILE,
                            0);
         let n3 = Move::new(MOVE_PROMOTION,
-                           PAWN,
                            F2,
                            F1,
+                           1,
                            NO_PIECE,
-                           NO_ENPASSANT_FILE,
-                           CastlingRights::new(0),
-                           1);
-        let n4 = Move::new(MOVE_NORMAL,
-                           BISHOP,
-                           F2,
-                           E3,
-                           KNIGHT,
-                           NO_ENPASSANT_FILE,
-                           CastlingRights::new(0),
-                           0);
-        let n5 = Move::new(MOVE_NORMAL,
                            PAWN,
+                           CastlingRights::new(0),
+                           NO_ENPASSANT_FILE,
+                           0);
+        let n4 = Move::new(MOVE_NORMAL,
                            F2,
                            E3,
+                           0,
                            KNIGHT,
-                           NO_ENPASSANT_FILE,
+                           BISHOP,
                            CastlingRights::new(0),
-                           0);
+                           NO_ENPASSANT_FILE,
+                           ::std::u32::MAX);
+        let n5 = Move::new(MOVE_NORMAL,
+                           F2,
+                           E3,
+                           0,
+                           KNIGHT,
+                           PAWN,
+                           CastlingRights::new(0),
+                           NO_ENPASSANT_FILE,
+                           ::std::u32::MAX);
         assert!(n1 > m);
         assert!(n2 < m);
         assert_eq!(m.piece(), PAWN);
