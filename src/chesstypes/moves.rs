@@ -152,7 +152,7 @@ impl Move {
                       move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
         Move((move_score as u64) << M_SHIFT_SCORE |
              ((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | played_piece << M_SHIFT_PIECE |
-              castling_rights.value() << M_SHIFT_CASTLING_DATA |
+              castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
               en_passant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
               dest_square << M_SHIFT_DEST_SQUARE |
@@ -209,7 +209,7 @@ impl Move {
     ///
     /// Castling is considered as king's move.
     #[inline(always)]
-    pub fn piece(&self) -> PieceType {
+    pub fn played_piece(&self) -> PieceType {
         (self.0 as usize & M_MASK_PIECE) >> M_SHIFT_PIECE
     }
 
@@ -242,8 +242,8 @@ impl Move {
     /// Returns the castling rights as they were before the move was
     /// played.
     #[inline(always)]
-    pub fn castling(&self) -> CastlingRights {
-        CastlingRights::new(self.0 as usize >> M_SHIFT_CASTLING_DATA)
+    pub fn castling_rights(&self) -> CastlingRights {
+        CastlingRights::new(self.0 as usize >> M_SHIFT_CASTLING_RIGHTS)
     }
 
     /// Returns a value between 0 and 3 representing the auxiliary
@@ -297,7 +297,7 @@ impl Move {
     /// for which the origin and destination squares are the same.
     #[inline]
     pub fn is_null(&self) -> bool {
-        debug_assert!(self.orig_square() != self.dest_square() || self.piece() == KING);
+        debug_assert!(self.orig_square() != self.dest_square() || self.played_piece() == KING);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 }
@@ -313,7 +313,7 @@ impl fmt::Display for Move {
 const M_SHIFT_SCORE: usize = 32;
 const M_SHIFT_CAPTURED_PIECE: usize = 27;
 const M_SHIFT_PIECE: usize = 24;
-const M_SHIFT_CASTLING_DATA: usize = 20;
+const M_SHIFT_CASTLING_RIGHTS: usize = 20;
 const M_SHIFT_ENPASSANT_FILE: usize = 16;
 const M_SHIFT_MOVE_TYPE: usize = 14;
 const M_SHIFT_ORIG_SQUARE: usize = 8;
@@ -322,8 +322,6 @@ const M_SHIFT_AUX_DATA: usize = 0;
 
 
 // Field masks
-#[allow(dead_code)]
-const M_MASK_CASTLING_DATA: usize = 0b1111 << M_SHIFT_CASTLING_DATA;
 const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
 const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
 const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
@@ -430,13 +428,13 @@ mod tests {
                            ::std::u32::MAX);
         assert!(n1 > m);
         assert!(n2 < m);
-        assert_eq!(m.piece(), PAWN);
+        assert_eq!(m.played_piece(), PAWN);
         assert_eq!(m.captured_piece(), NO_PIECE);
         assert_eq!(m.orig_square(), E2);
         assert_eq!(m.dest_square(), E4);
         assert_eq!(m.en_passant_file(), 8);
         assert_eq!(m.aux_data(), 0);
-        assert_eq!(m.castling().value(), 0b1011);
+        assert_eq!(m.castling_rights().value(), 0b1011);
         let m2 = m;
         assert_eq!(m, m2);
         m.set_score(::std::u32::MAX);

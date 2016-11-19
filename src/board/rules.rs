@@ -216,7 +216,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
     /// after a given move. The result is calculated without actually
     /// doing any moves on the board.
     fn calc_see(&self, m: Move) -> Value {
-        debug_assert!(m.piece() < NO_PIECE);
+        debug_assert!(m.played_piece() < NO_PIECE);
         debug_assert!(m.captured_piece() <= NO_PIECE);
 
         let dest_square = m.dest_square();  // the exchange square
@@ -230,7 +230,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
         // Those will be updated on each capture:
         let mut us = self.board().to_move();
         let mut depth = 0;
-        let mut piece = m.piece();
+        let mut piece = m.played_piece();
         let mut orig_square_bb = 1 << m.orig_square();
         let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
                                           board.attacks_to(BLACK, dest_square);
