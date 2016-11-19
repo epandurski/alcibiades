@@ -445,6 +445,17 @@ impl<E: BoardEvaluator + 'static> SearchNodeFactory for Position<E> {
 
 impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
     fn hash(&self) -> u64 {
+        // Notes:
+        //
+        // 1. Two positions that differ in their sets of previously
+        //    repeated, still reachable boards will have different
+        //    hashes.
+        //
+        // 2. Two positions that differ only in their number of played
+        //    moves without capturing piece or advancing a pawn will
+        //    have equal hashes, as long as they both are far from the
+        //    rule-50 limit.
+
         if self.repeated_or_rule50 {
             // All repeated and rule-50 positions are a draw, so for
             // practical purposes they can be considered to be the

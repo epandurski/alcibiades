@@ -228,8 +228,8 @@ impl<E: BoardEvaluator> Board<E> {
         self.castling_rights
     }
 
-    /// If the previous move was a double pawn push, returns pushed
-    /// pawn's file.
+    /// If the previous move was a double pawn push, returns double
+    /// pushed pawn's file.
     #[inline(always)]
     pub fn en_passant_file(&self) -> Option<File> {
         if self.en_passant_file < 8 {

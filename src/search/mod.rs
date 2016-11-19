@@ -159,16 +159,7 @@ pub trait SearchExecutor: SetOption {
 pub trait SearchNode: Send {
     /// Returns an almost unique hash value for the position.
     ///
-    /// **Important notes:**
-    ///
-    /// 1. Two positions that differ in their sets of previously
-    ///    repeated, still reachable boards will have different
-    ///    hashes.
-    ///
-    /// 2. Two positions that differ only in their number of played
-    ///    moves without capturing piece or advancing a pawn will have
-    ///    equal hashes, as long as they both are far from the rule-50
-    ///    limit.
+    /// The returned value is good for use as transposition table key.
     fn hash(&self) -> u64;
 
     /// Returns a description of the placement of the pieces on the
@@ -181,8 +172,8 @@ pub trait SearchNode: Send {
     /// Returns the castling rights.
     fn castling_rights(&self) -> CastlingRights;
 
-    /// If the previous move was a double pawn push, returns pushed
-    /// pawn's file.
+    /// If the previous move was a double pawn push, returns double
+    /// pushed pawn's file.
     fn en_passant_file(&self) -> Option<File>;
 
     /// Returns the number of half-moves since the last piece capture
@@ -258,9 +249,7 @@ pub trait SearchNode: Send {
     /// evaluation.
     ///
     /// **Important note:** This method will return a reliable result
-    /// even when the side to move is in check. In this case all
-    /// possible check evasions will be tried. Static evaluation will
-    /// not be used when in check.
+    /// even when the side to move is in check.
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
