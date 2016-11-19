@@ -177,8 +177,8 @@ pub trait SearchNode: Send {
     /// Returns the castling rights.
     fn castling_rights(&self) -> CastlingRights;
 
-    /// Returns the file on which an en-passant pawn capture is
-    /// possible.
+    /// If the previous move was a double pawn push, returns pushed
+    /// pawn's file.
     fn en_passant_file(&self) -> Option<File>;
 
     /// Returns the number of half-moves since the last piece capture

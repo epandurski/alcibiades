@@ -123,8 +123,8 @@ pub struct Board<E: BoardEvaluator> {
     /// The castling rights for both players.
     castling_rights: CastlingRights,
 
-    /// The file on which an en-passant pawn capture is possible. `8`
-    /// indicates that en-passant capture is not possible.
+    /// If the previous move was a double pawn push, contains pushed
+    /// pawn's file (a value between 0 and 7). Otherwise contains `8`.
     en_passant_file: usize,
 
     /// This will always be equal to `self.pieces.color[WHITE] |
@@ -227,8 +227,8 @@ impl<E: BoardEvaluator> Board<E> {
         self.castling_rights
     }
 
-    /// Returns the file on which an en-passant pawn capture is
-    /// possible.
+    /// If the previous move was a double pawn push, returns pushed
+    /// pawn's file.
     #[inline(always)]
     pub fn en_passant_file(&self) -> Option<File> {
         if self.en_passant_file < 8 {
