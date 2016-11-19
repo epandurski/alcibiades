@@ -927,7 +927,8 @@ mod tests {
 
     #[test]
     fn test_search() {
-        let p = Position::<RandomEvaluator>::from_fen("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1")
+        let p = Position::<RandomEvaluator>::create("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1",
+                                                    &mut vec![].into_iter())
                     .ok()
                     .unwrap();
         let tt = Tt::new();
@@ -948,8 +949,9 @@ mod tests {
     #[test]
     fn test_killers() {
         let mut killers = KillerTable::new();
-        let mut p = Position::<RandomEvaluator>::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 \
-                                                           w - - 0 1")
+        let mut p = Position::<RandomEvaluator>::create("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K\
+                                                               4R2 w - - 0 1",
+                                                        &mut vec![].into_iter())
                         .ok()
                         .unwrap();
         let mut v = MoveStack::new();

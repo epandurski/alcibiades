@@ -159,12 +159,16 @@ pub trait SearchExecutor: SetOption {
 pub trait SearchNode: Send {
     /// Returns an almost unique hash value for the position.
     ///
-    /// **Important notes:** 1) Two positions that differ in their
-    /// sets of previously repeated, still reachable boards will have
-    /// different hashes. 2) Two positions that differ only in their
-    /// number of played moves without capturing piece or advancing a
-    /// pawn will have equal hashes, as long as they both are far from
-    /// the rule-50 limit.
+    /// **Important notes:**
+    ///
+    /// 1. Two positions that differ in their sets of previously
+    ///    repeated, still reachable boards will have different
+    ///    hashes.
+    ///
+    /// 2. Two positions that differ only in their number of played
+    ///    moves without capturing piece or advancing a pawn will have
+    ///    equal hashes, as long as they both are far from the rule-50
+    ///    limit.
     fn hash(&self) -> u64;
 
     /// Returns a description of the placement of the pieces on the
@@ -212,9 +216,6 @@ pub trait SearchNode: Send {
     /// `generate_moves` method generates no legal moves. (It may
     /// generate some pseudo-legal moves, but if none of them is
     /// legal, then the position is final.)
-    ///
-    /// **Important note:** Repeated and rule-50 positions are
-    /// considered final (a draw).
     fn evaluate_final(&self) -> Value;
 
     /// Statically evaluates the position.
@@ -229,11 +230,11 @@ pub trait SearchNode: Send {
     /// returned.
     fn evaluate_static(&self) -> Value;
 
-    /// Performs a "quiescence search" and returns an evaluation.
+    /// Performs quiescence search and returns an evaluation.
     ///
-    /// The "quiescence search" is a restricted search which considers
-    /// only a limited set of moves (for example: winning captures,
-    /// pawn promotions to queen, check evasions). The goal is to
+    /// Quiescence search is a restricted search which considers only
+    /// a limited set of moves (for example: winning captures, pawn
+    /// promotions to queen, check evasions). The goal is to
     /// statically evaluate only "quiet" positions (positions where
     /// there are no winning tactical moves to be made). Although this
     /// search can cheaply and correctly resolve many tactical issues,
@@ -256,10 +257,10 @@ pub trait SearchNode: Send {
     /// positions that were searched in order to calculate the
     /// evaluation.
     ///
-    /// **Note:** This method will return a reliable result even when
-    /// the side to move is in check. In this case the all possible
-    /// check evasions will be tried. It will will never use the
-    /// static evaluation value when in check.
+    /// **Important note:** This method will return a reliable result
+    /// even when the side to move is in check. In this case all
+    /// possible check evasions will be tried. Static evaluation will
+    /// not be used when in check.
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
@@ -295,9 +296,8 @@ pub trait SearchNode: Send {
     /// position is final, and `evaluate_final()` will return its
     /// correct value.
     ///
-    /// **Important note:** Repeated and rule-50 positions are
-    /// considered final (and therefore, this method generates no
-    /// moves).
+    /// **Important note:** No moves will be generated in repeated and
+    /// rule-50 positions.
     fn generate_moves(&self, move_stack: &mut MoveStack);
 
     /// Returns a null move.
@@ -353,13 +353,7 @@ pub trait SearchNode: Send {
 pub trait SearchNodeFactory: SetOption {
     type T: SearchNode;
 
-    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
-    /// string.
-    ///
-    /// Verifies that the position is legal.
-    fn from_fen(fen: &str) -> Result<Self::T, String>;
-
-    /// Creates a new instance from playing history.
+    /// Instantiates a new chess position from playing history.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
     /// starting position. `moves` should be an iterator over all the
@@ -367,14 +361,14 @@ pub trait SearchNodeFactory: SetOption {
     /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
     /// (white short castling), `e7e8q` (for promotion).
     ///
-    /// **Important note:** `SearchNode` deems a repeated position a
-    /// draw after the first repetition, not after the second one as
-    /// the chess rules prescribe. In order to compensate for that,
-    /// `SearchNodeFactory::from_history` should "forget" all
-    /// positions that have occurred exactly once. Also, the newly
-    /// created instance should never be deemed a draw due to
-    /// repetition or rule-50.
-    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self::T, String>;
+    /// **Important note:** The `SearchNode` trait deems a repeated
+    /// position a draw after the first repetition, not after the
+    /// second one as the chess rules prescribe. In order to
+    /// compensate for that, `SearchNodeFactory::create` should
+    /// "forget" all positions that have occurred exactly once. Also,
+    /// the newly created instance should never be deemed a draw due
+    /// to repetition or rule-50.
+    fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self::T, String>;
 }
 
 

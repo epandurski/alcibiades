@@ -151,11 +151,11 @@ impl<E: BoardEvaluator> Board<E> {
     /// Creates a new instance.
     ///
     /// Verifies that the position is legal.
-    fn create(pieces: &PiecesPlacement,
-              to_move: Color,
-              castling_rights: CastlingRights,
-              en_passant_square: Option<Square>)
-              -> Result<Board<E>, String> {
+    fn from_raw_parts(pieces: &PiecesPlacement,
+                      to_move: Color,
+                      castling_rights: CastlingRights,
+                      en_passant_square: Option<Square>)
+                      -> Result<Board<E>, String> {
         let en_passant_rank = match to_move {
             WHITE => RANK_6,
             BLACK => RANK_3,
@@ -191,7 +191,8 @@ impl<E: BoardEvaluator> Board<E> {
     pub fn from_fen(fen: &str) -> Result<Board<E>, String> {
         let parts = try!(parse_fen(fen).map_err(|_| fen));
         let (ref placement, to_move, castling, en_passant_square, _, _) = parts;
-        Board::create(placement, to_move, castling, en_passant_square).map_err(|_| fen.to_string())
+        Board::from_raw_parts(placement, to_move, castling, en_passant_square)
+            .map_err(|_| fen.to_string())
     }
 
     /// Returns a reference to a properly initialized `BoardGeometry`

@@ -521,7 +521,8 @@ fn bogus_params() -> SearchParams {
     use board::evaluators::RandomEvaluator;
     SearchParams {
         search_id: 0,
-        position: Box::new(Position::<RandomEvaluator>::from_fen("7k/8/8/8/8/8/8/7K w - - 0 1")
+        position: Box::new(Position::<RandomEvaluator>::create("7k/8/8/8/8/8/8/7K w - - 0 1",
+                                                               &mut vec![].into_iter())
                                .ok()
                                .unwrap()),
         depth: 1,

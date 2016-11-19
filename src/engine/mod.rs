@@ -171,7 +171,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
         let tt = Arc::new(tt);
         Engine {
             tt: tt.clone(),
-            position: F::from_fen(START_POSITION_FEN).ok().unwrap(),
+            position: F::create(START_POSITION_FEN, &mut vec![].into_iter()).ok().unwrap(),
             current_depth: 0,
             search_thread: SearchThread::new(tt),
             play_when: PlayWhen::Never,
@@ -207,7 +207,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if let Ok(p) = F::from_history(fen, moves) {
+        if let Ok(p) = F::create(fen, moves) {
             self.position = p;
         }
     }
@@ -333,7 +333,8 @@ impl<S: SearchExecutor> SearchThread<S> {
         use board::evaluators::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
-            position: Box::new(Position::<RandomEvaluator>::from_fen(START_POSITION_FEN)
+            position: Box::new(Position::<RandomEvaluator>::create(START_POSITION_FEN,
+                                                                   &mut vec![].into_iter())
                                    .ok()
                                    .unwrap()),
             status: SearchStatus {
