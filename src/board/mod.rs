@@ -121,7 +121,7 @@ pub struct Board<E: BoardEvaluator> {
     to_move: Color,
 
     /// The castling rights for both players.
-    castling: CastlingRights,
+    castling_rights: CastlingRights,
 
     /// The file on which an en-passant pawn capture is possible. `8`
     /// indicates that en-passant capture is not possible.
@@ -153,7 +153,7 @@ impl<E: BoardEvaluator> Board<E> {
     /// Verifies that the position is legal.
     fn create(pieces: &PiecesPlacement,
               to_move: Color,
-              castling: CastlingRights,
+              castling_rights: CastlingRights,
               en_passant_square: Option<Square>)
               -> Result<Board<E>, String> {
         let en_passant_rank = match to_move {
@@ -172,7 +172,7 @@ impl<E: BoardEvaluator> Board<E> {
             evaluator: unsafe { uninitialized() },
             pieces: *pieces,
             to_move: to_move,
-            castling: castling,
+            castling_rights: castling_rights,
             en_passant_file: en_passant_file,
             _occupied: pieces.color[WHITE] | pieces.color[BLACK],
             _checkers: Cell::new(BB_UNIVERSAL_SET),
@@ -223,8 +223,8 @@ impl<E: BoardEvaluator> Board<E> {
 
     /// Returns the castling rights.
     #[inline(always)]
-    pub fn castling(&self) -> CastlingRights {
-        self.castling
+    pub fn castling_rights(&self) -> CastlingRights {
+        self.castling_rights
     }
 
     /// Returns the file on which an en-passant pawn capture is
@@ -426,7 +426,7 @@ impl<E: BoardEvaluator> Board<E> {
                                               0,
                                               NO_PIECE,
                                               KING,
-                                              self.castling,
+                                              self.castling_rights,
                                               self.en_passant_file,
                                               0));
                 }
@@ -455,7 +455,7 @@ impl<E: BoardEvaluator> Board<E> {
                   0,
                   NO_PIECE,
                   KING,
-                  self.castling,
+                  self.castling_rights,
                   self.en_passant_file,
                   0)
     }
@@ -519,7 +519,7 @@ impl<E: BoardEvaluator> Board<E> {
                               0,
                               NO_PIECE,
                               KING,
-                              self.castling,
+                              self.castling_rights,
                               self.en_passant_file,
                               0);
             debug_assert_eq!(generated_move, Some(m));
@@ -648,7 +648,7 @@ impl<E: BoardEvaluator> Board<E> {
                           promoted_piece_code,
                           captured_piece,
                           piece,
-                          self.castling,
+                          self.castling_rights,
                           self.en_passant_file,
                           move_score);
         debug_assert_eq!(generated_move, Some(m));
@@ -767,9 +767,9 @@ impl<E: BoardEvaluator> Board<E> {
 
         // Update castling rights (null moves do not affect castling).
         if orig_square != dest_square {
-            h ^= self.zobrist.castling[self.castling.value()];
-            self.castling.update(orig_square, dest_square);
-            h ^= self.zobrist.castling[self.castling.value()];
+            h ^= self.zobrist.castling[self.castling_rights.value()];
+            self.castling_rights.update(orig_square, dest_square);
+            h ^= self.zobrist.castling[self.castling_rights.value()];
         }
 
         // Update the en-passant file.
@@ -834,7 +834,7 @@ impl<E: BoardEvaluator> Board<E> {
         self.en_passant_file = m.en_passant_file();
 
         // Restore castling rights.
-        self.castling = m.castling_rights();
+        self.castling_rights = m.castling_rights();
 
         // Empty the destination square.
         let dest_piece = if move_type == MOVE_PROMOTION {
@@ -904,7 +904,7 @@ impl<E: BoardEvaluator> Board<E> {
                 }
             }
         }
-        hash ^= self.zobrist.castling[self.castling.value()];
+        hash ^= self.zobrist.castling[self.castling_rights.value()];
         hash ^= self.zobrist.en_passant_file[self.en_passant_file];
         if self.to_move == BLACK {
             hash ^= self.zobrist.to_move;
@@ -965,16 +965,16 @@ impl<E: BoardEvaluator> Board<E> {
         pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
         pawns & BB_PAWN_PROMOTION_RANKS == 0 &&
-        (!self.castling.can_castle(WHITE, QUEENSIDE) ||
+        (!self.castling_rights.can_castle(WHITE, QUEENSIDE) ||
          (self.pieces.piece_type[ROOK] & self.pieces.color[WHITE] & 1 << A1 != 0) &&
          (self.pieces.piece_type[KING] & self.pieces.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling.can_castle(WHITE, KINGSIDE) ||
+        (!self.castling_rights.can_castle(WHITE, KINGSIDE) ||
          (self.pieces.piece_type[ROOK] & self.pieces.color[WHITE] & 1 << H1 != 0) &&
          (self.pieces.piece_type[KING] & self.pieces.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling.can_castle(BLACK, QUEENSIDE) ||
+        (!self.castling_rights.can_castle(BLACK, QUEENSIDE) ||
          (self.pieces.piece_type[ROOK] & self.pieces.color[BLACK] & 1 << A8 != 0) &&
          (self.pieces.piece_type[KING] & self.pieces.color[BLACK] & 1 << E8 != 0)) &&
-        (!self.castling.can_castle(BLACK, KINGSIDE) ||
+        (!self.castling_rights.can_castle(BLACK, KINGSIDE) ||
          (self.pieces.piece_type[ROOK] & self.pieces.color[BLACK] & 1 << H8 != 0) &&
          (self.pieces.piece_type[KING] & self.pieces.color[BLACK] & 1 << E8 != 0)) &&
         (en_passant_bb == 0 ||
@@ -1039,7 +1039,7 @@ impl<E: BoardEvaluator> Board<E> {
                                       0,
                                       captured_piece,
                                       piece,
-                                      self.castling,
+                                      self.castling_rights,
                                       self.en_passant_file,
                                       move_score));
         }
@@ -1093,7 +1093,7 @@ impl<E: BoardEvaluator> Board<E> {
                                                       0,
                                                       PAWN,
                                                       PAWN,
-                                                      self.castling,
+                                                      self.castling_rights,
                                                       self.en_passant_file,
                                                       MOVE_SCORE_MAX));
                         }
@@ -1113,7 +1113,7 @@ impl<E: BoardEvaluator> Board<E> {
                                                       p,
                                                       captured_piece,
                                                       PAWN,
-                                                      self.castling,
+                                                      self.castling_rights,
                                                       self.en_passant_file,
                                                       move_score));
                             if only_queen_promotions {
@@ -1135,7 +1135,7 @@ impl<E: BoardEvaluator> Board<E> {
                                                   0,
                                                   captured_piece,
                                                   PAWN,
-                                                  self.castling,
+                                                  self.castling_rights,
                                                   self.en_passant_file,
                                                   move_score));
                     }
@@ -1264,7 +1264,7 @@ impl<E: BoardEvaluator> Board<E> {
     fn can_castle(&self, side: CastlingSide) -> bool {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        self.castling.can_castle(self.to_move, side) &&
+        self.castling_rights.can_castle(self.to_move, side) &&
         self.occupied() & BETWEEN[self.to_move][side] == 0 && self.checkers() == 0 &&
         !self.king_would_be_in_check([[D1, F1], [D8, F8]][self.to_move][side])
     }

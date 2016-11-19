@@ -175,7 +175,7 @@ pub trait SearchNode: Send {
     fn to_move(&self) -> Color;
 
     /// Returns the castling rights.
-    fn castling(&self) -> CastlingRights;
+    fn castling_rights(&self) -> CastlingRights;
 
     /// Returns the file on which an en-passant pawn capture is
     /// possible.

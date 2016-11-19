@@ -482,8 +482,8 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
         self.board().to_move()
     }
 
-    fn castling(&self) -> CastlingRights {
-        self.board().castling()
+    fn castling_rights(&self) -> CastlingRights {
+        self.board().castling_rights()
     }
 
     fn en_passant_file(&self) -> Option<File> {
