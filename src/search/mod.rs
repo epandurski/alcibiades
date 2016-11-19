@@ -340,7 +340,7 @@ pub trait SearchNode: Send {
 
 /// A trait for instantiating chess positions.
 pub trait SearchNodeFactory: SetOption {
-    type T: SearchNode;
+    type Node: SearchNode;
 
     /// Instantiates a new chess position from playing history.
     ///
@@ -357,7 +357,7 @@ pub trait SearchNodeFactory: SetOption {
     /// "forget" all positions that have occurred exactly once. Also,
     /// the newly created instance should never be deemed a draw due
     /// to repetition or rule-50.
-    fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self::T, String>;
+    fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self::Node, String>;
 }
 
 
