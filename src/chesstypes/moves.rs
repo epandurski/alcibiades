@@ -138,7 +138,7 @@ impl Move {
                played_piece: PieceType,
                castling_rights: CastlingRights,
                en_passant_file: usize,
-               move_score: u32)
+               score: u32)
                -> Move {
         debug_assert!(move_type <= 0x11);
         debug_assert!(played_piece < NO_PIECE);
@@ -150,7 +150,7 @@ impl Move {
         debug_assert!(move_type == MOVE_PROMOTION || aux_data == 0);
         debug_assert!(orig_square != dest_square ||
                       move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
-        Move((move_score as u64) << M_SHIFT_SCORE |
+        Move((score as u64) << M_SHIFT_SCORE |
              ((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | played_piece << M_SHIFT_PIECE |
               castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
               en_passant_file << M_SHIFT_ENPASSANT_FILE |
