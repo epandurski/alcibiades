@@ -615,12 +615,6 @@ impl<E: BoardEvaluator + 'static> SearchNode for Position<E> {
                     let mut i = (boards.len() - 4) as isize;
                     while i >= last_irrev {
                         if self.board_hash == *boards.get_unchecked(i as usize) {
-                            // Note that the position is deemed a draw after the
-                            // first repetition, not after the second one as the
-                            // chess rules prescribe. This is done in the sake of
-                            // efficiency. In order to compensate for that,
-                            // `Position::from_history` "forgets" all positions
-                            // that have occurred exactly once.
                             self.repeated_or_rule50 = true;
                             break;
                         }

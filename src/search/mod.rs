@@ -366,6 +366,14 @@ pub trait SearchNodeFactory: SetOption {
     /// moves that were played from that position. The move format is
     /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
     /// (white short castling), `e7e8q` (for promotion).
+    ///
+    /// **Important note:** `SearchNode` deems a repeated position a
+    /// draw after the first repetition, not after the second one as
+    /// the chess rules prescribe. In order to compensate for that,
+    /// `SearchNodeFactory::from_history` should "forget" all
+    /// positions that have occurred exactly once. Also, the newly
+    /// created instance should never be deemed a draw due to
+    /// repetition or rule-50.
     fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self::T, String>;
 }
 
