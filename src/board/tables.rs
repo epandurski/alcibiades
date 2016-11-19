@@ -35,12 +35,6 @@ pub struct ZobristArrays {
     /// reflect the number of half-moves played without capturing a
     /// piece or advancing a pawn.
     pub halfmove_clock: [u64; 100],
-
-    /// Derived from the `pieces` field. Contains the constants with
-    /// which the Zobrist hash value should be XOR-ed to reflect the
-    /// movement of the rook during castling. Needed for performance
-    /// reasons only.
-    pub _castling_rook_movement: [[u64; 2]; 2],
 }
 
 
@@ -85,10 +79,6 @@ impl ZobristArrays {
             castling: castling,
             en_passant_file: en_passant_file,
             halfmove_clock: halfmove_clock,
-            _castling_rook_movement: [[pieces[WHITE][ROOK][A1] ^ pieces[WHITE][ROOK][D1],
-                                       pieces[WHITE][ROOK][H1] ^ pieces[WHITE][ROOK][F1]],
-                                      [pieces[BLACK][ROOK][A8] ^ pieces[BLACK][ROOK][D8],
-                                       pieces[BLACK][ROOK][H8] ^ pieces[BLACK][ROOK][F8]]],
         }
     }
 

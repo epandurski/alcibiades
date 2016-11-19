@@ -728,10 +728,11 @@ impl<E: BoardEvaluator> Board<E> {
             } else {
                 QUEENSIDE
             };
-            let mask = CASTLING_ROOK_MASKS[us][side];
+            let mask = BB_CASTLING_ROOK_MOVEMENT[us][side];
             self.pieces.piece_type[ROOK] ^= mask;
             self.pieces.color[us] ^= mask;
-            h ^= self.zobrist._castling_rook_movement[us][side];
+            h ^= self.zobrist.pieces[us][ROOK][CASTLING_ROOK_MOVEMENT[us][side].0] ^
+                 self.zobrist.pieces[us][ROOK][CASTLING_ROOK_MOVEMENT[us][side].1];
         }
 
         // empty the origin square
@@ -868,7 +869,7 @@ impl<E: BoardEvaluator> Board<E> {
             } else {
                 QUEENSIDE
             };
-            let mask = CASTLING_ROOK_MASKS[us][side];
+            let mask = BB_CASTLING_ROOK_MOVEMENT[us][side];
             self.pieces.piece_type[ROOK] ^= mask;
             self.pieces.color[us] ^= mask;
         }
@@ -1293,14 +1294,17 @@ const PAWN_EAST_CAPTURE: usize = 3;
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
 
-/// Bitboards that describe how the castling rook moves during the
-/// castling move.
-const CASTLING_ROOK_MASKS: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
-                                                 [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
-
-
 /// The highest possible move score.
 const MOVE_SCORE_MAX: u32 = ::std::u32::MAX;
+
+
+/// The origin and destination squares of the castling rook.
+const CASTLING_ROOK_MOVEMENT: [[(Square, Square); 2]; 2] = [[(A1, D1), (H1, F1)],
+                                                            [(A8, D8), (H8, F8)]];
+
+/// Bitboards for the origin and destination squares of the castling rook.
+const BB_CASTLING_ROOK_MOVEMENT: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << H1 | 1 << F1],
+                                                       [1 << A8 | 1 << D8, 1 << H8 | 1 << F8]];
 
 
 /// A helper function. It calculates the pseudo-legal destinations
