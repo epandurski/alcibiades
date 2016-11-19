@@ -21,6 +21,47 @@ use chesstypes::*;
 pub const DEPTH_MAX: u8 = 63;
 
 
+/// A trait for interacting with transposition tables.
+///
+/// The methods in this trait (except `resize`) do not require a
+/// mutable reference to do their work. This allows one transposition
+/// table instance to be shared safely between many threads.
+pub trait TranspositionTable: Sync {
+    /// Creates a new transposition table.
+    ///
+    /// The newly created table has the minimum possible size. Before
+    /// using the new table for anything, `resize()` should be called
+    /// on it, specifying the desired size.
+    fn new() -> Self;
+
+    /// Resizes the transposition table. All entries in the table are
+    /// lost.
+    ///
+    /// `size_mb` is the desired new size in Mbytes. The new size will
+    ///  not exceed `size_mb`.
+    fn resize(&mut self, size_mb: usize);
+
+    /// Returns the size of the transposition table in Mbytes.
+    fn size(&self) -> usize;
+
+    /// Signals that a new search is about to begin.
+    fn new_search(&self);
+
+    /// Stores data by a specific key.
+    ///
+    /// After being stored, the data might be retrieved by
+    /// `probe(key)`. This is not guaranteed though, because the entry
+    /// might have been overwritten in the meantime.
+    fn store(&self, key: u64, mut data: TtEntry);
+
+    /// Probes for data by a specific key.
+    fn probe(&self, key: u64) -> Option<TtEntry>;
+
+    /// Removes all entries in the table.
+    fn clear(&self);
+}
+
+
 /// Contains information about a particular position.
 #[derive(Copy, Clone, Debug)]
 pub struct TtEntry {
@@ -388,7 +429,7 @@ mod tests {
     fn test_max_depth() {
         assert!(DEPTH_MAX < 127);
     }
-    
+
     #[test]
     fn test_cluster_size() {
         assert_eq!(std::mem::size_of::<[Record; 4]>(), 64);
