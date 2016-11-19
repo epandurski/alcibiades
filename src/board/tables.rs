@@ -23,12 +23,12 @@ pub struct ZobristArrays {
 
     /// Constants with which the hash value should be XOR-ed, for the
     /// old and the new castling rights on each move.
-    pub castling: [u64; 16],
+    pub castling_rights: [u64; 16],
 
     /// Constants with which the hash value should be XOR-ed, for the
-    /// old and the new en-passant file on each move.  Only the first
-    /// 8 indexes are used -- the rest exist for memory safety
-    /// reasons, and are set to `0`.
+    /// old and the new en-passant file on each move (a value between
+    /// 0 and 7). Indexes between 8 and 15 point to zeroes, and are
+    /// for convenience and memory safety.
     pub en_passant_file: [u64; 16],
 
     /// Constants with which the hash value should be XOR-ed to
@@ -49,7 +49,7 @@ impl ZobristArrays {
 
         let to_move = rng.gen();
         let mut pieces = [[[0; 64]; 6]; 2];
-        let mut castling = [0; 16];
+        let mut castling_rights = [0; 16];
         let mut en_passant_file = [0; 16];
         let mut halfmove_clock = [0; 100];
 
@@ -62,7 +62,7 @@ impl ZobristArrays {
         }
 
         for value in 0..16 {
-            castling[value] = rng.gen();
+            castling_rights[value] = rng.gen();
         }
 
         for file in 0..8 {
@@ -76,7 +76,7 @@ impl ZobristArrays {
         ZobristArrays {
             to_move: to_move,
             pieces: pieces,
-            castling: castling,
+            castling_rights: castling_rights,
             en_passant_file: en_passant_file,
             halfmove_clock: halfmove_clock,
         }

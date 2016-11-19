@@ -768,9 +768,9 @@ impl<E: BoardEvaluator> Board<E> {
 
         // Update castling rights (null moves do not affect castling).
         if orig_square != dest_square {
-            h ^= self.zobrist.castling[self.castling_rights.value()];
+            h ^= self.zobrist.castling_rights[self.castling_rights.value()];
             self.castling_rights.update(orig_square, dest_square);
-            h ^= self.zobrist.castling[self.castling_rights.value()];
+            h ^= self.zobrist.castling_rights[self.castling_rights.value()];
         }
 
         // Update the en-passant file.
@@ -905,7 +905,7 @@ impl<E: BoardEvaluator> Board<E> {
                 }
             }
         }
-        hash ^= self.zobrist.castling[self.castling_rights.value()];
+        hash ^= self.zobrist.castling_rights[self.castling_rights.value()];
         hash ^= self.zobrist.en_passant_file[self.en_passant_file];
         if self.to_move == BLACK {
             hash ^= self.zobrist.to_move;
