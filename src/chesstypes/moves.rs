@@ -120,8 +120,8 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 /// ordering of the moves is preserved, even when the other fields
 /// stay the same.
 ///
-/// Bits 32-63 contain the "Move score" field, which is used to
-/// influence move ordering.
+/// Bits 32-63 contain the "Score" field, which is used to influence
+/// move ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
