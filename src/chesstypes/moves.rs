@@ -293,10 +293,11 @@ impl Move {
     /// "Null move" is a pseudo-move that changes nothing on the board
     /// except the side to move. It is sometimes useful to include a
     /// speculative null move in the search tree to achieve more
-    /// aggressive pruning. Null moves are represented as normal moves
+    /// aggressive pruning. Null moves are represented as king's moves
     /// for which the origin and destination squares are the same.
     #[inline]
     pub fn is_null(&self) -> bool {
+        debug_assert!(self.orig_square() != self.dest_square() || self.piece() == KING);
         self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
     }
 }
