@@ -3,6 +3,7 @@ use std::mem;
 use std::cmp::max;
 use std::thread;
 use std::cell::UnsafeCell;
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvError};
 use std::time::Duration;
@@ -36,17 +37,18 @@ use super::contains_same_moves;
 /// search parameter. It always analyses all legal moves in the root
 /// position, and always gives an empty list of `sorted_moves` in its
 /// progress reports.
-pub struct StandardSearcher {
+pub struct StandardSearcher<T> {
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<SearchReport>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
+    phantom: PhantomData<T>,
 }
 
-impl SetOption for StandardSearcher {}
+impl<T> SetOption for StandardSearcher<T> {}
 
-impl SearchExecutor for StandardSearcher {
-    fn new(tt: Arc<Tt>) -> StandardSearcher {
+impl<T> SearchExecutor<T> for StandardSearcher<T> {
+    fn new(tt: Arc<T>) -> StandardSearcher<T> {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
@@ -54,6 +56,7 @@ impl SearchExecutor for StandardSearcher {
             thread_commands: commands_tx,
             thread_reports: reports_rx,
             has_reports_condition: has_reports_condition.clone(),
+            phantom: PhantomData,
 
             // Spawn a thread that will do the real work.
             thread_join_handle: Some(thread::spawn(move || {
@@ -94,7 +97,7 @@ impl SearchExecutor for StandardSearcher {
     }
 }
 
-impl Drop for StandardSearcher {
+impl<T> Drop for StandardSearcher<T> {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();

@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use std::cmp::{max, Ordering};
+use std::marker::PhantomData;
 use chesstypes::*;
 use tt::*;
 use uci::*;
@@ -38,16 +39,16 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-pub struct Engine<S, F>
-    where S: SearchExecutor,
+pub struct Engine<T, S, F>
+    where S: SearchExecutor<T>,
           F: SearchNodeFactory
 {
-    tt: Arc<Tt>,
+    tt: Arc<T>,
     position: F::T,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
-    search_thread: SearchThread<S>,
+    search_thread: SearchThread<T, S>,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -76,7 +77,7 @@ pub struct Engine<S, F>
 }
 
 
-impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
+impl<T, S: SearchExecutor<T>, F: SearchNodeFactory> Engine<T, S, F> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -132,7 +133,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
 }
 
 
-impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
+impl<T, S: SearchExecutor<T>, F: SearchNodeFactory> UciEngine for Engine<T, S, F> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
     }
@@ -164,8 +165,8 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
         options_dedup
     }
 
-    fn new(tt_size_mb: Option<usize>) -> Engine<S, F> {
-        let mut tt = Tt::new();
+    fn new(tt_size_mb: Option<usize>) -> Engine<T, S, F> {
+        let mut tt = T::new();
         let tt_size_mb = tt_size_mb.unwrap_or(16);
         tt.resize(tt_size_mb);
         let tt = Arc::new(tt);
@@ -320,16 +321,16 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
 
 /// A thread that executes consecutive searches in different starting
 /// positions.
-struct SearchThread<S: SearchExecutor> {
-    tt: Arc<Tt>,
+struct SearchThread<T, S: SearchExecutor<T>> {
+    tt: Arc<T>,
     position: Box<SearchNode>,
     status: SearchStatus,
     searcher: S,
 }
 
-impl<S: SearchExecutor> SearchThread<S> {
+impl<T, S: SearchExecutor<T>> SearchThread<T, S> {
     /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> SearchThread<S> {
+    pub fn new(tt: Arc<T>) -> SearchThread<T, S> {
         use board::evaluators::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
