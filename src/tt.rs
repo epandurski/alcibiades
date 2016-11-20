@@ -22,10 +22,6 @@ pub const DEPTH_MAX: u8 = 63;
 
 
 /// A trait for interacting with transposition tables.
-///
-/// The methods in this trait (except `resize`) do not require a
-/// mutable reference to do their work. This allows one transposition
-/// table instance to be shared safely between many threads.
 pub trait HashTable: Sync {
     type Entry: HashTableEntry;
 
@@ -42,7 +38,7 @@ pub trait HashTable: Sync {
 
     /// Stores data by a specific key.
     ///
-    /// After being stored, the data might be retrieved by
+    /// After being stored, the data can be retrieved by
     /// `probe(key)`. This is not guaranteed though, because the entry
     /// might have been overwritten in the meantime.
     fn store(&self, key: u64, mut data: Self::Entry);
@@ -55,7 +51,8 @@ pub trait HashTable: Sync {
 }
 
 
-pub trait HashTableEntry {
+/// A trait for interacting with transposition table entries.
+pub trait HashTableEntry: Copy {
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. (Must not be
@@ -102,8 +99,7 @@ pub struct TtEntry {
     eval_value: Value,
 }
 
-
-impl TtEntry {
+impl HashTableEntry for TtEntry {
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. (Must not be
@@ -119,12 +115,12 @@ impl TtEntry {
     /// 
     /// * `eval_value` -- The calculated static evaluation for the
     ///   position, or `VALUE_UNKNOWN`.
-    pub fn new(value: Value,
-               bound: BoundType,
-               depth: u8,
-               move16: MoveDigest,
-               eval_value: Value)
-               -> TtEntry {
+    fn new(value: Value,
+           bound: BoundType,
+           depth: u8,
+           move16: MoveDigest,
+           eval_value: Value)
+           -> TtEntry {
         debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
         debug_assert!(depth <= DEPTH_MAX);
@@ -138,30 +134,32 @@ impl TtEntry {
     }
 
     #[inline(always)]
-    pub fn value(&self) -> Value {
+    fn value(&self) -> Value {
         self.value
     }
 
     #[inline(always)]
-    pub fn bound(&self) -> BoundType {
+    fn bound(&self) -> BoundType {
         self.gen_bound & 0b11
     }
 
     #[inline(always)]
-    pub fn depth(&self) -> u8 {
+    fn depth(&self) -> u8 {
         self.depth
     }
 
     #[inline(always)]
-    pub fn move16(&self) -> MoveDigest {
+    fn move16(&self) -> MoveDigest {
         self.move16
     }
 
     #[inline(always)]
-    pub fn eval_value(&self) -> Value {
+    fn eval_value(&self) -> Value {
         self.eval_value
     }
+}
 
+impl TtEntry {
     /// Returns the contained data as one `u64` value.
     #[inline(always)]
     fn as_u64(&self) -> u64 {
@@ -170,11 +168,7 @@ impl TtEntry {
 }
 
 
-/// A transposition table.
-///
-/// `Tt` methods (except `resize`) do not require a mutable reference
-/// to do their work. This allows one transposition table instance to
-/// be shared safely between many threads.
+/// A lock-less transposition table.
 pub struct Tt {
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.
@@ -189,13 +183,10 @@ pub struct Tt {
 }
 
 
-impl Tt {
-    /// Creates a new transposition table.
-    ///
-    /// `size_mb` is the desired new size in Mbytes. If `size_mb` is
-    /// not in the form `1 << n`, the new size of the transposition
-    /// table will be as close as possible, but less than `size_mb`.
-    pub fn new(size_mb: Option<usize>) -> Tt {
+impl HashTable for Tt {
+    type Entry = TtEntry;
+
+    fn new(size_mb: Option<usize>) -> Tt {
         let size_mb = size_mb.unwrap_or(16);
         let requested_cluster_count = (size_mb * 1024 * 1024) / size_of::<[Record; 4]>();
 
@@ -220,8 +211,7 @@ impl Tt {
         }
     }
 
-    /// Signals that a new search is about to begin.
-    pub fn new_search(&self) {
+    fn new_search(&self) {
         const N: usize = 128;
 
         loop {
@@ -251,12 +241,7 @@ impl Tt {
         }
     }
 
-    /// Stores data by a specific key.
-    ///
-    /// After being stored, the data might be retrieved by
-    /// `probe(key)`. This is not guaranteed though, because the entry
-    /// might have been overwritten in the meantime.
-    pub fn store(&self, key: u64, mut data: TtEntry) {
+    fn store(&self, key: u64, mut data: Self::Entry) {
         // `store` and `probe` jointly implement a clever lock-less
         // hashing strategy. Rather than storing two disjoint items,
         // the key is stored XOR-ed with data, while data is stored
@@ -299,12 +284,8 @@ impl Tt {
         };
     }
 
-    /// Probes for data by a specific key.
-    ///
-    /// **Note:** This method may write to the transposition table
-    /// (for example, to update the generation of the entry).
     #[inline]
-    pub fn probe(&self, key: u64) -> Option<TtEntry> {
+    fn probe(&self, key: u64) -> Option<Self::Entry> {
         // `store` and `probe` jointly implement a clever lock-less
         // hashing strategy. Rather than storing two disjoint items,
         // the key is stored XOR-ed with data, while data is stored
@@ -325,8 +306,7 @@ impl Tt {
         None
     }
 
-    /// Removes all entries in the table.
-    pub fn clear(&self) {
+    fn clear(&self) {
         let table = unsafe { &mut *self.table.get() };
         for cluster in table {
             for record in cluster.iter_mut() {
@@ -335,7 +315,9 @@ impl Tt {
         }
         self.generation.set(0);
     }
+}
 
+impl Tt {
     /// A helper method for `store`. It implements the record
     /// replacement strategy.
     #[inline(always)]
@@ -370,7 +352,6 @@ impl Tt {
         &mut (&mut *self.table.get())[cluster_index]
     }
 }
-
 
 unsafe impl Sync for Tt {}
 

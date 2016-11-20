@@ -447,6 +447,8 @@ impl<'a> Search<'a> {
         // Probe the transposition table.
         let hash = self.position.hash();
         let entry = if let Some(e) = self.tt.probe(hash) {
+            // TODO: Calculate the static evaluation if
+            //       e.eval_value() == VALUE_UNKNOWN
             e
         } else {
             TtEntry::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
