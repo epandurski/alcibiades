@@ -115,9 +115,9 @@ pub struct SearchReport {
 /// reports, informing about its current progress. Also, the executing
 /// search must continuously update the transposition table so that,
 /// at each moment, it contains the results of the work done so far.
-pub trait SearchExecutor: SetOption {
+pub trait SearchExecutor<T: HashTable>: SetOption {
     /// Creates a new instance.
-    fn new(tt: Arc<Tt>) -> Self;
+    fn new(tt: Arc<T>) -> Self;
 
     /// Starts a new search.
     ///

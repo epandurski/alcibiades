@@ -22,7 +22,7 @@ pub const DEPTH_MAX: u8 = 63;
 
 
 /// A trait for interacting with transposition tables.
-pub trait HashTable: Sync {
+pub trait HashTable: Sync + Send {
     type Entry: HashTableEntry;
 
     /// Creates a new transposition table.

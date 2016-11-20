@@ -6,6 +6,8 @@ use std::cell::UnsafeCell;
 use std::sync::{Arc, Mutex, Condvar};
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvError};
 use std::time::Duration;
+use std::marker::PhantomData;
+use std::ops::Deref;
 use chesstypes::*;
 use tt::*;
 use uci::SetOption;
@@ -36,21 +38,23 @@ use super::contains_same_moves;
 /// search parameter. It always analyses all legal moves in the root
 /// position, and always gives an empty list of `sorted_moves` in its
 /// progress reports.
-pub struct StandardSearcher {
+pub struct StandardSearcher<T: HashTable> {
+    phantom: PhantomData<T>,
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command>,
     thread_reports: Receiver<SearchReport>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl SetOption for StandardSearcher {}
+impl<T: HashTable> SetOption for StandardSearcher<T> {}
 
-impl SearchExecutor for StandardSearcher {
-    fn new(tt: Arc<Tt>) -> StandardSearcher {
+impl<T: HashTable + 'static> SearchExecutor<T> for StandardSearcher<T> {
+    fn new(tt: Arc<T>) -> StandardSearcher<T> {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
         StandardSearcher {
+            phantom: PhantomData,
             thread_commands: commands_tx,
             thread_reports: reports_rx,
             has_reports_condition: has_reports_condition.clone(),
@@ -94,7 +98,7 @@ impl SearchExecutor for StandardSearcher {
     }
 }
 
-impl Drop for StandardSearcher {
+impl<T: HashTable> Drop for StandardSearcher<T> {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();
@@ -150,10 +154,10 @@ enum Command {
 ///
 /// This function executes sequential (non-parallel) search to a fixed
 /// depth.
-fn serve_simple(tt: Arc<Tt>,
-                commands: Receiver<Command>,
-                reports: Sender<SearchReport>,
-                has_reports_condition: Arc<(Mutex<bool>, Condvar)>) {
+fn serve_simple<T: HashTable>(tt: Arc<T>,
+                              commands: Receiver<Command>,
+                              reports: Sender<SearchReport>,
+                              has_reports_condition: Arc<(Mutex<bool>, Condvar)>) {
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -198,7 +202,7 @@ fn serve_simple(tt: Arc<Tt>,
                             false
                         }
                     };
-                    let mut search = Search::new(position, &tt, move_stack, &mut report);
+                    let mut search = Search::new(position, tt.deref(), move_stack, &mut report);
                     let (depth, value) = if let Ok(v) = search.run(lower_bound,
                                                                    upper_bound,
                                                                    depth,
@@ -238,20 +242,20 @@ struct TerminatedSearch;
 
 
 /// Represents a game tree search.        
-struct Search<'a> {
-    tt: &'a Tt,
+struct Search<'a, T: HashTable + 'a> {
+    tt: &'a T,
     killers: KillerTable,
     position: Box<SearchNode>,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
-    state_stack: Vec<NodeState>,
+    state_stack: Vec<NodeState<T>>,
     reported_nodes: u64,
     unreported_nodes: u64,
     report_function: &'a mut FnMut(u64) -> bool,
 }
 
 
-impl<'a> Search<'a> {
+impl<'a, T: HashTable + 'a> Search<'a, T> {
     /// Creates a new instance.
     ///
     /// `report_function` should be a function that registers the
@@ -260,10 +264,10 @@ impl<'a> Search<'a> {
     /// function should return `true` if the search should be
     /// terminated, otherwise it should return `false`.
     pub fn new(root: Box<SearchNode>,
-               tt: &'a Tt,
+               tt: &'a T,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(u64) -> bool)
-               -> Search<'a> {
+               -> Search<'a, T> {
         let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
@@ -451,7 +455,7 @@ impl<'a> Search<'a> {
             //       e.eval_value() == VALUE_UNKNOWN
             e
         } else {
-            TtEntry::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
+            T::Entry::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
@@ -483,7 +487,7 @@ impl<'a> Search<'a> {
             } else {
                 BOUND_EXACT
             };
-            self.tt.store(hash, TtEntry::new(value, bound, 0, 0, entry.eval_value()));
+            self.tt.store(hash, T::Entry::new(value, bound, 0, 0, entry.eval_value()));
             return Ok(Some(value));
         }
 
@@ -530,7 +534,7 @@ impl<'a> Search<'a> {
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
                     self.tt.store(hash,
-                                  TtEntry::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
+                                  T::Entry::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
                     return Ok(Some(beta));
                 }
             }
@@ -714,7 +718,7 @@ impl<'a> Search<'a> {
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
         let entry = &self.state_stack.last().unwrap().entry;
         self.tt.store(self.position.hash(),
-                      TtEntry::new(value, bound, depth, best_move.digest(), entry.eval_value()));
+                      T::Entry::new(value, bound, depth, best_move.digest(), entry.eval_value()));
     }
 
     /// A helper method for `run`. It reports search progress.
@@ -786,9 +790,9 @@ enum NodePhase {
 
 
 /// Holds information about the state of a node in the search tree.
-struct NodeState {
+struct NodeState<T: HashTable> {
     phase: NodePhase,
-    entry: TtEntry,
+    entry: T::Entry,
     killer: Option<MoveDigest>,
     is_check: bool,
 }
