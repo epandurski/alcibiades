@@ -41,7 +41,7 @@ use std::cell::Cell;
 use chesstypes::*;
 use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
 use search::MoveStack;
-use uci::SetOption;
+use engine::SetOption;
 use board::notation::parse_fen;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};

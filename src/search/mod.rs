@@ -11,14 +11,18 @@
 
 pub mod deepening;
 pub mod searchers;
+pub mod tt;
 
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use std::slice;
 use chesstypes::*;
-use tt::*;
-use uci::SetOption;
+use engine::SetOption;
+
+
+/// The maximum search depth in half-moves.
+pub const DEPTH_MAX: u8 = 63;
 
 
 /// Parameters describing a new search.
@@ -44,7 +48,7 @@ pub struct SearchParams {
 
     /// The lower bound for the new search.
     ///
-    /// Lesser than `upper_bound`, no lesser than `VALUE_MIN`.
+    /// No lesser than `VALUE_MIN`.
     pub lower_bound: Value,
 
     /// The upper bound for the new search.
@@ -97,8 +101,81 @@ pub struct SearchReport {
 }
 
 
+/// A trait for transposition tables.
+/// 
+/// Chess programs, during their brute-force search, encounter the
+/// same positions again and again, but from different sequences of
+/// moves, which is called a "transposition". When the search
+/// encounters a transposition, it is beneficial to "remember" what
+/// was determined last time the position was examined, rather than
+/// redoing the entire search again. For this reason, chess programs
+/// have a transposition table, which is a large hash table storing
+/// information about positions previously searched, how deeply they
+/// were searched, and what we concluded about them.
+pub trait HashTable: Sync + Send {
+    type Entry: HashTableEntry;
+
+    /// Creates a new transposition table.
+    ///
+    ///
+    /// `size_mb` is the desired size in Mbytes.
+    fn new(size_mb: Option<usize>) -> Self;
+
+    /// Signals that a new search is about to begin.
+    fn new_search(&self);
+
+    /// Stores data by key.
+    ///
+    /// After being stored, the data can be retrieved by `probe`. This
+    /// is not guaranteed though, because the entry might have been
+    /// overwritten in the meantime.
+    fn store(&self, key: u64, mut data: Self::Entry);
+
+    /// Probes for data by key.
+    fn probe(&self, key: u64) -> Option<Self::Entry>;
+
+    /// Removes all entries in the table.
+    fn clear(&self);
+}
+
+
+/// A trait for transposition table entries.
+pub trait HashTableEntry: Copy {
+    /// Creates a new instance.
+    ///
+    /// * `value` -- The value assigned to the position. Should not be
+    ///   `VALUE_UNKNOWN`.
+    ///
+    /// * `bound` -- The accuracy of the assigned `value`.
+    ///
+    /// * `depth` -- The depth of search. Should be no greater than
+    ///   `DEPTH_MAX`.
+    ///
+    /// * `move_digest` -- Best or refutation move digest, or `0` if
+    ///   no move is available.
+    ///
+    /// * `eval_value` -- The calculated static evaluation for the
+    ///   position, or `VALUE_UNKNOWN`.
+    fn new(value: Value,
+           bound: BoundType,
+           depth: u8,
+           move_digest: MoveDigest,
+           eval_value: Value)
+           -> Self;
+
+    fn value(&self) -> Value;
+    fn bound(&self) -> BoundType;
+    fn depth(&self) -> u8;
+    fn move_digest(&self) -> MoveDigest;
+    fn eval_value(&self) -> Value;
+}
+
+
 /// A trait for executing consecutive searches in different starting
 /// positions.
+///
+/// The type parameter `T` specifies the exact type of transposition
+/// table that the search implementation works with.
 ///
 /// Here is what the engine does on each move:
 ///
@@ -110,21 +187,22 @@ pub struct SearchReport {
 ///
 /// 3. On each completed search depth, the primary variation is
 ///    obtained from the transposition table.
-///
-/// **Important note:** The executing search must send periodic
-/// reports, informing about its current progress. Also, the executing
-/// search must continuously update the transposition table so that,
-/// at each moment, it contains the results of the work done so far.
-pub trait SearchExecutor: SetOption {
+pub trait SearchExecutor<T: HashTable>: SetOption {
     /// Creates a new instance.
-    fn new(tt: Arc<Tt>) -> Self;
+    fn new(tt: Arc<T>) -> Self;
 
     /// Starts a new search.
     ///
-    /// After calling `start_search`, `try_recv_report` will be called
-    /// periodically until the returned report indicates that the
-    /// search is done. A new search will not be started until the
-    /// previous search is done.
+    /// After calling `start_search`, `wait_report` and
+    /// `try_recv_report` will be called periodically until the
+    /// returned report indicates that the search is done. A new
+    /// search will not be started until the previous search is done.
+    ///
+    /// **Important note:** The executing search must send periodic
+    /// reports, informing about its current progress. Also, the
+    /// executing search must continuously update the transposition
+    /// table so that, at each moment, it contains the results of the
+    /// work done so far.
     fn start_search(&mut self, params: SearchParams);
 
     /// Attempts to return a search progress report without blocking.
@@ -136,19 +214,19 @@ pub trait SearchExecutor: SetOption {
 
     /// Requests the termination of the current search.
     ///
-    /// After calling `terminate`, `try_recv_report` will continue to
-    /// be called periodically until the returned report indicates
-    /// that the search is done.
+    /// After calling `terminate`, `wait_report` and `try_recv_report`
+    /// will continue to be called periodically until the returned
+    /// report indicates that the search is done.
     fn terminate_search(&mut self);
 }
 
 
-/// A trait for interacting with chess positions.
+/// A trait for chess positions.
 ///
 /// `SearchNode` presents a convenient interface to the tree-searching
-/// algorithm. A `SearchNode` can generate the all possible moves
-/// (plus a "null move") in the current position, play a selected move
-/// and take it back. It can also quickly (without doing extensive
+/// algorithm. A `SearchNode` can generate all possible moves (plus a
+/// "null move") in the current position, play a selected move and
+/// take it back. It can also quickly (without doing extensive
 /// tree-searching) evaluate the chances of the sides, so that the
 /// tree-searching algorithm can use this evaluation to assign
 /// realistic game outcomes to its leaf nodes.

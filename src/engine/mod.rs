@@ -1,17 +1,20 @@
 //! Implements higher-level facilities.
 
+mod uci;
 pub mod time_manager;
 
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use std::cmp::{max, Ordering};
+use std::ops::Deref;
+use std::io;
 use chesstypes::*;
-use tt::*;
-use uci::*;
 use search::*;
 use board::Position;
 use self::time_manager::*;
+use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
+pub use self::uci::{SetOption, OptionDescription};
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).
@@ -38,16 +41,17 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-pub struct Engine<S, F>
-    where S: SearchExecutor,
+struct Engine<T, S, F>
+    where T: HashTable,
+          S: SearchExecutor<T>,
           F: SearchNodeFactory
 {
-    tt: Arc<Tt>,
+    tt: Arc<T>,
     position: F::Node,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
-    search_thread: SearchThread<S>,
+    search_thread: SearchThread<T, S>,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -76,7 +80,7 @@ pub struct Engine<S, F>
 }
 
 
-impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
+impl<T: HashTable, S: SearchExecutor<T>, F: SearchNodeFactory> Engine<T, S, F> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -132,7 +136,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
 }
 
 
-impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
+impl<T: HashTable, S: SearchExecutor<T>, F: SearchNodeFactory> UciEngine for Engine<T, S, F> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
     }
@@ -164,11 +168,8 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
         options_dedup
     }
 
-    fn new(tt_size_mb: Option<usize>) -> Engine<S, F> {
-        let mut tt = Tt::new();
-        let tt_size_mb = tt_size_mb.unwrap_or(16);
-        tt.resize(tt_size_mb);
-        let tt = Arc::new(tt);
+    fn new(tt_size_mb: Option<usize>) -> Engine<T, S, F> {
+        let tt = Arc::new(T::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
             position: F::create(START_POSITION_FEN, &mut vec![].into_iter()).ok().unwrap(),
@@ -320,16 +321,16 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
 
 /// A thread that executes consecutive searches in different starting
 /// positions.
-struct SearchThread<S: SearchExecutor> {
-    tt: Arc<Tt>,
+struct SearchThread<T: HashTable, S: SearchExecutor<T>> {
+    tt: Arc<T>,
     position: Box<SearchNode>,
     status: SearchStatus,
     searcher: S,
 }
 
-impl<S: SearchExecutor> SearchThread<S> {
+impl<T: HashTable, S: SearchExecutor<T>> SearchThread<T, S> {
     /// Creates a new instance.
-    pub fn new(tt: Arc<Tt>) -> SearchThread<S> {
+    pub fn new(tt: Arc<T>) -> SearchThread<T, S> {
         use board::evaluators::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
@@ -454,7 +455,7 @@ impl<S: SearchExecutor> SearchThread<S> {
                           (1000 + self.status.duration_millis);
         if self.status.depth < report.depth {
             self.status.depth = report.depth;
-            self.status.variations = vec![extract_pv(&self.tt,
+            self.status.variations = vec![extract_pv(self.tt.deref(),
                                                      self.position.as_ref(),
                                                      report.depth)];
         }
@@ -482,7 +483,7 @@ pub struct Variation {
 /// 
 /// **Important note:** Values under `-9999`, or over `9999` will be
 /// chopped.
-fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
+fn extract_pv<T: HashTable>(tt: &T, position: &SearchNode, depth: u8) -> Variation {
     let mut p = position.copy();
     let mut our_turn = true;
     let mut root_value = VALUE_UNKNOWN;
@@ -526,7 +527,7 @@ fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
             // Continue the move extraction cycle until `depth` is
             // reached or `leaf_value` has diverged from `root_value`.
             if pv_moves.len() < depth as usize && leaf_value == root_value {
-                if let Some(m) = p.try_move_digest(entry.move16()) {
+                if let Some(m) = p.try_move_digest(entry.move_digest()) {
                     if p.do_move(m) {
                         pv_moves.push(m);
                         if leaf_bound == BOUND_EXACT {
@@ -553,4 +554,19 @@ fn extract_pv(tt: &Tt, position: &SearchNode, depth: u8) -> Variation {
         },
         moves: pv_moves,
     }
+}
+
+
+/// Serves UCI commands until a "quit" command is received.
+///
+/// The current thread will block until the UCI session is closed.
+///
+/// Returns `Err` if the handshake was unsuccessful, or if an IO error
+/// occurred.
+pub fn run<T, S, F>() -> io::Result<()>
+    where T: HashTable,
+          S: SearchExecutor<T>,
+          F: SearchNodeFactory
+{
+    run_server::<Engine<T, S, F>>()
 }
