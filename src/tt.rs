@@ -28,9 +28,9 @@ pub trait HashTable: Sync + Send {
     /// Creates a new transposition table.
     ///
     ///
-    /// `size_mb` is the desired new size in Mbytes. If `size_mb` is
-    /// not in the form `1 << n`, the size of the transposition table
-    /// will be as close as possible, but less than `size_mb`.
+    /// `size_mb` is the desired size in Mbytes. If `size_mb` is not
+    /// in the form `1 << n`, the size of the transposition table will
+    /// be as close as possible, but less than `size_mb`.
     fn new(size_mb: Option<usize>) -> Self;
 
     /// Signals that a new search is about to begin.
