@@ -6,17 +6,15 @@ extern crate rand;
 pub mod chesstypes;
 pub mod board;
 pub mod search;
-pub mod uci;
 pub mod engine;
 
 use std::process::exit;
-use uci::run_server;
 use search::deepening::{Deepening, Multipv};
 use search::searchers::StandardSearcher;
 use search::tt::Tt;
 use board::Position;
 use board::evaluators::RandomEvaluator;
-use engine::Engine;
+use engine::{Engine, run_server};
 
 fn main() {
     exit(match run_server::<Engine<Tt,

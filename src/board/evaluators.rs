@@ -2,7 +2,7 @@
 
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
-use uci::SetOption;
+use engine::SetOption;
 use super::{Board, BoardEvaluator};
 use super::bitsets::*;
 

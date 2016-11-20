@@ -9,7 +9,7 @@ use std::time::Duration;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use chesstypes::*;
-use uci::SetOption;
+use engine::SetOption;
 use super::*;
 use super::contains_same_moves;
 

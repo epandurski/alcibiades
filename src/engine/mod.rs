@@ -1,5 +1,6 @@
 //! Implements higher-level facilities.
 
+mod uci;
 pub mod time_manager;
 
 use std::collections::VecDeque;
@@ -8,10 +9,11 @@ use std::time::{SystemTime, Duration};
 use std::cmp::{max, Ordering};
 use std::ops::Deref;
 use chesstypes::*;
-use uci::*;
 use search::*;
 use board::Position;
 use self::time_manager::*;
+use self::uci::{UciEngine, EngineReply, InfoItem, GoParams};
+pub use self::uci::{SetOption, OptionDescription, run_server};
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).

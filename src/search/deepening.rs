@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
 use std::marker::PhantomData;
 use chesstypes::*;
-use uci::{SetOption, OptionDescription};
+use engine::{SetOption, OptionDescription};
 use super::*;
 use super::{contains_dups, contains_same_moves};
 

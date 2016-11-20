@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use std::slice;
 use chesstypes::*;
-use uci::SetOption;
+use engine::SetOption;
 
 
 /// The maximum search depth in half-moves.
