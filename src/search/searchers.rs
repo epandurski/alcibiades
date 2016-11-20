@@ -924,9 +924,9 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
-    use tt::*;
     use chesstypes::*;
     use search::{SearchNode, SearchNodeFactory, MoveStack, HashTable};
+    use search::tt::Tt;
     use board::Position;
     use board::evaluators::RandomEvaluator;
 

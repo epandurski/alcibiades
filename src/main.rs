@@ -7,14 +7,13 @@ pub mod chesstypes;
 pub mod board;
 pub mod search;
 pub mod uci;
-pub mod tt;
 pub mod engine;
 
 use std::process::exit;
 use uci::run_server;
 use search::deepening::{Deepening, Multipv};
 use search::searchers::StandardSearcher;
-use tt::Tt;
+use search::tt::Tt;
 use board::Position;
 use board::evaluators::RandomEvaluator;
 use engine::Engine;

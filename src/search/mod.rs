@@ -11,6 +11,7 @@
 
 pub mod deepening;
 pub mod searchers;
+pub mod tt;
 
 use std::time::Duration;
 use std::sync::Arc;
