@@ -931,7 +931,7 @@ mod tests {
                                                     &mut vec![].into_iter())
                     .ok()
                     .unwrap();
-        let tt = Tt::new();
+        let tt = Tt::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(Box::new(p), &tt, &mut moves, &mut report);

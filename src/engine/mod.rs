@@ -165,10 +165,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
     }
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S, F> {
-        let mut tt = Tt::new();
-        let tt_size_mb = tt_size_mb.unwrap_or(16);
-        tt.resize(tt_size_mb);
-        let tt = Arc::new(tt);
+        let tt = Arc::new(Tt::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
             position: F::create(START_POSITION_FEN, &mut vec![].into_iter()).ok().unwrap(),

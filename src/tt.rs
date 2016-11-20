@@ -31,20 +31,11 @@ pub trait HashTable: Sync {
 
     /// Creates a new transposition table.
     ///
-    /// The newly created table has the minimum possible size. Before
-    /// using the new table for anything, `resize()` should be called
-    /// on it, specifying the desired size.
-    fn new() -> Self;
-
-    /// Resizes the transposition table. All entries in the table are
-    /// lost.
     ///
-    /// `size_mb` is the desired new size in Mbytes. The new size will
-    ///  not exceed `size_mb`.
-    fn resize(&mut self, size_mb: usize);
-
-    /// Returns the size of the transposition table in Mbytes.
-    fn size(&self) -> usize;
+    /// `size_mb` is the desired new size in Mbytes. If `size_mb` is
+    /// not in the form `1 << n`, the size of the transposition table
+    /// will be as close as possible, but less than `size_mb`.
+    fn new(size_mb: Option<usize>) -> Self;
 
     /// Signals that a new search is about to begin.
     fn new_search(&self);
@@ -201,49 +192,32 @@ pub struct Tt {
 impl Tt {
     /// Creates a new transposition table.
     ///
-    /// The newly created table has the minimum possible size. Before
-    /// using the new table for anything, `resize()` should be called
-    /// on it, specifying the desired size.
-    pub fn new() -> Tt {
-        Tt {
-            generation: Cell::new(0),
-            cluster_count: 1,
-            table: UnsafeCell::new(vec![Default::default()]),
-        }
-    }
-
-    /// Resizes the transposition table. All entries in the table will
-    /// be lost.
-    ///
     /// `size_mb` is the desired new size in Mbytes. If `size_mb` is
-    /// not in the form "2**n", the new size of the transposition
+    /// not in the form `1 << n`, the new size of the transposition
     /// table will be as close as possible, but less than `size_mb`.
-    pub fn resize(&mut self, size_mb: usize) {
+    pub fn new(size_mb: Option<usize>) -> Tt {
+        let size_mb = size_mb.unwrap_or(16);
         let requested_cluster_count = (size_mb * 1024 * 1024) / size_of::<[Record; 4]>();
 
-        // Calculate the new cluster count. (To do this, first we make
+        // Calculate the cluster count. (To do this, first we make
         // sure that `requested_cluster_count` is exceeded. Then we
         // make one step back.)
-        let mut new_cluster_count = 1;
-        while new_cluster_count <= requested_cluster_count && new_cluster_count != 0 {
-            new_cluster_count <<= 1;
+        let mut cluster_count = 1;
+        while cluster_count <= requested_cluster_count && cluster_count != 0 {
+            cluster_count <<= 1;
         }
-        if new_cluster_count > 1 {
-            new_cluster_count >>= 1;
+        if cluster_count > 1 {
+            cluster_count >>= 1;
         } else {
-            new_cluster_count = 1;
+            cluster_count = 1;
         }
-        assert!(new_cluster_count > 0);
+        assert!(cluster_count > 0);
 
-        // Allocate the new vector of clusters.
-        self.generation.set(0);
-        self.cluster_count = new_cluster_count;
-        self.table = UnsafeCell::new(vec![Default::default(); new_cluster_count]);
-    }
-
-    /// Returns the size of the transposition table in Mbytes.
-    pub fn size(&self) -> usize {
-        self.cluster_count * size_of::<[Record; 4]>() / 1024 / 1024
+        Tt {
+            generation: Cell::new(0),
+            cluster_count: cluster_count,
+            table: UnsafeCell::new(vec![Default::default(); cluster_count]),
+        }
     }
 
     /// Signals that a new search is about to begin.
@@ -470,17 +444,8 @@ mod tests {
     }
 
     #[test]
-    fn test_tt_resize() {
-        let mut tt = Tt::new();
-        assert_eq!(unsafe { &*tt.table.get() }.capacity(), 1);
-        tt.resize(1);
-        assert_eq!(tt.size(), 1);
-        tt.clear();
-    }
-
-    #[test]
     fn test_store_and_probe() {
-        let tt = Tt::new();
+        let tt = Tt::new(None);
         assert!(tt.probe(1).is_none());
         let data = TtEntry::new(0, 0, 50, 666, 0);
         assert_eq!(data.depth(), 50);
@@ -507,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_new_search() {
-        let tt = Tt::new();
+        let tt = Tt::new(None);
         assert_eq!(tt.generation.get(), 0 << 2);
         tt.new_search();
         assert_eq!(tt.generation.get(), 1 << 2);
