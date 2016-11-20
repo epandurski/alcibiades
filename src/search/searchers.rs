@@ -927,7 +927,7 @@ mod tests {
     use super::{Search, KillerTable};
     use tt::*;
     use chesstypes::*;
-    use search::{SearchNode, SearchNodeFactory, MoveStack};
+    use search::{SearchNode, SearchNodeFactory, MoveStack, HashTable};
     use board::Position;
     use board::evaluators::RandomEvaluator;
 

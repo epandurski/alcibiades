@@ -17,7 +17,6 @@ use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use std::slice;
 use chesstypes::*;
-use tt::*;
 use uci::SetOption;
 
 
@@ -44,7 +43,7 @@ pub struct SearchParams {
 
     /// The lower bound for the new search.
     ///
-    /// Lesser than `upper_bound`, no lesser than `VALUE_MIN`.
+    /// No lesser than `VALUE_MIN`.
     pub lower_bound: Value,
 
     /// The upper bound for the new search.
@@ -97,6 +96,76 @@ pub struct SearchReport {
 }
 
 
+/// A trait for transposition tables.
+/// 
+/// Chess programs, during their brute-force search, encounter the
+/// same positions again and again, but from different sequences of
+/// moves, which is called a "transposition". When the search
+/// encounters a transposition, it is beneficial to "remember" what
+/// was determined last time the position was examined, rather than
+/// redoing the entire search again. For this reason, chess programs
+/// have a transposition table, which is a large hash table storing
+/// information about positions previously searched, how deeply they
+/// were searched, and what we concluded about them.
+pub trait HashTable: Sync + Send {
+    type Entry: HashTableEntry;
+
+    /// Creates a new transposition table.
+    ///
+    ///
+    /// `size_mb` is the desired size in Mbytes.
+    fn new(size_mb: Option<usize>) -> Self;
+
+    /// Signals that a new search is about to begin.
+    fn new_search(&self);
+
+    /// Stores data by key.
+    ///
+    /// After being stored, the data can be retrieved by `probe`. This
+    /// is not guaranteed though, because the entry might have been
+    /// overwritten in the meantime.
+    fn store(&self, key: u64, mut data: Self::Entry);
+
+    /// Probes for data by key.
+    fn probe(&self, key: u64) -> Option<Self::Entry>;
+
+    /// Removes all entries in the table.
+    fn clear(&self);
+}
+
+
+/// A trait for transposition table entries.
+pub trait HashTableEntry: Copy {
+    /// Creates a new instance.
+    ///
+    /// * `value` -- The value assigned to the position. (Must not be
+    ///   `VALUE_UNKNOWN`.)
+    ///
+    /// * `bound` -- The accuracy of the assigned `value`.
+    ///
+    /// * `depth` -- The depth of search. (Must be no greater than
+    ///   `DEPTH_MAX`.)
+    ///
+    /// * `move16` -- Best or refutation move, or `0` if no move is
+    ///   available.
+    ///
+    /// * `eval_value` -- The calculated static evaluation for the
+    ///   position, or `VALUE_UNKNOWN`.
+    fn new(value: Value,
+           bound: BoundType,
+           depth: u8,
+           move16: MoveDigest,
+           eval_value: Value)
+           -> Self;
+
+    fn value(&self) -> Value;
+    fn bound(&self) -> BoundType;
+    fn depth(&self) -> u8;
+    fn move16(&self) -> MoveDigest;
+    fn eval_value(&self) -> Value;
+}
+
+
 /// A trait for executing consecutive searches in different starting
 /// positions.
 ///
@@ -143,12 +212,12 @@ pub trait SearchExecutor<T: HashTable>: SetOption {
 }
 
 
-/// A trait for interacting with chess positions.
+/// A trait for chess positions.
 ///
 /// `SearchNode` presents a convenient interface to the tree-searching
-/// algorithm. A `SearchNode` can generate the all possible moves
-/// (plus a "null move") in the current position, play a selected move
-/// and take it back. It can also quickly (without doing extensive
+/// algorithm. A `SearchNode` can generate all possible moves (plus a
+/// "null move") in the current position, play a selected move and
+/// take it back. It can also quickly (without doing extensive
 /// tree-searching) evaluate the chances of the sides, so that the
 /// tree-searching algorithm can use this evaluation to assign
 /// realistic game outcomes to its leaf nodes.

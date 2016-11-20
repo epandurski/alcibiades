@@ -1,86 +1,15 @@
 //! Implements a large hash-table that stores results of previously
 //! performed searches ("transposition table").
-//!
-//! Chess programs, during their brute-force search, encounter the
-//! same positions again and again, but from different sequences of
-//! moves, which is called a "transposition". When the search
-//! encounters a transposition, it is beneficial to "remember" what
-//! was determined last time the position was examined, rather than
-//! redoing the entire search again. For this reason, chess programs
-//! have a transposition table, which is a large hash table storing
-//! information about positions previously searched, how deeply they
-//! were searched, and what we concluded about them.
 
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
 use chesstypes::*;
+use search::{HashTable, HashTableEntry};
 
 
 /// The maximum search depth in half-moves.
 pub const DEPTH_MAX: u8 = 63;
-
-
-/// A trait for interacting with transposition tables.
-pub trait HashTable: Sync + Send {
-    type Entry: HashTableEntry;
-
-    /// Creates a new transposition table.
-    ///
-    ///
-    /// `size_mb` is the desired size in Mbytes. If `size_mb` is not
-    /// in the form `1 << n`, the size of the transposition table will
-    /// be as close as possible, but less than `size_mb`.
-    fn new(size_mb: Option<usize>) -> Self;
-
-    /// Signals that a new search is about to begin.
-    fn new_search(&self);
-
-    /// Stores data by a specific key.
-    ///
-    /// After being stored, the data can be retrieved by
-    /// `probe(key)`. This is not guaranteed though, because the entry
-    /// might have been overwritten in the meantime.
-    fn store(&self, key: u64, mut data: Self::Entry);
-
-    /// Probes for data by a specific key.
-    fn probe(&self, key: u64) -> Option<Self::Entry>;
-
-    /// Removes all entries in the table.
-    fn clear(&self);
-}
-
-
-/// A trait for interacting with transposition table entries.
-pub trait HashTableEntry: Copy {
-    /// Creates a new instance.
-    ///
-    /// * `value` -- The value assigned to the position. (Must not be
-    ///   `VALUE_UNKNOWN`.)
-    ///
-    /// * `bound` -- The accuracy of the assigned `value`.
-    ///
-    /// * `depth` -- The depth of search. (Must be no greater than
-    ///   `DEPTH_MAX`.)
-    ///
-    /// * `move16` -- Best or refutation move, or `0` if no move is
-    ///   available.
-    ///
-    /// * `eval_value` -- The calculated static evaluation for the
-    ///   position, or `VALUE_UNKNOWN`.
-    fn new(value: Value,
-           bound: BoundType,
-           depth: u8,
-           move16: MoveDigest,
-           eval_value: Value)
-           -> Self;
-
-    fn value(&self) -> Value;
-    fn bound(&self) -> BoundType;
-    fn depth(&self) -> u8;
-    fn move16(&self) -> MoveDigest;
-    fn eval_value(&self) -> Value;
-}
 
 
 /// Contains information about a particular position.
@@ -168,7 +97,7 @@ impl TtEntry {
 }
 
 
-/// A lock-less transposition table.
+/// A transposition table.
 pub struct Tt {
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.
@@ -412,6 +341,7 @@ mod tests {
     use super::*;
     use super::Record;
     use std;
+    use search::{HashTable, HashTableEntry};
 
     #[test]
     fn test_max_depth() {
