@@ -26,7 +26,9 @@ pub const DEPTH_MAX: u8 = 63;
 /// The methods in this trait (except `resize`) do not require a
 /// mutable reference to do their work. This allows one transposition
 /// table instance to be shared safely between many threads.
-pub trait TranspositionTable: Sync {
+pub trait HashTable: Sync {
+    type Entry: HashTableEntry;
+
     /// Creates a new transposition table.
     ///
     /// The newly created table has the minimum possible size. Before
@@ -52,29 +54,61 @@ pub trait TranspositionTable: Sync {
     /// After being stored, the data might be retrieved by
     /// `probe(key)`. This is not guaranteed though, because the entry
     /// might have been overwritten in the meantime.
-    fn store(&self, key: u64, mut data: TtEntry);
+    fn store(&self, key: u64, mut data: Self::Entry);
 
     /// Probes for data by a specific key.
-    fn probe(&self, key: u64) -> Option<TtEntry>;
+    fn probe(&self, key: u64) -> Option<Self::Entry>;
 
     /// Removes all entries in the table.
     fn clear(&self);
 }
 
 
+pub trait HashTableEntry {
+    /// Creates a new instance.
+    ///
+    /// * `value` -- The value assigned to the position. (Must not be
+    ///   `VALUE_UNKNOWN`.)
+    ///
+    /// * `bound` -- The accuracy of the assigned `value`.
+    ///
+    /// * `depth` -- The depth of search. (Must be no greater than
+    ///   `DEPTH_MAX`.)
+    ///
+    /// * `move16` -- Best or refutation move, or `0` if no move is
+    ///   available.
+    ///
+    /// * `eval_value` -- The calculated static evaluation for the
+    ///   position, or `VALUE_UNKNOWN`.
+    fn new(value: Value,
+           bound: BoundType,
+           depth: u8,
+           move16: MoveDigest,
+           eval_value: Value)
+           -> Self;
+
+    fn value(&self) -> Value;
+    fn bound(&self) -> BoundType;
+    fn depth(&self) -> u8;
+    fn move16(&self) -> MoveDigest;
+    fn eval_value(&self) -> Value;
+}
+
+
 /// Contains information about a particular position.
 #[derive(Copy, Clone, Debug)]
 pub struct TtEntry {
-    move16: MoveDigest,
     value: Value,
-    eval_value: Value,
-    depth: u8,
 
     // The transposition table maintains a generation number for each
     // entry, which is used to implement an efficient replacement
     // strategy. This field stores the entry's generation (the highest
     // 6 bits) and the bound type (the lowest 2 bits).
     gen_bound: u8,
+
+    depth: u8,
+    move16: MoveDigest,
+    eval_value: Value,
 }
 
 
@@ -104,11 +138,11 @@ impl TtEntry {
         debug_assert!(bound <= 0b11);
         debug_assert!(depth <= DEPTH_MAX);
         TtEntry {
-            move16: move16,
             value: value,
-            eval_value: eval_value,
-            depth: depth,
             gen_bound: bound,
+            depth: depth,
+            move16: move16,
+            eval_value: eval_value,
         }
     }
 
@@ -143,7 +177,6 @@ impl TtEntry {
         unsafe { transmute(*self) }
     }
 }
-
 
 
 /// A transposition table.
