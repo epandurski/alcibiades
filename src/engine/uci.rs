@@ -209,22 +209,6 @@ pub enum OptionDescription {
 }
 
 
-/// A trait for announcing and changing configuration options.
-pub trait SetOption {
-    /// Returns a list of supported configuration options (name and
-    /// description).
-    fn options() -> Vec<(String, OptionDescription)> {
-        vec![]
-    }
-
-    /// Sets a new value for a given configuration option.
-    ///
-    /// Does nothing if called with unsupported option name.
-    #[allow(unused_variables)]
-    fn set_option(name: &str, value: &str) {}
-}
-
-
 /// A trait for UCI-compatible chess engines.
 ///
 /// The methods in this trait, except the method `wait_for_reply`,

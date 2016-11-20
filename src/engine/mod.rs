@@ -14,7 +14,23 @@ use search::*;
 use board::Position;
 use self::time_manager::*;
 use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
-pub use self::uci::{SetOption, OptionDescription};
+pub use self::uci::OptionDescription;
+
+
+/// A trait for announcing and changing configuration options.
+pub trait SetOption {
+    /// Returns a list of supported configuration options (name and
+    /// description).
+    fn options() -> Vec<(String, OptionDescription)> {
+        vec![]
+    }
+
+    /// Sets a new value for a given configuration option.
+    ///
+    /// Does nothing if called with unsupported option name.
+    #[allow(unused_variables)]
+    fn set_option(name: &str, value: &str) {}
+}
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).
