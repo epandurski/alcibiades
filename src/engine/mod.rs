@@ -44,7 +44,7 @@ pub struct Engine<T, S, F>
           F: SearchNodeFactory
 {
     tt: Arc<T>,
-    position: F::T,
+    position: F::Node,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.

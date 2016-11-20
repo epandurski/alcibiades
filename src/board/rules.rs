@@ -419,7 +419,7 @@ impl<E: BoardEvaluator + 'static> Position<E> {
 
 
 impl<E: BoardEvaluator + 'static> SearchNodeFactory for Position<E> {
-    type T = Position<E>;
+    type Node = Position<E>;
 
     fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Position<E>, String> {
         let mut p: Position<E> = try!(Position::from_fen(fen));
