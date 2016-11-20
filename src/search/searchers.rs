@@ -9,7 +9,6 @@ use std::time::Duration;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use chesstypes::*;
-use tt::*;
 use uci::SetOption;
 use super::*;
 use super::contains_same_moves;
@@ -590,7 +589,7 @@ impl<'a, T: HashTable + 'a> Search<'a, T> {
         // Try the hash move.
         if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
-            if let Some(mut m) = self.position.try_move_digest(state.entry.move16()) {
+            if let Some(mut m) = self.position.try_move_digest(state.entry.move_digest()) {
                 if self.position.do_move(m) {
                     m.set_score(MOVE_SCORE_MAX);
                     return Some(m);
@@ -605,8 +604,8 @@ impl<'a, T: HashTable + 'a> Search<'a, T> {
 
             // We should not forget to remove the already tried hash
             // move from the list.
-            if state.entry.move16() != 0 {
-                self.moves.remove(state.entry.move16());
+            if state.entry.move_digest() != 0 {
+                self.moves.remove(state.entry.move_digest());
             }
 
             // We set new move scores to all captures and promotions

@@ -20,6 +20,10 @@ use chesstypes::*;
 use uci::SetOption;
 
 
+/// The maximum search depth in half-moves.
+pub const DEPTH_MAX: u8 = 63;
+
+
 /// Parameters describing a new search.
 ///
 /// **Important note:** `lower_bound` and `upper_bound` fields
@@ -138,36 +142,39 @@ pub trait HashTable: Sync + Send {
 pub trait HashTableEntry: Copy {
     /// Creates a new instance.
     ///
-    /// * `value` -- The value assigned to the position. (Must not be
-    ///   `VALUE_UNKNOWN`.)
+    /// * `value` -- The value assigned to the position. Should not be
+    ///   `VALUE_UNKNOWN`.
     ///
     /// * `bound` -- The accuracy of the assigned `value`.
     ///
-    /// * `depth` -- The depth of search. (Must be no greater than
-    ///   `DEPTH_MAX`.)
+    /// * `depth` -- The depth of search. Should be no greater than
+    ///   `DEPTH_MAX`.
     ///
-    /// * `move16` -- Best or refutation move, or `0` if no move is
-    ///   available.
+    /// * `move_digest` -- Best or refutation move digest, or `0` if
+    ///   no move is available.
     ///
     /// * `eval_value` -- The calculated static evaluation for the
     ///   position, or `VALUE_UNKNOWN`.
     fn new(value: Value,
            bound: BoundType,
            depth: u8,
-           move16: MoveDigest,
+           move_digest: MoveDigest,
            eval_value: Value)
            -> Self;
 
     fn value(&self) -> Value;
     fn bound(&self) -> BoundType;
     fn depth(&self) -> u8;
-    fn move16(&self) -> MoveDigest;
+    fn move_digest(&self) -> MoveDigest;
     fn eval_value(&self) -> Value;
 }
 
 
 /// A trait for executing consecutive searches in different starting
 /// positions.
+///
+/// The type parameter `T` specifies the exact type of transposition
+/// table that the search implementation works with.
 ///
 /// Here is what the engine does on each move:
 ///
@@ -179,21 +186,22 @@ pub trait HashTableEntry: Copy {
 ///
 /// 3. On each completed search depth, the primary variation is
 ///    obtained from the transposition table.
-///
-/// **Important note:** The executing search must send periodic
-/// reports, informing about its current progress. Also, the executing
-/// search must continuously update the transposition table so that,
-/// at each moment, it contains the results of the work done so far.
 pub trait SearchExecutor<T: HashTable>: SetOption {
     /// Creates a new instance.
     fn new(tt: Arc<T>) -> Self;
 
     /// Starts a new search.
     ///
-    /// After calling `start_search`, `try_recv_report` will be called
-    /// periodically until the returned report indicates that the
-    /// search is done. A new search will not be started until the
-    /// previous search is done.
+    /// After calling `start_search`, `wait_report` and
+    /// `try_recv_report` will be called periodically until the
+    /// returned report indicates that the search is done. A new
+    /// search will not be started until the previous search is done.
+    ///
+    /// **Important note:** The executing search must send periodic
+    /// reports, informing about its current progress. Also, the
+    /// executing search must continuously update the transposition
+    /// table so that, at each moment, it contains the results of the
+    /// work done so far.
     fn start_search(&mut self, params: SearchParams);
 
     /// Attempts to return a search progress report without blocking.
@@ -205,9 +213,9 @@ pub trait SearchExecutor<T: HashTable>: SetOption {
 
     /// Requests the termination of the current search.
     ///
-    /// After calling `terminate`, `try_recv_report` will continue to
-    /// be called periodically until the returned report indicates
-    /// that the search is done.
+    /// After calling `terminate`, `wait_report` and `try_recv_report`
+    /// will continue to be called periodically until the returned
+    /// report indicates that the search is done.
     fn terminate_search(&mut self);
 }
 

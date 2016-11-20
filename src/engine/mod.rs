@@ -8,7 +8,6 @@ use std::time::{SystemTime, Duration};
 use std::cmp::{max, Ordering};
 use std::ops::Deref;
 use chesstypes::*;
-use tt::*;
 use uci::*;
 use search::*;
 use board::Position;
@@ -525,7 +524,7 @@ fn extract_pv<T: HashTable>(tt: &T, position: &SearchNode, depth: u8) -> Variati
             // Continue the move extraction cycle until `depth` is
             // reached or `leaf_value` has diverged from `root_value`.
             if pv_moves.len() < depth as usize && leaf_value == root_value {
-                if let Some(m) = p.try_move_digest(entry.move16()) {
+                if let Some(m) = p.try_move_digest(entry.move_digest()) {
                     if p.do_move(m) {
                         pv_moves.push(m);
                         if leaf_bound == BOUND_EXACT {

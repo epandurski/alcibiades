@@ -5,11 +5,7 @@ use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
 use chesstypes::*;
-use search::{HashTable, HashTableEntry};
-
-
-/// The maximum search depth in half-moves.
-pub const DEPTH_MAX: u8 = 63;
+use search::{HashTable, HashTableEntry, DEPTH_MAX};
 
 
 /// Contains information about a particular position.
@@ -24,30 +20,15 @@ pub struct TtEntry {
     gen_bound: u8,
 
     depth: u8,
-    move16: MoveDigest,
+    move_digest: MoveDigest,
     eval_value: Value,
 }
 
 impl HashTableEntry for TtEntry {
-    /// Creates a new instance.
-    ///
-    /// * `value` -- The value assigned to the position. (Must not be
-    ///   `VALUE_UNKNOWN`.)
-    /// 
-    /// * `bound` -- The accuracy of the assigned `value`.
-    /// 
-    /// * `depth` -- The depth of search. (Must be no greater than
-    ///   `DEPTH_MAX`.)
-    /// 
-    /// * `move16` -- Best or refutation move, or `0` if no move is
-    ///   available.
-    /// 
-    /// * `eval_value` -- The calculated static evaluation for the
-    ///   position, or `VALUE_UNKNOWN`.
     fn new(value: Value,
            bound: BoundType,
            depth: u8,
-           move16: MoveDigest,
+           move_digest: MoveDigest,
            eval_value: Value)
            -> TtEntry {
         debug_assert!(value != VALUE_UNKNOWN);
@@ -57,7 +38,7 @@ impl HashTableEntry for TtEntry {
             value: value,
             gen_bound: bound,
             depth: depth,
-            move16: move16,
+            move_digest: move_digest,
             eval_value: eval_value,
         }
     }
@@ -78,8 +59,8 @@ impl HashTableEntry for TtEntry {
     }
 
     #[inline(always)]
-    fn move16(&self) -> MoveDigest {
-        self.move16
+    fn move_digest(&self) -> MoveDigest {
+        self.move_digest
     }
 
     #[inline(always)]
@@ -189,8 +170,8 @@ impl HashTable for Tt {
             // the same key. If this this is the case we will use this
             // slot for the new record.
             if record.key == 0 || record.key ^ record.data.as_u64() == key {
-                if data.move16 == 0 {
-                    data.move16 = record.data.move16; // Preserve any existing move.
+                if data.move_digest == 0 {
+                    data.move_digest = record.data.move_digest; // Preserve any existing move.
                 }
                 replace_index = i;
                 break;
@@ -291,13 +272,13 @@ unsafe impl Sync for Tt {}
 ///
 /// It consists of 16 bytes, and is laid out the following way:
 ///
-/// * key        64 bit
-/// * move16     16 bit
-/// * value      16 bit
-/// * eval value 16 bit
-/// * depth       8 bit
-/// * generation  6 bit
-/// * bound type  2 bit
+/// * key         64 bit
+/// * move_digest 16 bit
+/// * value       16 bit
+/// * eval value  16 bit
+/// * depth        8 bit
+/// * generation   6 bit
+/// * bound type   2 bit
 #[derive(Copy, Clone)]
 struct Record {
     key: u64,
@@ -341,7 +322,7 @@ mod tests {
     use super::*;
     use super::Record;
     use std;
-    use search::{HashTable, HashTableEntry};
+    use search::{HashTable, HashTableEntry, DEPTH_MAX};
 
     #[test]
     fn test_max_depth() {
@@ -360,12 +341,12 @@ mod tests {
         assert!(tt.probe(1).is_none());
         let data = TtEntry::new(0, 0, 50, 666, 0);
         assert_eq!(data.depth(), 50);
-        assert_eq!(data.move16(), 666);
+        assert_eq!(data.move_digest(), 666);
         tt.store(1, data);
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         tt.store(1, TtEntry::new(0, 0, 50, 666, 0));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        assert_eq!(tt.probe(1).unwrap().move16(), 666);
+        assert_eq!(tt.probe(1).unwrap().move_digest(), 666);
         for i in 2..50 {
             tt.store(i, TtEntry::new(i as i16, 0, i as u8, i as u16, i as i16));
         }
