@@ -8,12 +8,13 @@ use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use std::cmp::{max, Ordering};
 use std::ops::Deref;
+use std::io;
 use chesstypes::*;
 use search::*;
 use board::Position;
 use self::time_manager::*;
-use self::uci::{UciEngine, EngineReply, InfoItem, GoParams};
-pub use self::uci::{SetOption, OptionDescription, run_server};
+use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
+pub use self::uci::{SetOption, OptionDescription};
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).
@@ -40,7 +41,7 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-pub struct Engine<T, S, F>
+struct Engine<T, S, F>
     where T: HashTable,
           S: SearchExecutor<T>,
           F: SearchNodeFactory
@@ -553,4 +554,19 @@ fn extract_pv<T: HashTable>(tt: &T, position: &SearchNode, depth: u8) -> Variati
         },
         moves: pv_moves,
     }
+}
+
+
+/// Serves UCI commands until a "quit" command is received.
+///
+/// The current thread will block until the UCI session is closed.
+///
+/// Returns `Err` if the handshake was unsuccessful, or if an IO error
+/// occurred.
+pub fn run<T, S, F>() -> io::Result<()>
+    where T: HashTable,
+          S: SearchExecutor<T>,
+          F: SearchNodeFactory
+{
+    run_server::<Engine<T, S, F>>()
 }

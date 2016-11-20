@@ -14,12 +14,12 @@ use search::searchers::StandardSearcher;
 use search::tt::Tt;
 use board::Position;
 use board::evaluators::RandomEvaluator;
-use engine::{Engine, run_server};
+use engine::run;
 
 fn main() {
-    exit(match run_server::<Engine<Tt,
-                                   Deepening<Tt, Multipv<Tt, StandardSearcher<Tt>>>,
-                                   Position<RandomEvaluator>>>() {
+    exit(match run::<Tt,
+                     Deepening<Tt, Multipv<Tt, StandardSearcher<Tt>>>,
+                     Position<RandomEvaluator>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })
