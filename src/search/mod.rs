@@ -1,4 +1,4 @@
-//! Facilities for implementing game-tree searchers.
+//! Facilities for implementing game-tree searching.
 //!
 //! Chess programs must rely on some type of search in order to play
 //! reasonably. Searching involves looking ahead at different move
