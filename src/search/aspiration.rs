@@ -47,11 +47,6 @@ pub struct Aspiration<T: SearchExecutor> {
 }
 
 impl<T: SearchExecutor> Aspiration<T> {
-    fn lmr_mode(mut self) -> Aspiration<T> {
-        self.lmr_mode = true;
-        self
-    }
-
     fn start_aspirated_search(&mut self) {
         let depth = if self.lmr_mode && self.expected_to_fail_high && self.params.depth > 0 {
             // `Multipv` implements late move reductions by using
@@ -327,12 +322,14 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     type SearchNode = T::SearchNode;
 
     fn new(tt: Arc<Self::HashTable>) -> Multipv<T> {
+        let mut searcher = Aspiration::new(tt.clone());
+        searcher.lmr_mode = true;
         Multipv {
-            tt: tt.clone(),
+            tt: tt,
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            searcher: Aspiration::new(tt).lmr_mode(),
+            searcher: searcher,
             variation_count: 1,
             current_move_index: 0,
             values: vec![VALUE_MIN],
