@@ -35,12 +35,13 @@ pub const DEPTH_MAX: u8 = 63;
 /// return a value that is closer to the the interval bounds than the
 /// exact evaluation, but always staying on the correct side of the
 /// interval.
-pub struct SearchParams {
+#[derive(Clone)]
+pub struct SearchParams<T: SearchNode> {
     /// A number identifying the new search.
     pub search_id: usize,
 
     /// The root position for the new search.
-    pub position: Box<SearchNode>,
+    pub position: T,
 
     /// The requested search depth.
     ///
@@ -64,16 +65,6 @@ pub struct SearchParams {
     /// is undefined if `searchmoves` is empty, but the supplied root
     /// position is not final.
     pub searchmoves: Vec<Move>,
-}
-
-impl Clone for SearchParams {
-    fn clone(&self) -> Self {
-        SearchParams {
-            position: self.position.copy(),
-            searchmoves: self.searchmoves.clone(),
-            ..*self
-        }
-    }
 }
 
 
@@ -188,6 +179,9 @@ pub trait HashTableEntry: Copy {
 pub trait SearchExecutor: SetOption {
     /// The type of transposition table that the implementation works with.
     type HashTable: HashTable;
+    
+    /// The type of search node that the implementation works with.
+    type SearchNode: SearchNode;
 
     /// Creates a new instance.
     fn new(tt: Arc<Self::HashTable>) -> Self;
@@ -204,7 +198,7 @@ pub trait SearchExecutor: SetOption {
     /// executing search must continuously update the transposition
     /// table so that, at each moment, it contains the results of the
     /// work done so far.
-    fn start_search(&mut self, params: SearchParams);
+    fn start_search(&mut self, params: SearchParams<Self::SearchNode>);
 
     /// Attempts to return a search progress report without blocking.
     fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError>;
@@ -234,8 +228,21 @@ pub trait SearchExecutor: SetOption {
 ///
 /// **Important note:** Repeating positions are considered a draw
 /// after the first repetition, not after the second one as the chess
-/// rules prescribe. This is done in the sake of efficiency.
-pub trait SearchNode: Send {
+/// rules prescribe. This is done in the sake of efficiency. In order
+/// to compensate for that, `SearchNode::create` should "forget" all
+/// positions that have occurred exactly once. Also, the newly created
+/// instance should never be deemed a draw due to repetition or
+/// rule-50.
+pub trait SearchNode: Send + Sized + Clone + SetOption {
+    /// Instantiates a new chess position from playing history.
+    ///
+    /// `fen` should be the Forsyth–Edwards Notation of a legal
+    /// starting position. `moves` should be an iterator over all the
+    /// moves that were played from that position. The move format is
+    /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
+    /// (white short castling), `e7e8q` (for promotion).
+    fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, String>;
+    
     /// Returns an almost unique hash value for the position.
     ///
     /// The returned value is good for use as transposition table key.
@@ -408,32 +415,6 @@ pub trait SearchNode: Send {
     /// `generate_moves` because it ensures that all returned moves
     /// are legal.
     fn legal_moves(&self) -> Vec<Move>;
-
-    /// Returns an exact copy of the position.
-    fn copy(&self) -> Box<SearchNode>;
-}
-
-
-/// A trait for instantiating chess positions.
-pub trait SearchNodeFactory: SetOption {
-    type Node: SearchNode;
-
-    /// Instantiates a new chess position from playing history.
-    ///
-    /// `fen` should be the Forsyth–Edwards Notation of a legal
-    /// starting position. `moves` should be an iterator over all the
-    /// moves that were played from that position. The move format is
-    /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
-    /// (white short castling), `e7e8q` (for promotion).
-    ///
-    /// **Important note:** The `SearchNode` trait deems a repeated
-    /// position a draw after the first repetition, not after the
-    /// second one as the chess rules prescribe. In order to
-    /// compensate for that, `SearchNodeFactory::create` should
-    /// "forget" all positions that have occurred exactly once. Also,
-    /// the newly created instance should never be deemed a draw due
-    /// to repetition or rule-50.
-    fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self::Node, String>;
 }
 
 

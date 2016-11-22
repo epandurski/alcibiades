@@ -1,7 +1,6 @@
 use std::cmp::min;
 use std::time::SystemTime;
 use chesstypes::*;
-use search::SearchNode;
 use super::Variation;
 
 
@@ -53,7 +52,7 @@ impl TimeManager {
     /// be incremented on each move (for black and white). `movestogo`
     /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
-    pub fn new(position: &SearchNode,
+    pub fn new(to_move: Color,
                pondering_is_allowed: bool,
                wtime_millis: Option<u64>,
                btime_millis: Option<u64>,
@@ -63,7 +62,7 @@ impl TimeManager {
                -> TimeManager {
         // TODO: We ignore "pondering_is_allowed".
 
-        let (time, inc) = if position.to_move() == WHITE {
+        let (time, inc) = if to_move == WHITE {
             (wtime_millis, winc_millis.unwrap_or(0))
         } else {
             (btime_millis, binc_millis.unwrap_or(0))

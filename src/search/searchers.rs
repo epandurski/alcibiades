@@ -37,20 +37,23 @@ use super::contains_same_moves;
 /// search parameter. It always analyses all legal moves in the root
 /// position, and always gives an empty list of `sorted_moves` in its
 /// progress reports.
-pub struct StandardSearcher<T: HashTable> {
+pub struct StandardSearcher<T: HashTable, N: SearchNode> {
     phantom: PhantomData<T>,
     thread_join_handle: Option<thread::JoinHandle<()>>,
-    thread_commands: Sender<Command>,
+    thread_commands: Sender<Command<N>>,
     thread_reports: Receiver<SearchReport>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl<T: HashTable> SetOption for StandardSearcher<T> {}
-
-impl<T: HashTable + 'static> SearchExecutor for StandardSearcher<T> {
+impl<T, N> SearchExecutor for StandardSearcher<T, N>
+    where T: HashTable + 'static,
+          N: SearchNode + 'static
+{
     type HashTable = T;
 
-    fn new(tt: Arc<T>) -> StandardSearcher<T> {
+    type SearchNode = N;
+
+    fn new(tt: Arc<T>) -> StandardSearcher<T, N> {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
@@ -67,7 +70,7 @@ impl<T: HashTable + 'static> SearchExecutor for StandardSearcher<T> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams) {
+    fn start_search(&mut self, params: SearchParams<N>) {
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
@@ -99,7 +102,9 @@ impl<T: HashTable + 'static> SearchExecutor for StandardSearcher<T> {
     }
 }
 
-impl<T: HashTable> Drop for StandardSearcher<T> {
+impl<T: HashTable, N: SearchNode> SetOption for StandardSearcher<T, N> {}
+
+impl<T: HashTable, N: SearchNode> Drop for StandardSearcher<T, N> {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();
@@ -108,9 +113,9 @@ impl<T: HashTable> Drop for StandardSearcher<T> {
 
 
 /// Represents a command to a search thread.
-enum Command {
+enum Command<N: SearchNode> {
     /// Starts a new search.
-    Start(SearchParams),
+    Start(SearchParams<N>),
 
     /// Terminates the currently running search.
     Terminate,
@@ -155,10 +160,13 @@ enum Command {
 ///
 /// This function executes sequential (non-parallel) search to a fixed
 /// depth.
-fn serve_simple<T: HashTable>(tt: Arc<T>,
-                              commands: Receiver<Command>,
-                              reports: Sender<SearchReport>,
-                              has_reports_condition: Arc<(Mutex<bool>, Condvar)>) {
+fn serve_simple<T, N>(tt: Arc<T>,
+                      commands: Receiver<Command<N>>,
+                      reports: Sender<SearchReport>,
+                      has_reports_condition: Arc<(Mutex<bool>, Condvar)>)
+    where T: HashTable,
+          N: SearchNode
+{
     thread_local!(
         static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
     );
@@ -243,10 +251,13 @@ struct TerminatedSearch;
 
 
 /// Represents a game tree search.        
-struct Search<'a, T: HashTable + 'a> {
+struct Search<'a, T, N>
+    where T: HashTable + 'a,
+          N: SearchNode
+{
     tt: &'a T,
     killers: KillerTable,
-    position: Box<SearchNode>,
+    position: N,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
     state_stack: Vec<NodeState<T>>,
@@ -256,7 +267,10 @@ struct Search<'a, T: HashTable + 'a> {
 }
 
 
-impl<'a, T: HashTable + 'a> Search<'a, T> {
+impl<'a, T, N> Search<'a, T, N>
+    where T: HashTable + 'a,
+          N: SearchNode
+{
     /// Creates a new instance.
     ///
     /// `report_function` should be a function that registers the
@@ -264,11 +278,11 @@ impl<'a, T: HashTable + 'a> Search<'a, T> {
     /// positions from the beginning of the search to this moment. The
     /// function should return `true` if the search should be
     /// terminated, otherwise it should return `false`.
-    pub fn new(root: Box<SearchNode>,
+    pub fn new(root: N,
                tt: &'a T,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(u64) -> bool)
-               -> Search<'a, T> {
+               -> Search<'a, T, N> {
         let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
@@ -927,7 +941,7 @@ impl Default for KillerPair {
 mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
-    use search::{SearchNode, SearchNodeFactory, MoveStack, HashTable};
+    use search::{SearchNode, MoveStack, HashTable};
     use search::tt::Tt;
     use board::Position;
     use board::evaluators::RandomEvaluator;
@@ -941,7 +955,7 @@ mod tests {
         let tt = Tt::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut search = Search::new(Box::new(p), &tt, &mut moves, &mut report);
+        let mut search = Search::new(p, &tt, &mut moves, &mut report);
         let value = search.run(VALUE_MIN, VALUE_MAX, 2, Move::invalid())
                           .ok()
                           .unwrap();

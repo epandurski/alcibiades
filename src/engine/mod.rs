@@ -11,7 +11,6 @@ use std::ops::Deref;
 use std::io;
 use chesstypes::*;
 use search::*;
-use board::Position;
 use self::time_manager::*;
 use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
 pub use self::uci::OptionDescription;
@@ -57,12 +56,9 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-struct Engine<S, F>
-    where S: SearchExecutor,
-          F: SearchNodeFactory
-{
+struct Engine<S: SearchExecutor> {
     tt: Arc<S::HashTable>,
-    position: F::Node,
+    position: S::SearchNode,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
@@ -95,7 +91,7 @@ struct Engine<S, F>
 }
 
 
-impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
+impl<S: SearchExecutor> Engine<S> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -151,7 +147,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
 }
 
 
-impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
+impl<S: SearchExecutor> UciEngine for Engine<S> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
     }
@@ -167,7 +163,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
         ];
         options.extend(S::options());
-        options.extend(F::options());
+        options.extend(S::SearchNode::options());
 
         // Remove duplicated options.
         options.sort_by(|a, b| a.0.cmp(&b.0));
@@ -183,11 +179,13 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
         options_dedup
     }
 
-    fn new(tt_size_mb: Option<usize>) -> Engine<S, F> {
+    fn new(tt_size_mb: Option<usize>) -> Engine<S> {
         let tt = Arc::new(S::HashTable::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
-            position: F::create(START_POSITION_FEN, &mut vec![].into_iter()).ok().unwrap(),
+            position: S::SearchNode::create(START_POSITION_FEN, &mut vec![].into_iter())
+                          .ok()
+                          .unwrap(),
             current_depth: 0,
             search_thread: SearchThread::new(tt),
             play_when: PlayWhen::Never,
@@ -215,7 +213,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
             _ => (),
         }
         S::set_option(name, value);
-        F::set_option(name, value);
+        S::SearchNode::set_option(name, value);
     }
 
     fn new_game(&mut self) {
@@ -223,7 +221,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if let Ok(p) = F::create(fen, moves) {
+        if let Ok(p) = S::SearchNode::create(fen, moves) {
             self.position = p;
         }
     }
@@ -256,7 +254,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
         } else if depth.is_some() {
             PlayWhen::Depth(depth.unwrap() as u8)
         } else {
-            PlayWhen::TimeManagement(TimeManager::new(&self.position,
+            PlayWhen::TimeManagement(TimeManager::new(self.position.to_move(),
                                                       self.pondering_is_allowed,
                                                       wtime,
                                                       btime,
@@ -338,7 +336,7 @@ impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
 /// positions.
 struct SearchThread<S: SearchExecutor> {
     tt: Arc<S::HashTable>,
-    position: Box<SearchNode>,
+    position: S::SearchNode,
     status: SearchStatus,
     searcher: S,
 }
@@ -346,13 +344,11 @@ struct SearchThread<S: SearchExecutor> {
 impl<S: SearchExecutor> SearchThread<S> {
     /// Creates a new instance.
     pub fn new(tt: Arc<S::HashTable>) -> SearchThread<S> {
-        use board::evaluators::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
-            position: Box::new(Position::<RandomEvaluator>::create(START_POSITION_FEN,
-                                                                   &mut vec![].into_iter())
-                                   .ok()
-                                   .unwrap()),
+            position: S::SearchNode::create(START_POSITION_FEN, &mut vec![].into_iter())
+                          .ok()
+                          .unwrap(),
             status: SearchStatus {
                 done: true,
                 depth: 0,
@@ -380,8 +376,8 @@ impl<S: SearchExecutor> SearchThread<S> {
     /// empty). The move format is long algebraic notation. Examples:
     /// e2e4, e7e5, e1g1 (white short castling), e7e8q (for
     /// promotion).
-    pub fn search(&mut self, position: &SearchNode, mut searchmoves: Vec<String>) {
-        self.position = position.copy();
+    pub fn search(&mut self, position: &S::SearchNode, mut searchmoves: Vec<String>) {
+        self.position = position.clone();
 
         // Validate `searchmoves`.
         let mut moves = vec![];
@@ -422,7 +418,7 @@ impl<S: SearchExecutor> SearchThread<S> {
         // Start a new search.
         self.searcher.start_search(SearchParams {
             search_id: 0,
-            position: position.copy(),
+            position: position.clone(),
             depth: DEPTH_MAX,
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
@@ -471,7 +467,7 @@ impl<S: SearchExecutor> SearchThread<S> {
         if self.status.depth < report.depth {
             self.status.depth = report.depth;
             self.status.variations = vec![extract_pv(self.tt.deref(),
-                                                     self.position.as_ref(),
+                                                     &self.position,
                                                      report.depth)];
         }
         self.status.done = report.done;
@@ -498,8 +494,8 @@ pub struct Variation {
 /// 
 /// **Important note:** Values under `-9999`, or over `9999` will be
 /// chopped.
-fn extract_pv<T: HashTable>(tt: &T, position: &SearchNode, depth: u8) -> Variation {
-    let mut p = position.copy();
+fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> Variation {
+    let mut p = position.clone();
     let mut our_turn = true;
     let mut root_value = VALUE_UNKNOWN;
     let mut leaf_value = -9999;
@@ -578,9 +574,6 @@ fn extract_pv<T: HashTable>(tt: &T, position: &SearchNode, depth: u8) -> Variati
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run<S, F>() -> io::Result<()>
-    where S: SearchExecutor,
-          F: SearchNodeFactory
-{
-    run_server::<Engine<S, F>>()
+pub fn run<S: SearchExecutor>() -> io::Result<()> {
+    run_server::<Engine<S>>()
 }

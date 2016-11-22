@@ -26,13 +26,13 @@ use super::contains_same_moves;
 /// search is exhausted or the maximum search depth is reached. In
 /// case of an unfinished search, the program can always fall back to
 /// the move selected in the last iteration of the search.
-pub struct Deepening<S: SearchExecutor> {
-    params: SearchParams,
+pub struct Deepening<T: SearchExecutor> {
+    params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
 
     // The real work will be handed over to `searcher`.
-    searcher: S,
+    searcher: T,
 
     // The search depth completed so far.
     depth: u8,
@@ -41,7 +41,7 @@ pub struct Deepening<S: SearchExecutor> {
     value: Value,
 }
 
-impl<S: SearchExecutor> Deepening<S> {
+impl<T: SearchExecutor> Deepening<T> {
     fn search_next_depth(&mut self) {
         self.searcher.start_search(SearchParams {
             search_id: 0,
@@ -51,31 +51,33 @@ impl<S: SearchExecutor> Deepening<S> {
     }
 }
 
-impl<S: SearchExecutor> SetOption for Deepening<S> {
+impl<T: SearchExecutor> SetOption for Deepening<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        S::options()
+        T::options()
     }
 
     fn set_option(name: &str, value: &str) {
-        S::set_option(name, value)
+        T::set_option(name, value)
     }
 }
 
-impl<S: SearchExecutor> SearchExecutor for Deepening<S> {
-    type HashTable = S::HashTable;
+impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
+    type HashTable = T::HashTable;
 
-    fn new(tt: Arc<Self::HashTable>) -> Deepening<S> {
+    type SearchNode = T::SearchNode;
+
+    fn new(tt: Arc<Self::HashTable>) -> Deepening<T> {
         Deepening {
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            searcher: S::new(tt),
+            searcher: T::new(tt),
             depth: 0,
             value: VALUE_UNKNOWN,
         }
     }
 
-    fn start_search(&mut self, params: SearchParams) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         assert!(params.depth > 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
@@ -139,15 +141,15 @@ impl<S: SearchExecutor> SearchExecutor for Deepening<S> {
 /// narrower, more beta cutoffs are achieved, and the search takes a
 /// shorter time. The drawback is that if the true score is outside
 /// this window, then a costly re-search must be made.
-pub struct Aspiration<S: SearchExecutor> {
-    tt: Arc<S::HashTable>,
-    params: SearchParams,
+pub struct Aspiration<T: SearchExecutor> {
+    tt: Arc<T::HashTable>,
+    params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
     lmr_mode: bool,
 
     // The real work will be handed over to `searcher`.
-    searcher: S,
+    searcher: T,
 
     // The lower bound of the aspiration window.
     alpha: Value,
@@ -163,8 +165,8 @@ pub struct Aspiration<S: SearchExecutor> {
     expected_to_fail_high: bool,
 }
 
-impl<S: SearchExecutor> Aspiration<S> {
-    fn lmr_mode(mut self) -> Aspiration<S> {
+impl<T: SearchExecutor> Aspiration<T> {
+    fn lmr_mode(mut self) -> Aspiration<T> {
         self.lmr_mode = true;
         self
     }
@@ -243,27 +245,29 @@ impl<S: SearchExecutor> Aspiration<S> {
     }
 }
 
-impl<S: SearchExecutor> SetOption for Aspiration<S> {
+impl<T: SearchExecutor> SetOption for Aspiration<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        S::options()
+        T::options()
     }
 
     fn set_option(name: &str, value: &str) {
-        S::set_option(name, value)
+        T::set_option(name, value)
     }
 }
 
-impl<S: SearchExecutor> SearchExecutor for Aspiration<S> {
-    type HashTable = S::HashTable;
+impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
+    type HashTable = T::HashTable;
 
-    fn new(tt: Arc<Self::HashTable>) -> Aspiration<S> {
+    type SearchNode = T::SearchNode;
+
+    fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
         Aspiration {
             tt: tt.clone(),
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
             lmr_mode: false,
-            searcher: S::new(tt),
+            searcher: T::new(tt),
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
             delta: 0,
@@ -271,7 +275,7 @@ impl<S: SearchExecutor> SearchExecutor for Aspiration<S> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
@@ -328,14 +332,14 @@ impl<S: SearchExecutor> SearchExecutor for Aspiration<S> {
 /// several principal variations (PV), each one starting with a
 /// different first move. This mode makes the search slower, but is
 /// very useful for chess analysis.
-pub struct Multipv<S: SearchExecutor> {
-    tt: Arc<S::HashTable>,
-    params: SearchParams,
+pub struct Multipv<T: SearchExecutor> {
+    tt: Arc<T::HashTable>,
+    params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
 
     // The real work will be handed over to `searcher`.
-    searcher: Aspiration<S>,
+    searcher: Aspiration<T>,
 
     // How many best lines of play to calculate.
     variation_count: usize,
@@ -352,7 +356,7 @@ lazy_static! {
     static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
 }
 
-impl<S: SearchExecutor> Multipv<S> {
+impl<T: SearchExecutor> Multipv<T> {
     fn search_current_move(&mut self) -> bool {
         if self.current_move_index < self.params.searchmoves.len() {
             let alpha = self.values[self.variation_count - 1];
@@ -390,7 +394,7 @@ impl<S: SearchExecutor> Multipv<S> {
             };
             let eval_value = self.params.position.evaluate_static();
             self.tt.store(self.params.position.hash(),
-                          <S::HashTable as HashTable>::Entry::new(value,
+                          <T::HashTable as HashTable>::Entry::new(value,
                                                                   bound,
                                                                   self.params.depth,
                                                                   best_move.digest(),
@@ -413,13 +417,13 @@ impl<S: SearchExecutor> Multipv<S> {
     }
 }
 
-impl<S: SearchExecutor> SetOption for Multipv<S> {
+impl<T: SearchExecutor> SetOption for Multipv<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         // Add up all suported options.
         let mut options = vec![
             ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
         ];
-        options.extend(Aspiration::<S>::options());
+        options.extend(Aspiration::<T>::options());
         options
     }
 
@@ -427,14 +431,16 @@ impl<S: SearchExecutor> SetOption for Multipv<S> {
         if name == "MultiPV" {
             *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
         }
-        Aspiration::<S>::set_option(name, value)
+        Aspiration::<T>::set_option(name, value)
     }
 }
 
-impl<S: SearchExecutor> SearchExecutor for Multipv<S> {
-    type HashTable = S::HashTable;
+impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
+    type HashTable = T::HashTable;
 
-    fn new(tt: Arc<Self::HashTable>) -> Multipv<S> {
+    type SearchNode = T::SearchNode;
+
+    fn new(tt: Arc<Self::HashTable>) -> Multipv<T> {
         Multipv {
             tt: tt.clone(),
             params: bogus_params(),
@@ -447,7 +453,7 @@ impl<S: SearchExecutor> SearchExecutor for Multipv<S> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
@@ -523,15 +529,12 @@ impl<S: SearchExecutor> SearchExecutor for Multipv<S> {
 
 
 /// A helper function. It returns bogus search parameters.
-fn bogus_params() -> SearchParams {
-    use board::Position;
-    use board::evaluators::RandomEvaluator;
+fn bogus_params<T: SearchNode>() -> SearchParams<T> {
     SearchParams {
         search_id: 0,
-        position: Box::new(Position::<RandomEvaluator>::create("7k/8/8/8/8/8/8/7K w - - 0 1",
-                                                               &mut vec![].into_iter())
-                               .ok()
-                               .unwrap()),
+        position: T::create("7k/8/8/8/8/8/8/7K w - - 0 1", &mut vec![].into_iter())
+                      .ok()
+                      .unwrap(),
         depth: 1,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,

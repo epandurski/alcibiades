@@ -102,21 +102,21 @@ impl HashTable for Tt {
         // Calculate the cluster count. (To do this, first we make
         // sure that `requested_cluster_count` is exceeded. Then we
         // make one step back.)
-        let mut cluster_count = 1;
-        while cluster_count <= requested_cluster_count && cluster_count != 0 {
-            cluster_count <<= 1;
+        let mut n = 1;
+        while n <= requested_cluster_count && n != 0 {
+            n <<= 1;
         }
-        if cluster_count > 1 {
-            cluster_count >>= 1;
+        if n > 1 {
+            n >>= 1;
         } else {
-            cluster_count = 1;
+            n = 1;
         }
-        assert!(cluster_count > 0);
+        assert!(n > 0);
 
         Tt {
             generation: Cell::new(0),
-            cluster_count: cluster_count,
-            table: UnsafeCell::new(vec![Default::default(); cluster_count]),
+            cluster_count: n,
+            table: UnsafeCell::new(vec![Default::default(); n]),
         }
     }
 
