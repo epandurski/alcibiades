@@ -230,11 +230,10 @@ pub trait SearchExecutor: SetOption {
 ///
 /// **Important note:** Repeating positions are considered a draw
 /// after the first repetition, not after the second one as the chess
-/// rules prescribe. This is done in the sake of efficiency. In order
-/// to compensate for that, `SearchNode::create` should "forget" all
-/// positions that have occurred exactly once. Also, the newly created
-/// instance should never be deemed a draw due to repetition or
-/// rule-50.
+/// rules prescribe. In order to compensate for that,
+/// `SearchNode::create` "forgets" all positions that have occurred
+/// exactly once. Also, the newly created instance is never deemed a
+/// draw due to repetition or rule-50.
 pub trait SearchNode: Send + Sized + Clone + SetOption {
     /// Instantiates a new chess position from playing history.
     ///
