@@ -450,13 +450,3 @@ fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
     list2.sort();
     list1 == list2
 }
-
-
-/// A helper function used by the sub-modules. It checks if there are
-/// moves in the supplied list that occur more than once.
-fn contains_dups(list: &Vec<Move>) -> bool {
-    let mut l = list.clone();
-    l.sort();
-    l.dedup();
-    l.len() < list.len()
-}

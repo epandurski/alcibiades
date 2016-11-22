@@ -15,7 +15,7 @@ use std::sync::mpsc::TryRecvError;
 use chesstypes::*;
 use engine::{SetOption, OptionDescription};
 use super::*;
-use super::{contains_dups, contains_same_moves};
+use super::contains_same_moves;
 
 /// Executes searches with iterative deepening.
 ///
@@ -536,4 +536,14 @@ fn bogus_params() -> SearchParams {
         upper_bound: VALUE_MAX,
         searchmoves: vec![Move::invalid()],
     }
+}
+
+
+/// A helper function. It checks if there are moves in the supplied
+/// list that occur more than once.
+fn contains_dups(list: &Vec<Move>) -> bool {
+    let mut l = list.clone();
+    l.sort();
+    l.dedup();
+    l.len() < list.len()
 }
