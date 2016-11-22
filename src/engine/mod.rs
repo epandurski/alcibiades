@@ -1,6 +1,7 @@
 //! Implements higher-level facilities.
 
 mod uci;
+mod deepening;
 pub mod time_manager;
 
 use std::collections::VecDeque;
@@ -11,6 +12,7 @@ use std::ops::Deref;
 use std::io;
 use chesstypes::*;
 use search::*;
+use self::deepening::Deepening;
 use self::time_manager::*;
 use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
 pub use self::uci::OptionDescription;
@@ -575,5 +577,5 @@ fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> V
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
 pub fn run<S: SearchExecutor>() -> io::Result<()> {
-    run_server::<Engine<S>>()
+    run_server::<Engine<Deepening<S>>>()
 }

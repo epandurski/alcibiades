@@ -10,7 +10,7 @@
 //! that implements the `SearchExecutor` trait.
 
 mod move_stack;
-pub mod deepening;
+pub mod aspiration;
 pub mod searchers;
 pub mod tt;
 
@@ -415,16 +415,4 @@ pub trait SearchNode: Send + Sized + Clone + SetOption {
     /// `generate_moves` because it ensures that all returned moves
     /// are legal.
     fn legal_moves(&self) -> Vec<Move>;
-}
-
-
-/// A helper function used by the sub-modules. It checks if the two
-/// supplied lists of moves contain the same moves, possibly in
-/// different order.
-fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
-    let mut list1 = list1.clone();
-    let mut list2 = list2.clone();
-    list1.sort();
-    list2.sort();
-    list1 == list2
 }

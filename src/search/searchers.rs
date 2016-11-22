@@ -11,7 +11,6 @@ use std::ops::Deref;
 use chesstypes::*;
 use engine::SetOption;
 use super::*;
-use super::contains_same_moves;
 
 
 /// Executes alpha-beta searches with null move pruning and late move
@@ -994,4 +993,15 @@ mod tests {
         }
         assert!(killers.get(1) == (0, 0));
     }
+}
+
+
+/// A helper function. It checks if the two supplied lists of moves
+/// contain the same moves, possibly in different order.
+fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
+    let mut list1 = list1.clone();
+    let mut list2 = list2.clone();
+    list1.sort();
+    list2.sort();
+    list1 == list2
 }
