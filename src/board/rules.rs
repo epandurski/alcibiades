@@ -419,7 +419,7 @@ impl<T: BoardEvaluator> Position<T> {
 
 
 impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
-    fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Position<T>, String> {
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Position<T>, String> {
         let mut p: Position<T> = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
         'played_moves: for played_move in moves {
@@ -977,8 +977,8 @@ mod tests {
     #[test]
     fn test_create_repeated() {
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4"];
-        let p = Position::<MaterialEvaluator>::create("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1",
-                                                      &mut moves.into_iter())
+        let p = Position::<MaterialEvaluator>::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1",
+                                                            &mut moves.into_iter())
                     .ok()
                     .unwrap();
         let mut v = MoveStack::new();
@@ -1085,22 +1085,22 @@ mod tests {
                      .ok()
                      .unwrap();
         let moves: Vec<&str> = vec![];
-        let p2 = Position::<MaterialEvaluator>::create("8/8/8/8/8/7k/8/7K w - - 0 1",
-                                                       &mut moves.into_iter())
+        let p2 = Position::<MaterialEvaluator>::from_history("8/8/8/8/8/7k/8/7K w - - 0 1",
+                                                             &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
-        let p2 = Position::<MaterialEvaluator>::create("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
-                                                       &mut moves.into_iter())
+        let p2 = Position::<MaterialEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
+                                                             &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
-        let p3 = Position::<MaterialEvaluator>::create("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
-                                                       &mut moves.into_iter())
+        let p3 = Position::<MaterialEvaluator>::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1",
+                                                             &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);

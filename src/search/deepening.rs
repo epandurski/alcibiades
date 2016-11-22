@@ -532,7 +532,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 fn bogus_params<T: SearchNode>() -> SearchParams<T> {
     SearchParams {
         search_id: 0,
-        position: T::create("7k/8/8/8/8/8/8/7K w - - 0 1", &mut vec![].into_iter())
+        position: T::from_history("7k/8/8/8/8/8/8/7K w - - 0 1", &mut vec![].into_iter())
                       .ok()
                       .unwrap(),
         depth: 1,

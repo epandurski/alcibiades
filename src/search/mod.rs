@@ -110,7 +110,6 @@ pub trait HashTable: Sync + Send {
 
     /// Creates a new transposition table.
     ///
-    ///
     /// `size_mb` is the desired size in Mbytes.
     fn new(size_mb: Option<usize>) -> Self;
 
@@ -181,7 +180,7 @@ pub trait SearchExecutor: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
     type HashTable: HashTable;
-    
+
     /// The type of search node that the implementation works with.
     type SearchNode: SearchNode;
 
@@ -231,9 +230,9 @@ pub trait SearchExecutor: SetOption {
 /// **Important note:** Repeating positions are considered a draw
 /// after the first repetition, not after the second one as the chess
 /// rules prescribe. In order to compensate for that,
-/// `SearchNode::create` "forgets" all positions that have occurred
-/// exactly once. Also, the newly created instance is never deemed a
-/// draw due to repetition or rule-50.
+/// `SearchNode::from_history` "forgets" all positions that have
+/// occurred exactly once. Also, the newly created instance is never
+/// deemed a draw due to repetition or rule-50.
 pub trait SearchNode: Send + Sized + Clone + SetOption {
     /// Instantiates a new chess position from playing history.
     ///
@@ -242,8 +241,8 @@ pub trait SearchNode: Send + Sized + Clone + SetOption {
     /// moves that were played from that position. The move format is
     /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
     /// (white short castling), `e7e8q` (for promotion).
-    fn create(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, String>;
-    
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, String>;
+
     /// Returns an almost unique hash value for the position.
     ///
     /// The returned value is good for use as transposition table key.

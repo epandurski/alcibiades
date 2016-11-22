@@ -183,7 +183,7 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
         let tt = Arc::new(S::HashTable::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
-            position: S::SearchNode::create(START_POSITION_FEN, &mut vec![].into_iter())
+            position: S::SearchNode::from_history(START_POSITION_FEN, &mut vec![].into_iter())
                           .ok()
                           .unwrap(),
             current_depth: 0,
@@ -221,7 +221,7 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if let Ok(p) = S::SearchNode::create(fen, moves) {
+        if let Ok(p) = S::SearchNode::from_history(fen, moves) {
             self.position = p;
         }
     }
@@ -346,7 +346,7 @@ impl<S: SearchExecutor> SearchThread<S> {
     pub fn new(tt: Arc<S::HashTable>) -> SearchThread<S> {
         SearchThread {
             tt: tt.clone(),
-            position: S::SearchNode::create(START_POSITION_FEN, &mut vec![].into_iter())
+            position: S::SearchNode::from_history(START_POSITION_FEN, &mut vec![].into_iter())
                           .ok()
                           .unwrap(),
             status: SearchStatus {
