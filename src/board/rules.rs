@@ -75,7 +75,7 @@ pub struct Position<T: BoardEvaluator> {
 // 5. Quiescence search.
 // 6. 50 move rule awareness.
 // 7. Threefold/twofold repetition detection.
-impl<T: BoardEvaluator + 'static> Position<T> {
+impl<T: BoardEvaluator> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     fn from_fen(fen: &str) -> Result<Position<T>, String> {
@@ -688,7 +688,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
 }
 
 
-impl<T: BoardEvaluator + 'static> Clone for Position<T> {
+impl<T: BoardEvaluator> Clone for Position<T> {
     fn clone(&self) -> Self {
         Position {
             board: UnsafeCell::new(self.board().clone()),
@@ -703,7 +703,7 @@ impl<T: BoardEvaluator + 'static> Clone for Position<T> {
 }
 
 
-impl<T: BoardEvaluator + 'static> SetOption for Position<T> {
+impl<T: BoardEvaluator> SetOption for Position<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
