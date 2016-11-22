@@ -92,7 +92,6 @@ pub struct Tt {
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
 
-
 impl HashTable for Tt {
     type Entry = TtEntry;
 
@@ -266,8 +265,6 @@ impl Tt {
 unsafe impl Sync for Tt {}
 
 
-
-
 /// Represents a record in the transposition table.
 ///
 /// It consists of 16 bytes, and is laid out the following way:
@@ -285,7 +282,6 @@ struct Record {
     data: TtEntry,
 }
 
-
 impl Default for Record {
     fn default() -> Record {
         Record {
@@ -294,7 +290,6 @@ impl Default for Record {
         }
     }
 }
-
 
 impl Record {
     #[inline(always)]
@@ -314,7 +309,6 @@ impl Record {
         self.key ^= old_data_as_u64 ^ self.data.as_u64();
     }
 }
-
 
 
 #[cfg(test)]
