@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use chesstypes::*;
 use engine::SetOption;
+
 pub use self::move_stack::MoveStack;
 
 
@@ -177,7 +178,8 @@ pub trait HashTableEntry: Copy {
 /// 3. On each completed search depth, the primary variation is
 ///    obtained from the transposition table.
 pub trait SearchExecutor: SetOption {
-    /// The type of transposition table that the implementation works with.
+    /// The type of transposition (hash) table that the implementation
+    /// works with.
     type HashTable: HashTable;
     
     /// The type of search node that the implementation works with.

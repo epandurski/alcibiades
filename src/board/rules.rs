@@ -439,6 +439,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         Ok(p)
     }
 
+    #[inline]
     fn hash(&self) -> u64 {
         // Notes:
         //
@@ -482,30 +483,37 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         }
     }
 
+    #[inline]
     fn pieces(&self) -> &PiecesPlacement {
         self.board().pieces()
     }
 
+    #[inline]
     fn to_move(&self) -> Color {
         self.board().to_move()
     }
 
+    #[inline]
     fn castling_rights(&self) -> CastlingRights {
         self.board().castling_rights()
     }
 
+    #[inline]
     fn en_passant_file(&self) -> Option<File> {
         self.board().en_passant_file()
     }
 
+    #[inline]
     fn halfmove_clock(&self) -> u8 {
         self.state().halfmove_clock
     }
 
+    #[inline]
     fn halfmove_count(&self) -> u16 {
         self.halfmove_count
     }
 
+    #[inline]
     fn is_check(&self) -> bool {
         self.board().checkers() != 0
     }
@@ -515,6 +523,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         true
     }
 
+    #[inline]
     fn evaluate_final(&self) -> Value {
         if self.repeated_or_rule50 || self.board().checkers() == 0 {
             0
@@ -523,6 +532,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         }
     }
 
+    #[inline]
     fn evaluate_static(&self) -> Value {
         if self.repeated_or_rule50 {
             0
@@ -531,6 +541,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         }
     }
 
+    #[inline]
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
@@ -554,6 +565,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         }
     }
 
+    #[inline]
     fn evaluate_move(&self, m: Move) -> Value {
         if m.move_type() == MOVE_PROMOTION {
             // `calc_see` does not handle pawn promotions very well,
@@ -568,16 +580,19 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         }
     }
 
+    #[inline]
     fn generate_moves(&self, move_stack: &mut MoveStack) {
         if !self.repeated_or_rule50 {
             self.board().generate_moves(true, move_stack);
         }
     }
 
+    #[inline]
     fn null_move(&self) -> Move {
         self.board().null_move()
     }
 
+    #[inline]
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
         if self.repeated_or_rule50 {
             None
@@ -641,6 +656,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         false
     }
 
+    #[inline]
     fn undo_move(&mut self) {
         debug_assert!(self.state_stack.len() > 1);
         unsafe {
