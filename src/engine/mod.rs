@@ -57,17 +57,16 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-struct Engine<T, S, F>
-    where T: HashTable,
-          S: SearchExecutor<T>,
+struct Engine<S, F>
+    where S: SearchExecutor,
           F: SearchNodeFactory
 {
-    tt: Arc<T>,
+    tt: Arc<S::HashTable>,
     position: F::Node,
     current_depth: u8,
 
     // `Engine` will hand over the real work to `SearchThread`.
-    search_thread: SearchThread<T, S>,
+    search_thread: SearchThread<S>,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -96,7 +95,7 @@ struct Engine<T, S, F>
 }
 
 
-impl<T: HashTable, S: SearchExecutor<T>, F: SearchNodeFactory> Engine<T, S, F> {
+impl<S: SearchExecutor, F: SearchNodeFactory> Engine<S, F> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -152,7 +151,7 @@ impl<T: HashTable, S: SearchExecutor<T>, F: SearchNodeFactory> Engine<T, S, F> {
 }
 
 
-impl<T: HashTable, S: SearchExecutor<T>, F: SearchNodeFactory> UciEngine for Engine<T, S, F> {
+impl<S: SearchExecutor, F: SearchNodeFactory> UciEngine for Engine<S, F> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
     }
@@ -184,8 +183,8 @@ impl<T: HashTable, S: SearchExecutor<T>, F: SearchNodeFactory> UciEngine for Eng
         options_dedup
     }
 
-    fn new(tt_size_mb: Option<usize>) -> Engine<T, S, F> {
-        let tt = Arc::new(T::new(tt_size_mb));
+    fn new(tt_size_mb: Option<usize>) -> Engine<S, F> {
+        let tt = Arc::new(S::HashTable::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
             position: F::create(START_POSITION_FEN, &mut vec![].into_iter()).ok().unwrap(),
@@ -337,16 +336,16 @@ impl<T: HashTable, S: SearchExecutor<T>, F: SearchNodeFactory> UciEngine for Eng
 
 /// A thread that executes consecutive searches in different starting
 /// positions.
-struct SearchThread<T: HashTable, S: SearchExecutor<T>> {
-    tt: Arc<T>,
+struct SearchThread<S: SearchExecutor> {
+    tt: Arc<S::HashTable>,
     position: Box<SearchNode>,
     status: SearchStatus,
     searcher: S,
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> SearchThread<T, S> {
+impl<S: SearchExecutor> SearchThread<S> {
     /// Creates a new instance.
-    pub fn new(tt: Arc<T>) -> SearchThread<T, S> {
+    pub fn new(tt: Arc<S::HashTable>) -> SearchThread<S> {
         use board::evaluators::RandomEvaluator;
         SearchThread {
             tt: tt.clone(),
@@ -579,10 +578,9 @@ fn extract_pv<T: HashTable>(tt: &T, position: &SearchNode, depth: u8) -> Variati
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run<T, S, F>() -> io::Result<()>
-    where T: HashTable,
-          S: SearchExecutor<T>,
+pub fn run<S, F>() -> io::Result<()>
+    where S: SearchExecutor,
           F: SearchNodeFactory
 {
-    run_server::<Engine<T, S, F>>()
+    run_server::<Engine<S, F>>()
 }

@@ -174,9 +174,6 @@ pub trait HashTableEntry: Copy {
 /// A trait for executing consecutive searches in different starting
 /// positions.
 ///
-/// The type parameter `T` specifies the exact type of transposition
-/// table that the search implementation works with.
-///
 /// Here is what the engine does on each move:
 ///
 /// 1. The engine calls the `start_search` method.
@@ -187,9 +184,12 @@ pub trait HashTableEntry: Copy {
 ///
 /// 3. On each completed search depth, the primary variation is
 ///    obtained from the transposition table.
-pub trait SearchExecutor<T: HashTable>: SetOption {
+pub trait SearchExecutor: SetOption {
+    /// The type of transposition table that the implementation works with.
+    type HashTable: HashTable;
+
     /// Creates a new instance.
-    fn new(tt: Arc<T>) -> Self;
+    fn new(tt: Arc<Self::HashTable>) -> Self;
 
     /// Starts a new search.
     ///

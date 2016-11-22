@@ -12,7 +12,6 @@ use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
-use std::marker::PhantomData;
 use chesstypes::*;
 use engine::{SetOption, OptionDescription};
 use super::*;
@@ -26,8 +25,7 @@ use super::{contains_dups, contains_same_moves};
 /// search is exhausted or the maximum search depth is reached. In
 /// case of an unfinished search, the program can always fall back to
 /// the move selected in the last iteration of the search.
-pub struct Deepening<T: HashTable, S: SearchExecutor<T>> {
-    phantom: PhantomData<T>,
+pub struct Deepening<S: SearchExecutor> {
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -42,7 +40,7 @@ pub struct Deepening<T: HashTable, S: SearchExecutor<T>> {
     value: Value,
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> Deepening<T, S> {
+impl<S: SearchExecutor> Deepening<S> {
     fn search_next_depth(&mut self) {
         self.searcher.start_search(SearchParams {
             search_id: 0,
@@ -52,7 +50,7 @@ impl<T: HashTable, S: SearchExecutor<T>> Deepening<T, S> {
     }
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> SetOption for Deepening<T, S> {
+impl<S: SearchExecutor> SetOption for Deepening<S> {
     fn options() -> Vec<(String, OptionDescription)> {
         S::options()
     }
@@ -62,10 +60,11 @@ impl<T: HashTable, S: SearchExecutor<T>> SetOption for Deepening<T, S> {
     }
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> SearchExecutor<T> for Deepening<T, S> {
-    fn new(tt: Arc<T>) -> Deepening<T, S> {
+impl<S: SearchExecutor> SearchExecutor for Deepening<S> {
+    type HashTable = S::HashTable;
+
+    fn new(tt: Arc<Self::HashTable>) -> Deepening<S> {
         Deepening {
-            phantom: PhantomData,
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
@@ -139,8 +138,8 @@ impl<T: HashTable, S: SearchExecutor<T>> SearchExecutor<T> for Deepening<T, S> {
 /// narrower, more beta cutoffs are achieved, and the search takes a
 /// shorter time. The drawback is that if the true score is outside
 /// this window, then a costly re-search must be made.
-pub struct Aspiration<T: HashTable, S: SearchExecutor<T>> {
-    tt: Arc<T>,
+pub struct Aspiration<S: SearchExecutor> {
+    tt: Arc<S::HashTable>,
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -163,8 +162,8 @@ pub struct Aspiration<T: HashTable, S: SearchExecutor<T>> {
     expected_to_fail_high: bool,
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> Aspiration<T, S> {
-    fn lmr_mode(mut self) -> Aspiration<T, S> {
+impl<S: SearchExecutor> Aspiration<S> {
+    fn lmr_mode(mut self) -> Aspiration<S> {
         self.lmr_mode = true;
         self
     }
@@ -243,7 +242,7 @@ impl<T: HashTable, S: SearchExecutor<T>> Aspiration<T, S> {
     }
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> SetOption for Aspiration<T, S> {
+impl<S: SearchExecutor> SetOption for Aspiration<S> {
     fn options() -> Vec<(String, OptionDescription)> {
         S::options()
     }
@@ -253,8 +252,10 @@ impl<T: HashTable, S: SearchExecutor<T>> SetOption for Aspiration<T, S> {
     }
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> SearchExecutor<T> for Aspiration<T, S> {
-    fn new(tt: Arc<T>) -> Aspiration<T, S> {
+impl<S: SearchExecutor> SearchExecutor for Aspiration<S> {
+    type HashTable = S::HashTable;
+
+    fn new(tt: Arc<Self::HashTable>) -> Aspiration<S> {
         Aspiration {
             tt: tt.clone(),
             params: bogus_params(),
@@ -326,14 +327,14 @@ impl<T: HashTable, S: SearchExecutor<T>> SearchExecutor<T> for Aspiration<T, S> 
 /// several principal variations (PV), each one starting with a
 /// different first move. This mode makes the search slower, but is
 /// very useful for chess analysis.
-pub struct Multipv<T: HashTable, S: SearchExecutor<T>> {
-    tt: Arc<T>,
+pub struct Multipv<S: SearchExecutor> {
+    tt: Arc<S::HashTable>,
     params: SearchParams,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
 
     // The real work will be handed over to `searcher`.
-    searcher: Aspiration<T, S>,
+    searcher: Aspiration<S>,
 
     // How many best lines of play to calculate.
     variation_count: usize,
@@ -350,7 +351,7 @@ lazy_static! {
     static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> Multipv<T, S> {
+impl<S: SearchExecutor> Multipv<S> {
     fn search_current_move(&mut self) -> bool {
         if self.current_move_index < self.params.searchmoves.len() {
             let alpha = self.values[self.variation_count - 1];
@@ -386,12 +387,13 @@ impl<T: HashTable, S: SearchExecutor<T>> Multipv<T, S> {
                 v if v >= self.params.upper_bound || !all_moves_were_considered => BOUND_LOWER,
                 _ => BOUND_EXACT,
             };
+            let eval_value = self.params.position.evaluate_static();
             self.tt.store(self.params.position.hash(),
-                          T::Entry::new(value,
-                                        bound,
-                                        self.params.depth,
-                                        best_move.digest(),
-                                        self.params.position.evaluate_static()));
+                          <S::HashTable as HashTable>::Entry::new(value,
+                                                                  bound,
+                                                                  self.params.depth,
+                                                                  best_move.digest(),
+                                                                  eval_value));
         }
     }
 
@@ -410,13 +412,13 @@ impl<T: HashTable, S: SearchExecutor<T>> Multipv<T, S> {
     }
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> SetOption for Multipv<T, S> {
+impl<S: SearchExecutor> SetOption for Multipv<S> {
     fn options() -> Vec<(String, OptionDescription)> {
         // Add up all suported options.
         let mut options = vec![
             ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
         ];
-        options.extend(Aspiration::<T, S>::options());
+        options.extend(Aspiration::<S>::options());
         options
     }
 
@@ -424,12 +426,14 @@ impl<T: HashTable, S: SearchExecutor<T>> SetOption for Multipv<T, S> {
         if name == "MultiPV" {
             *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
         }
-        Aspiration::<T, S>::set_option(name, value)
+        Aspiration::<S>::set_option(name, value)
     }
 }
 
-impl<T: HashTable, S: SearchExecutor<T>> SearchExecutor<T> for Multipv<T, S> {
-    fn new(tt: Arc<T>) -> Multipv<T, S> {
+impl<S: SearchExecutor> SearchExecutor for Multipv<S> {
+    type HashTable = S::HashTable;
+
+    fn new(tt: Arc<Self::HashTable>) -> Multipv<S> {
         Multipv {
             tt: tt.clone(),
             params: bogus_params(),

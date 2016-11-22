@@ -47,7 +47,9 @@ pub struct StandardSearcher<T: HashTable> {
 
 impl<T: HashTable> SetOption for StandardSearcher<T> {}
 
-impl<T: HashTable + 'static> SearchExecutor<T> for StandardSearcher<T> {
+impl<T: HashTable + 'static> SearchExecutor for StandardSearcher<T> {
+    type HashTable = T;
+
     fn new(tt: Arc<T>) -> StandardSearcher<T> {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();

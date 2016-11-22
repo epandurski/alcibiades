@@ -17,9 +17,7 @@ use board::evaluators::RandomEvaluator;
 use engine::run;
 
 fn main() {
-    exit(match run::<Tt,
-                     Deepening<Tt, Multipv<Tt, StandardSearcher<Tt>>>,
-                     Position<RandomEvaluator>>() {
+    exit(match run::<Deepening<Multipv<StandardSearcher<Tt>>>, Position<RandomEvaluator>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })
