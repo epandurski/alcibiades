@@ -204,10 +204,10 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
 /// Executes mulit-PV searches with aspiration windows.
 ///
-/// In multi-PV mode the engine calculates and sends to the GUI
-/// several principal variations (PV), each one starting with a
-/// different first move. This mode can sometimes make the search
-/// slower, but is very useful for chess analysis.
+/// In multi-PV mode the engine calculates several principal
+/// variations (PV), each one starting with a different first
+/// move. This mode is very useful for chess analysis, but can
+/// sometimes make the search slower.
 ///
 /// # Usage
 ///
