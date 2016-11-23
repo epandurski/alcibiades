@@ -15,6 +15,7 @@ use search::*;
 use self::deepening::Deepening;
 use self::time_manager::*;
 use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
+
 pub use self::uci::OptionDescription;
 
 
@@ -31,6 +32,17 @@ pub trait SetOption {
     /// Does nothing if called with unsupported option name.
     #[allow(unused_variables)]
     fn set_option(name: &str, value: &str) {}
+}
+
+
+/// Serves UCI commands until a "quit" command is received.
+///
+/// The current thread will block until the UCI session is closed.
+///
+/// Returns `Err` if the handshake was unsuccessful, or if an IO error
+/// occurred.
+pub fn run<S: SearchExecutor>() -> io::Result<()> {
+    run_server::<Engine<Deepening<S>>>()
 }
 
 
@@ -91,62 +103,6 @@ struct Engine<S: SearchExecutor> {
 
     // A queue for the messages send by the engine to the GUI.
     queue: VecDeque<EngineReply>,
-}
-
-
-impl<S: SearchExecutor> Engine<S> {
-    /// A helper method. It it adds a progress report message to the
-    /// queue.
-    fn queue_progress_report(&mut self) {
-        let &SearchStatus { depth, searched_nodes, nps, .. } = &self.status;
-        self.queue.push_back(EngineReply::Info(vec![
-            InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
-            InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
-            InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
-        ]));
-        self.silent_since = SystemTime::now();
-    }
-
-    /// A helper method. It it adds a message containing the current
-    /// (multi)PV to the queue.
-    fn queue_pv(&mut self) {
-        let &SearchStatus { depth, ref variations, searched_nodes, duration_millis, nps, .. } =
-            &self.status;
-        for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
-            let bound_suffix = match bound {
-                BOUND_EXACT => "",
-                BOUND_UPPER => " upperbound",
-                BOUND_LOWER => " lowerbound",
-                _ => panic!("unexpected bound type"),
-            };
-            let mut moves_string = String::new();
-            for m in moves {
-                moves_string.push_str(&m.notation());
-                moves_string.push(' ');
-            }
-            self.queue.push_back(EngineReply::Info(vec![
-                InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
-                InfoItem { info_type: "multipv".to_string(), data: format!("{}", i + 1) },
-                InfoItem { info_type: "score".to_string(), data: format!("cp {}{}", value, bound_suffix) },
-                InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
-                InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
-                InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
-                InfoItem { info_type: "pv".to_string(), data: moves_string },
-            ]));
-        }
-        self.silent_since = SystemTime::now();
-    }
-
-    /// A helper method. It it adds a message containing the current
-    /// best move to the queue.
-    fn queue_best_move(&mut self) {
-        let &SearchStatus { ref variations, .. } = &self.status;
-        self.queue.push_back(EngineReply::BestMove {
-            best_move: variations[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
-            ponder_move: variations[0].moves.get(1).map(|m| m.notation()),
-        });
-        self.silent_since = SystemTime::now();
-    }
 }
 
 
@@ -319,11 +275,6 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
                     self.queue_progress_report();
                 }
 
-                // Register the search status with the time manager.
-                if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-                    tm.update_status(&self.status);
-                }
-
                 // Check if we must play now.
                 if !self.is_pondering &&
                    match self.play_when {
@@ -347,17 +298,62 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
 }
 
 
-/// From `SearchThread`.
 impl<S: SearchExecutor> Engine<S> {
+    /// A helper method. It it adds a progress report message to the
+    /// queue.
+    fn queue_progress_report(&mut self) {
+        let &SearchStatus { depth, searched_nodes, nps, .. } = &self.status;
+        self.queue.push_back(EngineReply::Info(vec![
+            InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
+            InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
+            InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
+        ]));
+        self.silent_since = SystemTime::now();
+    }
+
+    /// A helper method. It it adds a message containing the current
+    /// (multi)PV to the queue.
+    fn queue_pv(&mut self) {
+        let &SearchStatus { depth, ref variations, searched_nodes, duration_millis, nps, .. } =
+            &self.status;
+        for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
+            let bound_suffix = match bound {
+                BOUND_EXACT => "",
+                BOUND_UPPER => " upperbound",
+                BOUND_LOWER => " lowerbound",
+                _ => panic!("unexpected bound type"),
+            };
+            let mut moves_string = String::new();
+            for m in moves {
+                moves_string.push_str(&m.notation());
+                moves_string.push(' ');
+            }
+            self.queue.push_back(EngineReply::Info(vec![
+                InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
+                InfoItem { info_type: "multipv".to_string(), data: format!("{}", i + 1) },
+                InfoItem { info_type: "score".to_string(), data: format!("cp {}{}", value, bound_suffix) },
+                InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
+                InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
+                InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
+                InfoItem { info_type: "pv".to_string(), data: moves_string },
+            ]));
+        }
+        self.silent_since = SystemTime::now();
+    }
+
+    /// A helper method. It it adds a message containing the current
+    /// best move to the queue.
+    fn queue_best_move(&mut self) {
+        let &SearchStatus { ref variations, .. } = &self.status;
+        self.queue.push_back(EngineReply::BestMove {
+            best_move: variations[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
+            ponder_move: variations[0].moves.get(1).map(|m| m.notation()),
+        });
+        self.silent_since = SystemTime::now();
+    }
+    
     /// Terminates the currently running search (if any), starts a new
     /// search, updates the status.
-    ///
-    /// `position` is the starting position for the new
-    /// search. `searchmoves` restricts the analysis to the supplied
-    /// list of moves only (no restrictions if the suppied list is
-    /// empty). The move format is long algebraic notation. Examples:
-    /// e2e4, e7e5, e1g1 (white short castling), e7e8q (for
-    /// promotion).
     fn start(&mut self, mut searchmoves: Vec<String>) {
         // Validate `searchmoves`.
         let mut moves = vec![];
@@ -427,6 +423,11 @@ impl<S: SearchExecutor> Engine<S> {
     /// A helper method. It updates the current status according to
     /// the received report message.
     fn process_report(&mut self, report: SearchReport) {
+        // Register the search status with the time manager.
+        if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
+            tm.update_status(&report);
+        }
+
         let duration = self.status.started_at.elapsed().unwrap();
         self.status.duration_millis = 1000 * duration.as_secs() +
                                       (duration.subsec_nanos() / 1000000) as u64;
@@ -446,7 +447,7 @@ impl<S: SearchExecutor> Engine<S> {
 
 /// A sequence of moves from some starting position, together with the
 /// value assigned to the final position.
-pub struct Variation {
+struct Variation {
     /// A sequence of moves from some starting position.
     pub moves: Vec<Move>,
 
@@ -455,6 +456,37 @@ pub struct Variation {
 
     /// The accuracy of the assigned value.
     pub bound: BoundType,
+}
+
+
+/// Contains information about the current progress of a search.
+struct SearchStatus {
+    /// `true` if the search is done, `false` otherwise.
+    pub done: bool,
+
+    /// The search depth completed so far.
+    pub depth: u8,
+
+    /// The number of different first moves that are being considered
+    /// (from the root position).
+    pub searchmoves_count: usize,
+
+    /// The best variations found so far, sorted by descending first
+    /// move strength. The first move in each variation will be
+    /// different.
+    pub variations: Vec<Variation>,
+
+    /// The starting time for the search.
+    pub started_at: SystemTime,
+
+    /// The duration of the search in milliseconds.
+    pub duration_millis: u64,
+
+    /// The number of analyzed nodes.
+    pub searched_nodes: u64,
+
+    /// Average number of analyzed nodes per second.
+    pub nps: u64,
 }
 
 
@@ -534,15 +566,4 @@ fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> V
         },
         moves: pv_moves,
     }
-}
-
-
-/// Serves UCI commands until a "quit" command is received.
-///
-/// The current thread will block until the UCI session is closed.
-///
-/// Returns `Err` if the handshake was unsuccessful, or if an IO error
-/// occurred.
-pub fn run<S: SearchExecutor>() -> io::Result<()> {
-    run_server::<Engine<Deepening<S>>>()
 }

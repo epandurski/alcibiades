@@ -1,42 +1,12 @@
 use std::cmp::min;
 use std::time::SystemTime;
 use chesstypes::*;
-use super::Variation;
-
-
-/// Contains information about the current progress of a search.
-pub struct SearchStatus {
-    /// `true` if the search is done, `false` otherwise.
-    pub done: bool,
-
-    /// The search depth completed so far.
-    pub depth: u8,
-
-    /// The number of different first moves that are being considered
-    /// (from the root position).
-    pub searchmoves_count: usize,
-
-    /// The best variations found so far, sorted by descending first
-    /// move strength. The first move in each variation will be
-    /// different.
-    pub variations: Vec<Variation>,
-
-    /// The starting time for the search.
-    pub started_at: SystemTime,
-
-    /// The duration of the search in milliseconds.
-    pub duration_millis: u64,
-
-    /// The number of analyzed nodes.
-    pub searched_nodes: u64,
-
-    /// Average number of analyzed nodes per second.
-    pub nps: u64,
-}
+use search::SearchReport;
 
 
 /// Decides when the search must be terminated.
 pub struct TimeManager {
+    started_at: SystemTime,
     move_time_millis: u64, // move time in milliseconds
     must_play: bool,
 }
@@ -71,15 +41,19 @@ impl TimeManager {
         let movestogo = movestogo.unwrap_or(40);
         let movetime = (time + inc * movestogo) / movestogo;
         TimeManager {
+            started_at: SystemTime::now(),
             move_time_millis: min(movetime, time / 2),
             must_play: false,
         }
     }
 
     /// Registers the current search status with the time manager.
-    pub fn update_status(&mut self, new_status: &SearchStatus) {
+    #[allow(unused_variables)]
+    pub fn update_status(&mut self, report: &SearchReport) {
         // TODO: Implement smarter time management.
-        self.must_play = new_status.duration_millis >= self.move_time_millis;
+        let duration = self.started_at.elapsed().unwrap();
+        let duration_millis = 1000 * duration.as_secs() + duration.subsec_nanos() as u64 / 1000000;
+        self.must_play = duration_millis >= self.move_time_millis;
     }
 
     /// Decides if the search must be terminated.
