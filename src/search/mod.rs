@@ -84,17 +84,37 @@ pub struct SearchReport {
     pub searched_nodes: u64,
 
     /// The search depth completed so far.
+    ///
+    /// Should be no lesser than the value sent in the previous
+    /// report, and no greater than `DEPTH_MAX`.
+    ///
+    /// **Note:** Depth-first searches should send `0` in all their
+    /// reports but the last one.
     pub depth: u8,
 
     /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
     /// if not available.
+    ///
+    /// If the search has not been forcefully terminated, the last
+    /// report should contain the calculated final evaluation.
+    ///
+    /// **Note:** Depth-first searches should send `VALUE_UNKNOWN` in
+    /// all their reports but the last one.
     pub value: Value,
 
     /// The `searchmoves` list sorted by descending move strength (see
     /// `SearchParams`), or an empty list.
+    ///
+    /// This is for the multi-PV mode.
+    ///
+    /// **Note:** Searches that do not support multi-PV should always
+    /// send an empty list.
     pub sorted_moves: Vec<Move>,
 
     /// `true` if the search is done, `false` otherwise.
+    ///
+    /// Searches should send `false` in all their reports but the last
+    /// one.
     pub done: bool,
 }
 
