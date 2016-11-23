@@ -165,7 +165,6 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
         ];
         options.extend(S::options());
-        options.extend(S::SearchNode::options());
 
         // Remove duplicated options.
         options.sort_by(|a, b| a.0.cmp(&b.0));
