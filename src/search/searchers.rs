@@ -9,7 +9,7 @@ use std::time::Duration;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use chesstypes::*;
-use engine::SetOption;
+use engine::{SetOption, OptionDescription};
 use super::*;
 
 
@@ -101,7 +101,19 @@ impl<T, N> SearchExecutor for StandardSearcher<T, N>
     }
 }
 
-impl<T: HashTable, N: SearchNode> SetOption for StandardSearcher<T, N> {}
+impl<T: HashTable, N: SearchNode> SetOption for StandardSearcher<T, N> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        let mut options = vec![];
+        options.extend(T::options());
+        options.extend(N::options());
+        options
+    }
+
+    fn set_option(name: &str, value: &str) {
+        T::set_option(name, value);
+        N::set_option(name, value);
+    }
+}
 
 impl<T: HashTable, N: SearchNode> Drop for StandardSearcher<T, N> {
     fn drop(&mut self) {

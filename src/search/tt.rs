@@ -5,6 +5,7 @@ use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
 use chesstypes::*;
+use engine::SetOption;
 use search::{HashTable, HashTableEntry, DEPTH_MAX};
 
 
@@ -261,6 +262,8 @@ impl Tt {
         &mut (&mut *self.table.get())[cluster_index]
     }
 }
+
+impl SetOption for Tt {}
 
 unsafe impl Sync for Tt {}
 
