@@ -35,7 +35,7 @@ pub const DEPTH_MAX: u8 = 63;
 /// the exact evaluation is outside of this interval, the search may
 /// return a value that is closer to the the interval bounds than the
 /// exact evaluation, but always staying on the correct side of the
-/// interval.
+/// interval (i.e. "fail-soft").
 #[derive(Clone)]
 pub struct SearchParams<T: SearchNode> {
     /// A number identifying the new search.
@@ -46,17 +46,18 @@ pub struct SearchParams<T: SearchNode> {
 
     /// The requested search depth.
     ///
-    /// No greater than `DEPTH_MAX`.
+    /// Should be no greater than `DEPTH_MAX`.
     pub depth: u8,
 
     /// The lower bound for the new search.
     ///
-    /// No lesser than `VALUE_MIN`.
+    /// Should be no lesser than `VALUE_MIN`.
     pub lower_bound: Value,
 
     /// The upper bound for the new search.
     ///
-    /// Greater than `lower_bound`, no greater than `VALUE_MAX`.
+    /// Should be greater than `lower_bound`, but no greater than
+    /// `VALUE_MAX`.
     pub upper_bound: Value,
 
     /// Restricts the analysis to the supplied list of moves only.
