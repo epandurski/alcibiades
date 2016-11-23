@@ -63,8 +63,9 @@ struct Engine<S: SearchExecutor> {
     position: S::SearchNode,
     current_depth: u8,
 
-    // `Engine` will hand over the real work to `SearchThread`.
-    search_thread: SearchThread<S>,
+    // From `SearchThread`.
+    status: SearchStatus,
+    searcher: S,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -97,7 +98,7 @@ impl<S: SearchExecutor> Engine<S> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
-        let &SearchStatus { depth, searched_nodes, nps, .. } = self.search_thread.status();
+        let &SearchStatus { depth, searched_nodes, nps, .. } = &self.status;
         self.queue.push_back(EngineReply::Info(vec![
             InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
             InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
@@ -110,7 +111,7 @@ impl<S: SearchExecutor> Engine<S> {
     /// (multi)PV to the queue.
     fn queue_pv(&mut self) {
         let &SearchStatus { depth, ref variations, searched_nodes, duration_millis, nps, .. } =
-            self.search_thread.status();
+            &self.status;
         for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
             let bound_suffix = match bound {
                 BOUND_EXACT => "",
@@ -139,7 +140,7 @@ impl<S: SearchExecutor> Engine<S> {
     /// A helper method. It it adds a message containing the current
     /// best move to the queue.
     fn queue_best_move(&mut self) {
-        let &SearchStatus { ref variations, .. } = self.search_thread.status();
+        let &SearchStatus { ref variations, .. } = &self.status;
         self.queue.push_back(EngineReply::BestMove {
             best_move: variations[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
             ponder_move: variations[0].moves.get(1).map(|m| m.notation()),
@@ -188,7 +189,21 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
                           .ok()
                           .unwrap(),
             current_depth: 0,
-            search_thread: SearchThread::new(tt),
+            status: SearchStatus {
+                done: true,
+                depth: 0,
+                variations: vec![Variation {
+                                     value: VALUE_MIN,
+                                     bound: BOUND_LOWER,
+                                     moves: vec![],
+                                 }],
+                searchmoves_count: 20,
+                searched_nodes: 0,
+                started_at: SystemTime::now(),
+                duration_millis: 0,
+                nps: 0,
+            },
+            searcher: S::new(tt),
             play_when: PlayWhen::Never,
             variation_count: 1,
             pondering_is_allowed: false,
@@ -241,7 +256,7 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
                        infinite,
                        .. } = params;
 
-        self.search_thread.stop();
+        self.terminate();
         self.tt.new_search();
         self.current_depth = 0;
         self.is_pondering = ponder;
@@ -263,11 +278,11 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
                                                       movestogo))
         };
         self.silent_since = SystemTime::now();
-        self.search_thread.search(&self.position, searchmoves);
+        self.start(searchmoves);
     }
 
     fn ponder_hit(&mut self) {
-        if self.search_thread.status().done {
+        if self.status.done {
             self.queue_best_move();
         } else {
             self.is_pondering = false;
@@ -275,23 +290,23 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
     }
 
     fn stop(&mut self) {
-        self.search_thread.stop();
+        self.terminate();
         self.queue_best_move();
     }
 
     fn wait_for_reply(&mut self, duration: Duration) -> Option<EngineReply> {
         if self.queue.is_empty() {
-            let done = self.search_thread.status().done;
+            let done = self.status.done;
 
             // Wait for `search_thread` to do some work, and hopefully
             // update its status. (We must do this even when the
             // search is done -- in that case the next line will just
             // yield the CPU to another process.)
-            self.search_thread.wait_status_update(duration);
+            self.wait_status_update(duration);
 
             if !done {
                 let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
-                    self.search_thread.status();
+                    &self.status;
 
                 // Send the (multi)PV for each newly reached depth.
                 if depth > self.current_depth {
@@ -306,7 +321,7 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
 
                 // Register the search status with the time manager.
                 if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-                    tm.update_status(self.search_thread.status());
+                    tm.update_status(&self.status);
                 }
 
                 // Check if we must play now.
@@ -327,46 +342,13 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
     }
 
     fn exit(&mut self) {
-        self.search_thread.stop();
+        self.terminate();
     }
 }
 
 
-/// A thread that executes consecutive searches in different starting
-/// positions.
-struct SearchThread<S: SearchExecutor> {
-    tt: Arc<S::HashTable>,
-    position: S::SearchNode,
-    status: SearchStatus,
-    searcher: S,
-}
-
-impl<S: SearchExecutor> SearchThread<S> {
-    /// Creates a new instance.
-    pub fn new(tt: Arc<S::HashTable>) -> SearchThread<S> {
-        SearchThread {
-            tt: tt.clone(),
-            position: S::SearchNode::from_history(START_POSITION_FEN, &mut vec![].into_iter())
-                          .ok()
-                          .unwrap(),
-            status: SearchStatus {
-                done: true,
-                depth: 0,
-                variations: vec![Variation {
-                                     value: VALUE_MIN,
-                                     bound: BOUND_LOWER,
-                                     moves: vec![],
-                                 }],
-                searchmoves_count: 20,
-                searched_nodes: 0,
-                started_at: SystemTime::now(),
-                duration_millis: 0,
-                nps: 0,
-            },
-            searcher: S::new(tt),
-        }
-    }
-
+/// From `SearchThread`.
+impl<S: SearchExecutor> Engine<S> {
     /// Terminates the currently running search (if any), starts a new
     /// search, updates the status.
     ///
@@ -376,12 +358,10 @@ impl<S: SearchExecutor> SearchThread<S> {
     /// empty). The move format is long algebraic notation. Examples:
     /// e2e4, e7e5, e1g1 (white short castling), e7e8q (for
     /// promotion).
-    pub fn search(&mut self, position: &S::SearchNode, mut searchmoves: Vec<String>) {
-        self.position = position.clone();
-
+    fn start(&mut self, mut searchmoves: Vec<String>) {
         // Validate `searchmoves`.
         let mut moves = vec![];
-        let legal_moves = position.legal_moves();
+        let legal_moves = self.position.legal_moves();
         if !searchmoves.is_empty() {
             searchmoves.sort();
             for m in legal_moves.iter() {
@@ -397,7 +377,7 @@ impl<S: SearchExecutor> SearchThread<S> {
         };
 
         // Terminate the currently running search.
-        self.stop();
+        self.terminate();
 
         // Update the status.
         self.status = SearchStatus {
@@ -418,7 +398,7 @@ impl<S: SearchExecutor> SearchThread<S> {
         // Start a new search.
         self.searcher.start_search(SearchParams {
             search_id: 0,
-            position: position.clone(),
+            position: self.position.clone(),
             depth: DEPTH_MAX,
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
@@ -428,27 +408,16 @@ impl<S: SearchExecutor> SearchThread<S> {
 
     /// Terminates the currently running search (if any), updates the
     /// status.
-    pub fn stop(&mut self) {
+    fn terminate(&mut self) {
         self.searcher.terminate_search();
-        while !self.status().done {
+        while !self.status.done {
             self.wait_status_update(Duration::from_millis(1000));
         }
     }
 
-    /// Returns the status of the current search.
-    ///
-    /// **Important note:** Consecutive calls to this method will
-    /// return the same unchanged result. Only after calling `search`,
-    /// `stop`, or `wait_status_update`, the result returned by
-    /// `status` may change.
-    #[inline(always)]
-    pub fn status(&self) -> &SearchStatus {
-        &self.status
-    }
-
     /// Waits for a search status update, timing out after a specified
     /// duration or earlier.
-    pub fn wait_status_update(&mut self, duration: Duration) {
+    fn wait_status_update(&mut self, duration: Duration) {
         self.searcher.wait_report(duration);
         while let Ok(r) = self.searcher.try_recv_report() {
             self.process_report(r)
