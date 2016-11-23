@@ -61,10 +61,15 @@ pub struct SearchParams<T: SearchNode> {
 
     /// Restricts the analysis to the supplied list of moves only.
     ///
-    /// The same move should not occur more than once, and all
-    /// supplied moves should be legal. The behavior of the new search
-    /// is undefined if `searchmoves` is empty, but the supplied root
-    /// position is not final.
+    /// * All moves in the list should be legal.
+    ///
+    /// * The same move should not occur more than once.
+    ///
+    /// * If the root position is final, the supplied list of moves
+    ///   should be empty.
+    ///
+    /// The behavior of the search is *undefined* if the root position
+    /// is not final, but `searchmoves` is empty.
     pub searchmoves: Vec<Move>,
 }
 
