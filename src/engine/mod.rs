@@ -214,7 +214,6 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
             _ => (),
         }
         S::set_option(name, value);
-        S::SearchNode::set_option(name, value);
     }
 
     fn new_game(&mut self) {
