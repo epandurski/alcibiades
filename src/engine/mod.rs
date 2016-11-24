@@ -153,7 +153,6 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
                                      bound: BOUND_LOWER,
                                      moves: vec![],
                                  }],
-                searchmoves_count: 20,
                 searched_nodes: 0,
                 started_at: SystemTime::now(),
                 duration_millis: 0,
@@ -379,7 +378,6 @@ impl<S: SearchExecutor> Engine<S> {
         self.status = SearchStatus {
             done: false,
             depth: 0,
-            searchmoves_count: searchmoves.len(),
             variations: vec![Variation {
                                  value: VALUE_MIN,
                                  bound: BOUND_LOWER,
@@ -466,10 +464,6 @@ struct SearchStatus {
 
     /// The search depth completed so far.
     pub depth: u8,
-
-    /// The number of different first moves that are being considered
-    /// (from the root position).
-    pub searchmoves_count: usize,
 
     /// The best variations found so far, sorted by descending first
     /// move strength. The first move in each variation will be
