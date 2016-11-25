@@ -5,8 +5,8 @@ use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
 use chesstypes::*;
-use engine::SetOption;
-use search::{HashTable, HashTableEntry, DEPTH_MAX};
+use uci::SetOption;
+use super::{HashTable, HashTableEntry, DEPTH_MAX};
 
 
 /// Contains information about a particular position.

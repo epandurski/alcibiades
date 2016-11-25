@@ -28,8 +28,8 @@
 //! engine. `Position` implements a very fast move generator, and
 //! also: quiescence search, static exchange evaluation, move legality
 //! check, hashing. Re-writing those things is a lot of work. Still,
-//! if you decide to do this, you should write your own
-//! implementations of `SearchNode` and `SearchNodeFactory` traits.
+//! if you decide to do this, you should write your own implementation
+//! of the `SearchNode` trait.
 mod notation;
 mod rules;
 pub mod tables;
@@ -41,7 +41,7 @@ use std::cell::Cell;
 use chesstypes::*;
 use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
 use search::MoveStack;
-use engine::SetOption;
+use uci::SetOption;
 use board::notation::parse_fen;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};

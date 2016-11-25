@@ -35,7 +35,6 @@ use std::io;
 use std::io::{Write, BufWriter, BufRead, ErrorKind};
 use std::sync::mpsc::{channel, TryRecvError};
 use regex::Regex;
-use super::OptionDescription;
 
 
 /// A command from the GUI to the engine.
@@ -182,6 +181,47 @@ pub enum EngineReply {
         best_move: String,
         ponder_move: Option<String>,
     },
+}
+
+
+/// Describes a configuration option.
+///
+/// Configurable options can be of several different types, depending
+/// on their intended appearance in the GUI: check box, spin box,
+/// combo box, string box, or button.
+pub enum OptionDescription {
+    Check {
+        default: bool,
+    },
+    Spin {
+        min: i32,
+        max: i32,
+        default: i32,
+    },
+    Combo {
+        list: Vec<String>,
+        default: String,
+    },
+    String {
+        default: String,
+    },
+    Button,
+}
+
+
+/// A trait for announcing and changing configuration options.
+pub trait SetOption {
+    /// Returns a list of supported configuration options (name and
+    /// description).
+    fn options() -> Vec<(String, OptionDescription)> {
+        vec![]
+    }
+
+    /// Sets a new value for a given configuration option.
+    ///
+    /// Does nothing if called with unsupported option name.
+    #[allow(unused_variables)]
+    fn set_option(name: &str, value: &str) {}
 }
 
 

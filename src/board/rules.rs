@@ -7,13 +7,13 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use search::{SearchNode, MoveStack};
-use engine::{SetOption, OptionDescription};
+use uci::{SetOption, OptionDescription};
 use super::{Board, BoardEvaluator};
 use super::notation::parse_fen;
 use super::bitsets::*;
 
 
-/// Implements `SearchNode` and `SearchNodeFactory` traits.
+/// Implements `SearchNode` trait.
 /// 
 /// `Position` implements the rules of chess, thus connecting the
 /// static evaluator `T` to the game-tree searcher.

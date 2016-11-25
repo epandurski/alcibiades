@@ -9,7 +9,7 @@ use std::time::Duration;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use chesstypes::*;
-use engine::{SetOption, OptionDescription};
+use uci::{SetOption, OptionDescription};
 use super::*;
 
 

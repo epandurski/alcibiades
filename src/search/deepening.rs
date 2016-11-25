@@ -1,4 +1,24 @@
-//! Implements `Deepening`.
+//! Implements iterative deepening, aspiration windows, multi-PV.
+//!
+//! Iterative deepening works as follows: A depth-first search is
+//! executed with a depth of one ply, then the depth is incremented
+//! and another search is executed. This process is repeated until the
+//! search is terminated or the requested search depth is reached. In
+//! case of an unfinished search, the engine can always fall back to
+//! the move selected in the last iteration of the search.
+//!
+//! Aspiration windows are a way to reduce the search space in the
+//! search. The way it works is that we get the value from the last
+//! search iteration, calculate a window around it, and use this as
+//! alpha-beta bounds for the next search. Because the window is
+//! narrower, more beta cutoffs are achieved, and the search takes a
+//! shorter time. The drawback is that if the true score is outside
+//! this window, then a costly re-search must be made.
+//!
+//! In multi-PV mode the engine calculates several principal
+//! variations (PV), each one starting with a different first
+//! move. This mode is very useful for chess analysis, but can make
+//! the search slower.
 
 use std::cmp::{min, max};
 use std::time::Duration;
@@ -6,38 +26,18 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
 use std::ops::Deref;
 use chesstypes::*;
-use search::*;
-use super::{SetOption, OptionDescription, Variation, extract_pv};
+use uci::{SetOption, OptionDescription};
+use super::*;
 
 
 /// Executes depth-first searches with iterative deepening, aspiration
 /// windows, and multi-PV.
 ///
-/// Iterative deepening works as follows: the search starts with a
-/// depth of one ply, then increments the depth and does another
-/// search. This process is repeated until the search is terminated or
-/// the requested search depth is reached. In case of an unfinished
-/// search, the engine can always fall back to the move selected in
-/// the last iteration of the search.
-///
-/// Aspiration windows are a way to reduce the search space in the
-/// search. The way it works is that we get the value from the last
-/// search iteration, calculate a window around it, and use this as
-/// alpha-beta bounds for the next search. Because the window is
-/// narrower, more beta cutoffs are achieved, and the search takes a
-/// shorter time. The drawback is that if the true score is outside
-/// this window, then a costly re-search must be made.
-///
-/// In multi-PV mode the engine calculates several principal
-/// variations (PV), each one starting with a different first
-/// move. This mode is very useful for chess analysis, but can make
-/// the search slower.
-///
 /// # Usage
 ///
-/// You can turn any depth-first searcher into a deepening searcher
-/// with aspiration windows and multi-PV, simply by instantiating
-/// `Deepening<YourDepthFirstSearcher>`.
+/// If `T` is a depth-first searcher, instantiate `Deepening<T>` to
+/// turn it into a deepening searcher with aspiration windows and
+/// multi-PV.
 pub struct Deepening<T: SearchExecutor> {
     tt: Arc<T::HashTable>,
     params: SearchParams<T::SearchNode>,
