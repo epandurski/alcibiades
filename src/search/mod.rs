@@ -77,19 +77,26 @@ pub struct SearchParams<T: SearchNode> {
 /// A progress report from a search.
 #[derive(Clone)]
 pub struct SearchReport<T> {
-    /// The ID assigned to search.
+    /// The ID assigned to the search.
+    ///
+    /// Should be the same for all reports from a given search.
     pub search_id: usize,
 
     /// The number of positions searched so far.
+    ///
+    /// Should be no lesser than the value sent in the previous
+    /// report.
     pub searched_nodes: u64,
 
     /// The search depth completed so far.
     ///
     /// Should be no lesser than the value sent in the previous
-    /// report, and no greater than `DEPTH_MAX`.
+    /// report, and no greater than the requested search depth. If the
+    /// search has not been forcefully terminated, the last reported
+    /// `depth` should be the requested search depth.
     ///
-    /// **Note:** Depth-first searches should send `0` in all their
-    /// reports but the last one.
+    /// **Note:** Depth-first searches should send `0` in all reports
+    /// except the last one.
     pub depth: u8,
 
     /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
@@ -99,23 +106,16 @@ pub struct SearchReport<T> {
     /// report should contain the calculated final evaluation.
     ///
     /// **Note:** Depth-first searches should send `VALUE_UNKNOWN` in
-    /// all their reports but the last one.
+    /// all reports except the last one.
     pub value: Value,
 
-    /// The `searchmoves` list sorted by descending move strength (see
-    /// `SearchParams`), or an empty list.
+    /// Whether the search is done.
     ///
-    /// This is for the multi-PV mode.
-    ///
-    /// **Note:** Searches that do not support multi-PV should always
-    /// send an empty list.
-    pub data: T,
-
-    /// `true` if the search is done, `false` otherwise.
-    ///
-    /// Searches should send `false` in all their reports but the last
-    /// one.
+    /// Should be `false` for all reports except the last one.
     pub done: bool,
+
+    /// Auxiliary data.
+    pub data: T,
 }
 
 
