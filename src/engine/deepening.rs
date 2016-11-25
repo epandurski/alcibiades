@@ -133,11 +133,19 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
 
 impl<T: SearchExecutor> SetOption for Deepening<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        T::options()
+        // Add up all suported options.
+        let mut options = vec![
+            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
+        ];
+        options.extend(Multipv::<T>::options());
+        options
     }
 
     fn set_option(name: &str, value: &str) {
-        T::set_option(name, value)
+        if name == "MultiPV" {
+            *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
+        }
+        Multipv::<T>::set_option(name, value)
     }
 }
 
@@ -149,6 +157,10 @@ impl<T: SearchExecutor> Deepening<T> {
             ..self.params.clone()
         });
     }
+}
+
+lazy_static! {
+    static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
 }
 
 
@@ -271,18 +283,10 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
 impl<T: SearchExecutor> SetOption for Multipv<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        // Add up all suported options.
-        let mut options = vec![
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
-        ];
-        options.extend(Aspiration::<T>::options());
-        options
+        Aspiration::<T>::options()
     }
 
     fn set_option(name: &str, value: &str) {
-        if name == "MultiPV" {
-            *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
-        }
         Aspiration::<T>::set_option(name, value)
     }
 }
@@ -346,10 +350,6 @@ impl<T: SearchExecutor> Multipv<T> {
             i -= 1;
         }
     }
-}
-
-lazy_static! {
-    static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
 }
 
 
