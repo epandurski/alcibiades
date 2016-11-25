@@ -110,7 +110,7 @@ pub struct SearchReport {
     ///
     /// **Note:** Searches that do not support multi-PV should always
     /// send an empty list.
-    pub sorted_moves: Vec<Move>,
+    pub data: Vec<Move>,
 
     /// `true` if the search is done, `false` otherwise.
     ///

@@ -164,18 +164,18 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
-        let SearchReport { searched_nodes, depth, value, sorted_moves, done, .. } =
+        let SearchReport { searched_nodes, depth, value, data, done, .. } =
             try!(self.searcher.try_recv_report());
-        if !sorted_moves.is_empty() {
-            debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
-            self.params.searchmoves = sorted_moves.clone();
+        if !data.is_empty() {
+            debug_assert!(contains_same_moves(&self.params.searchmoves, &data));
+            self.params.searchmoves = data.clone();
         }
         let mut report = SearchReport {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
             depth: 0,
             value: VALUE_UNKNOWN,
-            sorted_moves: sorted_moves,
+            data: data,
             done: done,
         };
         if done && !self.search_is_terminated {
@@ -369,7 +369,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
                 searched_nodes: 0,
                 depth: self.params.depth,
                 value: self.params.position.evaluate_final(),
-                sorted_moves: vec![],
+                data: vec![],
                 done: true,
             })
         } else {
@@ -381,7 +381,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
                 searched_nodes: self.previously_searched_nodes + searched_nodes,
                 depth: 0,
                 value: VALUE_UNKNOWN,
-                sorted_moves: vec![],
+                data: vec![],
                 done: done,
             };
             if done && !self.search_is_terminated {
@@ -393,7 +393,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
                 } else {
                     report.depth = self.params.depth;
                     report.value = self.values[0];
-                    report.sorted_moves = self.params.searchmoves.clone();
+                    report.data = self.params.searchmoves.clone();
                 }
             }
             Ok(report)

@@ -86,18 +86,18 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
-        let SearchReport { searched_nodes, depth, value, sorted_moves, done, .. } =
+        let SearchReport { searched_nodes, depth, value, data, done, .. } =
             try!(self.searcher.try_recv_report());
-        if !sorted_moves.is_empty() {
-            debug_assert!(contains_same_moves(&self.params.searchmoves, &sorted_moves));
-            self.params.searchmoves = sorted_moves.clone();
+        if !data.is_empty() {
+            debug_assert!(contains_same_moves(&self.params.searchmoves, &data));
+            self.params.searchmoves = data.clone();
         }
         let mut report = SearchReport {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
             depth: self.depth,
             value: self.value,
-            sorted_moves: sorted_moves,
+            data: data,
             done: done,
         };
         if done && !self.search_is_terminated {

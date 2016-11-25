@@ -34,8 +34,7 @@ use super::*;
 ///
 /// **Important note:** `StandardSearcher` ignores the `searchmoves`
 /// search parameter. It always analyses all legal moves in the root
-/// position, and always gives an empty list of `sorted_moves` in its
-/// progress reports.
+/// position.
 pub struct StandardSearcher<T: HashTable, N: SearchNode> {
     phantom: PhantomData<T>,
     thread_join_handle: Option<thread::JoinHandle<()>>,
@@ -207,7 +206,7 @@ fn serve_simple<T, N>(tt: Arc<T>,
                                    searched_nodes: searched_nodes,
                                    depth: 0,
                                    value: VALUE_UNKNOWN,
-                                   sorted_moves: vec![],
+                                   data: vec![],
                                    done: false,
                                })
                                .ok();
@@ -237,7 +236,7 @@ fn serve_simple<T, N>(tt: Arc<T>,
                                searched_nodes: search.node_count(),
                                depth: depth,
                                value: value,
-                               sorted_moves: vec![],
+                               data: vec![],
                                done: true,
                            })
                            .ok();
