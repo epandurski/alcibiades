@@ -12,16 +12,16 @@
 //!
 //! This module handles the low-level details of the UCI protocol. It
 //! only requires the programmer to define a type that implements the
-//! `UciEngine` trait. Then `run_server` will handle the communication
+//! `UciEngine` trait. Then `run_engine` will handle the communication
 //! with the GUI all by itself.
 //!
 //! # Example:
 //! ```rust
 //! use std::process::exit;
-//! use uci::run_server;
+//! use uci::run_engine;
 //!
 //! fn main() {
-//!     exit(match run_server::<MyEngine>() {
+//!     exit(match run_engine::<MyEngine>() {
 //!         Ok(_) => 0,
 //!         Err(_) => 1,
 //!     })
@@ -35,6 +35,7 @@ use std::io;
 use std::io::{Write, BufWriter, BufRead, ErrorKind};
 use std::sync::mpsc::{channel, TryRecvError};
 use regex::Regex;
+use super::OptionDescription;
 
 
 /// A command from the GUI to the engine.
@@ -184,31 +185,6 @@ pub enum EngineReply {
 }
 
 
-/// Describes a configuration option.
-///
-/// Configurable options can be of several different types, depending
-/// on their intended appearance in the GUI: check box, spin box,
-/// combo box, string box, or button.
-pub enum OptionDescription {
-    Check {
-        default: bool,
-    },
-    Spin {
-        min: i32,
-        max: i32,
-        default: i32,
-    },
-    Combo {
-        list: Vec<String>,
-        default: String,
-    },
-    String {
-        default: String,
-    },
-    Button,
-}
-
-
 /// A trait for UCI-compatible chess engines.
 ///
 /// The methods in this trait, except the method `wait_for_reply`,
@@ -281,7 +257,7 @@ pub trait UciEngine {
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run_server<E: UciEngine>() -> io::Result<()> {
+pub fn run_engine<E: UciEngine>() -> io::Result<()> {
     let mut server = try!(Server::<E>::wait_for_hanshake());
     server.serve()
 }

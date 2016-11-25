@@ -13,10 +13,10 @@ use search::searchers::StandardSearcher;
 use search::tt::Tt;
 use board::Position;
 use board::evaluators::RandomEvaluator;
-use engine::{run, Deepening};
+use engine::{run_server, Deepening};
 
 fn main() {
-    exit(match run::<Deepening<StandardSearcher<Tt, Position<RandomEvaluator>>>>() {
+    exit(match run_server::<Deepening<StandardSearcher<Tt, Position<RandomEvaluator>>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })
