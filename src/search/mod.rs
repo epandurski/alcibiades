@@ -203,8 +203,8 @@ pub trait HashTableEntry: Copy {
 ///    periodically, until the returned report indicates that the
 ///    search is done.
 ///
-/// 3. Obtain primary variations from the search report, or directly
-///    from the transposition table.
+/// 3. Obtain primary variations from search reports, or directly from
+///    the transposition table.
 pub trait SearchExecutor: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
