@@ -39,7 +39,7 @@ pub struct StandardSearcher<T: HashTable, N: SearchNode> {
     phantom: PhantomData<T>,
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command<N>>,
-    thread_reports: Receiver<SearchReport>,
+    thread_reports: Receiver<SearchReport<()>>,
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
@@ -50,6 +50,8 @@ impl<T, N> SearchExecutor for StandardSearcher<T, N>
     type HashTable = T;
 
     type SearchNode = N;
+
+    type ReportData = ();
 
     fn new(tt: Arc<T>) -> StandardSearcher<T, N> {
         let (commands_tx, commands_rx) = channel();
@@ -78,7 +80,7 @@ impl<T, N> SearchExecutor for StandardSearcher<T, N>
         self.thread_commands.send(Command::Start(params)).unwrap();
     }
 
-    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError> {
+    fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
         let mut has_reports = self.has_reports_condition.0.lock().unwrap();
         let result = self.thread_reports.try_recv();
         if result.is_err() {
@@ -172,7 +174,7 @@ enum Command<N: SearchNode> {
 /// depth.
 fn serve_simple<T, N>(tt: Arc<T>,
                       commands: Receiver<Command<N>>,
-                      reports: Sender<SearchReport>,
+                      reports: Sender<SearchReport<()>>,
                       has_reports_condition: Arc<(Mutex<bool>, Condvar)>)
     where T: HashTable,
           N: SearchNode
@@ -206,7 +208,7 @@ fn serve_simple<T, N>(tt: Arc<T>,
                                    searched_nodes: searched_nodes,
                                    depth: 0,
                                    value: VALUE_UNKNOWN,
-                                   data: vec![],
+                                   data: (),
                                    done: false,
                                })
                                .ok();
@@ -236,7 +238,7 @@ fn serve_simple<T, N>(tt: Arc<T>,
                                searched_nodes: search.node_count(),
                                depth: depth,
                                value: value,
-                               data: vec![],
+                               data: (),
                                done: true,
                            })
                            .ok();

@@ -1,18 +1,16 @@
 //! Implements higher-level facilities.
 
 mod uci;
-mod deepening;
+pub mod deepening;
 pub mod time_manager;
 
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use std::cmp::{max, Ordering};
-use std::ops::Deref;
 use std::io;
 use chesstypes::*;
 use search::*;
-use self::deepening::Deepening;
 use self::time_manager::*;
 use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
 
@@ -41,8 +39,8 @@ pub trait SetOption {
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run<S: SearchExecutor>() -> io::Result<()> {
-    run_server::<Engine<Deepening<S>>>()
+pub fn run<S: SearchExecutor<ReportData = Vec<Variation>>>() -> io::Result<()> {
+    run_server::<Engine<S>>()
 }
 
 
@@ -70,7 +68,7 @@ enum PlayWhen {
 
 
 /// Implements `UciEngine` trait.
-struct Engine<S: SearchExecutor> {
+struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     tt: Arc<S::HashTable>,
     position: S::SearchNode,
     current_depth: u8,
@@ -106,7 +104,7 @@ struct Engine<S: SearchExecutor> {
 }
 
 
-impl<S: SearchExecutor> UciEngine for Engine<S> {
+impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
     fn name() -> String {
         format!("{} {}", NAME, VERSION)
     }
@@ -297,7 +295,7 @@ impl<S: SearchExecutor> UciEngine for Engine<S> {
 }
 
 
-impl<S: SearchExecutor> Engine<S> {
+impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
     /// A helper method. It it adds a progress report message to the
     /// queue.
     fn queue_progress_report(&mut self) {
@@ -350,7 +348,7 @@ impl<S: SearchExecutor> Engine<S> {
         });
         self.silent_since = SystemTime::now();
     }
-    
+
     /// Terminates the currently running search (if any), starts a new
     /// search, updates the status.
     fn start(&mut self, mut searchmoves: Vec<String>) {
@@ -420,7 +418,7 @@ impl<S: SearchExecutor> Engine<S> {
 
     /// A helper method. It updates the current status according to
     /// the received report message.
-    fn process_report(&mut self, report: SearchReport) {
+    fn process_report(&mut self, report: SearchReport<Vec<Variation>>) {
         // Register the search status with the time manager.
         if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
             tm.update_status(&report);
@@ -434,9 +432,7 @@ impl<S: SearchExecutor> Engine<S> {
                           (1000 + self.status.duration_millis);
         if self.status.depth < report.depth {
             self.status.depth = report.depth;
-            self.status.variations = vec![extract_pv(self.tt.deref(),
-                                                     &self.position,
-                                                     report.depth)];
+            self.status.variations = report.data;
         }
         self.status.done = report.done;
     }
@@ -445,7 +441,7 @@ impl<S: SearchExecutor> Engine<S> {
 
 /// A sequence of moves from some starting position, together with the
 /// value assigned to the final position.
-struct Variation {
+pub struct Variation {
     /// A sequence of moves from some starting position.
     pub moves: Vec<Move>,
 

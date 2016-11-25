@@ -10,7 +10,6 @@
 //! that implements the `SearchExecutor` trait.
 
 mod move_stack;
-pub mod aspiration;
 pub mod searchers;
 pub mod tt;
 
@@ -77,7 +76,7 @@ pub struct SearchParams<T: SearchNode> {
 
 /// A progress report from a search.
 #[derive(Clone)]
-pub struct SearchReport {
+pub struct SearchReport<T> {
     /// The ID assigned to search.
     pub search_id: usize,
 
@@ -110,7 +109,7 @@ pub struct SearchReport {
     ///
     /// **Note:** Searches that do not support multi-PV should always
     /// send an empty list.
-    pub data: Vec<Move>,
+    pub data: T,
 
     /// `true` if the search is done, `false` otherwise.
     ///
@@ -210,6 +209,9 @@ pub trait SearchExecutor: SetOption {
     /// The type of search node that the implementation works with.
     type SearchNode: SearchNode;
 
+    /// The type of auxiliary data that search progress reports carry.
+    type ReportData;
+
     /// Creates a new instance.
     fn new(tt: Arc<Self::HashTable>) -> Self;
 
@@ -228,7 +230,7 @@ pub trait SearchExecutor: SetOption {
     fn start_search(&mut self, params: SearchParams<Self::SearchNode>);
 
     /// Attempts to return a search progress report without blocking.
-    fn try_recv_report(&mut self) -> Result<SearchReport, TryRecvError>;
+    fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError>;
 
     /// Waits until a search progress report is available, timing out
     /// after a specified duration or earlier.

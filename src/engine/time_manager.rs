@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::time::SystemTime;
 use chesstypes::*;
 use search::SearchReport;
+use super::Variation;
 
 
 /// Decides when the search must be terminated.
@@ -49,7 +50,7 @@ impl TimeManager {
 
     /// Registers the current search status with the time manager.
     #[allow(unused_variables)]
-    pub fn update_status(&mut self, report: &SearchReport) {
+    pub fn update_status(&mut self, report: &SearchReport<Vec<Variation>>) {
         // TODO: Implement smarter time management.
         let duration = self.started_at.elapsed().unwrap();
         let duration_millis = 1000 * duration.as_secs() + duration.subsec_nanos() as u64 / 1000000;
