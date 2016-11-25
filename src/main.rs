@@ -13,11 +13,10 @@ use search::searchers::StandardSearcher;
 use search::tt::Tt;
 use board::Position;
 use board::evaluators::RandomEvaluator;
-use engine::run;
-use engine::deepening::{Deepening, Multipv};
+use engine::{run, Deepening};
 
 fn main() {
-    exit(match run::<Deepening<Multipv<StandardSearcher<Tt, Position<RandomEvaluator>>>>>() {
+    exit(match run::<Deepening<StandardSearcher<Tt, Position<RandomEvaluator>>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })

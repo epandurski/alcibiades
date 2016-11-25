@@ -1,7 +1,7 @@
 //! Implements higher-level facilities.
 
 mod uci;
-pub mod deepening;
+mod deepening;
 pub mod time_manager;
 
 use std::collections::VecDeque;
@@ -15,6 +15,7 @@ use self::time_manager::*;
 use self::uci::{UciEngine, EngineReply, InfoItem, GoParams, run_server};
 
 pub use self::uci::OptionDescription;
+pub use self::deepening::Deepening;
 
 
 /// A trait for announcing and changing configuration options.
