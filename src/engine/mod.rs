@@ -53,8 +53,8 @@ pub struct Variation {
 ///
 /// **Important note:** Values under `-9999`, or over `9999` will be
 /// chopped.
-pub fn extract_pv<T: HashTable, P: SearchNode>(tt: &T, position: &P, depth: u8) -> Variation {
-    debug_assert!(depth <= DEPTH_MAX);
+pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> Variation {
+    assert!(depth <= DEPTH_MAX, "invalid depth: {}", depth);
     let mut p = position.clone();
     let mut our_turn = true;
     let mut root_value = VALUE_UNKNOWN;
