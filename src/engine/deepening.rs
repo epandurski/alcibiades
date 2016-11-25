@@ -105,8 +105,20 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth + 1);
 
-            // TODO: Make it multi-PV aware.
-            report.data.push(extract_pv(self.tt.deref(), &self.params.position, depth));
+            // Extract primary variations from the transposition table.
+            for m in data.iter().take(self.searcher.variation_count) {
+                assert!(self.params.position.do_move(*m));
+                let mut variation = extract_pv(self.tt.deref(), &self.params.position, self.depth);
+                self.params.position.undo_move();
+                variation.moves.insert(0, *m);
+                variation.value = -variation.value;
+                variation.bound = match variation.bound {
+                    BOUND_LOWER => BOUND_UPPER,
+                    BOUND_UPPER => BOUND_LOWER,
+                    x => x,
+                };
+                report.data.push(variation);
+            }
 
             self.previously_searched_nodes = report.searched_nodes;
             self.depth = depth;
