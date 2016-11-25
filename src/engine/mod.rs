@@ -7,7 +7,7 @@ pub mod time_manager;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
-use std::cmp::{max, Ordering};
+use std::cmp::max;
 use std::io;
 use chesstypes::*;
 use search::*;
@@ -490,12 +490,16 @@ fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> V
     let mut p = position.clone();
     let mut our_turn = true;
     let mut root_value = VALUE_UNKNOWN;
-    let mut leaf_value = -9999;
-    let mut leaf_bound = BOUND_LOWER;
+    let mut leaf_value = 9999;
+    let mut leaf_bound = BOUND_UPPER;
     let mut pv_moves = Vec::new();
 
     'move_extraction: while let Some(entry) = tt.probe(p.hash()) {
-        if entry.bound() != BOUND_NONE {
+        let pv_length = pv_moves.len() as u8;
+        if entry.depth() >= depth - pv_length &&
+           (entry.bound() == BOUND_EXACT ||
+            root_value == VALUE_UNKNOWN && entry.bound() != BOUND_NONE) {
+
             // Get the next value and the bound type. (Note that in
             // half of the cases the value stored in `entry` is from
             // other side's perspective. Also, note that we chop
@@ -529,11 +533,11 @@ fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> V
 
             // Continue the move extraction cycle until `depth` is
             // reached or `leaf_value` has diverged from `root_value`.
-            if pv_moves.len() < depth as usize && leaf_value == root_value {
+            if pv_length < depth && leaf_value == root_value {
                 if let Some(m) = p.try_move_digest(entry.move_digest()) {
                     if p.do_move(m) {
                         pv_moves.push(m);
-                        if leaf_bound == BOUND_EXACT {
+                        if entry.bound() == BOUND_EXACT {
                             our_turn = !our_turn;
                             continue 'move_extraction;
                         }
@@ -550,11 +554,7 @@ fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> V
         } else {
             leaf_value
         },
-        bound: match leaf_value.cmp(&root_value) {
-            Ordering::Greater => BOUND_LOWER,
-            Ordering::Less => BOUND_UPPER,
-            Ordering::Equal => leaf_bound,
-        },
+        bound: leaf_bound,
         moves: pv_moves,
     }
 }
