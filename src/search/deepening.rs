@@ -332,25 +332,24 @@ impl<T: SearchExecutor> Multipv<T> {
     }
 
     fn write_reslut_to_tt(&self) {
-        if !self.params.searchmoves.is_empty() {
-            let all_moves_were_considered = self.params.searchmoves.len() ==
-                                            self.params.position.legal_moves().len();
-            let best_move = self.params.searchmoves[0];
-            let value = self.values[0];
-            let bound = match value {
-                v if v <= self.params.lower_bound && !all_moves_were_considered => BOUND_NONE,
-                v if v <= self.params.lower_bound => BOUND_UPPER,
-                v if v >= self.params.upper_bound || !all_moves_were_considered => BOUND_LOWER,
-                _ => BOUND_EXACT,
-            };
-            let eval_value = self.params.position.evaluate_static();
-            self.tt.store(self.params.position.hash(),
-                          <T::HashTable as HashTable>::Entry::new(value,
-                                                                  bound,
-                                                                  self.params.depth,
-                                                                  best_move.digest(),
-                                                                  eval_value));
-        }
+        debug_assert!(!self.params.searchmoves.is_empty());
+        let all_moves_were_considered = self.params.searchmoves.len() ==
+                                        self.params.position.legal_moves().len();
+        let best_move = self.params.searchmoves[0];
+        let value = self.values[0];
+        let bound = match value {
+            v if v <= self.params.lower_bound && !all_moves_were_considered => BOUND_NONE,
+            v if v <= self.params.lower_bound => BOUND_UPPER,
+            v if v >= self.params.upper_bound || !all_moves_were_considered => BOUND_LOWER,
+            _ => BOUND_EXACT,
+        };
+        let eval_value = self.params.position.evaluate_static();
+        self.tt.store(self.params.position.hash(),
+                      <T::HashTable as HashTable>::Entry::new(value,
+                                                              bound,
+                                                              self.params.depth,
+                                                              best_move.digest(),
+                                                              eval_value));
     }
 
     fn change_current_move(&mut self, v: Value) {
