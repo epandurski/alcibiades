@@ -44,8 +44,8 @@ pub struct Deepening<T: SearchExecutor> {
     search_is_terminated: bool,
     previously_searched_nodes: u64,
 
-    // The real work will be handed over to `searcher`.
-    searcher: Multipv<T>,
+    // The real work will be handed over to `multipv`.
+    multipv: Multipv<T>,
 
     // The search depth completed so far.
     depth: u8,
@@ -67,7 +67,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            searcher: Multipv::new(tt),
+            multipv: Multipv::new(tt),
             depth: 0,
             value: VALUE_UNKNOWN,
         }
@@ -89,7 +89,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
         let SearchReport { searched_nodes, depth, value, data, done, .. } =
-            try!(self.searcher.try_recv_report());
+            try!(self.multipv.try_recv_report());
         if !data.is_empty() {
             debug_assert!(contains_same_moves(&self.params.searchmoves, &data));
             self.params.searchmoves = data.clone();
@@ -106,8 +106,8 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
             debug_assert_eq!(depth, self.depth + 1);
 
             // Extract primary variations from the transposition table.
-            if self.searcher.searcher.lmr_mode {
-                for m in data.iter().take(self.searcher.variation_count) {
+            if self.multipv.searcher.lmr_mode {
+                for m in data.iter().take(self.multipv.variation_count) {
                     assert!(self.params.position.do_move(*m));
                     let mut variation = extract_pv(self.tt.deref(),
                                                    &self.params.position,
@@ -122,7 +122,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
                     };
                     report.data.push(variation);
                 }
-            } else if self.searcher.variation_count > 0 {
+            } else if self.multipv.variation_count > 0 {
                 report.data
                       .push(extract_pv(self.tt.deref(), &self.params.position, depth));
             }
@@ -141,12 +141,12 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     }
 
     fn wait_report(&self, duration: Duration) {
-        self.searcher.wait_report(duration);
+        self.multipv.wait_report(duration);
     }
 
     fn terminate_search(&mut self) {
         self.search_is_terminated = true;
-        self.searcher.terminate_search();
+        self.multipv.terminate_search();
     }
 }
 
@@ -162,7 +162,7 @@ impl<T: SearchExecutor> SetOption for Deepening<T> {
 
 impl<T: SearchExecutor> Deepening<T> {
     fn search_next_depth(&mut self) {
-        self.searcher.start_search(SearchParams {
+        self.multipv.start_search(SearchParams {
             search_id: 0,
             depth: self.depth + 1,
             ..self.params.clone()
