@@ -76,8 +76,9 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         assert!(params.depth > 0);
         debug_assert!(params.depth <= DEPTH_MAX);
+        debug_assert!(params.lower_bound >= VALUE_MIN);
+        debug_assert!(params.upper_bound <= VALUE_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
-        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
         self.params = params;
         self.search_is_terminated = false;
@@ -163,7 +164,7 @@ impl<T: SearchExecutor> Deepening<T> {
                 };
                 variations.push(v);
             }
-        } else if self.multipv.variation_count > 0 {
+        } else if self.multipv.variation_count != 0 {
             debug_assert_eq!(self.multipv.variation_count, 1);
             variations.push(extract_pv(self.tt.deref(), &self.params.position, self.depth + 1));
         }
