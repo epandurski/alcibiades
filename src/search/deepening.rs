@@ -205,7 +205,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
     type SearchNode = T::SearchNode;
 
-    // Search report's auxiliary data contains `searchmoves` sorted by
+    // Reports' auxiliary data contains `searchmoves` sorted by
     // descending move strength, or an empty list.
     type ReportData = Vec<Move>;
 
@@ -398,8 +398,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
     type SearchNode = T::SearchNode;
 
-    // Search report's auxiliary data contains `searchmoves` sorted by
-    // descending move strength, or an empty list.
+    // Reports' auxiliary data always contains an empty move list.
     type ReportData = Vec<Move>;
 
     fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
