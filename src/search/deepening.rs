@@ -106,18 +106,25 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
             debug_assert_eq!(depth, self.depth + 1);
 
             // Extract primary variations from the transposition table.
-            for m in data.iter().take(self.searcher.variation_count) {
-                assert!(self.params.position.do_move(*m));
-                let mut variation = extract_pv(self.tt.deref(), &self.params.position, self.depth);
-                self.params.position.undo_move();
-                variation.moves.insert(0, *m);
-                variation.value = -variation.value;
-                variation.bound = match variation.bound {
-                    BOUND_LOWER => BOUND_UPPER,
-                    BOUND_UPPER => BOUND_LOWER,
-                    x => x,
-                };
-                report.data.push(variation);
+            if self.searcher.searcher.lmr_mode {
+                for m in data.iter().take(self.searcher.variation_count) {
+                    assert!(self.params.position.do_move(*m));
+                    let mut variation = extract_pv(self.tt.deref(),
+                                                   &self.params.position,
+                                                   self.depth);
+                    self.params.position.undo_move();
+                    variation.moves.insert(0, *m);
+                    variation.value = -variation.value;
+                    variation.bound = match variation.bound {
+                        BOUND_LOWER => BOUND_UPPER,
+                        BOUND_UPPER => BOUND_LOWER,
+                        x => x,
+                    };
+                    report.data.push(variation);
+                }
+            } else if self.searcher.variation_count > 0 {
+                report.data
+                      .push(extract_pv(self.tt.deref(), &self.params.position, depth));
             }
 
             self.previously_searched_nodes = report.searched_nodes;
@@ -435,16 +442,6 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
             } else {
                 report.depth = depth;
                 report.value = value;
-                report.data = self.params.searchmoves.clone();
-
-                // Pull the best move to the top of `report.data` list.
-                if let Some(entry) = self.tt.probe(self.params.position.hash()) {
-                    if let Some(i) = report.data
-                                           .iter()
-                                           .position(|m| m.digest() == entry.move_digest()) {
-                        report.data.swap(0, i);
-                    }
-                }
             }
         }
         Ok(report)
