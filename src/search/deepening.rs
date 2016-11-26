@@ -233,9 +233,11 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         let n = params.searchmoves.len();
         self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
         if n == 0 || self.variation_count == 1 && n == params.position.legal_moves().len() {
+            debug_assert!(self.variation_count <= 1);
             self.searcher.lmr_mode = false;
             self.searcher.start_search(params);
         } else {
+            debug_assert!(self.variation_count >= 1);
             self.searcher.lmr_mode = true;
             self.params = params;
             self.search_is_terminated = false;
@@ -249,7 +251,6 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
         if self.searcher.lmr_mode {
             // Multi-PV with aspiration.
-            debug_assert!(!self.params.searchmoves.is_empty());
             let SearchReport { searched_nodes, value, done, .. } = try!(self.searcher
                                                                             .try_recv_report());
             let mut report = SearchReport {
@@ -332,7 +333,6 @@ impl<T: SearchExecutor> Multipv<T> {
     }
 
     fn write_reslut_to_tt(&self) {
-        debug_assert!(!self.params.searchmoves.is_empty());
         let all_moves_were_considered = self.params.searchmoves.len() ==
                                         self.params.position.legal_moves().len();
         let best_move = self.params.searchmoves[0];
