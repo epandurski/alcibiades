@@ -145,18 +145,10 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
 
 impl<T: SearchExecutor> SetOption for Deepening<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        // Add up all suported options.
-        let mut options = vec![
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
-        ];
-        options.extend(Multipv::<T>::options());
-        options
+        Multipv::<T>::options()
     }
 
     fn set_option(name: &str, value: &str) {
-        if name == "MultiPV" {
-            *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
-        }
         Multipv::<T>::set_option(name, value)
     }
 }
@@ -169,10 +161,6 @@ impl<T: SearchExecutor> Deepening<T> {
             ..self.params.clone()
         });
     }
-}
-
-lazy_static! {
-    static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
 }
 
 
@@ -197,22 +185,25 @@ struct Multipv<T: SearchExecutor> {
     values: Vec<Value>,
 }
 
+lazy_static! {
+    static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
+}
+
 impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     type HashTable = T::HashTable;
 
     type SearchNode = T::SearchNode;
 
+    /// `searchmoves` sorted by descending move strength, or an empty list.
     type ReportData = Vec<Move>;
 
     fn new(tt: Arc<Self::HashTable>) -> Multipv<T> {
-        let mut searcher = Aspiration::new(tt.clone());
-        searcher.lmr_mode = true;
         Multipv {
-            tt: tt,
+            tt: tt.clone(),
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            searcher: searcher,
+            searcher: Aspiration::new(tt),
             variation_count: 1,
             current_move_index: 0,
             values: vec![VALUE_MIN],
@@ -220,43 +211,32 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     }
 
     fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
+        debug_assert!(params.depth > 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
-        self.params = params;
-        if self.params.depth == 0 {
-            // If this happens, we probably have two nested Multipv
-            // searchers, which is an awful idea. Nevertheless, we OK
-            // this by applying a small cheat.
-            self.params.searchmoves = vec![];
+
+        let n = params.searchmoves.len();
+        self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
+        if n == 0 || self.variation_count == 1 && n == params.position.legal_moves().len() {
+            self.searcher.lmr_mode = false;
+            self.searcher.start_search(params);
+        } else {
+            self.searcher.lmr_mode = true;
+            self.params = params;
+            self.search_is_terminated = false;
+            self.previously_searched_nodes = 0;
+            self.current_move_index = 0;
+            self.values = vec![VALUE_MIN; n];
+            self.search_current_move();
         }
-        self.search_is_terminated = false;
-        self.previously_searched_nodes = 0;
-        self.variation_count = min(*VARIATION_COUNT.read().unwrap(),
-                                   self.params.searchmoves.len());
-        self.current_move_index = 0;
-        self.values = vec![VALUE_MIN; self.params.searchmoves.len()];
-        self.search_current_move();
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
-        if self.params.searchmoves.is_empty() {
-            // `searchmoves` is empty -- we assume that the root
-            // position is final. (We also update `searchmoves` so
-            // that other calls to `try_recv_report` will return
-            // `Err`.)
-            self.params.searchmoves = vec![Move::invalid()];
-            Ok(SearchReport {
-                search_id: self.params.search_id,
-                searched_nodes: 0,
-                depth: self.params.depth,
-                value: self.params.position.evaluate_final(),
-                data: vec![],
-                done: true,
-            })
-        } else {
-            // `searchmoves` is not empty.
+        if self.searcher.lmr_mode {
+            // Multi-PV with aspiration.
+            debug_assert!(!self.params.searchmoves.is_empty());
             let SearchReport { searched_nodes, value, done, .. } = try!(self.searcher
                                                                             .try_recv_report());
             let mut report = SearchReport {
@@ -280,6 +260,9 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
                 }
             }
             Ok(report)
+        } else {
+            // Aspiration only.
+            self.searcher.try_recv_report()
         }
     }
 
@@ -295,10 +278,18 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
 impl<T: SearchExecutor> SetOption for Multipv<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        Aspiration::<T>::options()
+        // Add up all suported options.
+        let mut options = vec![
+            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
+        ];
+        options.extend(Aspiration::<T>::options());
+        options
     }
 
     fn set_option(name: &str, value: &str) {
+        if name == "MultiPV" {
+            *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
+        }
         Aspiration::<T>::set_option(name, value)
     }
 }
@@ -395,7 +386,8 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
     type SearchNode = T::SearchNode;
 
-    type ReportData = T::ReportData;
+    /// `searchmoves` sorted by descending move strength, or an empty list.
+    type ReportData = Vec<Move>;
 
     fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
         Aspiration {
@@ -425,14 +417,14 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
-        let SearchReport { searched_nodes, depth, value, data, done, .. } =
-            try!(self.searcher.try_recv_report());
+        let SearchReport { searched_nodes, depth, value, done, .. } = try!(self.searcher
+                                                                               .try_recv_report());
         let mut report = SearchReport {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
             depth: 0,
             value: VALUE_UNKNOWN,
-            data: data,
+            data: vec![],
             done: done,
         };
         if done && !self.search_is_terminated {
@@ -443,6 +435,16 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
             } else {
                 report.depth = depth;
                 report.value = value;
+                report.data = self.params.searchmoves.clone();
+
+                // Pull the best move to the top of `report.data` list.
+                if let Some(entry) = self.tt.probe(self.params.position.hash()) {
+                    if let Some(i) = report.data
+                                           .iter()
+                                           .position(|m| m.digest() == entry.move_digest()) {
+                        report.data.swap(0, i);
+                    }
+                }
             }
         }
         Ok(report)
