@@ -449,6 +449,23 @@ pub trait SearchNode: Send + Sized + Clone + SetOption {
 }
 
 
+/// A sequence of moves from some starting position, together with the
+/// value assigned to the final position.
+pub struct Variation {
+    /// A sequence of moves from some starting position.
+    pub moves: Vec<Move>,
+
+    /// The value assigned to the final position.
+    ///
+    /// The value is from the point of view of player that has the
+    /// move in the starting position.
+    pub value: Value,
+
+    /// The accuracy of the assigned value.
+    pub bound: BoundType,
+}
+
+
 /// Extracts the primary variation for a given position from the
 /// transposition table.
 ///

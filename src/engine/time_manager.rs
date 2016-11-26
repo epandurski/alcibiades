@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::time::SystemTime;
 use chesstypes::*;
-use search::SearchReport;
+use search::{SearchReport, Variation};
 
 
 /// Decides when the search must be terminated.

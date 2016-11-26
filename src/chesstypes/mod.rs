@@ -11,17 +11,3 @@ pub use self::castling::*;
 pub use self::evaluation::*;
 pub use self::moves::{Move, MoveDigest};
 pub use self::moves::{MoveType, MOVE_ENPASSANT, MOVE_PROMOTION, MOVE_CASTLING, MOVE_NORMAL};
-
-
-/// A sequence of moves from some starting position, together with the
-/// value assigned to the final position.
-pub struct Variation {
-    /// A sequence of moves from some starting position.
-    pub moves: Vec<Move>,
-
-    /// The value assigned to the final position.
-    pub value: Value,
-
-    /// The accuracy of the assigned value.
-    pub bound: BoundType,
-}
