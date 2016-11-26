@@ -205,7 +205,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
     type SearchNode = T::SearchNode;
 
-    // Reports' auxiliary data contains `searchmoves` sorted by
+    // Reports' auxiliary data will contain `searchmoves` sorted by
     // descending move strength, or an empty list.
     type ReportData = Vec<Move>;
 
@@ -398,7 +398,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
     type SearchNode = T::SearchNode;
 
-    // Reports' auxiliary data always contains an empty move list.
+    // Reports' auxiliary data will always contain an empty move list.
     type ReportData = Vec<Move>;
 
     fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
@@ -418,8 +418,9 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
     fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         debug_assert!(params.depth <= DEPTH_MAX);
+        debug_assert!(params.lower_bound >= VALUE_MIN);
+        debug_assert!(params.upper_bound <= VALUE_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
-        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
         self.params = params;
         self.search_is_terminated = false;
