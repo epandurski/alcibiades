@@ -1,12 +1,11 @@
-//! Implements a large hash-table that stores results of previously
-//! performed searches ("transposition table").
+//! Implements `HashTable` and `HashTableEntry` traits.
 
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
 use chesstypes::*;
 use uci::SetOption;
-use super::{HashTable, HashTableEntry, DEPTH_MAX};
+use search::{HashTable, HashTableEntry, DEPTH_MAX};
 
 
 /// Contains information about a particular position.
@@ -79,7 +78,8 @@ impl TtEntry {
 }
 
 
-/// A transposition table.
+/// A large hash-table that stores results of previously performed
+/// searches ("transposition table").
 pub struct Tt {
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.

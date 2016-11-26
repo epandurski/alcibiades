@@ -10,7 +10,6 @@
 //! that implements the `SearchExecutor` trait.
 
 mod move_stack;
-pub mod deepening;
 pub mod searchers;
 pub mod tt;
 
