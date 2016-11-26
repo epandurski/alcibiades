@@ -151,6 +151,7 @@ impl<T: SearchExecutor> Deepening<T> {
     fn extract_variations(&mut self, moves: Vec<Move>) -> Vec<Variation> {
         let mut variations = vec![];
         if self.multipv.searcher.lmr_mode {
+            // Multi-PV with aspiration.
             for m in moves.iter().take(self.multipv.variation_count) {
                 assert!(self.params.position.do_move(*m));
                 let mut v = extract_pv(self.tt.deref(), &self.params.position, self.depth);
@@ -165,6 +166,7 @@ impl<T: SearchExecutor> Deepening<T> {
                 variations.push(v);
             }
         } else if self.multipv.variation_count != 0 {
+            // Aspiration only.
             debug_assert_eq!(self.multipv.variation_count, 1);
             variations.push(extract_pv(self.tt.deref(), &self.params.position, self.depth + 1));
         }
@@ -203,7 +205,8 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
     type SearchNode = T::SearchNode;
 
-    /// `searchmoves` sorted by descending move strength, or an empty list.
+    // Search report's auxiliary data contains `searchmoves` sorted by
+    // descending move strength, or an empty list.
     type ReportData = Vec<Move>;
 
     fn new(tt: Arc<Self::HashTable>) -> Multipv<T> {
@@ -222,8 +225,9 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         debug_assert!(params.depth > 0);
         debug_assert!(params.depth <= DEPTH_MAX);
+        debug_assert!(params.lower_bound >= VALUE_MIN);
+        debug_assert!(params.upper_bound <= VALUE_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
-        debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(!contains_dups(&params.searchmoves));
 
         let n = params.searchmoves.len();
@@ -395,7 +399,8 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
     type SearchNode = T::SearchNode;
 
-    /// `searchmoves` sorted by descending move strength, or an empty list.
+    // Search report's auxiliary data contains `searchmoves` sorted by
+    // descending move strength, or an empty list.
     type ReportData = Vec<Move>;
 
     fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
