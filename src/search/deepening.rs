@@ -104,29 +104,9 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         };
         if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth + 1);
-
-            // Extract primary variations from the transposition table.
-            if self.multipv.searcher.lmr_mode {
-                for m in data.iter().take(self.multipv.variation_count) {
-                    assert!(self.params.position.do_move(*m));
-                    let mut variation = extract_pv(self.tt.deref(),
-                                                   &self.params.position,
-                                                   self.depth);
-                    self.params.position.undo_move();
-                    variation.moves.insert(0, *m);
-                    variation.value = -variation.value;
-                    variation.bound = match variation.bound {
-                        BOUND_LOWER => BOUND_UPPER,
-                        BOUND_UPPER => BOUND_LOWER,
-                        x => x,
-                    };
-                    report.data.push(variation);
-                }
-            } else if self.multipv.variation_count > 0 {
-                report.data
-                      .push(extract_pv(self.tt.deref(), &self.params.position, depth));
-            }
-
+            report.depth = depth;
+            report.value = value;
+            report.data.extend(self.extract_variations(data));
             self.previously_searched_nodes = report.searched_nodes;
             self.depth = depth;
             self.value = value;
@@ -134,8 +114,6 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
                 self.search_next_depth();
                 report.done = false;
             }
-            report.depth = depth;
-            report.value = value;
         }
         Ok(report)
     }
@@ -167,6 +145,29 @@ impl<T: SearchExecutor> Deepening<T> {
             depth: self.depth + 1,
             ..self.params.clone()
         });
+    }
+
+    fn extract_variations(&mut self, moves: Vec<Move>) -> Vec<Variation> {
+        let mut variations = vec![];
+        if self.multipv.searcher.lmr_mode {
+            for m in moves.iter().take(self.multipv.variation_count) {
+                assert!(self.params.position.do_move(*m));
+                let mut v = extract_pv(self.tt.deref(), &self.params.position, self.depth);
+                self.params.position.undo_move();
+                v.moves.insert(0, *m);
+                v.value = -v.value;
+                v.bound = match v.bound {
+                    BOUND_LOWER => BOUND_UPPER,
+                    BOUND_UPPER => BOUND_LOWER,
+                    x => x,
+                };
+                variations.push(v);
+            }
+        } else if self.multipv.variation_count > 0 {
+            debug_assert_eq!(self.multipv.variation_count, 1);
+            variations.push(extract_pv(self.tt.deref(), &self.params.position, self.depth + 1));
+        }
+        variations
     }
 }
 
