@@ -74,7 +74,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     }
 
     fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
-        assert!(params.depth > 0);
+        assert!(params.depth > 0, "For deepening, depth must be at least 1.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
         debug_assert!(params.upper_bound <= VALUE_MAX);
