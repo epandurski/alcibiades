@@ -233,10 +233,12 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         let n = params.searchmoves.len();
         self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
         if n == 0 || self.variation_count == 1 && n == params.position.legal_moves().len() {
+            // Aspiration only.
             debug_assert!(self.variation_count <= 1);
             self.searcher.lmr_mode = false;
             self.searcher.start_search(params);
         } else {
+            // Multi-PV with aspiration.
             debug_assert!(self.variation_count >= 1);
             self.searcher.lmr_mode = true;
             self.params = params;
