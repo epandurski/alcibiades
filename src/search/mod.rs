@@ -275,7 +275,7 @@ pub trait SearchExecutor: SetOption {
 /// `SearchNode::from_history` "forgets" all positions that have
 /// occurred exactly once. Also, the newly created instance is never
 /// deemed a draw due to repetition or rule-50.
-pub trait SearchNode: Send + Sized + Clone + SetOption {
+pub trait SearchNode: Send + Clone + SetOption {
     /// Instantiates a new chess position from playing history.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
