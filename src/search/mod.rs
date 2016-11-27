@@ -482,6 +482,10 @@ pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) 
 
     'move_extraction: while let Some(entry) = tt.probe(p.hash()) {
         let pv_length = pv_moves.len() as u8;
+
+        // Before we consider the next value from the transposition
+        // table, we make sure that it is at least as reliable as the
+        // one we already have.
         if entry.depth() >= depth - pv_length &&
            (entry.bound() == BOUND_EXACT ||
             root_value == VALUE_UNKNOWN && entry.bound() != BOUND_NONE) {
