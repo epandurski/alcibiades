@@ -150,7 +150,8 @@ pub struct Board<E: BoardEvaluator> {
 // search tree. `Board` does not try to be too clever. In particular,
 // it is completely unaware of repeating positions and
 // rule-50. Although `Board` is able to statically evaluate the
-// position, it delagates this to `BoardEvaluator`.
+// position and decide if it is zugzwangy, it delegates this to
+// `BoardEvaluator`.
 //
 // Note that many of the implemented methods are private -- they are
 // used solely by the module `board::rules`.
