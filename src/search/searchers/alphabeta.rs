@@ -106,14 +106,10 @@ impl<T, N> SearchExecutor for Alphabeta<T, N>
 
 impl<T: HashTable, N: SearchNode> SetOption for Alphabeta<T, N> {
     fn options() -> Vec<(String, OptionDescription)> {
-        let mut options = vec![];
-        options.extend(T::options());
-        options.extend(N::options());
-        options
+        N::options()
     }
 
     fn set_option(name: &str, value: &str) {
-        T::set_option(name, value);
         N::set_option(name, value);
     }
 }

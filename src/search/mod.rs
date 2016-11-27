@@ -133,7 +133,7 @@ pub struct SearchReport<T> {
 /// have a transposition table, which is a large hash table storing
 /// information about positions previously searched, how deeply they
 /// were searched, and what we concluded about them.
-pub trait HashTable: Sync + Send + SetOption {
+pub trait HashTable: Sync + Send {
     type Entry: HashTableEntry;
 
     /// Creates a new transposition table.
