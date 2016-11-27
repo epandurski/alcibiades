@@ -194,6 +194,9 @@ struct Multipv<T: SearchExecutor> {
     // How many best lines of play to calculate.
     variation_count: usize,
 
+    // Whether all legal moves in the current position are considered.
+    all_moves_are_considered: bool,
+
     // The index in `self.params.searchmoves` of the currently
     // considered move.
     current_move_index: usize,
@@ -223,6 +226,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
             previously_searched_nodes: 0,
             searcher: Aspiration::new(tt),
             variation_count: 1,
+            all_moves_are_considered: true,
             current_move_index: 0,
             values: vec![VALUE_MIN],
         }
@@ -238,7 +242,8 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
         let n = params.searchmoves.len();
         self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
-        if n == 0 || self.variation_count == 1 && n == params.position.legal_moves().len() {
+        self.all_moves_are_considered = n == params.position.legal_moves().len();
+        if n == 0 || self.variation_count == 1 && self.all_moves_are_considered {
             // Aspiration only.
             debug_assert!(self.variation_count <= 1);
             self.searcher.lmr_mode = false;
@@ -341,14 +346,12 @@ impl<T: SearchExecutor> Multipv<T> {
     }
 
     fn write_reslut_to_tt(&self) {
-        let all_moves_were_considered = self.params.searchmoves.len() ==
-                                        self.params.position.legal_moves().len();
         let best_move = self.params.searchmoves[0];
         let value = self.values[0];
         let bound = match value {
-            v if v <= self.params.lower_bound && !all_moves_were_considered => BOUND_NONE,
+            v if v <= self.params.lower_bound && !self.all_moves_are_considered => BOUND_NONE,
             v if v <= self.params.lower_bound => BOUND_UPPER,
-            v if v >= self.params.upper_bound || !all_moves_were_considered => BOUND_LOWER,
+            v if v >= self.params.upper_bound || !self.all_moves_are_considered => BOUND_LOWER,
             _ => BOUND_EXACT,
         };
         let eval_value = self.params.position.evaluate_static();
