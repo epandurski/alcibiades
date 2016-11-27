@@ -183,10 +183,21 @@ pub trait HashTableEntry: Copy {
            eval_value: Value)
            -> Self;
 
+    /// Returns the value assigned to the position.
     fn value(&self) -> Value;
+
+    /// Returns the accuracy of the assigned value.
     fn bound(&self) -> BoundType;
+
+    /// Returns the depth of search.
     fn depth(&self) -> u8;
+
+    /// Returns best or refutation move digest, or `0` if no move is
+    /// available.
     fn move_digest(&self) -> MoveDigest;
+
+    /// Returns the static evaluation for the position, or
+    /// `VALUE_UNKNOWN`.
     fn eval_value(&self) -> Value;
 }
 
