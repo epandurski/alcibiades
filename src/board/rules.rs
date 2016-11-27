@@ -518,8 +518,8 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         self.board().checkers() != 0
     }
 
-    fn is_zugzwang_unlikely(&self) -> bool {
-        self.board().is_zugzwang_unlikely()
+    fn is_zugzwangy(&self) -> bool {
+        self.board().is_zugzwangy()
     }
 
     #[inline]

@@ -36,8 +36,8 @@ impl BoardEvaluator for MaterialEvaluator {
         result
     }
 
-    fn is_zugzwang_unlikely(&self) -> bool {
-        true
+    fn is_zugzwangy(&self) -> bool {
+        false
     }
 }
 
@@ -72,7 +72,7 @@ impl BoardEvaluator for RandomEvaluator {
         result + (hasher.finish() >> 59) as i16
     }
 
-    fn is_zugzwang_unlikely(&self) -> bool {
-        true
+    fn is_zugzwangy(&self) -> bool {
+        false
     }
 }

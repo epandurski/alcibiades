@@ -69,12 +69,12 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// `VALUE_EVAL_MAX`.
     fn evaluate(&self, board: &Board<Self>) -> Value;
 
-    /// Returns if the side to move is unlikely to be in zugzwang.
+    /// Returns whether the position is zugzwangy.
     ///
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
-    /// method returns `false`.
-    fn is_zugzwang_unlikely(&self) -> bool;
+    /// method returns `true`.
+    fn is_zugzwangy(&self) -> bool;
 
     /// Updates evaluator's state to keep up with a move that will be
     /// played.
@@ -301,13 +301,13 @@ impl<E: BoardEvaluator> Board<E> {
         }
     }
 
-    /// Returns if the side to move is unlikely to be in zugzwang.
+    /// Returns whether the position is zugzwangy.
     ///
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
-    /// method returns `false`.
-    pub fn is_zugzwang_unlikely(&self) -> bool {
-        self.evaluator.is_zugzwang_unlikely()
+    /// method returns `true`.
+    pub fn is_zugzwangy(&self) -> bool {
+        self.evaluator.is_zugzwangy()
     }
 
     /// Generates pseudo-legal moves.

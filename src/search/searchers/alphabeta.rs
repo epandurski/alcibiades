@@ -531,8 +531,7 @@ impl<'a, T, N> Search<'a, T, N>
         // of the sub-tree search is still high enough to cause a beta
         // cutoff. Nodes are saved by reducing the depth of the
         // sub-tree under the null move.
-        if !last_move.is_null() && entry.eval_value() >= beta &&
-           self.position.is_zugzwang_unlikely() {
+        if !last_move.is_null() && entry.eval_value() >= beta && !self.position.is_zugzwangy() {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {
                 depth as i8 - NULL_MOVE_REDUCTION as i8 - 1

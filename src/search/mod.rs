@@ -318,13 +318,13 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// Returns if the side to move is in check.
     fn is_check(&self) -> bool;
 
-    /// Returns if the side to move is unlikely to be in zugzwang.
+    /// Returns whether the position is zugzwangy.
     ///
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
-    /// method will return `false`. This is useful when deciding if it
-    /// is safe to try a "null move".
-    fn is_zugzwang_unlikely(&self) -> bool;
+    /// method returns `true`. This is useful when deciding if it is
+    /// safe to try a "null move".
+    fn is_zugzwangy(&self) -> bool;
 
     /// Evaluates a final position.
     ///
