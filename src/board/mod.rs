@@ -307,6 +307,7 @@ impl<E: BoardEvaluator> Board<E> {
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
     /// method returns `true`.
+    #[inline]
     pub fn is_zugzwangy(&self) -> bool {
         self.evaluator.is_zugzwangy()
     }

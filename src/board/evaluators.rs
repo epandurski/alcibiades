@@ -36,6 +36,7 @@ impl BoardEvaluator for MaterialEvaluator {
         result
     }
 
+    #[inline]
     fn is_zugzwangy(&self) -> bool {
         false
     }
@@ -72,6 +73,7 @@ impl BoardEvaluator for RandomEvaluator {
         result + (hasher.finish() >> 59) as i16
     }
 
+    #[inline]
     fn is_zugzwangy(&self) -> bool {
         false
     }
