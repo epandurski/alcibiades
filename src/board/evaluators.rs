@@ -20,7 +20,8 @@ impl BoardEvaluator for MaterialEvaluator {
         MaterialEvaluator
     }
 
-    fn evaluate(&self, board: &Board<MaterialEvaluator>) -> Value {
+    #[allow(unused_variables)]
+    fn evaluate(&self, board: &Board<MaterialEvaluator>, halfmove_clock: u8) -> Value {
         use board::bitsets::*;
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
         let piece_type = board.pieces().piece_type;
@@ -56,7 +57,8 @@ impl BoardEvaluator for RandomEvaluator {
         RandomEvaluator
     }
 
-    fn evaluate(&self, board: &Board<RandomEvaluator>) -> Value {
+    #[allow(unused_variables)]
+    fn evaluate(&self, board: &Board<RandomEvaluator>, halfmove_clock: u8) -> Value {
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
         let piece_type = board.pieces().piece_type;
         let color = board.pieces().color;

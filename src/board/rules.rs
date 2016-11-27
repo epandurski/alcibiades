@@ -75,7 +75,7 @@ pub struct Position<T: BoardEvaluator> {
 // 5. Quiescence search.
 // 6. 50 move rule awareness.
 // 7. Threefold/twofold repetition detection.
-impl<T: BoardEvaluator> Position<T> {
+impl<T: BoardEvaluator + 'static> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     fn from_fen(fen: &str) -> Result<Position<T>, String> {
@@ -114,7 +114,8 @@ impl<T: BoardEvaluator> Position<T> {
                searched_nodes: &mut u64)
                -> Value {
         debug_assert!(lower_bound < upper_bound);
-        debug_assert!(stand_pat == VALUE_UNKNOWN || stand_pat == self.board().evaluate());
+        debug_assert!(stand_pat == VALUE_UNKNOWN ||
+                      stand_pat == self.board().evaluate(self.halfmove_clock()));
         let in_check = self.board().checkers() != 0;
 
         // At the beginning of quiescence, position's static
@@ -129,7 +130,7 @@ impl<T: BoardEvaluator> Position<T> {
             // Position's static evaluation is useless when in check.
             stand_pat = lower_bound
         } else if stand_pat == VALUE_UNKNOWN {
-            stand_pat = self.board().evaluate();
+            stand_pat = self.board().evaluate(self.halfmove_clock());
         }
         if stand_pat >= upper_bound {
             return stand_pat;
@@ -536,7 +537,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         if self.repeated_or_rule50 {
             0
         } else {
-            self.board().evaluate()
+            self.board().evaluate(self.halfmove_clock())
         }
     }
 
@@ -687,7 +688,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
 }
 
 
-impl<T: BoardEvaluator> Clone for Position<T> {
+impl<T: BoardEvaluator + 'static> Clone for Position<T> {
     fn clone(&self) -> Self {
         Position {
             board: UnsafeCell::new(self.board().clone()),
@@ -702,7 +703,7 @@ impl<T: BoardEvaluator> Clone for Position<T> {
 }
 
 
-impl<T: BoardEvaluator> SetOption for Position<T> {
+impl<T: BoardEvaluator + 'static> SetOption for Position<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }

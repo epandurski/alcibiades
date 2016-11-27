@@ -64,10 +64,12 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Evaluates the the position to which the instance is bound.
     ///
     /// `board` points to the position to which the instance is bound.
+    /// `halfmove_clock` gives the number of half-moves since the last
+    /// piece capture or pawn advance.
     ///
     /// The returned value must be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
-    fn evaluate(&self, board: &Board<Self>) -> Value;
+    fn evaluate(&self, board: &Board<Self>, halfmove_clock: u8) -> Value;
 
     /// Returns whether the position is zugzwangy.
     ///
@@ -290,13 +292,16 @@ impl<E: BoardEvaluator> Board<E> {
 
     /// Statically evaluates the position.
     ///
+    /// `halfmove_clock` gives the number of half-moves since the last
+    /// piece capture or pawn advance.
+    ///
     /// The returned value will be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
     #[inline]
-    pub fn evaluate(&self) -> Value {
+    pub fn evaluate(&self, halfmove_clock: u8) -> Value {
         unsafe {
             let board_ptr: *const Board<E> = self;
-            let v = self.evaluator.evaluate(board_ptr.as_ref().unwrap());
+            let v = self.evaluator.evaluate(board_ptr.as_ref().unwrap(), halfmove_clock);
             debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
             v
         }
