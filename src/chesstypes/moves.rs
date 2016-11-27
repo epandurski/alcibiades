@@ -111,16 +111,15 @@ pub fn get_aux_data(move_digest: MoveDigest) -> usize {
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
 ///
-/// "En-passant file" tells on what vertical line on the board there
-/// was a passing pawn before the move was played (a value between 0
-/// and 7). If there was no passing pawn, "en-passant file" is
-/// 8. "Castling rights" holds the castling rights before the move was
-/// played. When "Captured piece" is stored, its bits are inverted, so
-/// that MVV-LVA (Most valuable victim -- least valuable aggressor)
-/// ordering of the moves is preserved, even when the other fields
-/// stay the same.
+/// If the *previous move* was a double pawn push, "en-passant file"
+/// contains pushed pawn's file (a value between 0 and 7). Otherwise
+/// it contains `8`. "Castling rights" holds the castling rights
+/// before the move was played. When "Captured piece" is stored, its
+/// bits are inverted, so that MVV-LVA (Most valuable victim -- least
+/// valuable aggressor) move ordering is followed for moves that have
+/// the same "score".
 ///
-/// Bits 32-63 contain the "Score" field, which is used to influence
+/// Bits 32-63 contain the "score" field, which is used to influence
 /// move ordering.
 #[derive(Debug)]
 #[derive(Clone, Copy)]
@@ -231,9 +230,8 @@ impl Move {
         (!(self.0 as usize) & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE
     }
 
-    /// Returns the file on which there were a passing pawn before the
-    /// move was played (a value between 0 and 7), or `8` if there was
-    /// no passing pawn.
+    /// If the *previous move* was a double pawn push, returns pushed
+    /// pawn's file (a value between 0 and 7). Otherwise returns `8`.
     #[inline(always)]
     pub fn en_passant_file(&self) -> usize {
         (self.0 as usize & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
