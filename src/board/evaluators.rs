@@ -35,6 +35,10 @@ impl BoardEvaluator for MaterialEvaluator {
         }
         result
     }
+
+    fn is_zugzwang_unlikely(&self) -> bool {
+        true
+    }
 }
 
 
@@ -66,5 +70,9 @@ impl BoardEvaluator for RandomEvaluator {
         let mut hasher = SipHasher::new();
         hasher.write_u64(board.occupied());
         result + (hasher.finish() >> 59) as i16
+    }
+
+    fn is_zugzwang_unlikely(&self) -> bool {
+        true
     }
 }
