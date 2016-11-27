@@ -366,10 +366,10 @@ impl<T: SearchExecutor> Multipv<T> {
     fn change_current_move(&mut self, v: Value) {
         debug_assert!(v >= self.values[self.current_move_index]);
         let mut i = self.current_move_index;
-        self.values[i] = v;
         self.current_move_index += 1;
 
-        // Make sure that `self.values` remains sorted.
+        // Update `self.values`, making sure that it remains sorted.
+        self.values[i] = v;
         while i > 0 && v > self.values[i - 1] {
             self.values.swap(i, i - 1);
             self.params.searchmoves.swap(i, i - 1);
