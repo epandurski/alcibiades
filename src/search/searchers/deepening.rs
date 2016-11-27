@@ -1,4 +1,5 @@
-//! Implements iterative deepening, aspiration windows, multi-PV.
+//! Implements iterative deepening, aspiration windows, multi-PV,
+//! "searchmoves".
 
 use std::cmp::{min, max};
 use std::time::Duration;
@@ -11,16 +12,16 @@ use search::*;
 
 
 /// Executes searches with iterative deepening, aspiration windows,
-/// and multi-PV.
+/// multi-PV, and "searchmoves".
 ///
-/// Iterative deepening works as follows: A depth-first search is
+/// *Iterative deepening* works as follows: A depth-first search is
 /// executed with a depth of one ply, then the depth is incremented
 /// and another search is executed. This process is repeated until the
 /// search is terminated or the requested search depth is reached. In
 /// case of an unfinished search, the engine can always fall back to
 /// the move selected in the last iteration of the search.
 ///
-/// Aspiration windows are a way to reduce the search space in the
+/// *Aspiration windows* are a way to reduce the search space in the
 /// search. The way it works is that we get the value from the last
 /// search iteration, calculate a window around it, and use this as
 /// alpha-beta bounds for the next search. Because the window is
@@ -28,16 +29,21 @@ use search::*;
 /// shorter time. The drawback is that if the true score is outside
 /// this window, then a costly re-search must be made.
 ///
-/// In multi-PV mode the engine calculates several principal
+/// In *multi-PV* mode the engine calculates several principal
 /// variations (PV), each one starting with a different first
 /// move. This mode is very useful for chess analysis, but can make
 /// the search slower.
 ///
+/// *"searchmoves"* is a feature in the UCI protocol, which makes
+/// possible to restrict the analysis to a subset of moves
+/// only. Again, this is very useful for chess analysis.
+///
 /// # Usage
 ///
 /// If `T` is a depth-first searcher, instantiate `Deepening<T>` to
-/// turn it into a deepening searcher with aspiration windows and
-/// multi-PV.
+/// turn it into a deepening searcher with aspiration windows,
+/// multi-PV, and "searchmoves" support. (`T` do not need to support
+/// "searchmoves".)
 pub struct Deepening<T: SearchExecutor> {
     tt: Arc<T::HashTable>,
     params: SearchParams<T::SearchNode>,
