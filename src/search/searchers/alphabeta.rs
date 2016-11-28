@@ -270,7 +270,7 @@ struct Search<'a, T, N>
     position: N,
     moves: &'a mut MoveStack,
     moves_starting_ply: usize,
-    state_stack: Vec<NodeState<T>>,
+    state_stack: Vec<NodeState>,
     reported_nodes: u64,
     unreported_nodes: u64,
     report_function: &'a mut FnMut(u64) -> bool,
@@ -486,9 +486,10 @@ impl<'a, T, N> Search<'a, T, N>
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
-            entry: entry,
-            killer: None,
+            hash_move_digest: entry.move_digest(),
+            eval_value: eval_value,
             is_check: unsafe { mem::uninitialized() }, // We will initialize this soon!
+            killer: None,
         });
 
         // Check if the TT entry gives the result.
@@ -614,7 +615,7 @@ impl<'a, T, N> Search<'a, T, N>
         // Try the hash move.
         if let NodePhase::ConsideredNullMove = state.phase {
             state.phase = NodePhase::TriedHashMove;
-            if let Some(mut m) = self.position.try_move_digest(state.entry.move_digest()) {
+            if let Some(mut m) = self.position.try_move_digest(state.hash_move_digest) {
                 if self.position.do_move(m) {
                     m.set_score(MOVE_SCORE_MAX);
                     return Some(m);
@@ -629,8 +630,8 @@ impl<'a, T, N> Search<'a, T, N>
 
             // We should not forget to remove the already tried hash
             // move from the list.
-            if state.entry.move_digest() != 0 {
-                self.moves.remove(state.entry.move_digest());
+            if state.hash_move_digest != 0 {
+                self.moves.remove(state.hash_move_digest);
             }
 
             // We set new move scores to all captures and promotions
@@ -740,9 +741,12 @@ impl<'a, T, N> Search<'a, T, N>
     /// information in the transposition table.
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
-        let entry = &self.state_stack.last().unwrap().entry;
         self.tt.store(self.position.hash(),
-                      T::Entry::new(value, bound, depth, best_move.digest(), entry.eval_value()));
+                      T::Entry::new(value,
+                                    bound,
+                                    depth,
+                                    best_move.digest(),
+                                    self.state_stack.last().unwrap().eval_value));
     }
 
     /// A helper method for `run`. It reports search progress.
@@ -814,11 +818,12 @@ enum NodePhase {
 
 
 /// Holds information about the state of a node in the search tree.
-struct NodeState<T: HashTable> {
+struct NodeState {
     phase: NodePhase,
-    entry: T::Entry,
-    killer: Option<MoveDigest>,
+    hash_move_digest: MoveDigest,
+    eval_value: Value,
     is_check: bool,
+    killer: Option<MoveDigest>,
 }
 
 
