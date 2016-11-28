@@ -62,6 +62,7 @@ impl HashTableEntry for TtEntry {
         self.move_digest
     }
 
+    /// Returns the `eval_value` passed to the constructor.
     #[inline(always)]
     fn eval_value(&self) -> Value {
         self.eval_value

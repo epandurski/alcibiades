@@ -163,19 +163,19 @@ pub trait HashTable: Sync + Send {
 pub trait HashTableEntry: Copy {
     /// Creates a new instance.
     ///
-    /// * `value` -- The value assigned to the position. Should not be
+    /// * `value` -- The value assigned to the position. Must not be
     ///   `VALUE_UNKNOWN`.
     ///
     /// * `bound` -- The accuracy of the assigned `value`.
     ///
-    /// * `depth` -- The depth of search. Should be no greater than
+    /// * `depth` -- The depth of search. Must be no greater than
     ///   `DEPTH_MAX`.
     ///
     /// * `move_digest` -- Best or refutation move digest, or `0` if
     ///   no move is available.
     ///
-    /// * `eval_value` -- The calculated static evaluation for the
-    ///   position, or `VALUE_UNKNOWN`.
+    /// * `eval_value` -- The static evaluation of the position, or
+    ///   `VALUE_UNKNOWN`.
     fn new(value: Value,
            bound: BoundType,
            depth: u8,
@@ -183,21 +183,23 @@ pub trait HashTableEntry: Copy {
            eval_value: Value)
            -> Self;
 
-    /// Returns the value assigned to the position.
+    /// Returns the `value` passed to the constructor.
     fn value(&self) -> Value;
 
-    /// Returns the accuracy of the assigned value.
+    /// Returns the `bound` passed to the constructor.
     fn bound(&self) -> BoundType;
 
-    /// Returns the depth of search.
+    /// Returns the `depth` passed to the constructor.
     fn depth(&self) -> u8;
 
-    /// Returns best or refutation move digest, or `0` if no move is
-    /// available.
+    /// Returns the `move_digest` passed to the constructor.
     fn move_digest(&self) -> MoveDigest;
 
-    /// Returns the static evaluation for the position, or
+    /// Returns the `eval_value` passed to the constructor, or
     /// `VALUE_UNKNOWN`.
+    ///
+    /// **Important note:** The implementation of the constructor may
+    /// decide to ignore `eval_value` and not store it.
     fn eval_value(&self) -> Value;
 }
 
