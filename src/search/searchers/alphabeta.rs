@@ -477,10 +477,7 @@ impl<'a, T, N> Search<'a, T, N>
         let hash = self.position.hash();
         let (entry, eval_value) = if let Some(e) = self.tt.probe(hash) {
             match e.eval_value() {
-                VALUE_UNKNOWN => {
-                    let v = self.position.evaluate_static();
-                    (T::Entry::new(e.value(), e.bound(), e.depth(), e.move_digest(), v), v)
-                }
+                VALUE_UNKNOWN => (e, self.position.evaluate_static()),
                 v => (e, v),
             }
         } else {
