@@ -475,12 +475,14 @@ impl<'a, T, N> Search<'a, T, N>
                   -> Result<Option<Value>, TerminatedSearch> {
         // Probe the transposition table.
         let hash = self.position.hash();
-        let entry = if let Some(e) = self.tt.probe(hash) {
-            // TODO: Calculate the static evaluation if
-            //       e.eval_value() == VALUE_UNKNOWN
-            e
+        let (entry, eval_value) = if let Some(e) = self.tt.probe(hash) {
+            match e.eval_value() {
+                VALUE_UNKNOWN => (e, self.position.evaluate_static()),
+                v => (e, v),
+            }
         } else {
-            T::Entry::new(0, BOUND_NONE, 0, 0, self.position.evaluate_static())
+            let v = self.position.evaluate_static();
+            (T::Entry::new(0, BOUND_NONE, 0, 0, v), v)
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
@@ -502,8 +504,7 @@ impl<'a, T, N> Search<'a, T, N>
 
         // On leaf nodes, do quiescence search.
         if depth == 0 {
-            let (value, nodes) = self.position
-                                     .evaluate_quiescence(alpha, beta, entry.eval_value());
+            let (value, nodes) = self.position.evaluate_quiescence(alpha, beta, eval_value);
             try!(self.report_progress(nodes));
             let bound = if value >= beta {
                 BOUND_LOWER
@@ -512,7 +513,7 @@ impl<'a, T, N> Search<'a, T, N>
             } else {
                 BOUND_EXACT
             };
-            self.tt.store(hash, T::Entry::new(value, bound, 0, 0, entry.eval_value()));
+            self.tt.store(hash, T::Entry::new(value, bound, 0, 0, eval_value));
             return Ok(Some(value));
         }
 
@@ -531,7 +532,7 @@ impl<'a, T, N> Search<'a, T, N>
         // of the sub-tree search is still high enough to cause a beta
         // cutoff. Nodes are saved by reducing the depth of the
         // sub-tree under the null move.
-        if !last_move.is_null() && entry.eval_value() >= beta && !self.position.is_zugzwangy() {
+        if !last_move.is_null() && eval_value >= beta && !self.position.is_zugzwangy() {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {
                 depth as i8 - NULL_MOVE_REDUCTION as i8 - 1
@@ -557,8 +558,7 @@ impl<'a, T, N> Search<'a, T, N>
                     // less a lie (because of the depth reduction),
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
-                    self.tt.store(hash,
-                                  T::Entry::new(beta, BOUND_LOWER, depth, 0, entry.eval_value()));
+                    self.tt.store(hash, T::Entry::new(beta, BOUND_LOWER, depth, 0, eval_value));
                     return Ok(Some(beta));
                 }
             }
