@@ -39,6 +39,31 @@ use uci::SetOption;
 use search::position::MoveGenerator;
 
 
+/// Holds a chess position.
+#[derive(Clone)]
+pub struct Board {
+    /// The placement of the pieces on the board.
+    pub pieces: PiecesPlacement,
+
+    /// The side to move.
+    pub to_move: Color,
+
+    /// The castling rights for both players.
+    pub castling_rights: CastlingRights,
+
+    /// If the previous move was a double pawn push, contains pushed
+    /// pawn's file (a value between 0 and 7). Otherwise contains `8`.
+    pub en_passant_file: usize,
+
+    /// The set of all occupied squares on the board.
+    ///
+    /// Always equals `self.pieces.color[WHITE] |
+    /// self.pieces.color[BLACK]`. Deserves a field on its own because
+    /// it is very frequently needed.
+    pub occupied: Bitboard,
+}
+
+
 /// A trait used to statically evaluate positions.
 pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Creates a new instance and binds it to a given position.
