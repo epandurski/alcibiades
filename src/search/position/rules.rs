@@ -8,9 +8,10 @@ use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use search::{SearchNode, MoveStack};
 use uci::{SetOption, OptionDescription};
-use super::{PositionBoard, BoardEvaluator};
+use board::bitsets::*;
+use board::BoardEvaluator;
+use super::PositionBoard;
 use super::notation::parse_fen;
-use super::bitsets::*;
 
 
 /// Implements `SearchNode` trait.

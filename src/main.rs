@@ -12,7 +12,7 @@ pub mod engine;
 use std::process::exit;
 use search::searchers::{Deepening, Alphabeta};
 use search::tt::Tt;
-use board::Position;
+use search::position::Position;
 use board::evaluators::RandomEvaluator;
 use engine::run_server;
 

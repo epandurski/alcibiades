@@ -12,6 +12,7 @@
 mod move_stack;
 pub mod searchers;
 pub mod tt;
+pub mod position;
 
 use std::time::Duration;
 use std::sync::Arc;

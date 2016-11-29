@@ -957,7 +957,7 @@ mod tests {
     use chesstypes::*;
     use search::{SearchNode, MoveStack, HashTable};
     use search::tt::Tt;
-    use board::Position;
+    use search::position::Position;
     use board::evaluators::RandomEvaluator;
 
     #[test]
