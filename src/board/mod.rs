@@ -36,7 +36,7 @@ pub mod evaluators;
 
 use chesstypes::*;
 use uci::SetOption;
-use search::position::PositionBoard;
+use search::position::MoveGenerator;
 
 
 /// A trait used to statically evaluate positions.
@@ -50,7 +50,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// the previous) position in the line of play by issuing calls to
     /// `will_do_move` and `done_move` methods (or respectively,
     /// `will_undo_move` and `undone_move` methods) .
-    fn new(board: &PositionBoard<Self>) -> Self;
+    fn new(board: &MoveGenerator<Self>) -> Self;
 
     /// Evaluates the the position to which the instance is bound.
     ///
@@ -60,7 +60,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     ///
     /// The returned value must be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
-    fn evaluate(&self, board: &PositionBoard<Self>, halfmove_clock: u8) -> Value;
+    fn evaluate(&self, board: &MoveGenerator<Self>, halfmove_clock: u8) -> Value;
 
     /// Returns whether the position is zugzwangy.
     ///
@@ -77,7 +77,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// `m` is a legal move, or (if not in check) a "null move".
     #[inline]
     #[allow(unused_variables)]
-    fn will_do_move(&mut self, board: &PositionBoard<Self>, m: Move) {}
+    fn will_do_move(&mut self, board: &MoveGenerator<Self>, m: Move) {}
 
     /// Updates evaluator's state to keep up with a move that was
     /// played.
@@ -86,7 +86,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// bound.
     #[inline]
     #[allow(unused_variables)]
-    fn done_move(&mut self, board: &PositionBoard<Self>, m: Move) {}
+    fn done_move(&mut self, board: &MoveGenerator<Self>, m: Move) {}
 
     /// Updates evaluator's state to keep up with a move that will be
     /// taken back.
@@ -94,7 +94,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// `board` points to the position to which the instance is bound.
     #[inline]
     #[allow(unused_variables)]
-    fn will_undo_move(&mut self, board: &PositionBoard<Self>, m: Move) {}
+    fn will_undo_move(&mut self, board: &MoveGenerator<Self>, m: Move) {}
 
     /// Updates evaluator's state in accordance with a move that was
     /// taken back.
@@ -103,5 +103,5 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// bound.
     #[inline]
     #[allow(unused_variables)]
-    fn undone_move(&mut self, board: &PositionBoard<Self>, m: Move) {}
+    fn undone_move(&mut self, board: &MoveGenerator<Self>, m: Move) {}
 }
