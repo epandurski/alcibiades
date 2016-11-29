@@ -8,7 +8,7 @@ use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use search::{SearchNode, MoveStack};
 use uci::{SetOption, OptionDescription};
-use super::{Board, BoardEvaluator};
+use super::{PositionBoard, BoardEvaluator};
 use super::notation::parse_fen;
 use super::bitsets::*;
 
@@ -34,7 +34,7 @@ pub struct Position<T: BoardEvaluator> {
     /// `evaluate_quiescence` method logically is non-mutating, but
     /// internally it tries moves on the board and then undoes them,
     /// always leaving everything the way it was.
-    board: UnsafeCell<Board<T>>,
+    board: UnsafeCell<PositionBoard<T>>,
 
     /// The hash value for the underlying `Board` instance.
     board_hash: u64,
@@ -81,7 +81,10 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     fn from_fen(fen: &str) -> Result<Position<T>, String> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(parse_fen(fen).map_err(|_| fen));
-        let board = try!(Board::from_raw_parts(placement, to_move, castling, en_passant_square)
+        let board = try!(PositionBoard::from_raw_parts(placement,
+                                                       to_move,
+                                                       castling,
+                                                       en_passant_square)
                              .map_err(|_| fen));
         Ok(Position {
             board_hash: board.calc_hash(),
@@ -403,7 +406,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     }
 
     #[inline(always)]
-    fn board(&self) -> &Board<T> {
+    fn board(&self) -> &PositionBoard<T> {
         unsafe { &*self.board.get() }
     }
 
@@ -413,7 +416,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     }
 
     #[inline(always)]
-    unsafe fn board_mut(&self) -> &mut Board<T> {
+    unsafe fn board_mut(&self) -> &mut PositionBoard<T> {
         &mut *self.board.get()
     }
 }

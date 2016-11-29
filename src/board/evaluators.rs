@@ -3,7 +3,7 @@
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use uci::SetOption;
-use super::{Board, BoardEvaluator};
+use super::{PositionBoard, BoardEvaluator};
 use super::bitsets::*;
 
 
@@ -16,12 +16,12 @@ impl SetOption for MaterialEvaluator {}
 
 impl BoardEvaluator for MaterialEvaluator {
     #[allow(unused_variables)]
-    fn new(board: &Board<MaterialEvaluator>) -> MaterialEvaluator {
+    fn new(board: &PositionBoard<MaterialEvaluator>) -> MaterialEvaluator {
         MaterialEvaluator
     }
 
     #[allow(unused_variables)]
-    fn evaluate(&self, board: &Board<MaterialEvaluator>, halfmove_clock: u8) -> Value {
+    fn evaluate(&self, board: &PositionBoard<MaterialEvaluator>, halfmove_clock: u8) -> Value {
         use board::bitsets::*;
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
         let piece_type = board.pieces().piece_type;
@@ -53,12 +53,12 @@ impl SetOption for RandomEvaluator {}
 
 impl BoardEvaluator for RandomEvaluator {
     #[allow(unused_variables)]
-    fn new(board: &Board<RandomEvaluator>) -> RandomEvaluator {
+    fn new(board: &PositionBoard<RandomEvaluator>) -> RandomEvaluator {
         RandomEvaluator
     }
 
     #[allow(unused_variables)]
-    fn evaluate(&self, board: &Board<RandomEvaluator>, halfmove_clock: u8) -> Value {
+    fn evaluate(&self, board: &PositionBoard<RandomEvaluator>, halfmove_clock: u8) -> Value {
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
         let piece_type = board.pieces().piece_type;
         let color = board.pieces().color;
