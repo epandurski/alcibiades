@@ -243,8 +243,11 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// probability of zugzwang occurring. For such positions, this
     /// method returns `true`.
     #[inline]
-    pub fn is_zugzwangy(&self) -> bool {
-        self.evaluator.is_zugzwangy()
+    pub fn is_zugzwangy(&self, halfmove_clock: u8) -> bool {
+        unsafe {
+            let board_ptr: *const MoveGenerator<E> = self;
+            self.evaluator.is_zugzwangy(board_ptr.as_ref().unwrap(), halfmove_clock)
+        }
     }
 
     /// Generates pseudo-legal moves.

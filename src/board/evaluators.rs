@@ -39,7 +39,8 @@ impl BoardEvaluator for MaterialEvaluator {
     }
 
     #[inline]
-    fn is_zugzwangy(&self) -> bool {
+    #[allow(unused_variables)]
+    fn is_zugzwangy(&self, board: &MoveGenerator<MaterialEvaluator>, halfmove_clock: u8) -> bool {
         false
     }
 }
@@ -77,7 +78,8 @@ impl BoardEvaluator for RandomEvaluator {
     }
 
     #[inline]
-    fn is_zugzwangy(&self) -> bool {
+    #[allow(unused_variables)]
+    fn is_zugzwangy(&self, board: &MoveGenerator<RandomEvaluator>, halfmove_clock: u8) -> bool {
         false
     }
 }

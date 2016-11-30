@@ -524,7 +524,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     }
 
     fn is_zugzwangy(&self) -> bool {
-        self.board().is_zugzwangy()
+        self.board().is_zugzwangy(self.halfmove_clock())
     }
 
     #[inline]

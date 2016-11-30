@@ -92,7 +92,7 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
     /// method returns `true`.
-    fn is_zugzwangy(&self) -> bool;
+    fn is_zugzwangy(&self, board: &MoveGenerator<Self>, halfmove_clock: u8) -> bool;
 
     /// Updates evaluator's state to keep up with a move that will be
     /// played.
