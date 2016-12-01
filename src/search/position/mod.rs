@@ -38,7 +38,7 @@ use std::cell::Cell;
 use chesstypes::*;
 use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
 use search::MoveStack;
-use board::BoardEvaluator;
+use board::{Board, BoardEvaluator};
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
 use self::notation::parse_fen;
@@ -51,24 +51,8 @@ pub use self::rules::Position;
 pub struct MoveGenerator<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
+    board: Board,
     evaluator: E,
-
-    /// The placement of the pieces on the board.
-    pieces: PiecesPlacement,
-
-    /// The side to move.
-    to_move: Color,
-
-    /// The castling rights for both players.
-    castling_rights: CastlingRights,
-
-    /// If the previous move was a double pawn push, contains pushed
-    /// pawn's file (a value between 0 and 7). Otherwise contains `8`.
-    en_passant_file: usize,
-
-    /// This will always be equal to `self.pieces.color[WHITE] |
-    /// self.pieces.color[BLACK]`
-    _occupied: Bitboard,
 
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
@@ -109,12 +93,14 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         let mut b = MoveGenerator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
+            board: Board {
+                pieces: *pieces,
+                to_move: to_move,
+                castling_rights: castling_rights,
+                en_passant_file: en_passant_file,
+                occupied: pieces.color[WHITE] | pieces.color[BLACK],
+            },
             evaluator: unsafe { uninitialized() },
-            pieces: *pieces,
-            to_move: to_move,
-            castling_rights: castling_rights,
-            en_passant_file: en_passant_file,
-            _occupied: pieces.color[WHITE] | pieces.color[BLACK],
             _checkers: Cell::new(BB_UNIVERSAL_SET),
         };
         if !b.is_legal() {
@@ -153,27 +139,27 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// board.
     #[inline(always)]
     pub fn pieces(&self) -> &PiecesPlacement {
-        &self.pieces
+        &self.board.pieces
     }
 
     /// Returns the side to move.
     #[inline(always)]
     pub fn to_move(&self) -> Color {
-        self.to_move
+        self.board.to_move
     }
 
     /// Returns the castling rights.
     #[inline(always)]
     pub fn castling_rights(&self) -> CastlingRights {
-        self.castling_rights
+        self.board.castling_rights
     }
 
     /// If the previous move was a double pawn push, returns double
     /// pushed pawn's file.
     #[inline(always)]
     pub fn en_passant_file(&self) -> Option<File> {
-        if self.en_passant_file < 8 {
-            Some(self.en_passant_file)
+        if self.board.en_passant_file < 8 {
+            Some(self.board.en_passant_file)
         } else {
             None
         }
@@ -182,29 +168,29 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// Returns a bitboard of all occupied squares.
     #[inline(always)]
     pub fn occupied(&self) -> Bitboard {
-        self._occupied
+        self.board.occupied
     }
 
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
         debug_assert!(square <= 63);
-        let occupied_by_us = self.pieces.color[us];
+        let occupied_by_us = self.board.pieces.color[us];
         let square_bb = 1 << square;
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
 
         (self.geometry.attacks_from(ROOK, square, self.occupied()) & occupied_by_us &
-         (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) |
+         (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
         (self.geometry.attacks_from(BISHOP, square, self.occupied()) & occupied_by_us &
-         (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) |
+         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
         (self.geometry.attacks_from(KNIGHT, square, self.occupied()) & occupied_by_us &
-         self.pieces.piece_type[KNIGHT]) |
+         self.board.pieces.piece_type[KNIGHT]) |
         (self.geometry.attacks_from(KING, square, self.occupied()) & occupied_by_us &
-         self.pieces.piece_type[KING]) |
+         self.board.pieces.piece_type[KING]) |
         (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
-         self.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
+         self.board.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
         (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
-         self.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
+         self.board.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
     }
 
     /// Returns a bitboard of all enemy pieces and pawns that attack
@@ -213,10 +199,10 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     pub fn checkers(&self) -> Bitboard {
         if self._checkers.get() == BB_UNIVERSAL_SET {
             // The result is saved, in case it is needed again.
-            self._checkers.set(self.attacks_to(1 ^ self.to_move, self.king_square()));
+            self._checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         }
         debug_assert_eq!(self._checkers.get(),
-                         self.attacks_to(1 ^ self.to_move, self.king_square()));
+                         self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         self._checkers.get()
     }
 
@@ -270,7 +256,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
 
         let king_square = self.king_square();
         let checkers = self.checkers();
-        let occupied_by_us = self.pieces.color[self.to_move];
+        let occupied_by_us = self.board.pieces.color[self.board.to_move];
         let occupied_by_them = self.occupied() ^ occupied_by_us;
         let generate_all_moves = all || checkers != 0;
 
@@ -297,7 +283,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             // check.
 
             let pinned = self.find_pinned();
-            let our_pawns = self.pieces.piece_type[PAWN] & occupied_by_us;
+            let our_pawns = self.board.pieces.piece_type[PAWN] & occupied_by_us;
             let mut pinned_pawns = our_pawns & pinned;
             let free_pawns = our_pawns ^ pinned_pawns;
             let en_passant_bb = self.en_passant_bb();
@@ -312,7 +298,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 };
 
                 for piece in QUEEN..PAWN {
-                    let mut bb = self.pieces.piece_type[piece] & occupied_by_us;
+                    let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
                     while bb != 0 {
                         let orig_square = bitscan_forward_and_reset(&mut bb);
                         let piece_legal_dests = if 1 << orig_square & pinned == 0 {
@@ -335,7 +321,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             // Generate pawn moves.
             {
                 let pawn_legal_dests = if generate_all_moves {
-                    if checkers & self.pieces.piece_type[PAWN] == 0 {
+                    if checkers & self.board.pieces.piece_type[PAWN] == 0 {
                         legal_dests
                     } else {
                         // We are in check from a pawn, therefore the
@@ -379,12 +365,12 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 if self.can_castle(side) {
                     move_stack.push(Move::new(MOVE_CASTLING,
                                               king_square,
-                                              [[C1, C8], [G1, G8]][side][self.to_move],
+                                              [[C1, C8], [G1, G8]][side][self.board.to_move],
                                               0,
                                               NO_PIECE,
                                               KING,
-                                              self.castling_rights,
-                                              self.en_passant_file,
+                                              self.board.castling_rights,
+                                              self.board.en_passant_file,
                                               0));
                 }
             }
@@ -412,8 +398,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                   0,
                   NO_PIECE,
                   KING,
-                  self.castling_rights,
-                  self.en_passant_file,
+                  self.board.castling_rights,
+                  self.board.en_passant_file,
                   0)
     }
 
@@ -465,7 +451,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 KINGSIDE
             };
             if !self.can_castle(side) || orig_square != king_square ||
-               dest_square != [[C1, C8], [G1, G8]][side][self.to_move] ||
+               dest_square != [[C1, C8], [G1, G8]][side][self.board.to_move] ||
                promoted_piece_code != 0 {
                 debug_assert!(generated_move.is_none());
                 return None;
@@ -476,14 +462,14 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                               0,
                               NO_PIECE,
                               KING,
-                              self.castling_rights,
-                              self.en_passant_file,
+                              self.board.castling_rights,
+                              self.board.en_passant_file,
                               0);
             debug_assert_eq!(generated_move, Some(m));
             return Some(m);
         }
 
-        let occupied_by_us = self.pieces.color[self.to_move];
+        let occupied_by_us = self.board.pieces.color[self.board.to_move];
         let orig_square_bb = occupied_by_us & (1 << orig_square);
         let dest_square_bb = 1 << dest_square;
         let mut captured_piece = self.get_piece_type_at(dest_square);
@@ -493,7 +479,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         let piece;
         'pieces: loop {
             for i in KING..NO_PIECE {
-                if orig_square_bb & self.pieces.piece_type[i] != 0 {
+                if orig_square_bb & self.board.pieces.piece_type[i] != 0 {
                     piece = i;
                     break 'pieces;
                 }
@@ -528,16 +514,16 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
 
         if piece == PAWN {
             let en_passant_bb = self.en_passant_bb();
-            if checkers & self.pieces.piece_type[PAWN] != 0 {
+            if checkers & self.board.pieces.piece_type[PAWN] != 0 {
                 // We are in check from a pawn, therefore the
                 // en-passant capture is legal too.
                 pseudo_legal_dests |= en_passant_bb;
             }
 
             let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
-            calc_pawn_dest_sets(self.to_move,
+            calc_pawn_dest_sets(self.board.to_move,
                                 occupied_by_us,
-                                self.pieces.color[1 ^ self.to_move],
+                                self.board.pieces.color[1 ^ self.board.to_move],
                                 en_passant_bb,
                                 orig_square_bb,
                                 &mut dest_sets);
@@ -605,8 +591,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                           promoted_piece_code,
                           captured_piece,
                           piece,
-                          self.castling_rights,
-                          self.en_passant_file,
+                          self.board.castling_rights,
+                          self.board.en_passant_file,
                           move_score);
         debug_assert_eq!(generated_move, Some(m));
         Some(m)
@@ -627,7 +613,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// them `do_move(m)` will return `None` if and only if the king
     /// is in check.
     fn do_move(&mut self, m: Move) -> Option<u64> {
-        let us = self.to_move;
+        let us = self.board.to_move;
         let them = 1 ^ us;
         let move_type = m.move_type();
         let orig_square = m.orig_square();
@@ -686,16 +672,16 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 QUEENSIDE
             };
             let mask = BB_CASTLING_ROOK_MOVEMENT[us][side];
-            self.pieces.piece_type[ROOK] ^= mask;
-            self.pieces.color[us] ^= mask;
+            self.board.pieces.piece_type[ROOK] ^= mask;
+            self.board.pieces.color[us] ^= mask;
             h ^= self.zobrist.pieces[us][ROOK][CASTLING_ROOK_MOVEMENT[us][side].0] ^
                  self.zobrist.pieces[us][ROOK][CASTLING_ROOK_MOVEMENT[us][side].1];
         }
 
         // empty the origin square
         let not_orig_square_bb = !(1 << orig_square);
-        self.pieces.piece_type[played_piece] &= not_orig_square_bb;
-        self.pieces.color[us] &= not_orig_square_bb;
+        self.board.pieces.piece_type[played_piece] &= not_orig_square_bb;
+        self.board.pieces.color[us] &= not_orig_square_bb;
         h ^= self.zobrist.pieces[us][played_piece][orig_square];
 
         // Remove the captured piece (if any).
@@ -709,8 +695,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 h ^= self.zobrist.pieces[them][captured_piece][dest_square];
                 !dest_square_bb
             };
-            self.pieces.piece_type[captured_piece] &= not_captured_bb;
-            self.pieces.color[them] &= not_captured_bb;
+            self.board.pieces.piece_type[captured_piece] &= not_captured_bb;
+            self.board.pieces.color[them] &= not_captured_bb;
         }
 
         // Occupy the destination square.
@@ -719,22 +705,22 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         } else {
             played_piece
         };
-        self.pieces.piece_type[dest_piece] |= dest_square_bb;
-        self.pieces.color[us] |= dest_square_bb;
+        self.board.pieces.piece_type[dest_piece] |= dest_square_bb;
+        self.board.pieces.color[us] |= dest_square_bb;
         h ^= self.zobrist.pieces[us][dest_piece][dest_square];
 
         // Update castling rights (null moves do not affect castling).
         if orig_square != dest_square {
-            h ^= self.zobrist.castling_rights[self.castling_rights.value()];
-            self.castling_rights.update(orig_square, dest_square);
-            h ^= self.zobrist.castling_rights[self.castling_rights.value()];
+            h ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
+            self.board.castling_rights.update(orig_square, dest_square);
+            h ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
         }
 
         // Update the en-passant file.
-        h ^= self.zobrist.en_passant_file[self.en_passant_file];
-        self.en_passant_file = if played_piece == PAWN &&
-                                  dest_square as isize - orig_square as isize ==
-                                  PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
+        h ^= self.zobrist.en_passant_file[self.board.en_passant_file];
+        self.board.en_passant_file = if played_piece == PAWN &&
+                                        dest_square as isize - orig_square as isize ==
+                                        PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
             let file = file(dest_square);
             h ^= self.zobrist.en_passant_file[file];
             file
@@ -743,11 +729,11 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         };
 
         // Change the side to move.
-        self.to_move = them;
+        self.board.to_move = them;
         h ^= self.zobrist.to_move;
 
         // Update the auxiliary fields.
-        self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
+        self.board.occupied = self.board.pieces.color[WHITE] | self.board.pieces.color[BLACK];
         self._checkers.set(BB_UNIVERSAL_SET);
 
         // Tell the evaluator that a move was played.
@@ -769,7 +755,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         // In this method we basically do the same things that we do
         // in `do_move`, but in reverse.
 
-        let them = self.to_move;
+        let them = self.board.to_move;
         let us = 1 ^ them;
         let move_type = m.move_type();
         let orig_square = m.orig_square();
@@ -786,13 +772,13 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         }
 
         // Change the side to move.
-        self.to_move = us;
+        self.board.to_move = us;
 
         // Restore the en-passant file.
-        self.en_passant_file = m.en_passant_file();
+        self.board.en_passant_file = m.en_passant_file();
 
         // Restore castling rights.
-        self.castling_rights = m.castling_rights();
+        self.board.castling_rights = m.castling_rights();
 
         // Empty the destination square.
         let dest_piece = if move_type == MOVE_PROMOTION {
@@ -800,8 +786,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         } else {
             played_piece
         };
-        self.pieces.piece_type[dest_piece] &= !dest_square_bb;
-        self.pieces.color[us] &= !dest_square_bb;
+        self.board.pieces.piece_type[dest_piece] &= !dest_square_bb;
+        self.board.pieces.color[us] &= !dest_square_bb;
 
         // Put back the captured piece (if any).
         if captured_piece < NO_PIECE {
@@ -810,14 +796,14 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             } else {
                 dest_square_bb
             };
-            self.pieces.piece_type[captured_piece] |= captured_piece_bb;
-            self.pieces.color[them] |= captured_piece_bb;
+            self.board.pieces.piece_type[captured_piece] |= captured_piece_bb;
+            self.board.pieces.color[them] |= captured_piece_bb;
         }
 
         // Restore the piece on the origin square.
         let orig_square_bb = 1 << orig_square;
-        self.pieces.piece_type[played_piece] |= orig_square_bb;
-        self.pieces.color[us] |= orig_square_bb;
+        self.board.pieces.piece_type[played_piece] |= orig_square_bb;
+        self.board.pieces.color[us] |= orig_square_bb;
 
         // Move the rook back if the move is castling.
         if move_type == MOVE_CASTLING {
@@ -827,12 +813,12 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 QUEENSIDE
             };
             let mask = BB_CASTLING_ROOK_MOVEMENT[us][side];
-            self.pieces.piece_type[ROOK] ^= mask;
-            self.pieces.color[us] ^= mask;
+            self.board.pieces.piece_type[ROOK] ^= mask;
+            self.board.pieces.color[us] ^= mask;
         }
 
         // Update the auxiliary fields.
-        self._occupied = self.pieces.color[WHITE] | self.pieces.color[BLACK];
+        self.board.occupied = self.board.pieces.color[WHITE] | self.board.pieces.color[BLACK];
         self._checkers.set(BB_UNIVERSAL_SET);
 
         // Tell the evaluator that a move was taken back.
@@ -855,16 +841,16 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         let mut hash = 0;
         for color in 0..2 {
             for piece in 0..6 {
-                let mut bb = self.pieces.color[color] & self.pieces.piece_type[piece];
+                let mut bb = self.board.pieces.color[color] & self.board.pieces.piece_type[piece];
                 while bb != 0 {
                     let square = bitscan_forward_and_reset(&mut bb);
                     hash ^= self.zobrist.pieces[color][piece][square];
                 }
             }
         }
-        hash ^= self.zobrist.castling_rights[self.castling_rights.value()];
-        hash ^= self.zobrist.en_passant_file[self.en_passant_file];
-        if self.to_move == BLACK {
+        hash ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
+        hash ^= self.zobrist.en_passant_file[self.board.en_passant_file];
+        if self.board.to_move == BLACK {
             hash ^= self.zobrist.to_move;
         }
         hash
@@ -896,12 +882,12 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     ///    move would be in check if the passing pawn is moved back to
     ///    its original position.
     fn is_legal(&self) -> bool {
-        if self.to_move > 1 || self.en_passant_file > 8 {
+        if self.board.to_move > 1 || self.board.en_passant_file > 8 {
             return false;
         }
-        let us = self.to_move;
+        let us = self.board.to_move;
         let en_passant_bb = self.en_passant_bb();
-        let occupied = self.pieces.piece_type.into_iter().fold(0, |acc, x| {
+        let occupied = self.board.pieces.piece_type.into_iter().fold(0, |acc, x| {
             if acc & x == 0 {
                 acc | x
             } else {
@@ -910,11 +896,11 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         });  // `occupied` becomes `UNIVERSAL_SET` if `self.pieces.piece_type` is messed up.
 
         let them = 1 ^ us;
-        let o_us = self.pieces.color[us];
-        let o_them = self.pieces.color[them];
-        let our_king_bb = self.pieces.piece_type[KING] & o_us;
-        let their_king_bb = self.pieces.piece_type[KING] & o_them;
-        let pawns = self.pieces.piece_type[PAWN];
+        let o_us = self.board.pieces.color[us];
+        let o_them = self.board.pieces.color[them];
+        let our_king_bb = self.board.pieces.piece_type[KING] & o_us;
+        let their_king_bb = self.board.pieces.piece_type[KING] & o_them;
+        let pawns = self.board.pieces.piece_type[PAWN];
 
         occupied != BB_UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
         pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
@@ -923,18 +909,18 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         pop_count(o_them) <= 16 &&
         self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
         pawns & BB_PAWN_PROMOTION_RANKS == 0 &&
-        (!self.castling_rights.can_castle(WHITE, QUEENSIDE) ||
-         (self.pieces.piece_type[ROOK] & self.pieces.color[WHITE] & 1 << A1 != 0) &&
-         (self.pieces.piece_type[KING] & self.pieces.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling_rights.can_castle(WHITE, KINGSIDE) ||
-         (self.pieces.piece_type[ROOK] & self.pieces.color[WHITE] & 1 << H1 != 0) &&
-         (self.pieces.piece_type[KING] & self.pieces.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.castling_rights.can_castle(BLACK, QUEENSIDE) ||
-         (self.pieces.piece_type[ROOK] & self.pieces.color[BLACK] & 1 << A8 != 0) &&
-         (self.pieces.piece_type[KING] & self.pieces.color[BLACK] & 1 << E8 != 0)) &&
-        (!self.castling_rights.can_castle(BLACK, KINGSIDE) ||
-         (self.pieces.piece_type[ROOK] & self.pieces.color[BLACK] & 1 << H8 != 0) &&
-         (self.pieces.piece_type[KING] & self.pieces.color[BLACK] & 1 << E8 != 0)) &&
+        (!self.board.castling_rights.can_castle(WHITE, QUEENSIDE) ||
+         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[WHITE] & 1 << A1 != 0) &&
+         (self.board.pieces.piece_type[KING] & self.board.pieces.color[WHITE] & 1 << E1 != 0)) &&
+        (!self.board.castling_rights.can_castle(WHITE, KINGSIDE) ||
+         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[WHITE] & 1 << H1 != 0) &&
+         (self.board.pieces.piece_type[KING] & self.board.pieces.color[WHITE] & 1 << E1 != 0)) &&
+        (!self.board.castling_rights.can_castle(BLACK, QUEENSIDE) ||
+         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[BLACK] & 1 << A8 != 0) &&
+         (self.board.pieces.piece_type[KING] & self.board.pieces.color[BLACK] & 1 << E8 != 0)) &&
+        (!self.board.castling_rights.can_castle(BLACK, KINGSIDE) ||
+         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[BLACK] & 1 << H8 != 0) &&
+         (self.board.pieces.piece_type[KING] & self.board.pieces.color[BLACK] & 1 << E8 != 0)) &&
         (en_passant_bb == 0 ||
          {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
@@ -950,17 +936,17 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 let occupied = occupied ^ mask;
                 0 ==
                 (self.geometry.attacks_from(ROOK, our_king_square, occupied) & o_them &
-                 (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) |
+                 (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
                 (self.geometry.attacks_from(BISHOP, our_king_square, occupied) & o_them &
-                 (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) |
+                 (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
                 (self.geometry.attacks_from(KNIGHT, our_king_square, occupied) & o_them &
-                 self.pieces.piece_type[KNIGHT]) |
+                 self.board.pieces.piece_type[KNIGHT]) |
                 (gen_shift(our_king_bb, -shifts[PAWN_EAST_CAPTURE]) & o_them & pawns & !BB_FILE_H) |
                 (gen_shift(our_king_bb, -shifts[PAWN_WEST_CAPTURE]) & o_them & pawns & !BB_FILE_A)
             }
         }) &&
         {
-            assert_eq!(self._occupied, occupied);
+            assert_eq!(self.board.occupied, occupied);
             assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
                     self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             true
@@ -979,7 +965,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                  move_stack: &mut MoveStack) {
         debug_assert!(piece < PAWN);
         debug_assert!(orig_square <= 63);
-        debug_assert!(legal_dests & self.pieces.color[self.to_move] == 0);
+        debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
 
         let mut piece_legal_dests = legal_dests &
                                     self.geometry.attacks_from(piece, orig_square, self.occupied());
@@ -997,8 +983,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                       0,
                                       captured_piece,
                                       piece,
-                                      self.castling_rights,
-                                      self.en_passant_file,
+                                      self.board.castling_rights,
+                                      self.board.en_passant_file,
                                       move_score));
         }
     }
@@ -1014,22 +1000,22 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                 legal_dests: Bitboard,
                                 only_queen_promotions: bool,
                                 move_stack: &mut MoveStack) {
-        debug_assert!(pawns & !self.pieces.piece_type[PAWN] == 0);
-        debug_assert!(pawns & !self.pieces.color[self.to_move] == 0);
-        debug_assert!(legal_dests & self.pieces.color[self.to_move] == 0);
+        debug_assert!(pawns & !self.board.pieces.piece_type[PAWN] == 0);
+        debug_assert!(pawns & !self.board.pieces.color[self.board.to_move] == 0);
+        debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
 
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
         let en_passant_bb = self.en_passant_bb();
-        calc_pawn_dest_sets(self.to_move,
-                            self.pieces.color[self.to_move],
-                            self.pieces.color[1 ^ self.to_move],
+        calc_pawn_dest_sets(self.board.to_move,
+                            self.board.pieces.color[self.board.to_move],
+                            self.board.pieces.color[1 ^ self.board.to_move],
                             en_passant_bb,
                             pawns,
                             &mut dest_sets);
 
         // Process each pawn move sub-type (push, double push, west
         // capture, east capture).
-        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.to_move];
+        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.board.to_move];
         for i in 0..4 {
             let mut pawn_legal_dests = dest_sets[i] & legal_dests;
 
@@ -1051,8 +1037,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                                       0,
                                                       PAWN,
                                                       PAWN,
-                                                      self.castling_rights,
-                                                      self.en_passant_file,
+                                                      self.board.castling_rights,
+                                                      self.board.en_passant_file,
                                                       MOVE_SCORE_MAX));
                         }
                     }
@@ -1071,8 +1057,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                                       p,
                                                       captured_piece,
                                                       PAWN,
-                                                      self.castling_rights,
-                                                      self.en_passant_file,
+                                                      self.board.castling_rights,
+                                                      self.board.en_passant_file,
                                                       move_score));
                             if only_queen_promotions {
                                 break;
@@ -1093,8 +1079,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                                   0,
                                                   captured_piece,
                                                   PAWN,
-                                                  self.castling_rights,
-                                                  self.en_passant_file,
+                                                  self.board.castling_rights,
+                                                  self.board.en_passant_file,
                                                   move_score));
                     }
                 }
@@ -1107,23 +1093,25 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     fn find_pinned(&self) -> Bitboard {
         let mut pinned = 0;
         let king_square = self.king_square();
-        let occupied_by_them = self.pieces.color[1 ^ self.to_move];
+        let occupied_by_them = self.board.pieces.color[1 ^ self.board.to_move];
 
         // To find the pinners, we "remove" all our pieces from the
         // board, and then verify if a bishop or a rook placed on our
         // king's square can attack any enemy bishops, rooks, or
         // queens.
         let mut pinners = (self.geometry.attacks_from(ROOK, king_square, occupied_by_them) &
-                           (self.pieces.piece_type[QUEEN] | self.pieces.piece_type[ROOK]) &
+                           (self.board.pieces.piece_type[QUEEN] |
+                            self.board.pieces.piece_type[ROOK]) &
                            occupied_by_them) |
                           (self.geometry.attacks_from(BISHOP, king_square, occupied_by_them) &
-                           (self.pieces.piece_type[QUEEN] | self.pieces.piece_type[BISHOP]) &
+                           (self.board.pieces.piece_type[QUEEN] |
+                            self.board.pieces.piece_type[BISHOP]) &
                            occupied_by_them);
 
         // Then, for each pinner we verify if there is exactly one
         // defender between our king and the pinner.
         if pinners != 0 {
-            let defenders = self.pieces.color[self.to_move] & !(1 << king_square);
+            let defenders = self.board.pieces.color[self.board.to_move] & !(1 << king_square);
             let between_our_king_and: &[Bitboard; 64] =
                 &self.geometry.squares_between_including[king_square];
             while pinners != 0 {
@@ -1141,10 +1129,10 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// en-passant target square if there is one.
     #[inline(always)]
     fn en_passant_bb(&self) -> Bitboard {
-        if self.en_passant_file >= 8 {
+        if self.board.en_passant_file >= 8 {
             0
         } else {
-            [1 << A6, 1 << A3][self.to_move] << self.en_passant_file
+            [1 << A6, 1 << A3][self.board.to_move] << self.board.en_passant_file
         }
     }
 
@@ -1152,32 +1140,36 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// side to move occupies.
     #[inline(always)]
     fn king_square(&self) -> Square {
-        bitscan_1bit(self.pieces.piece_type[KING] & self.pieces.color[self.to_move])
+        bitscan_1bit(self.board.pieces.piece_type[KING] &
+                     self.board.pieces.color[self.board.to_move])
     }
 
     /// A helper method. It returns if the king of the side to move
     /// would be in check if moved to `square`.
     fn king_would_be_in_check(&self, square: Square) -> bool {
         debug_assert!(square <= 63);
-        let them = 1 ^ self.to_move;
+        let them = 1 ^ self.board.to_move;
         let occupied = self.occupied() & !(1 << self.king_square());
-        let occupied_by_them = self.pieces.color[them];
+        let occupied_by_them = self.board.pieces.color[them];
 
         (self.geometry.attacks_from(ROOK, square, occupied) & occupied_by_them &
-         (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN])) != 0 ||
+         (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) != 0 ||
         (self.geometry.attacks_from(BISHOP, square, occupied) & occupied_by_them &
-         (self.pieces.piece_type[BISHOP] | self.pieces.piece_type[QUEEN])) != 0 ||
+         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) !=
+        0 ||
         (self.geometry.attacks_from(KNIGHT, square, occupied) & occupied_by_them &
-         self.pieces.piece_type[KNIGHT]) != 0 ||
+         self.board.pieces.piece_type[KNIGHT]) != 0 ||
         (self.geometry.attacks_from(KING, square, occupied) & occupied_by_them &
-         self.pieces.piece_type[KING]) != 0 ||
+         self.board.pieces.piece_type[KING]) != 0 ||
         {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
             let square_bb = 1 << square;
             gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
-            self.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8) != 0 ||
+            self.board.pieces.piece_type[PAWN] &
+            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8) != 0 ||
             gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
-            self.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8) != 0
+            self.board.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8) !=
+            0
         }
     }
 
@@ -1190,7 +1182,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             return NO_PIECE;
         }
         for i in (KING..NO_PIECE).rev() {
-            if bb & self.pieces.piece_type[i] != 0 {
+            if bb & self.board.pieces.piece_type[i] != 0 {
                 return i;
             }
         }
@@ -1206,12 +1198,13 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         let king_square = self.king_square();
         if rank(king_square) == rank(orig_square) {
             let pawn1_bb = 1 << orig_square;
-            let pawn2_bb = gen_shift(1 << dest_square, -PAWN_MOVE_SHIFTS[self.to_move][PAWN_PUSH]);
+            let pawn2_bb = gen_shift(1 << dest_square,
+                                     -PAWN_MOVE_SHIFTS[self.board.to_move][PAWN_PUSH]);
             let occupied = self.occupied() & !(pawn1_bb | pawn2_bb);
             return 0 ==
                    self.geometry.attacks_from(ROOK, king_square, occupied) &
-                   self.pieces.color[1 ^ self.to_move] &
-                   (self.pieces.piece_type[ROOK] | self.pieces.piece_type[QUEEN]);
+                   self.board.pieces.color[1 ^ self.board.to_move] &
+                   (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN]);
         }
         true
     }
@@ -1222,9 +1215,9 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     fn can_castle(&self, side: CastlingSide) -> bool {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        self.castling_rights.can_castle(self.to_move, side) &&
-        self.occupied() & BETWEEN[self.to_move][side] == 0 && self.checkers() == 0 &&
-        !self.king_would_be_in_check([[D1, F1], [D8, F8]][self.to_move][side])
+        self.board.castling_rights.can_castle(self.board.to_move, side) &&
+        self.occupied() & BETWEEN[self.board.to_move][side] == 0 && self.checkers() == 0 &&
+        !self.king_would_be_in_check([[D1, F1], [D8, F8]][self.board.to_move][side])
     }
 }
 
@@ -1320,11 +1313,17 @@ mod tests {
                     .ok()
                     .unwrap();
         let g = BoardGeometry::get();
-        assert_eq!(g.attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
+        assert_eq!(g.attacks_from(BISHOP,
+                                  A1,
+                                  b.board.pieces.color[WHITE] | b.board.pieces.color[BLACK]),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(g.attacks_from(BISHOP, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
+        assert_eq!(g.attacks_from(BISHOP,
+                                  A1,
+                                  b.board.pieces.color[WHITE] | b.board.pieces.color[BLACK]),
                    1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(g.attacks_from(KNIGHT, A1, b.pieces.color[WHITE] | b.pieces.color[BLACK]),
+        assert_eq!(g.attacks_from(KNIGHT,
+                                  A1,
+                                  b.board.pieces.color[WHITE] | b.board.pieces.color[BLACK]),
                    1 << B3 | 1 << C2);
     }
 
