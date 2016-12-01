@@ -114,7 +114,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// string.
     ///
     /// Verifies that the position is legal.
-    pub fn from_fen(fen: &str) -> Result<MoveGenerator<E>, String> {
+    fn from_fen(fen: &str) -> Result<MoveGenerator<E>, String> {
         let parts = try!(parse_fen(fen).map_err(|_| fen));
         let (ref placement, to_move, castling, en_passant_square, _, _) = parts;
         MoveGenerator::from_raw_parts(placement, to_move, castling, en_passant_square)
