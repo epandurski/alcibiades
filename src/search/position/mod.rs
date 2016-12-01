@@ -106,7 +106,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         if !b.is_legal() {
             return Err(format!("illegal position"));
         }
-        b.evaluator = E::new(&b);
+        b.evaluator = E::new(&b.board);
         Ok(b)
     }
 
@@ -215,12 +215,9 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// `VALUE_EVAL_MAX`.
     #[inline]
     pub fn evaluate(&self, halfmove_clock: u8) -> Value {
-        unsafe {
-            let board_ptr: *const MoveGenerator<E> = self;
-            let v = self.evaluator.evaluate(board_ptr.as_ref().unwrap(), halfmove_clock);
-            debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
-            v
-        }
+        let v = self.evaluator.evaluate(&self.board, halfmove_clock);
+        debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
+        v
     }
 
     /// Returns whether the position is zugzwangy.
@@ -230,10 +227,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// method returns `true`.
     #[inline]
     pub fn is_zugzwangy(&self, halfmove_clock: u8) -> bool {
-        unsafe {
-            let board_ptr: *const MoveGenerator<E> = self;
-            self.evaluator.is_zugzwangy(board_ptr.as_ref().unwrap(), halfmove_clock)
-        }
+        self.evaluator.is_zugzwangy(&self.board, halfmove_clock)
     }
 
     /// Generates pseudo-legal moves.
@@ -659,10 +653,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         }
 
         // Tell the evaluator that a move will be played.
-        unsafe {
-            let board_ptr: *const MoveGenerator<E> = self;
-            self.evaluator.will_do_move(board_ptr.as_ref().unwrap(), m);
-        }
+        self.evaluator.will_do_move(&self.board, m);
 
         // Move the rook if the move is castling.
         if move_type == MOVE_CASTLING {
@@ -737,10 +728,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         self._checkers.set(BB_UNIVERSAL_SET);
 
         // Tell the evaluator that a move was played.
-        unsafe {
-            let board_ptr: *const MoveGenerator<E> = self;
-            self.evaluator.done_move(board_ptr.as_ref().unwrap(), m);
-        }
+        self.evaluator.done_move(&self.board, m);
 
         debug_assert!(self.is_legal());
         debug_assert_eq!(old_hash ^ h, self.calc_hash());
@@ -766,10 +754,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         debug_assert!(m.en_passant_file() <= 8);
 
         // Tell the evaluator that a move will be taken back.
-        unsafe {
-            let board_ptr: *const MoveGenerator<E> = self;
-            self.evaluator.will_undo_move(board_ptr.as_ref().unwrap(), m);
-        }
+        self.evaluator.will_undo_move(&self.board, m);
 
         // Change the side to move.
         self.board.to_move = us;
@@ -822,10 +807,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         self._checkers.set(BB_UNIVERSAL_SET);
 
         // Tell the evaluator that a move was taken back.
-        unsafe {
-            let board_ptr: *const MoveGenerator<E> = self;
-            self.evaluator.undone_move(board_ptr.as_ref().unwrap(), m);
-        }
+        self.evaluator.undone_move(&self.board, m);
 
         debug_assert!(self.is_legal());
     }
