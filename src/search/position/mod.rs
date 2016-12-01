@@ -30,18 +30,17 @@
 //! check, hashing. Re-writing those things is a lot of work. Still,
 //! if you decide to do this, you should write your own implementation
 //! of the `SearchNode` trait.
-mod notation;
 mod rules;
 
 use std::mem::uninitialized;
 use std::cell::Cell;
+use notation::parse_fen;
 use chesstypes::*;
 use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
 use search::MoveStack;
 use board::{Board, BoardEvaluator};
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
-use self::notation::parse_fen;
 
 pub use self::rules::Position;
 

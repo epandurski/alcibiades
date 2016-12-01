@@ -4,6 +4,7 @@ extern crate regex;
 extern crate rand;
 
 pub mod chesstypes;
+pub mod notation;
 pub mod uci;
 pub mod board;
 pub mod search;

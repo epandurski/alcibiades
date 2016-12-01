@@ -5,13 +5,13 @@ use std::mem::uninitialized;
 use std::cmp::{min, max};
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
+use notation::parse_fen;
 use chesstypes::*;
 use search::{SearchNode, MoveStack};
 use uci::{SetOption, OptionDescription};
 use board::bitsets::*;
 use board::{Board, BoardEvaluator};
 use super::MoveGenerator;
-use super::notation::parse_fen;
 
 
 /// Implements `SearchNode` trait.
