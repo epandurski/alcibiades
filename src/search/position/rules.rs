@@ -253,10 +253,10 @@ impl<T: BoardEvaluator + 'static> Position<T> {
         let dest_square = m.dest_square();  // the exchange square
         let position = self.position();
         let geometry = position.geometry();
-        let occupied = position.occupied();
+        let occupied = self.board().occupied;
         let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
-        let piece_type: &[Bitboard; 6] = &position.pieces().piece_type;
-        let color: &[Bitboard; 2] = &position.pieces().color;
+        let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
+        let color: &[Bitboard; 2] = &self.board().pieces.color;
 
         // Those will be updated on each capture:
         let mut us = self.board().to_move;

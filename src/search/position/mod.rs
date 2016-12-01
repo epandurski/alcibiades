@@ -141,42 +141,6 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         &self.board
     }
 
-    /// Returns a description of the placement of the pieces on the
-    /// board.
-    #[inline(always)]
-    pub fn pieces(&self) -> &PiecesPlacement {
-        &self.board.pieces
-    }
-
-    /// Returns the side to move.
-    #[inline(always)]
-    pub fn to_move(&self) -> Color {
-        self.board.to_move
-    }
-
-    /// Returns the castling rights.
-    #[inline(always)]
-    pub fn castling_rights(&self) -> CastlingRights {
-        self.board.castling_rights
-    }
-
-    /// If the previous move was a double pawn push, returns double
-    /// pushed pawn's file.
-    #[inline(always)]
-    pub fn en_passant_file(&self) -> Option<File> {
-        if self.board.en_passant_file < 8 {
-            Some(self.board.en_passant_file)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a bitboard of all occupied squares.
-    #[inline(always)]
-    pub fn occupied(&self) -> Bitboard {
-        self.board.occupied
-    }
-
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
@@ -185,13 +149,13 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         let square_bb = 1 << square;
         let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
 
-        (self.geometry.attacks_from(ROOK, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(ROOK, square, self.board.occupied) & occupied_by_us &
          (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
-        (self.geometry.attacks_from(BISHOP, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(BISHOP, square, self.board.occupied) & occupied_by_us &
          (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
-        (self.geometry.attacks_from(KNIGHT, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(KNIGHT, square, self.board.occupied) & occupied_by_us &
          self.board.pieces.piece_type[KNIGHT]) |
-        (self.geometry.attacks_from(KING, square, self.occupied()) & occupied_by_us &
+        (self.geometry.attacks_from(KING, square, self.board.occupied) & occupied_by_us &
          self.board.pieces.piece_type[KING]) |
         (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
          self.board.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
@@ -240,7 +204,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = self.board.pieces.color[self.board.to_move];
-        let occupied_by_them = self.occupied() ^ occupied_by_us;
+        let occupied_by_them = self.board.occupied ^ occupied_by_us;
         let generate_all_moves = all || checkers != 0;
 
         let legal_dests = !occupied_by_us &
@@ -555,7 +519,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
 
         } else {
             // This is not a pawn move, nor a castling move.
-            pseudo_legal_dests &= self.geometry.attacks_from(piece, orig_square, self.occupied());
+            pseudo_legal_dests &= self.geometry
+                                      .attacks_from(piece, orig_square, self.board.occupied);
             if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 ||
                promoted_piece_code != 0 {
                 debug_assert!(generated_move.is_none());
@@ -939,7 +904,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
 
         let mut piece_legal_dests = legal_dests &
-                                    self.geometry.attacks_from(piece, orig_square, self.occupied());
+                                    self.geometry
+                                        .attacks_from(piece, orig_square, self.board.occupied);
         while piece_legal_dests != 0 {
             let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
@@ -1120,7 +1086,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     fn king_would_be_in_check(&self, square: Square) -> bool {
         debug_assert!(square <= 63);
         let them = 1 ^ self.board.to_move;
-        let occupied = self.occupied() & !(1 << self.king_square());
+        let occupied = self.board.occupied & !(1 << self.king_square());
         let occupied_by_them = self.board.pieces.color[them];
 
         (self.geometry.attacks_from(ROOK, square, occupied) & occupied_by_them &
@@ -1148,7 +1114,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     #[inline(always)]
     fn get_piece_type_at(&self, square: Square) -> PieceType {
         debug_assert!(square <= 63);
-        let bb = 1 << square & self.occupied();
+        let bb = 1 << square & self.board.occupied;
         if bb == 0 {
             return NO_PIECE;
         }
@@ -1171,7 +1137,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             let pawn1_bb = 1 << orig_square;
             let pawn2_bb = gen_shift(1 << dest_square,
                                      -PAWN_MOVE_SHIFTS[self.board.to_move][PAWN_PUSH]);
-            let occupied = self.occupied() & !(pawn1_bb | pawn2_bb);
+            let occupied = self.board.occupied & !(pawn1_bb | pawn2_bb);
             return 0 ==
                    self.geometry.attacks_from(ROOK, king_square, occupied) &
                    self.board.pieces.color[1 ^ self.board.to_move] &
@@ -1187,7 +1153,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
         self.board.castling_rights.can_castle(self.board.to_move, side) &&
-        self.occupied() & BETWEEN[self.board.to_move][side] == 0 && self.checkers() == 0 &&
+        self.board.occupied & BETWEEN[self.board.to_move][side] == 0 &&
+        self.checkers() == 0 &&
         !self.king_would_be_in_check([[D1, F1], [D8, F8]][self.board.to_move][side])
     }
 }
