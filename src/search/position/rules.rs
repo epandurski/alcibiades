@@ -9,7 +9,7 @@ use chesstypes::*;
 use search::{SearchNode, MoveStack};
 use uci::{SetOption, OptionDescription};
 use board::bitsets::*;
-use board::BoardEvaluator;
+use board::{Board, BoardEvaluator};
 use super::MoveGenerator;
 use super::notation::parse_fen;
 
@@ -489,25 +489,10 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     }
 
     #[inline]
-    fn pieces(&self) -> &PiecesPlacement {
-        self.board().pieces()
+    fn board(&self) -> &Board {
+        self.board().board()
     }
-
-    #[inline]
-    fn to_move(&self) -> Color {
-        self.board().to_move()
-    }
-
-    #[inline]
-    fn castling_rights(&self) -> CastlingRights {
-        self.board().castling_rights()
-    }
-
-    #[inline]
-    fn en_passant_file(&self) -> Option<File> {
-        self.board().en_passant_file()
-    }
-
+    
     #[inline]
     fn halfmove_clock(&self) -> u8 {
         self.state().halfmove_clock

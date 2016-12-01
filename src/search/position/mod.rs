@@ -135,6 +135,12 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         self.zobrist
     }
 
+    /// Returns a reference to the underlying `Board` instance.
+    #[inline(always)]
+    pub fn board(&self) -> &Board {
+        &self.board
+    }
+
     /// Returns a description of the placement of the pieces on the
     /// board.
     #[inline(always)]

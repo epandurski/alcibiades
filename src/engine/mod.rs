@@ -202,7 +202,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         } else if depth.is_some() {
             PlayWhen::Depth(depth.unwrap() as u8)
         } else {
-            PlayWhen::TimeManagement(TimeManager::new(self.position.to_move(),
+            PlayWhen::TimeManagement(TimeManager::new(self.position.board().to_move,
                                                       self.pondering_is_allowed,
                                                       wtime,
                                                       btime,

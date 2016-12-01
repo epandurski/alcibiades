@@ -17,8 +17,9 @@ pub mod position;
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
-use chesstypes::*;
 use uci::SetOption;
+use chesstypes::*;
+use board::Board;
 
 pub use self::move_stack::MoveStack;
 
@@ -293,20 +294,9 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// The returned value is good for use as transposition table key.
     fn hash(&self) -> u64;
 
-    /// Returns a description of the placement of the pieces on the
-    /// board.
-    fn pieces(&self) -> &PiecesPlacement;
-
-    /// Returns the side to move.
-    fn to_move(&self) -> Color;
-
-    /// Returns the castling rights.
-    fn castling_rights(&self) -> CastlingRights;
-
-    /// If the previous move was a double pawn push, returns double
-    /// pushed pawn's file.
-    fn en_passant_file(&self) -> Option<File>;
-
+    /// Returns a reference to the underlying `Board` instance.
+    fn board(&self) -> &Board;
+    
     /// Returns the number of half-moves since the last piece capture
     /// or pawn advance.
     fn halfmove_clock(&self) -> u8;
