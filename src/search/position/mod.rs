@@ -34,7 +34,6 @@ mod rules;
 
 use std::mem::uninitialized;
 use std::cell::Cell;
-use notation::parse_fen;
 use chesstypes::*;
 use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
 use search::MoveStack;
@@ -107,17 +106,6 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         }
         b.evaluator = E::new(&b.board);
         Ok(b)
-    }
-
-    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
-    /// string.
-    ///
-    /// Verifies that the position is legal.
-    fn from_fen(fen: &str) -> Result<MoveGenerator<E>, String> {
-        let parts = try!(parse_fen(fen).map_err(|_| fen));
-        let (ref placement, to_move, castling, en_passant_square, _, _) = parts;
-        MoveGenerator::from_raw_parts(placement, to_move, castling, en_passant_square)
-            .map_err(|_| fen.to_string())
     }
 
     /// Returns a reference to a properly initialized `BoardGeometry`
@@ -1239,9 +1227,20 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use board::BoardEvaluator;
     use board::evaluators::RandomEvaluator;
+    use fen::parse_fen;
     use chesstypes::*;
     use search::MoveStack;
+
+    impl<E: BoardEvaluator> MoveGenerator<E> {
+        fn from_fen(fen: &str) -> Result<MoveGenerator<E>, String> {
+            let parts = try!(parse_fen(fen).map_err(|_| fen));
+            let (ref placement, to_move, castling, en_passant_square, _, _) = parts;
+            MoveGenerator::from_raw_parts(placement, to_move, castling, en_passant_square)
+                .map_err(|_| fen.to_string())
+        }
+    }
 
     #[test]
     fn test_attacks_from() {

@@ -1,4 +1,4 @@
-//! Implements parsing of various chess notations.
+//! Implements Forsyth–Edwards Notation parsing.
 
 use regex::Regex;
 use chesstypes::*;
@@ -6,22 +6,6 @@ use chesstypes::*;
 
 /// Represents a parse error.
 pub struct ParseError;
-
-
-/// Parses a square in lowercase algebraic notation.
-fn parse_square(s: &str) -> Result<Square, ParseError> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
-    }
-    if RE.is_match(s) {
-        let mut chars = s.chars();
-        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
-        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
-        Ok(square(file, rank))
-    } else {
-        Err(ParseError)
-    }
-}
 
 
 /// Parses a Forsyth–Edwards Notation (FEN) string.
@@ -79,6 +63,22 @@ pub fn parse_fen
         }
     }
     Err(ParseError)
+}
+
+
+/// Parses a square in lowercase algebraic notation.
+fn parse_square(s: &str) -> Result<Square, ParseError> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
+    }
+    if RE.is_match(s) {
+        let mut chars = s.chars();
+        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
+        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
+        Ok(square(file, rank))
+    } else {
+        Err(ParseError)
+    }
 }
 
 
