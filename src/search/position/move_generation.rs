@@ -1,35 +1,4 @@
-//! Facilities for implementing static position evaluation.
-//!
-//! # Static position evaluation
-//!
-//! An evaluation function is used to heuristically determine the
-//! relative value of a position, i.e. the chances of winning. If we
-//! could see to the end of the game in every line, the evaluation
-//! would only have values of "loss", "draw", and "win". In practice,
-//! however, we do not know the exact value of a position, so we must
-//! make an approximation. Beginning chess players learn to do this
-//! starting with the value of the pieces themselves. Computer
-//! evaluation functions also use the value of the material as the
-//! most significant aspect and then add other considerations.
-//!
-//! Static evaluation is an evaluation that considers only the static
-//! material and positional properties of the current position,
-//! without analyzing any tactical variations. Therefore, if the
-//! position has pending tactical threats, the static evaluation will
-//! be grossly incorrect.
-//!
-//! Writing a new static evaluator is as simple as defining a type
-//! that implements the `BoardEvaluator` trait. Then you pass that as
-//! a type parameter to `Position`.
-//!
-//! # Writing your own move generator
-//!
-//! The generation of moves is at the heart of every chess
-//! engine. `Position` implements a very fast move generator, and
-//! also: quiescence search, static exchange evaluation, move legality
-//! check, hashing. Re-writing those things is a lot of work. Still,
-//! if you decide to do this, you should write your own implementation
-//! of the `SearchNode` trait.
+//! Implements move generation logic.
 
 use std::mem::uninitialized;
 use std::cell::Cell;
@@ -41,7 +10,17 @@ use board::tables::{BoardGeometry, ZobristArrays};
 use search::MoveStack;
 
 
-/// Holds a chess position.
+/// Holds a chess position, can generate moves.
+///
+/// In a nutshell: `MoveGenerator` can generate all possible moves in
+/// the current position, play a selected move, and take it back. It
+/// can also play a "null move" which can be used to selectively prune
+/// the search tree. `MoveGenerator` does not try to be too clever. In
+/// particular, it is completely unaware of repeating positions and
+/// rule-50.
+///
+/// **Important note:** `MoveGenerator` guarantees that the static
+/// evaluator it contains is always bound to the current position.
 #[derive(Clone)]
 pub struct MoveGenerator<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,
@@ -55,17 +34,6 @@ pub struct MoveGenerator<E: BoardEvaluator> {
 }
 
 
-// In a nutshell: `Board` can generate all possible moves in the
-// current position, play a selected move, and take it back. It can
-// also play a "null move" which can be used to selectively prune the
-// search tree. `Board` does not try to be too clever. In particular,
-// it is completely unaware of repeating positions and
-// rule-50. Although `Board` is able to statically evaluate the
-// position and decide if it is zugzwangy, it delegates this to
-// `BoardEvaluator`.
-//
-// Note that many of the implemented methods are private -- they are
-// used solely by the module `board::rules`.
 impl<E: BoardEvaluator> MoveGenerator<E> {
     /// Creates a new instance.
     ///
@@ -125,6 +93,13 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         &self.board
     }
 
+    /// Returns a reference to the static evaluator bound to the
+    /// position.
+    #[inline(always)]
+    pub fn evaluator(&self) -> &E {
+        &self.evaluator
+    }
+
     /// Returns a bitboard of all pieces and pawns of color `us` that
     /// attack `square`.
     pub fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
@@ -158,13 +133,6 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         debug_assert_eq!(self._checkers.get(),
                          self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         self._checkers.get()
-    }
-
-    /// Returns a reference to the static evaluator bound to the
-    /// position.
-    #[inline(always)]
-    pub fn evaluator(&self) -> &E {
-        &self.evaluator
     }
 
     /// Generates pseudo-legal moves.
