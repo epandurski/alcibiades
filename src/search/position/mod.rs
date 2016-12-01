@@ -90,7 +90,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
                                                           en_passant_square)
                                 .map_err(|_| fen));
         Ok(Position {
-            board_hash: position.calc_hash(),
+            board_hash: position.calc_board_hash(),
             position: UnsafeCell::new(position),
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
             repeated_or_rule50: false,
