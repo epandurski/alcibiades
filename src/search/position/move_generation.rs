@@ -19,8 +19,8 @@ use search::MoveStack;
 /// particular, it is completely unaware of repeating positions and
 /// rule-50.
 ///
-/// **Important note:** `MoveGenerator` guarantees that the static
-/// evaluator it contains is always bound to the current position.
+/// **Note:** `MoveGenerator` guarantees that the static evaluator it
+/// contains is always bound to the current position.
 #[derive(Clone)]
 pub struct MoveGenerator<E: BoardEvaluator> {
     geometry: &'static BoardGeometry,
@@ -93,7 +93,34 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         &self.board
     }
 
-    /// Returns a reference to the static evaluator bound to the
+    /// Calculates the Zobrist hash value for the underlying `Board`
+    /// instance.
+    ///
+    /// Zobrist hashing is a technique to transform a board position
+    /// into a number of a fixed length, with an equal distribution
+    /// over all possible numbers, invented by Albert Zobrist. The key
+    /// property of this method is that two similar positions generate
+    /// entirely different hash numbers.
+    pub fn calc_board_hash(&self) -> u64 {
+        let mut hash = 0;
+        for color in 0..2 {
+            for piece in 0..6 {
+                let mut bb = self.board.pieces.color[color] & self.board.pieces.piece_type[piece];
+                while bb != 0 {
+                    let square = bitscan_forward_and_reset(&mut bb);
+                    hash ^= self.zobrist.pieces[color][piece][square];
+                }
+            }
+        }
+        hash ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
+        hash ^= self.zobrist.en_passant_file[self.board.en_passant_file];
+        if self.board.to_move == BLACK {
+            hash ^= self.zobrist.to_move;
+        }
+        hash
+    }
+
+    /// Returns a reference to a static evaluator bound to the current
     /// position.
     #[inline(always)]
     pub fn evaluator(&self) -> &E {
@@ -278,28 +305,6 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             occupied_by_them
         };
         self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
-    }
-
-    /// Returns a null move.
-    ///
-    /// "Null move" is a pseudo-move that changes nothing on the board
-    /// except the side to move. It is sometimes useful to include a
-    /// speculative null move in the search tree so as to achieve more
-    /// aggressive pruning.
-    #[inline]
-    pub fn null_move(&self) -> Move {
-        // Null moves are represented as king's moves for which the
-        // destination square equals the origin square.
-        let king_square = self.king_square();
-        Move::new(MOVE_NORMAL,
-                  king_square,
-                  king_square,
-                  0,
-                  NO_PIECE,
-                  KING,
-                  self.board.castling_rights,
-                  self.board.en_passant_file,
-                  0)
     }
 
     /// Checks if `move_digest` represents a pseudo-legal move.
@@ -496,6 +501,28 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                           move_score);
         debug_assert_eq!(generated_move, Some(m));
         Some(m)
+    }
+
+    /// Returns a null move.
+    ///
+    /// "Null move" is a pseudo-move that changes nothing on the board
+    /// except the side to move. It is sometimes useful to include a
+    /// speculative null move in the search tree so as to achieve more
+    /// aggressive pruning.
+    #[inline]
+    pub fn null_move(&self) -> Move {
+        // Null moves are represented as king's moves for which the
+        // destination square equals the origin square.
+        let king_square = self.king_square();
+        Move::new(MOVE_NORMAL,
+                  king_square,
+                  king_square,
+                  0,
+                  NO_PIECE,
+                  KING,
+                  self.board.castling_rights,
+                  self.board.en_passant_file,
+                  0)
     }
 
     /// Plays a move on the board.
@@ -716,32 +743,6 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         self.evaluator.undone_move(&self.board, m);
 
         debug_assert!(self.is_legal());
-    }
-
-    /// Calculates and returns the Zobrist hash value for the board.
-    ///
-    /// Zobrist hashing is a technique to transform a board position
-    /// into a number of a fixed length, with an equal distribution
-    /// over all possible numbers, invented by Albert Zobrist. The key
-    /// property of this method is that two similar positions generate
-    /// entirely different hash numbers.
-    pub fn calc_board_hash(&self) -> u64 {
-        let mut hash = 0;
-        for color in 0..2 {
-            for piece in 0..6 {
-                let mut bb = self.board.pieces.color[color] & self.board.pieces.piece_type[piece];
-                while bb != 0 {
-                    let square = bitscan_forward_and_reset(&mut bb);
-                    hash ^= self.zobrist.pieces[color][piece][square];
-                }
-            }
-        }
-        hash ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
-        hash ^= self.zobrist.en_passant_file[self.board.en_passant_file];
-        if self.board.to_move == BLACK {
-            hash ^= self.zobrist.to_move;
-        }
-        hash
     }
 
     /// A helper method for `create`. It analyzes the position on the
