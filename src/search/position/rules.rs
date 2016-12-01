@@ -35,7 +35,7 @@ pub struct Position<T: BoardEvaluator> {
     /// `evaluate_quiescence` method logically is non-mutating, but
     /// internally it tries moves on the board and then undoes them,
     /// always leaving everything the way it was.
-    board: UnsafeCell<MoveGenerator<T>>,
+    position: UnsafeCell<MoveGenerator<T>>,
 
     /// The hash value for the underlying `Board` instance.
     board_hash: u64,
@@ -82,14 +82,14 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     fn from_fen(fen: &str) -> Result<Position<T>, String> {
         let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(parse_fen(fen).map_err(|_| fen));
-        let board = try!(MoveGenerator::from_raw_parts(placement,
-                                                       to_move,
-                                                       castling,
-                                                       en_passant_square)
-                             .map_err(|_| fen));
+        let position = try!(MoveGenerator::from_raw_parts(placement,
+                                                          to_move,
+                                                          castling,
+                                                          en_passant_square)
+                                .map_err(|_| fen));
         Ok(Position {
-            board_hash: board.calc_hash(),
-            board: UnsafeCell::new(board),
+            board_hash: position.calc_hash(),
+            position: UnsafeCell::new(position),
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
             repeated_or_rule50: false,
             repeated_boards_hash: 0,
@@ -120,10 +120,10 @@ impl<T: BoardEvaluator + 'static> Position<T> {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(stand_pat == VALUE_UNKNOWN ||
                       stand_pat ==
-                      self.board()
+                      self.position()
                           .evaluator()
-                          .evaluate(self.board().board(), self.halfmove_clock()));
-        let in_check = self.board().checkers() != 0;
+                          .evaluate(self.board(), self.halfmove_clock()));
+        let in_check = self.position().checkers() != 0;
 
         // At the beginning of quiescence, position's static
         // evaluation (`stand_pat`) is used to establish a lower bound
@@ -137,9 +137,9 @@ impl<T: BoardEvaluator + 'static> Position<T> {
             // Position's static evaluation is useless when in check.
             stand_pat = lower_bound
         } else if stand_pat == VALUE_UNKNOWN {
-            stand_pat = self.board()
+            stand_pat = self.position()
                             .evaluator()
-                            .evaluate(self.board().board(), self.halfmove_clock());
+                            .evaluate(self.board(), self.halfmove_clock());
         }
         if stand_pat >= upper_bound {
             return stand_pat;
@@ -152,7 +152,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
 
         // Generate all non-quiet moves.
         move_stack.save();
-        self.board().generate_moves(false, move_stack);
+        self.position().generate_moves(false, move_stack);
 
         // Consider the generated moves one by one. See if any of them
         // can raise the lower bound.
@@ -199,7 +199,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
             // Recursively call `qsearch` after playing the move
             // (`m`). Update the lower bound accordingly.
             unsafe {
-                if self.board_mut().do_move(m).is_some() {
+                if self.position_mut().do_move(m).is_some() {
                     *searched_nodes += 1;
                     let value = -self.qsearch(-upper_bound,
                                               -lower_bound,
@@ -208,7 +208,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
                                               ply + 1,
                                               move_stack,
                                               searched_nodes);
-                    self.board_mut().undo_move(m);
+                    self.position_mut().undo_move(m);
                     if value >= upper_bound {
                         lower_bound = value;
                         break;
@@ -251,20 +251,20 @@ impl<T: BoardEvaluator + 'static> Position<T> {
         debug_assert!(m.captured_piece() <= NO_PIECE);
 
         let dest_square = m.dest_square();  // the exchange square
-        let board = self.board();
-        let geometry = board.geometry();
-        let occupied = board.occupied();
+        let position = self.position();
+        let geometry = position.geometry();
+        let occupied = position.occupied();
         let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
-        let piece_type: &[Bitboard; 6] = &board.pieces().piece_type;
-        let color: &[Bitboard; 2] = &board.pieces().color;
+        let piece_type: &[Bitboard; 6] = &position.pieces().piece_type;
+        let color: &[Bitboard; 2] = &position.pieces().color;
 
         // Those will be updated on each capture:
-        let mut us = self.board().to_move();
+        let mut us = self.board().to_move;
         let mut depth = 0;
         let mut piece = m.played_piece();
         let mut orig_square_bb = 1 << m.orig_square();
-        let mut attackers_and_defenders = board.attacks_to(WHITE, dest_square) |
-                                          board.attacks_to(BLACK, dest_square);
+        let mut attackers_and_defenders = position.attacks_to(WHITE, dest_square) |
+                                          position.attacks_to(BLACK, dest_square);
 
         // `may_xray` holds the set of pieces that may block attacks
         // from other pieces, and therefore we must consider adding
@@ -391,17 +391,17 @@ impl<T: BoardEvaluator + 'static> Position<T> {
 
     /// Returns if the side to move is checkmated.
     fn is_checkmate(&self) -> bool {
-        self.board().checkers() != 0 &&
+        self.position().checkers() != 0 &&
         MOVE_STACK.with(|s| unsafe {
             // Check if there are no legal moves.
-            let board = self.board_mut();
+            let position = self.position_mut();
             let move_stack = &mut *s.get();
             let mut no_legal_moves = true;
             move_stack.save();
-            board.generate_moves(true, move_stack);
+            position.generate_moves(true, move_stack);
             for m in move_stack.iter() {
-                if board.do_move(*m).is_some() {
-                    board.undo_move(*m);
+                if position.do_move(*m).is_some() {
+                    position.undo_move(*m);
                     no_legal_moves = false;
                     break;
                 }
@@ -412,8 +412,8 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     }
 
     #[inline(always)]
-    fn board(&self) -> &MoveGenerator<T> {
-        unsafe { &*self.board.get() }
+    fn position(&self) -> &MoveGenerator<T> {
+        unsafe { &*self.position.get() }
     }
 
     #[inline(always)]
@@ -422,8 +422,8 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     }
 
     #[inline(always)]
-    unsafe fn board_mut(&self) -> &mut MoveGenerator<T> {
-        &mut *self.board.get()
+    unsafe fn position_mut(&self) -> &mut MoveGenerator<T> {
+        &mut *self.position.get()
     }
 }
 
@@ -434,7 +434,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         let mut move_stack = MoveStack::new();
         'played_moves: for played_move in moves {
             move_stack.clear();
-            p.board().generate_moves(true, &mut move_stack);
+            p.position().generate_moves(true, &mut move_stack);
             for m in move_stack.iter() {
                 if played_move == m.notation() {
                     if p.do_move(*m) {
@@ -488,14 +488,14 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
             } else {
                 // If `halfmove_clock` is close to rule-50, we blend
                 // it into the returned hash.
-                hash ^ self.board().zobrist().halfmove_clock[halfmove_clock as usize]
+                hash ^ self.position().zobrist().halfmove_clock[halfmove_clock as usize]
             }
         }
     }
 
     #[inline]
     fn board(&self) -> &Board {
-        self.board().board()
+        self.position().board()
     }
 
     #[inline]
@@ -510,16 +510,16 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
 
     #[inline]
     fn is_check(&self) -> bool {
-        self.board().checkers() != 0
+        self.position().checkers() != 0
     }
 
     fn is_zugzwangy(&self) -> bool {
-        self.board().evaluator().is_zugzwangy(self.board().board(), self.halfmove_clock())
+        self.position().evaluator().is_zugzwangy(self.board(), self.halfmove_clock())
     }
 
     #[inline]
     fn evaluate_final(&self) -> Value {
-        if self.repeated_or_rule50 || self.board().checkers() == 0 {
+        if self.repeated_or_rule50 || self.position().checkers() == 0 {
             0
         } else {
             VALUE_MIN
@@ -531,7 +531,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         if self.repeated_or_rule50 {
             0
         } else {
-            self.board().evaluator().evaluate(self.board().board(), self.halfmove_clock())
+            self.position().evaluator().evaluate(self.board(), self.halfmove_clock())
         }
     }
 
@@ -577,13 +577,13 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     #[inline]
     fn generate_moves(&self, move_stack: &mut MoveStack) {
         if !self.repeated_or_rule50 {
-            self.board().generate_moves(true, move_stack);
+            self.position().generate_moves(true, move_stack);
         }
     }
 
     #[inline]
     fn null_move(&self) -> Move {
-        self.board().null_move()
+        self.position().null_move()
     }
 
     #[inline]
@@ -591,7 +591,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         if self.repeated_or_rule50 {
             None
         } else {
-            self.board().try_move_digest(move_digest)
+            self.position().try_move_digest(move_digest)
         }
     }
 
@@ -604,7 +604,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
             return false;
         }
 
-        if let Some(h) = unsafe { self.board_mut().do_move(m) } {
+        if let Some(h) = unsafe { self.position_mut().do_move(m) } {
             let halfmove_clock = if m.is_pawn_advance_or_capure() {
                 0
             } else {
@@ -654,7 +654,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     fn undo_move(&mut self) {
         debug_assert!(self.state_stack.len() > 1);
         unsafe {
-            self.board_mut().undo_move(self.state().last_move);
+            self.position_mut().undo_move(self.state().last_move);
         }
         self.halfmove_count -= 1;
         self.board_hash = self.encountered_boards.pop().unwrap();
@@ -665,14 +665,14 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     fn legal_moves(&self) -> Vec<Move> {
         let mut legal_moves = Vec::with_capacity(96);
         MOVE_STACK.with(|s| unsafe {
-            let board = self.board_mut();
+            let position = self.position_mut();
             let move_stack = &mut *s.get();
             move_stack.save();
             self.generate_moves(move_stack);
             for m in move_stack.iter() {
-                if board.do_move(*m).is_some() {
+                if position.do_move(*m).is_some() {
                     legal_moves.push(*m);
-                    board.undo_move(*m);
+                    position.undo_move(*m);
                 }
             }
             move_stack.restore();
@@ -685,7 +685,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
 impl<T: BoardEvaluator + 'static> Clone for Position<T> {
     fn clone(&self) -> Self {
         Position {
-            board: UnsafeCell::new(self.board().clone()),
+            position: UnsafeCell::new(self.position().clone()),
             board_hash: self.board_hash,
             halfmove_count: self.halfmove_count,
             repeated_or_rule50: self.repeated_or_rule50,
