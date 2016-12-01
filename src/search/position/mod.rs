@@ -212,28 +212,11 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         self._checkers.get()
     }
 
-    /// Statically evaluates the position.
-    ///
-    /// `halfmove_clock` gives the number of half-moves since the last
-    /// piece capture or pawn advance.
-    ///
-    /// The returned value will be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`.
-    #[inline]
-    pub fn evaluate(&self, halfmove_clock: u8) -> Value {
-        let v = self.evaluator.evaluate(&self.board, halfmove_clock);
-        debug_assert!(VALUE_EVAL_MIN <= v && v <= VALUE_EVAL_MAX);
-        v
-    }
-
-    /// Returns whether the position is zugzwangy.
-    ///
-    /// In many endgame positions there is a relatively high
-    /// probability of zugzwang occurring. For such positions, this
-    /// method returns `true`.
-    #[inline]
-    pub fn is_zugzwangy(&self, halfmove_clock: u8) -> bool {
-        self.evaluator.is_zugzwangy(&self.board, halfmove_clock)
+    /// Returns a reference to the static evaluator bound to the
+    /// position.
+    #[inline(always)]
+    pub fn evaluator(&self) -> &E {
+        &self.evaluator
     }
 
     /// Generates pseudo-legal moves.

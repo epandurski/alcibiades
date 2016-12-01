@@ -119,7 +119,10 @@ impl<T: BoardEvaluator + 'static> Position<T> {
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(stand_pat == VALUE_UNKNOWN ||
-                      stand_pat == self.board().evaluate(self.halfmove_clock()));
+                      stand_pat ==
+                      self.board()
+                          .evaluator()
+                          .evaluate(self.board().board(), self.halfmove_clock()));
         let in_check = self.board().checkers() != 0;
 
         // At the beginning of quiescence, position's static
@@ -134,7 +137,9 @@ impl<T: BoardEvaluator + 'static> Position<T> {
             // Position's static evaluation is useless when in check.
             stand_pat = lower_bound
         } else if stand_pat == VALUE_UNKNOWN {
-            stand_pat = self.board().evaluate(self.halfmove_clock());
+            stand_pat = self.board()
+                            .evaluator()
+                            .evaluate(self.board().board(), self.halfmove_clock());
         }
         if stand_pat >= upper_bound {
             return stand_pat;
@@ -492,7 +497,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     fn board(&self) -> &Board {
         self.board().board()
     }
-    
+
     #[inline]
     fn halfmove_clock(&self) -> u8 {
         self.state().halfmove_clock
@@ -509,7 +514,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     }
 
     fn is_zugzwangy(&self) -> bool {
-        self.board().is_zugzwangy(self.halfmove_clock())
+        self.board().evaluator().is_zugzwangy(self.board().board(), self.halfmove_clock())
     }
 
     #[inline]
@@ -526,7 +531,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         if self.repeated_or_rule50 {
             0
         } else {
-            self.board().evaluate(self.halfmove_clock())
+            self.board().evaluator().evaluate(self.board().board(), self.halfmove_clock())
         }
     }
 
