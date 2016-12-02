@@ -294,8 +294,8 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         if self.repeated_or_rule50 && m.is_null() {
             // This is a final position -- null moves are not
             // allowed. We must still allow other moves though,
-            // because `create` should be able to call `do_move` even
-            // in final positions.
+            // because `from_history` should be able to call `do_move`
+            // even in final positions.
             return false;
         }
 

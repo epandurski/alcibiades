@@ -3,8 +3,7 @@
 use std::mem::uninitialized;
 use std::cell::Cell;
 use chesstypes::*;
-use chesstypes::moves::{get_aux_data, get_dest_square, get_orig_square, get_move_type};
-use board::{Board, BoardEvaluator};
+use board::*;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
 use search::MoveStack;
