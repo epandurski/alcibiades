@@ -40,37 +40,3 @@ pub const VALUE_EVAL_MAX: Value = 29999;
 /// Equals `-29999`, values smaller than that designate a loss by
 /// inevitable checkmate.
 pub const VALUE_EVAL_MIN: Value = -VALUE_EVAL_MAX;
-
-
-/// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.
-///
-/// For the majority of chess positions our evaluations will be more
-/// or less inaccurate, and there is nothing we can do about it. But
-/// sometimes we know that a given evaluation is probably inaccurate,
-/// and we know the sign of the error. `BoundType` defines the
-/// direction of such **known inaccuracies**.
-///
-/// # Constants:
-///
-/// * `BOUND_EXACT` means that the evaluation is exact (as far as we know).
-///
-/// * `BOUND_LOWER` means that the real value is greater or equal to
-///    the evaluation (as far as we know).
-///
-/// * `BOUND_UPPER` means that the real value is lesser or equal to
-///   the evaluation (as far as we know).
-///
-/// * `BOUND_NONE` means that the real value can be anything.
-pub type BoundType = u8;
-
-/// Means that the real value can be anything.
-pub const BOUND_NONE: BoundType = 0;
-
-/// Means that the real value is greater or equal to the evaluation.
-pub const BOUND_LOWER: BoundType = 0b01;
-
-/// Means that the real value is lesser or equal to the evaluation.
-pub const BOUND_UPPER: BoundType = 0b10;
-
-/// Means that the evaluation is exact.
-pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;

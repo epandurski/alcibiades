@@ -297,7 +297,7 @@ pub trait SearchNode: Send + Clone + SetOption {
 
     /// Returns a reference to the underlying `Board` instance.
     fn board(&self) -> &Board;
-    
+
     /// Returns the number of half-moves since the last piece capture
     /// or pawn advance.
     fn halfmove_clock(&self) -> u8;
@@ -452,6 +452,33 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// are legal.
     fn legal_moves(&self) -> Vec<Move>;
 }
+
+
+/// `BOUND_EXACT`, `BOUND_LOWER`, `BOUND_UPPER`, or `BOUND_NONE`.
+///
+/// For the majority of chess positions our evaluations will be more
+/// or less inaccurate, and there is nothing we can do about it. But
+/// sometimes we know that a given evaluation is probably inaccurate,
+/// and we know the sign of the error. `BoundType` defines the
+/// direction of such **known inaccuracies**.
+///
+/// # Constants:
+///
+/// * `BOUND_EXACT` means that the evaluation is exact (as far as we know).
+///
+/// * `BOUND_LOWER` means that the real value is greater or equal to
+///    the evaluation (as far as we know).
+///
+/// * `BOUND_UPPER` means that the real value is lesser or equal to
+///   the evaluation (as far as we know).
+///
+/// * `BOUND_NONE` means that the real value can be anything.
+pub type BoundType = u8;
+
+pub const BOUND_NONE: BoundType = 0;
+pub const BOUND_LOWER: BoundType = 0b01;
+pub const BOUND_UPPER: BoundType = 0b10;
+pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 
 
 /// A sequence of moves from some starting position, together with the

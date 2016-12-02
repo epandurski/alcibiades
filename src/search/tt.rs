@@ -4,7 +4,7 @@ use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
 use chesstypes::*;
-use search::{HashTable, HashTableEntry, DEPTH_MAX};
+use search::*;
 
 
 /// Contains information about a particular position.
