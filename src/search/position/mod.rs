@@ -15,7 +15,7 @@ use search::{SearchNode, MoveStack};
 use self::move_generation::MoveGenerator;
 
 
-/// Contains information about a position.
+/// Contains information needed to undo the last played move.
 #[derive(Clone, Copy)]
 struct PositionInfo {
     /// The number of half-moves since the last piece capture or pawn
@@ -52,19 +52,19 @@ struct PositionInfo {
 pub struct Position<T: BoardEvaluator> {
     position: UnsafeCell<MoveGenerator<T>>,
 
-    /// The hash value for the underlying `Board` instance.
-    board_hash: u64,
-
     /// The count of half-moves since the beginning of the game.
     halfmove_count: u16,
+
+    /// Information needed so as to be able to undo the played moves.
+    state_stack: Vec<PositionInfo>,
 
     /// `true` if the position is deemed as a draw by repetition or
     /// because 50 moves have been played without capturing a piece or
     /// advancing a pawn.
     repeated_or_rule50: bool,
 
-    /// Information needed so as to be able to undo the played moves.
-    state_stack: Vec<PositionInfo>,
+    /// The hash value for the underlying `Board` instance.
+    board_hash: u64,
 
     /// A list of hash values for the `Board` instances that had
     /// occurred during the game. This is needed so as to be able to
