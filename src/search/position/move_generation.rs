@@ -1193,9 +1193,8 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use board::BoardEvaluator;
+    use board::*;
     use board::evaluators::RandomEvaluator;
-    use fen::parse_fen;
     use chesstypes::*;
     use search::MoveStack;
 

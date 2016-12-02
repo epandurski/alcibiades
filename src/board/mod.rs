@@ -18,6 +18,7 @@
 //!
 //! Writing a new static evaluator is as simple as defining a type
 //! that implements the `BoardEvaluator` trait.
+
 pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
@@ -48,6 +49,32 @@ pub struct Board {
     /// self.pieces.color[BLACK]`. Deserves a field on its own because
     /// it is very frequently needed.
     pub occupied: Bitboard,
+}
+
+impl Board {
+    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
+    /// string.
+    pub fn from_fen(fen: &str) -> Result<Board, String> {
+        let parts = try!(parse_fen(fen).map_err(|_| fen));
+        let (ref pieces, to_move, castling_rights, en_passant_square, _, _) = parts;
+        let en_passant_rank = match to_move {
+            WHITE => RANK_6,
+            BLACK => RANK_3,
+            _ => return Err(format!("illegal position")),
+        };
+        let en_passant_file = match en_passant_square {
+            None => 8,
+            Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
+            _ => return Err(format!("illegal position")),
+        };
+        Ok(Board {
+            pieces: *pieces,
+            to_move: to_move,
+            castling_rights: castling_rights,
+            en_passant_file: en_passant_file,
+            occupied: pieces.color[WHITE] | pieces.color[BLACK],
+        })
+    }
 }
 
 
@@ -116,4 +143,15 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     #[inline]
     #[allow(unused_variables)]
     fn undone_move(&mut self, board: &Board, m: Move) {}
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_fen() {
+        Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").is_ok();
+    }
 }
