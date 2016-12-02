@@ -600,17 +600,35 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     }
 
     #[inline]
-    fn null_move(&self) -> Move {
-        self.position().null_move()
-    }
-
-    #[inline]
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
         if self.repeated_or_rule50 {
             None
         } else {
             self.position().try_move_digest(move_digest)
         }
+    }
+
+    fn legal_moves(&self) -> Vec<Move> {
+        let mut legal_moves = Vec::with_capacity(96);
+        MOVE_STACK.with(|s| unsafe {
+            let position = self.position_mut();
+            let move_stack = &mut *s.get();
+            move_stack.save();
+            self.generate_moves(move_stack);
+            for m in move_stack.iter() {
+                if position.do_move(*m).is_some() {
+                    legal_moves.push(*m);
+                    position.undo_move(*m);
+                }
+            }
+            move_stack.restore();
+        });
+        legal_moves
+    }
+
+    #[inline]
+    fn null_move(&self) -> Move {
+        self.position().null_move()
     }
 
     fn do_move(&mut self, m: Move) -> bool {
@@ -678,24 +696,6 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         self.board_hash = self.encountered_boards.pop().unwrap();
         self.repeated_or_rule50 = false;
         self.state_stack.pop();
-    }
-
-    fn legal_moves(&self) -> Vec<Move> {
-        let mut legal_moves = Vec::with_capacity(96);
-        MOVE_STACK.with(|s| unsafe {
-            let position = self.position_mut();
-            let move_stack = &mut *s.get();
-            move_stack.save();
-            self.generate_moves(move_stack);
-            for m in move_stack.iter() {
-                if position.do_move(*m).is_some() {
-                    legal_moves.push(*m);
-                    position.undo_move(*m);
-                }
-            }
-            move_stack.restore();
-        });
-        legal_moves
     }
 }
 
