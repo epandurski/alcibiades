@@ -83,7 +83,9 @@ pub struct Position<T: BoardEvaluator> {
 impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
     type BoardEvaluator = T;
 
-    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Position<T>, String> {
+    fn from_history(fen: &str,
+                    moves: &mut Iterator<Item = &str>)
+                    -> Result<Position<T>, NotationError> {
         let mut p: Position<T> = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
         'played_moves: for played_move in moves {
@@ -97,7 +99,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
                     break;
                 }
             }
-            return Err(format!("illegal move"));
+            return Err(NotationError);
         }
         p.declare_as_root();
         Ok(p)
@@ -388,14 +390,14 @@ impl<T: BoardEvaluator + 'static> SetOption for Position<T> {
 impl<T: BoardEvaluator + 'static> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
-    pub fn from_fen(fen: &str) -> Result<Position<T>, String> {
-        let parts = try!(parse_fen(fen).map_err(|_| fen));
+    pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
+        let parts = try!(parse_fen(fen));
         let (pieces, to_move, castling_rights, en_passant_square, halfmove_clock, fullmove_number) = parts;
         let en_passant_file = if let Some(x) = en_passant_square {
             match to_move {
                 WHITE if rank(x) == RANK_6 => file(x),
                 BLACK if rank(x) == RANK_3 => file(x),
-                _ => return Err(fen.to_string()),
+                _ => return Err(NotationError),
             }
         } else {
             8
@@ -407,7 +409,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
             castling_rights: castling_rights,
             en_passant_file: en_passant_file,
         };
-        let move_generator = try!(MoveGenerator::from_board(board).map_err(|_| fen));
+        let move_generator = try!(MoveGenerator::from_board(board));
 
         Ok(Position {
             board_hash: move_generator.board_hash(),

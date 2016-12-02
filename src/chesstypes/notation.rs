@@ -4,8 +4,8 @@ use regex::Regex;
 use chesstypes::*;
 
 
-/// Represents a parse error.
-pub struct ParseError;
+/// Represents a notation error.
+pub struct NotationError;
 
 
 /// Parses a Forsyth–Edwards Notation (FEN) string.
@@ -48,11 +48,11 @@ pub struct ParseError;
 /// The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
 pub fn parse_fen
     (s: &str)
-     -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), ParseError> {
+     -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), NotationError> {
     let fileds: Vec<_> = s.split_whitespace().collect();
     if fileds.len() == 6 {
-        let halfmove_clock = try!(fileds[4].parse::<u8>().map_err(|_| ParseError));
-        let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| ParseError));
+        let halfmove_clock = try!(fileds[4].parse::<u8>().map_err(|_| NotationError));
+        let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| NotationError));
         if let 1...9000 = fullmove_number {
             return Ok((try!(parse_fen_piece_placement(fileds[0])),
                        try!(parse_fen_active_color(fileds[1])),
@@ -62,12 +62,12 @@ pub fn parse_fen
                        fullmove_number));
         }
     }
-    Err(ParseError)
+    Err(NotationError)
 }
 
 
 /// Parses a square in lowercase algebraic notation.
-fn parse_square(s: &str) -> Result<Square, ParseError> {
+fn parse_square(s: &str) -> Result<Square, NotationError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
     }
@@ -77,12 +77,12 @@ fn parse_square(s: &str) -> Result<Square, ParseError> {
         let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
         Ok(square(file, rank))
     } else {
-        Err(ParseError)
+        Err(NotationError)
     }
 }
 
 
-fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
+fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, NotationError> {
     // These are the possible productions in the grammar.
     enum Token {
         Piece(Color, PieceType),
@@ -117,12 +117,12 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
             'p' => Token::Piece(BLACK, PAWN),
             n @ '1'...'8' => Token::EmptySquares(n.to_digit(9).unwrap()),
             '/' => Token::Separator,
-            _ => return Err(ParseError),
+            _ => return Err(NotationError),
         };
         match token {
             Token::Piece(color, piece_type) => {
                 if file > 7 {
-                    return Err(ParseError);
+                    return Err(NotationError);
                 }
                 let mask = 1 << square(file, rank);
                 pieces.piece_type[piece_type] |= mask;
@@ -132,7 +132,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
             Token::EmptySquares(n) => {
                 file += n as File;
                 if file > 8 {
-                    return Err(ParseError);
+                    return Err(NotationError);
                 }
             }
             Token::Separator => {
@@ -140,7 +140,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
                     file = 0;
                     rank -= 1;
                 } else {
-                    return Err(ParseError);
+                    return Err(NotationError);
                 }
             }
         }
@@ -148,23 +148,23 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, ParseError> {
 
     // Make sure that all squares were initialized.
     if file != 8 || rank != 0 {
-        return Err(ParseError);
+        return Err(NotationError);
     }
 
     Ok(pieces)
 }
 
 
-fn parse_fen_active_color(s: &str) -> Result<Color, ParseError> {
+fn parse_fen_active_color(s: &str) -> Result<Color, NotationError> {
     match s {
         "w" => Ok(WHITE),
         "b" => Ok(BLACK),
-        _ => Err(ParseError),
+        _ => Err(NotationError),
     }
 }
 
 
-fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
+fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, NotationError> {
     let mut rights = CastlingRights::new(0);
     if s != "-" {
         for c in s.chars() {
@@ -173,10 +173,10 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
                 'Q' => (WHITE, QUEENSIDE),
                 'k' => (BLACK, KINGSIDE),
                 'q' => (BLACK, QUEENSIDE),
-                _ => return Err(ParseError),
+                _ => return Err(NotationError),
             };
             if !rights.grant(color, side) {
-                return Err(ParseError);
+                return Err(NotationError);
             }
         }
     }
@@ -184,7 +184,7 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, ParseError> {
 }
 
 
-fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, ParseError> {
+fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, NotationError> {
     Ok(if s == "-" {
         None
     } else {

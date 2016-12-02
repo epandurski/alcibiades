@@ -11,4 +11,4 @@ pub use self::board_representation::*;
 pub use self::castling::*;
 pub use self::evaluation::*;
 pub use self::moves::*;
-pub use self::notation::parse_fen;
+pub use self::notation::*;

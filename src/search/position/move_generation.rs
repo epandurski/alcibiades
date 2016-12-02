@@ -37,7 +37,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// Creates a new instance from a `Board` instance.
     ///
     /// Verifies that the position is legal.
-    pub fn from_board(board: Board) -> Result<MoveGenerator<E>, String> {
+    pub fn from_board(board: Board) -> Result<MoveGenerator<E>, NotationError> {
         let mut g = MoveGenerator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
@@ -49,7 +49,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             g.evaluator = E::new(&g.board());
             Ok(g)
         } else {
-            Err(format!("illegal position"))
+            Err(NotationError)
         }
     }
 
@@ -1179,7 +1179,7 @@ mod tests {
     use search::MoveStack;
 
     impl<E: BoardEvaluator> MoveGenerator<E> {
-        fn from_fen(fen: &str) -> Result<MoveGenerator<E>, String> {
+        fn from_fen(fen: &str) -> Result<MoveGenerator<E>, NotationError> {
             MoveGenerator::from_board(try!(Board::from_fen(fen)))
         }
     }

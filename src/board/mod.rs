@@ -54,14 +54,13 @@ pub struct Board {
 impl Board {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
-    pub fn from_fen(fen: &str) -> Result<Board, String> {
-        let parts = try!(parse_fen(fen).map_err(|_| fen));
-        let (pieces, to_move, castling_rights, en_passant_square, _, _) = parts;
+    pub fn from_fen(fen: &str) -> Result<Board, NotationError> {
+        let (pieces, to_move, castling_rights, en_passant_square, _, _) = try!(parse_fen(fen));
         let en_passant_file = if let Some(x) = en_passant_square {
             match to_move {
                 WHITE if rank(x) == RANK_6 => file(x),
                 BLACK if rank(x) == RANK_3 => file(x),
-                _ => return Err(fen.to_string()),
+                _ => return Err(NotationError),
             }
         } else {
             8

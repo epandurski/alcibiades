@@ -292,7 +292,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// moves that were played from that position. The move format is
     /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
     /// (white short castling), `e7e8q` (for promotion).
-    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, String>;
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, NotationError>;
 
     /// Returns an almost unique hash value for the position.
     ///
