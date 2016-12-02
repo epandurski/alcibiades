@@ -1,7 +1,5 @@
 //! Facilities for implementing static position evaluation.
 //!
-//! # Static position evaluation
-//!
 //! An evaluation function is used to heuristically determine the
 //! relative value of a position, i.e. the chances of winning. If we
 //! could see to the end of the game in every line, the evaluation
