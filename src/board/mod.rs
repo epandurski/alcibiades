@@ -52,37 +52,27 @@ pub struct Board {
 }
 
 impl Board {
-    /// Creates a new instance.
-    pub fn from_raw_parts(pieces: &PiecesPlacement,
-                          to_move: Color,
-                          castling_rights: CastlingRights,
-                          en_passant_square: Option<Square>)
-                          -> Result<Board, String> {
-        let en_passant_rank = match to_move {
-            WHITE => RANK_6,
-            BLACK => RANK_3,
-            _ => return Err(format!("illegal position")),
-        };
-        let en_passant_file = match en_passant_square {
-            None => 8,
-            Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
-            _ => return Err(format!("illegal position")),
-        };
-        Ok(Board {
-            pieces: *pieces,
-            to_move: to_move,
-            castling_rights: castling_rights,
-            en_passant_file: en_passant_file,
-            occupied: pieces.color[WHITE] | pieces.color[BLACK],
-        })
-    }
-
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     pub fn from_fen(fen: &str) -> Result<Board, String> {
         let parts = try!(parse_fen(fen).map_err(|_| fen));
-        let (ref pieces, to_move, castling_rights, en_passant_square, _, _) = parts;
-        Board::from_raw_parts(pieces, to_move, castling_rights, en_passant_square)
+        let (pieces, to_move, castling_rights, en_passant_square, _, _) = parts;
+        let en_passant_file = if let Some(x) = en_passant_square {
+            match to_move {
+                WHITE if rank(x) == RANK_6 => file(x),
+                BLACK if rank(x) == RANK_3 => file(x),
+                _ => return Err(fen.to_string()),
+            }
+        } else {
+            8
+        };
+        Ok(Board {
+            occupied: pieces.color[WHITE] | pieces.color[BLACK],
+            pieces: pieces,
+            to_move: to_move,
+            castling_rights: castling_rights,
+            en_passant_file: en_passant_file,
+        })
     }
 }
 

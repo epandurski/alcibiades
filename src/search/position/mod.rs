@@ -71,16 +71,29 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     pub fn from_fen(fen: &str) -> Result<Position<T>, String> {
-        let (ref pieces, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
-            try!(parse_fen(fen).map_err(|_| fen));
-        let position = try!(MoveGenerator::from_raw_parts(pieces,
-                                                          to_move,
-                                                          castling,
-                                                          en_passant_square)
-                                .map_err(|_| fen));
+        let parts = try!(parse_fen(fen).map_err(|_| fen));
+        let (pieces, to_move, castling_rights, en_passant_square, halfmove_clock, fullmove_number) = parts;
+        let en_passant_file = if let Some(x) = en_passant_square {
+            match to_move {
+                WHITE if rank(x) == RANK_6 => file(x),
+                BLACK if rank(x) == RANK_3 => file(x),
+                _ => return Err(fen.to_string()),
+            }
+        } else {
+            8
+        };
+        let board = Board {
+            occupied: pieces.color[WHITE] | pieces.color[BLACK],
+            pieces: pieces,
+            to_move: to_move,
+            castling_rights: castling_rights,
+            en_passant_file: en_passant_file,
+        };
+        let move_generator = try!(MoveGenerator::from_board(board).map_err(|_| fen));
+
         Ok(Position {
-            board_hash: position.board_hash(),
-            position: UnsafeCell::new(position),
+            board_hash: move_generator.board_hash(),
+            position: UnsafeCell::new(move_generator),
             halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
             repeated_or_rule50: false,
             repeated_boards_hash: 0,

@@ -35,26 +35,23 @@ pub struct MoveGenerator<E: BoardEvaluator> {
 
 
 impl<E: BoardEvaluator> MoveGenerator<E> {
-    /// Creates a new instance.
+    /// Creates a new instance from a `Board` instance.
     ///
     /// Verifies that the position is legal.
-    pub fn from_raw_parts(pieces: &PiecesPlacement,
-                          to_move: Color,
-                          castling_rights: CastlingRights,
-                          en_passant_square: Option<Square>)
-                          -> Result<MoveGenerator<E>, String> {
-        let mut b = MoveGenerator {
+    pub fn from_board(board: Board) -> Result<MoveGenerator<E>, String> {
+        let mut g = MoveGenerator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
-            board: try!(Board::from_raw_parts(pieces, to_move, castling_rights, en_passant_square)),
+            board: board,
             evaluator: unsafe { uninitialized() },
             _checkers: Cell::new(BB_UNIVERSAL_SET),
         };
-        if !b.is_legal() {
-            return Err(format!("illegal position"));
+        if g.is_legal() {
+            g.evaluator = E::new(&g.board());
+            Ok(g)
+        } else {
+            Err(format!("illegal position"))
         }
-        b.evaluator = E::new(&b.board);
-        Ok(b)
     }
 
     /// Returns a reference to a properly initialized `BoardGeometry`
@@ -1184,10 +1181,7 @@ mod tests {
 
     impl<E: BoardEvaluator> MoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<MoveGenerator<E>, String> {
-            let parts = try!(parse_fen(fen).map_err(|_| fen));
-            let (ref pieces, to_move, castling, en_passant_square, _, _) = parts;
-            MoveGenerator::from_raw_parts(pieces, to_move, castling, en_passant_square)
-                .map_err(|_| fen.to_string())
+            MoveGenerator::from_board(try!(Board::from_fen(fen)))
         }
     }
 
