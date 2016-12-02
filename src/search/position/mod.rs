@@ -25,12 +25,8 @@ use self::move_generation::MoveGenerator;
 /// if you decide to do this, you can write your own implementation of
 /// the `SearchNode` trait.
 pub struct Position<T: BoardEvaluator> {
-    /// The underlying `Board` instance.
-    ///
-    /// We use `UnsafeCell` for this, because the
-    /// `evaluate_quiescence` method logically is non-mutating, but
-    /// internally it tries moves on the board and then undoes them,
-    /// always leaving everything the way it was.
+    /// The underlying `MoveGenerator` instance. Most of the work will
+    /// be delegated to it.
     position: UnsafeCell<MoveGenerator<T>>,
 
     /// The hash value for the underlying `Board` instance.
@@ -47,9 +43,9 @@ pub struct Position<T: BoardEvaluator> {
     /// Information needed so as to be able to undo the played moves.
     state_stack: Vec<PositionInfo>,
 
-    /// A list of hash values for the `Board` instances ("boards" for
-    /// short) that had occurred during the game. This is needed so as
-    /// to be able to detect repeated positions.
+    /// A list of hash values for the `Board` instances that had
+    /// occurred during the game. This is needed so as to be able to
+    /// detect repeated positions.
     encountered_boards: Vec<u64>,
 
     /// A collective hash value for the set of boards that had
@@ -61,9 +57,8 @@ pub struct Position<T: BoardEvaluator> {
 }
 
 
-// `Position` delegates most of the hard work to its underlying
-// `Board` instance. `Position` improves on the features of `Board`,
-// adding the the following important functionality:
+// `Position` improves on the features of `MoveGenerator`, adding the
+// the following important functionality:
 //
 // 1. Faster and smarter position hashing.
 // 2. Exact evaluation of final positions.
