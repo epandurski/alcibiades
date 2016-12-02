@@ -10,9 +10,9 @@
 //! that implements the `SearchExecutor` trait.
 
 mod move_stack;
+mod position;
 pub mod searchers;
 pub mod tt;
-pub mod position;
 
 use std::time::Duration;
 use std::sync::Arc;
@@ -22,6 +22,7 @@ use chesstypes::*;
 use board::Board;
 
 pub use self::move_stack::MoveStack;
+pub use self::position::Position;
 
 
 /// The maximum search depth in half-moves.

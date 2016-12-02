@@ -21,15 +21,6 @@
 //! Writing a new static evaluator is as simple as defining a type
 //! that implements the `BoardEvaluator` trait. Then you pass that as
 //! a type parameter to `Position`.
-//!
-//! # Writing your own move generator
-//!
-//! The generation of moves is at the heart of every chess
-//! engine. `Position` implements a very fast move generator, and
-//! also: quiescence search, static exchange evaluation, move legality
-//! check, hashing. Re-writing those things is a lot of work. Still,
-//! if you decide to do this, you should write your own implementation
-//! of the `SearchNode` trait.
 pub mod tables;
 pub mod bitsets;
 pub mod evaluators;

@@ -1,4 +1,4 @@
-//! Implementations of `SearchExecutor` trait.
+//! Implementations of the `SearchExecutor` trait.
 
 mod deepening;
 mod alphabeta;

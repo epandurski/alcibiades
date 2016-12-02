@@ -101,7 +101,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// over all possible numbers, invented by Albert Zobrist. The key
     /// property of this method is that two similar positions generate
     /// entirely different hash numbers.
-    pub fn calc_board_hash(&self) -> u64 {
+    pub fn board_hash(&self) -> u64 {
         let mut hash = 0;
         for color in 0..2 {
             for piece in 0..6 {
@@ -567,7 +567,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
 
             // Initialize `old_hash`, which will be used to assert
             // that the returned value (`h`) is calculated correctly.
-            old_hash = self.calc_board_hash();
+            old_hash = self.board_hash();
         }
 
         // Verify if the move will leave the king in check. (We are
@@ -664,7 +664,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         self.evaluator.done_move(&self.board, m);
 
         debug_assert!(self.is_legal());
-        debug_assert_eq!(old_hash ^ h, self.calc_board_hash());
+        debug_assert_eq!(old_hash ^ h, self.board_hash());
         Some(h)
     }
 
