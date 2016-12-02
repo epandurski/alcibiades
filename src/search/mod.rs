@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use uci::SetOption;
 use chesstypes::*;
-use board::Board;
+use board::*;
 
 pub use self::move_stack::MoveStack;
 pub use self::position::Position;
@@ -281,6 +281,10 @@ pub trait SearchExecutor: SetOption {
 /// occurred exactly once. Also, the newly created instance is never
 /// deemed a draw due to repetition or rule-50.
 pub trait SearchNode: Send + Clone + SetOption {
+    /// The type of static evaluator that the implementation works
+    /// with.
+    type BoardEvaluator: BoardEvaluator;
+
     /// Instantiates a new chess position from playing history.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
@@ -312,13 +316,9 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// Returns if the side to move is in check.
     fn is_check(&self) -> bool;
 
-    /// Returns whether the position is zugzwangy.
-    ///
-    /// In many endgame positions there is a relatively high
-    /// probability of zugzwang occurring. For such positions, this
-    /// method returns `true`. This is useful when deciding if it is
-    /// safe to try a "null move".
-    fn is_zugzwangy(&self) -> bool;
+    /// Returns a reference to a static evaluator bound to the current
+    /// position.
+    fn evaluator(&self) -> &Self::BoardEvaluator;
 
     /// Evaluates a final position.
     ///

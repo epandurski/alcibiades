@@ -110,10 +110,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
                -> Value {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(stand_pat == VALUE_UNKNOWN ||
-                      stand_pat ==
-                      self.position()
-                          .evaluator()
-                          .evaluate(self.board(), self.halfmove_clock()));
+                      stand_pat == self.evaluator().evaluate(self.board(), self.halfmove_clock()));
         let in_check = self.position().checkers() != 0;
 
         // At the beginning of quiescence, position's static
@@ -128,9 +125,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
             // Position's static evaluation is useless when in check.
             stand_pat = lower_bound
         } else if stand_pat == VALUE_UNKNOWN {
-            stand_pat = self.position()
-                            .evaluator()
-                            .evaluate(self.board(), self.halfmove_clock());
+            stand_pat = self.evaluator().evaluate(self.board(), self.halfmove_clock());
         }
         if stand_pat >= upper_bound {
             return stand_pat;
@@ -420,6 +415,8 @@ impl<T: BoardEvaluator + 'static> Position<T> {
 
 
 impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
+    type BoardEvaluator = T;
+
     fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Position<T>, String> {
         let mut p: Position<T> = try!(Position::from_fen(fen));
         let mut move_stack = MoveStack::new();
@@ -504,8 +501,9 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         self.position().checkers() != 0
     }
 
-    fn is_zugzwangy(&self) -> bool {
-        self.position().evaluator().is_zugzwangy(self.board(), self.halfmove_clock())
+    #[inline]
+    fn evaluator(&self) -> &Self::BoardEvaluator {
+        self.position().evaluator()
     }
 
     #[inline]
@@ -522,7 +520,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         if self.repeated_or_rule50 {
             0
         } else {
-            self.position().evaluator().evaluate(self.board(), self.halfmove_clock())
+            self.evaluator().evaluate(self.board(), self.halfmove_clock())
         }
     }
 

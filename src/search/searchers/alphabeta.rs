@@ -10,8 +10,9 @@ use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvError};
 use std::time::Duration;
 use std::marker::PhantomData;
 use std::ops::Deref;
-use chesstypes::*;
 use uci::{SetOption, OptionDescription};
+use chesstypes::*;
+use board::*;
 use search::*;
 
 
@@ -533,7 +534,11 @@ impl<'a, T, N> Search<'a, T, N>
         // of the sub-tree search is still high enough to cause a beta
         // cutoff. Nodes are saved by reducing the depth of the
         // sub-tree under the null move.
-        if !last_move.is_null() && eval_value >= beta && !self.position.is_zugzwangy() {
+        if !last_move.is_null() && eval_value >= beta &&
+           {
+            let p = &self.position;
+            !p.evaluator().is_zugzwangy(p.board(), p.halfmove_clock())
+        } {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {
                 depth as i8 - NULL_MOVE_REDUCTION as i8 - 1
