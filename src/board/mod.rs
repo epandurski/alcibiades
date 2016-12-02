@@ -19,8 +19,7 @@
 //! be grossly incorrect.
 //!
 //! Writing a new static evaluator is as simple as defining a type
-//! that implements the `BoardEvaluator` trait. Then you pass that as
-//! a type parameter to `Position`.
+//! that implements the `BoardEvaluator` trait.
 pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
