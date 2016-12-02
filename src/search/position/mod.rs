@@ -71,9 +71,9 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     pub fn from_fen(fen: &str) -> Result<Position<T>, String> {
-        let (ref placement, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
+        let (ref pieces, to_move, castling, en_passant_square, halfmove_clock, fullmove_number) =
             try!(parse_fen(fen).map_err(|_| fen));
-        let position = try!(MoveGenerator::from_raw_parts(placement,
+        let position = try!(MoveGenerator::from_raw_parts(pieces,
                                                           to_move,
                                                           castling,
                                                           en_passant_square)

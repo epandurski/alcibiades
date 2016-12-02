@@ -43,26 +43,10 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                           castling_rights: CastlingRights,
                           en_passant_square: Option<Square>)
                           -> Result<MoveGenerator<E>, String> {
-        let en_passant_rank = match to_move {
-            WHITE => RANK_6,
-            BLACK => RANK_3,
-            _ => return Err(format!("illegal position")),
-        };
-        let en_passant_file = match en_passant_square {
-            None => 8,
-            Some(x) if x <= 63 && rank(x) == en_passant_rank => file(x),
-            _ => return Err(format!("illegal position")),
-        };
         let mut b = MoveGenerator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
-            board: Board {
-                pieces: *pieces,
-                to_move: to_move,
-                castling_rights: castling_rights,
-                en_passant_file: en_passant_file,
-                occupied: pieces.color[WHITE] | pieces.color[BLACK],
-            },
+            board: try!(Board::from_raw_parts(pieces, to_move, castling_rights, en_passant_square)),
             evaluator: unsafe { uninitialized() },
             _checkers: Cell::new(BB_UNIVERSAL_SET),
         };
@@ -1201,8 +1185,8 @@ mod tests {
     impl<E: BoardEvaluator> MoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<MoveGenerator<E>, String> {
             let parts = try!(parse_fen(fen).map_err(|_| fen));
-            let (ref placement, to_move, castling, en_passant_square, _, _) = parts;
-            MoveGenerator::from_raw_parts(placement, to_move, castling, en_passant_square)
+            let (ref pieces, to_move, castling, en_passant_square, _, _) = parts;
+            MoveGenerator::from_raw_parts(pieces, to_move, castling, en_passant_square)
                 .map_err(|_| fen.to_string())
         }
     }
