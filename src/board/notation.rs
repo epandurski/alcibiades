@@ -2,6 +2,7 @@
 
 use regex::Regex;
 use chesstypes::*;
+use board::Board;
 
 
 /// Represents a notation error.
@@ -9,6 +10,11 @@ pub struct NotationError;
 
 
 /// Parses a Forsyth–Edwards Notation (FEN) string.
+///
+/// Returns a tuple with the following elements: `0`) a board
+/// instance, `1`) halfmove clock, `2`) fullmove number.
+///
+/// # Forsyth–Edwards Notation
 ///
 /// A FEN string defines a particular position using only the ASCII
 /// character set. A FEN string contains six fields separated by a
@@ -44,20 +50,33 @@ pub struct NotationError;
 /// 6. Fullmove number. The number of the full move. It starts at 1,
 ///    and is incremented after Black's move.
 ///
-/// # Example:
+/// ## Example:
 /// The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
-pub fn parse_fen
-    (s: &str)
-     -> Result<(PiecesPlacement, Color, CastlingRights, Option<Square>, u8, u16), NotationError> {
+pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
     let fileds: Vec<_> = s.split_whitespace().collect();
     if fileds.len() == 6 {
+        let pieces = try!(parse_fen_piece_placement(fileds[0]));
+        let to_move = try!(parse_fen_active_color(fileds[1]));
+        let castling_rights = try!(parse_fen_castling_rights(fileds[2]));
+        let en_passant_file = if let Some(x) = try!(parse_fen_enpassant_square(fileds[3])) {
+            match to_move {
+                WHITE if rank(x) == RANK_6 => file(x),
+                BLACK if rank(x) == RANK_3 => file(x),
+                _ => return Err(NotationError),
+            }
+        } else {
+            8
+        };
         let halfmove_clock = try!(fileds[4].parse::<u8>().map_err(|_| NotationError));
         let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| NotationError));
         if let 1...9000 = fullmove_number {
-            return Ok((try!(parse_fen_piece_placement(fileds[0])),
-                       try!(parse_fen_active_color(fileds[1])),
-                       try!(parse_fen_castling_rights(fileds[2])),
-                       try!(parse_fen_enpassant_square(fileds[3])),
+            return Ok((Board {
+                occupied: pieces.color[WHITE] | pieces.color[BLACK],
+                pieces: pieces,
+                to_move: to_move,
+                castling_rights: castling_rights,
+                en_passant_file: en_passant_file,
+            },
                        halfmove_clock,
                        fullmove_number));
         }

@@ -392,30 +392,12 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
-        let parts = try!(parse_fen(fen));
-        let (pieces, to_move, castling_rights, en_passant_square, halfmove_clock, fullmove_number) = parts;
-        let en_passant_file = if let Some(x) = en_passant_square {
-            match to_move {
-                WHITE if rank(x) == RANK_6 => file(x),
-                BLACK if rank(x) == RANK_3 => file(x),
-                _ => return Err(NotationError),
-            }
-        } else {
-            8
-        };
-        let board = Board {
-            occupied: pieces.color[WHITE] | pieces.color[BLACK],
-            pieces: pieces,
-            to_move: to_move,
-            castling_rights: castling_rights,
-            en_passant_file: en_passant_file,
-        };
-        let move_generator = try!(MoveGenerator::from_board(board));
-
+        let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
+        let g = try!(MoveGenerator::from_board(board));
         Ok(Position {
-            board_hash: move_generator.board_hash(),
-            position: UnsafeCell::new(move_generator),
-            halfmove_count: ((fullmove_number - 1) << 1) + to_move as u16,
+            halfmove_count: ((fullmove_number - 1) << 1) + g.board().to_move as u16,
+            board_hash: g.board_hash(),
+            position: UnsafeCell::new(g),
             repeated_or_rule50: false,
             repeated_boards_hash: 0,
             encountered_boards: vec![0; halfmove_clock as usize],

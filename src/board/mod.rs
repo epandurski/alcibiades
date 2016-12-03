@@ -57,23 +57,7 @@ impl Board {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     pub fn from_fen(fen: &str) -> Result<Board, NotationError> {
-        let (pieces, to_move, castling_rights, en_passant_square, _, _) = try!(parse_fen(fen));
-        let en_passant_file = if let Some(x) = en_passant_square {
-            match to_move {
-                WHITE if rank(x) == RANK_6 => file(x),
-                BLACK if rank(x) == RANK_3 => file(x),
-                _ => return Err(NotationError),
-            }
-        } else {
-            8
-        };
-        Ok(Board {
-            occupied: pieces.color[WHITE] | pieces.color[BLACK],
-            pieces: pieces,
-            to_move: to_move,
-            castling_rights: castling_rights,
-            en_passant_file: en_passant_file,
-        })
+        parse_fen(fen).map(|x| x.0)
     }
 }
 
