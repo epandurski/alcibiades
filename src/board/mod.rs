@@ -43,7 +43,7 @@ pub struct Board {
 
     /// If the previous move was a double pawn push, contains pushed
     /// pawn's file (a value between 0 and 7). Otherwise contains `8`.
-    pub en_passant_file: usize,
+    pub enpassant_file: usize,
 
     /// The set of all occupied squares on the board.
     ///

@@ -29,7 +29,7 @@ pub struct ZobristArrays {
     /// old and the new en-passant file on each move (a value between
     /// 0 and 7). Indexes between 8 and 15 point to zeroes, and are
     /// for convenience and memory safety.
-    pub en_passant_file: [u64; 16],
+    pub enpassant_file: [u64; 16],
 
     /// Constants with which the hash value should be XOR-ed to
     /// reflect the number of half-moves played without capturing a
@@ -50,7 +50,7 @@ impl ZobristArrays {
         let to_move = rng.gen();
         let mut pieces = [[[0; 64]; 6]; 2];
         let mut castling_rights = [0; 16];
-        let mut en_passant_file = [0; 16];
+        let mut enpassant_file = [0; 16];
         let mut halfmove_clock = [0; 100];
 
         for color in 0..2 {
@@ -66,7 +66,7 @@ impl ZobristArrays {
         }
 
         for file in 0..8 {
-            en_passant_file[file] = rng.gen();
+            enpassant_file[file] = rng.gen();
         }
 
         for n in 0..100 {
@@ -77,7 +77,7 @@ impl ZobristArrays {
             to_move: to_move,
             pieces: pieces,
             castling_rights: castling_rights,
-            en_passant_file: en_passant_file,
+            enpassant_file: enpassant_file,
             halfmove_clock: halfmove_clock,
         }
     }

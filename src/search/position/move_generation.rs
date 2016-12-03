@@ -94,7 +94,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             }
         }
         hash ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
-        hash ^= self.zobrist.en_passant_file[self.board.en_passant_file];
+        hash ^= self.zobrist.enpassant_file[self.board.enpassant_file];
         if self.board.to_move == BLACK {
             hash ^= self.zobrist.to_move;
         }
@@ -193,7 +193,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             let our_pawns = self.board.pieces.piece_type[PAWN] & occupied_by_us;
             let mut pinned_pawns = our_pawns & pinned;
             let free_pawns = our_pawns ^ pinned_pawns;
-            let en_passant_bb = self.en_passant_bb();
+            let enpassant_bb = self.enpassant_bb();
 
             // Generate queen, rook, bishop, and knight moves.
             {
@@ -233,12 +233,12 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                     } else {
                         // We are in check from a pawn, therefore the
                         // en-passant capture is legal too.
-                        legal_dests | en_passant_bb
+                        legal_dests | enpassant_bb
                     }
                 } else {
                     debug_assert_eq!(checkers, 0);
                     debug_assert_eq!(legal_dests, !occupied_by_us);
-                    legal_dests & (occupied_by_them | en_passant_bb | BB_PAWN_PROMOTION_RANKS)
+                    legal_dests & (occupied_by_them | enpassant_bb | BB_PAWN_PROMOTION_RANKS)
                 };
 
                 // Generate all free pawn moves at once.
@@ -277,7 +277,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                               NO_PIECE,
                                               KING,
                                               self.board.castling_rights,
-                                              self.board.en_passant_file,
+                                              self.board.enpassant_file,
                                               0));
                 }
             }
@@ -348,7 +348,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                               NO_PIECE,
                               KING,
                               self.board.castling_rights,
-                              self.board.en_passant_file,
+                              self.board.enpassant_file,
                               0);
             debug_assert_eq!(generated_move, Some(m));
             return Some(m);
@@ -398,18 +398,18 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         };
 
         if piece == PAWN {
-            let en_passant_bb = self.en_passant_bb();
+            let enpassant_bb = self.enpassant_bb();
             if checkers & self.board.pieces.piece_type[PAWN] != 0 {
                 // We are in check from a pawn, therefore the
                 // en-passant capture is legal too.
-                pseudo_legal_dests |= en_passant_bb;
+                pseudo_legal_dests |= enpassant_bb;
             }
 
             let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
             calc_pawn_dest_sets(self.board.to_move,
                                 occupied_by_us,
                                 self.board.pieces.color[1 ^ self.board.to_move],
-                                en_passant_bb,
+                                enpassant_bb,
                                 orig_square_bb,
                                 &mut dest_sets);
             pseudo_legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
@@ -421,9 +421,9 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             }
 
             match dest_square_bb {
-                x if x == en_passant_bb => {
+                x if x == enpassant_bb => {
                     if move_type != MOVE_ENPASSANT ||
-                       !self.en_passant_special_check_is_ok(orig_square, dest_square) ||
+                       !self.enpassant_special_check_is_ok(orig_square, dest_square) ||
                        promoted_piece_code != 0 {
                         debug_assert!(generated_move.is_none());
                         return None;
@@ -478,7 +478,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                           captured_piece,
                           piece,
                           self.board.castling_rights,
-                          self.board.en_passant_file,
+                          self.board.enpassant_file,
                           move_score);
         debug_assert_eq!(generated_move, Some(m));
         Some(m)
@@ -502,7 +502,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                   NO_PIECE,
                   KING,
                   self.board.castling_rights,
-                  self.board.en_passant_file,
+                  self.board.enpassant_file,
                   0)
     }
 
@@ -622,12 +622,12 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         }
 
         // Update the en-passant file.
-        h ^= self.zobrist.en_passant_file[self.board.en_passant_file];
-        self.board.en_passant_file = if played_piece == PAWN &&
+        h ^= self.zobrist.enpassant_file[self.board.enpassant_file];
+        self.board.enpassant_file = if played_piece == PAWN &&
                                         dest_square as isize - orig_square as isize ==
                                         PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
             let file = file(dest_square);
-            h ^= self.zobrist.en_passant_file[file];
+            h ^= self.zobrist.enpassant_file[file];
             file
         } else {
             8
@@ -665,7 +665,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         let dest_square_bb = 1 << dest_square;
         let played_piece = m.played_piece();
         let captured_piece = m.captured_piece();
-        debug_assert!(m.en_passant_file() <= 8);
+        debug_assert!(m.enpassant_file() <= 8);
 
         // Tell the evaluator that a move will be taken back.
         self.evaluator.will_undo_move(&self.board, m);
@@ -674,7 +674,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         self.board.to_move = us;
 
         // Restore the en-passant file.
-        self.board.en_passant_file = m.en_passant_file();
+        self.board.enpassant_file = m.enpassant_file();
 
         // Restore castling rights.
         self.board.castling_rights = m.castling_rights();
@@ -752,11 +752,11 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     ///    move would be in check if the passing pawn is moved back to
     ///    its original position.
     fn is_legal(&self) -> bool {
-        if self.board.to_move > 1 || self.board.en_passant_file > 8 {
+        if self.board.to_move > 1 || self.board.enpassant_file > 8 {
             return false;
         }
         let us = self.board.to_move;
-        let en_passant_bb = self.en_passant_bb();
+        let enpassant_bb = self.enpassant_bb();
         let occupied = self.board.pieces.piece_type.into_iter().fold(0, |acc, x| {
             if acc & x == 0 {
                 acc | x
@@ -791,13 +791,13 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         (!self.board.castling_rights.can_castle(BLACK, KINGSIDE) ||
          (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[BLACK] & 1 << H8 != 0) &&
          (self.board.pieces.piece_type[KING] & self.board.pieces.color[BLACK] & 1 << E8 != 0)) &&
-        (en_passant_bb == 0 ||
+        (enpassant_bb == 0 ||
          {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
-            let dest_square_bb = gen_shift(en_passant_bb, shifts[PAWN_PUSH]);
-            let orig_square_bb = gen_shift(en_passant_bb, -shifts[PAWN_PUSH]);
+            let dest_square_bb = gen_shift(enpassant_bb, shifts[PAWN_PUSH]);
+            let orig_square_bb = gen_shift(enpassant_bb, -shifts[PAWN_PUSH]);
             let our_king_square = bitscan_forward(our_king_bb);
-            (dest_square_bb & pawns & o_them != 0) && (en_passant_bb & !occupied != 0) &&
+            (dest_square_bb & pawns & o_them != 0) && (enpassant_bb & !occupied != 0) &&
             (orig_square_bb & !occupied != 0) &&
             {
                 let mask = orig_square_bb | dest_square_bb;
@@ -855,7 +855,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                       captured_piece,
                                       piece,
                                       self.board.castling_rights,
-                                      self.board.en_passant_file,
+                                      self.board.enpassant_file,
                                       move_score));
         }
     }
@@ -876,11 +876,11 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
 
         let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
-        let en_passant_bb = self.en_passant_bb();
+        let enpassant_bb = self.enpassant_bb();
         calc_pawn_dest_sets(self.board.to_move,
                             self.board.pieces.color[self.board.to_move],
                             self.board.pieces.color[1 ^ self.board.to_move],
-                            en_passant_bb,
+                            enpassant_bb,
                             pawns,
                             &mut dest_sets);
 
@@ -900,8 +900,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                 match 1 << dest_square {
 
                     // en-passant capture
-                    x if x == en_passant_bb => {
-                        if self.en_passant_special_check_is_ok(orig_square, dest_square) {
+                    x if x == enpassant_bb => {
+                        if self.enpassant_special_check_is_ok(orig_square, dest_square) {
                             move_stack.push(Move::new(MOVE_ENPASSANT,
                                                       orig_square,
                                                       dest_square,
@@ -909,7 +909,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                                       PAWN,
                                                       PAWN,
                                                       self.board.castling_rights,
-                                                      self.board.en_passant_file,
+                                                      self.board.enpassant_file,
                                                       MOVE_SCORE_MAX));
                         }
                     }
@@ -929,7 +929,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                                       captured_piece,
                                                       PAWN,
                                                       self.board.castling_rights,
-                                                      self.board.en_passant_file,
+                                                      self.board.enpassant_file,
                                                       move_score));
                             if only_queen_promotions {
                                 break;
@@ -951,7 +951,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
                                                   captured_piece,
                                                   PAWN,
                                                   self.board.castling_rights,
-                                                  self.board.en_passant_file,
+                                                  self.board.enpassant_file,
                                                   move_score));
                     }
                 }
@@ -999,11 +999,11 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// A helper method. It returns a bitboard representing the
     /// en-passant target square if there is one.
     #[inline(always)]
-    fn en_passant_bb(&self) -> Bitboard {
-        if self.board.en_passant_file >= 8 {
+    fn enpassant_bb(&self) -> Bitboard {
+        if self.board.enpassant_file >= 8 {
             0
         } else {
-            [1 << A6, 1 << A3][self.board.to_move] << self.board.en_passant_file
+            [1 << A6, 1 << A3][self.board.to_move] << self.board.enpassant_file
         }
     }
 
@@ -1065,7 +1065,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// from the 4/5-th rank in one move, discover a check along this
     /// rank. `orig_square` and `dist_square` are the origin and
     /// destination squares of the capturing pawn.
-    fn en_passant_special_check_is_ok(&self, orig_square: Square, dest_square: Square) -> bool {
+    fn enpassant_special_check_is_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
         if rank(king_square) == rank(orig_square) {
             let pawn1_bb = 1 << orig_square;
@@ -1142,12 +1142,12 @@ const BB_CASTLING_ROOK_MOVEMENT: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << 
 fn calc_pawn_dest_sets(us: Color,
                        occupied_by_us: Bitboard,
                        occupied_by_them: Bitboard,
-                       en_passant_bb: Bitboard,
+                       enpassant_bb: Bitboard,
                        pawns: Bitboard,
                        dest_sets: &mut [Bitboard; 4]) {
     debug_assert!(pawns & !occupied_by_us == 0);
     debug_assert!(occupied_by_us & occupied_by_them == 0);
-    debug_assert!(gen_shift(en_passant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) &
+    debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) &
                   !occupied_by_them == 0);
     const NOT_CAPTURING: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
                                           BB_UNIVERSAL_SET, // double push
@@ -1158,7 +1158,7 @@ fn calc_pawn_dest_sets(us: Color,
                                           !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
                                           !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
     let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
-    let capture_targets = occupied_by_them | en_passant_bb;
+    let capture_targets = occupied_by_them | enpassant_bb;
     for i in 0..4 {
         dest_sets[i] = gen_shift(pawns & PROPER_ORIGIN[i], shifts[i]) &
                        (capture_targets ^ NOT_CAPTURING[i]) &

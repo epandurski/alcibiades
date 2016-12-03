@@ -58,7 +58,7 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
         let pieces = try!(parse_fen_piece_placement(fileds[0]));
         let to_move = try!(parse_fen_active_color(fileds[1]));
         let castling_rights = try!(parse_fen_castling_rights(fileds[2]));
-        let en_passant_file = if let Some(x) = try!(parse_fen_enpassant_square(fileds[3])) {
+        let enpassant_file = if let Some(x) = try!(parse_fen_enpassant_square(fileds[3])) {
             match to_move {
                 WHITE if rank(x) == RANK_6 => file(x),
                 BLACK if rank(x) == RANK_3 => file(x),
@@ -75,7 +75,7 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
                 pieces: pieces,
                 to_move: to_move,
                 castling_rights: castling_rights,
-                en_passant_file: en_passant_file,
+                enpassant_file: enpassant_file,
             },
                        halfmove_clock,
                        fullmove_number));

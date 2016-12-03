@@ -136,7 +136,7 @@ impl Move {
                captured_piece: PieceType,
                played_piece: PieceType,
                castling_rights: CastlingRights,
-               en_passant_file: usize,
+               enpassant_file: usize,
                score: u32)
                -> Move {
         debug_assert!(move_type <= 0x11);
@@ -144,7 +144,7 @@ impl Move {
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
         debug_assert!(captured_piece != KING && captured_piece <= NO_PIECE);
-        debug_assert!(en_passant_file <= 8);
+        debug_assert!(enpassant_file <= 8);
         debug_assert!(aux_data <= 0b11);
         debug_assert!(move_type == MOVE_PROMOTION || aux_data == 0);
         debug_assert!(orig_square != dest_square ||
@@ -152,7 +152,7 @@ impl Move {
         Move((score as u64) << M_SHIFT_SCORE |
              ((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | played_piece << M_SHIFT_PIECE |
               castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
-              en_passant_file << M_SHIFT_ENPASSANT_FILE |
+              enpassant_file << M_SHIFT_ENPASSANT_FILE |
               move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
               dest_square << M_SHIFT_DEST_SQUARE |
               aux_data << M_SHIFT_AUX_DATA) as u64)
@@ -233,7 +233,7 @@ impl Move {
     /// If the *previous move* was a double pawn push, returns pushed
     /// pawn's file (a value between 0 and 7). Otherwise returns `8`.
     #[inline(always)]
-    pub fn en_passant_file(&self) -> usize {
+    pub fn enpassant_file(&self) -> usize {
         (self.0 as usize & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
     }
 
@@ -430,7 +430,7 @@ mod tests {
         assert_eq!(m.captured_piece(), NO_PIECE);
         assert_eq!(m.orig_square(), E2);
         assert_eq!(m.dest_square(), E4);
-        assert_eq!(m.en_passant_file(), 8);
+        assert_eq!(m.enpassant_file(), 8);
         assert_eq!(m.aux_data(), 0);
         assert_eq!(m.castling_rights().value(), 0b1011);
         let m2 = m;
