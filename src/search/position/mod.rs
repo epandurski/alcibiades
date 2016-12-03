@@ -149,34 +149,34 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn board(&self) -> &Board {
         self.position().board()
     }
 
-    #[inline]
+    #[inline(always)]
     fn halfmove_clock(&self) -> u8 {
         self.state().halfmove_clock
     }
 
-    #[inline]
+    #[inline(always)]
     fn halfmove_count(&self) -> u16 {
         self.halfmove_count
     }
 
-    #[inline]
+    #[inline(always)]
     fn is_check(&self) -> bool {
         self.position().checkers() != 0
     }
 
-    #[inline]
+    #[inline(always)]
     fn evaluator(&self) -> &Self::BoardEvaluator {
         self.position().evaluator()
     }
 
     #[inline]
     fn evaluate_final(&self) -> Value {
-        if self.repeated_or_rule50 || self.position().checkers() == 0 {
+        if self.repeated_or_rule50 || !self.is_check() {
             0
         } else {
             VALUE_MIN
@@ -287,7 +287,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
         legal_moves
     }
 
-    #[inline]
+    #[inline(always)]
     fn null_move(&self) -> Move {
         self.position().null_move()
     }
