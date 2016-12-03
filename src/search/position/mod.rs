@@ -16,7 +16,7 @@ use search::{SearchNode, MoveStack};
 use self::move_generation::MoveGenerator;
 
 
-/// Contains information needed to undo the last played move.
+/// Contains information about a position.
 #[derive(Clone, Copy)]
 struct PositionInfo {
     /// The number of half-moves since the last piece capture or pawn
