@@ -133,12 +133,12 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// the king.
     #[inline]
     pub fn checkers(&self) -> Bitboard {
+        debug_assert!(self.checkers.get() == BB_UNIVERSAL_SET ||
+                      self.checkers.get() ==
+                      self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         if self.checkers.get() == BB_UNIVERSAL_SET {
-            // The result is saved, in case it is needed again.
             self.checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         }
-        debug_assert_eq!(self.checkers.get(),
-                         self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         self.checkers.get()
     }
 
