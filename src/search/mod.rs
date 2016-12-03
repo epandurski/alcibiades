@@ -258,7 +258,7 @@ pub trait SearchExecutor: SetOption {
 
     /// Requests the termination of the current search.
     ///
-    /// Can be called for the same search more than once. After
+    /// Can be called more than once for the same search. After
     /// calling `terminate_search`, `wait_report` and
     /// `try_recv_report` will continue to be called periodically
     /// until the returned report indicates that the search is done.
