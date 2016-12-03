@@ -11,6 +11,7 @@ use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::*;
 use board::bitsets::*;
+use board::notation::{parse_fen, NotationError};
 use search::{SearchNode, MoveStack};
 use self::move_generation::MoveGenerator;
 

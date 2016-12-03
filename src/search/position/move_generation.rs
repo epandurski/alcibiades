@@ -6,6 +6,7 @@ use chesstypes::*;
 use board::*;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
+use board::notation::NotationError;
 use search::MoveStack;
 
 
@@ -1175,6 +1176,7 @@ mod tests {
     use super::*;
     use board::*;
     use board::evaluators::RandomEvaluator;
+    use board::notation::*;
     use chesstypes::*;
     use search::MoveStack;
 

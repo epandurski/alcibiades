@@ -22,9 +22,11 @@
 pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
+pub mod notation;
 
 use chesstypes::*;
 use uci::SetOption;
+use self::notation::{parse_fen, NotationError};
 
 
 /// Holds a chess position.
