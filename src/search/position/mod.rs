@@ -43,13 +43,12 @@ struct PositionInfo {
 // `MoveGenerator` instance. `Position` adds the following important
 // functionality:
 //
-// 1. Faster and smarter position hashing.
+// 1. Smarter position hashing.
 // 2. Exact evaluation of final positions.
-// 3. Static position evaluation.
-// 4. Static exchange evaluation.
-// 5. Quiescence search.
-// 6. 50 move rule awareness.
-// 7. Threefold/twofold repetition detection.
+// 3. Static exchange evaluation.
+// 4. Quiescence search.
+// 5. 50 move rule awareness.
+// 6. Threefold/twofold repetition detection.
 pub struct Position<T: BoardEvaluator> {
     position: UnsafeCell<MoveGenerator<T>>,
 
