@@ -1,6 +1,5 @@
 //! Implements Forsyth–Edwards Notation parsing.
 
-use regex::Regex;
 use chesstypes::*;
 use board::Board;
 
@@ -82,22 +81,6 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
         }
     }
     Err(NotationError)
-}
-
-
-/// Parses a square in lowercase algebraic notation.
-fn parse_square(s: &str) -> Result<Square, NotationError> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
-    }
-    if RE.is_match(s) {
-        let mut chars = s.chars();
-        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
-        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
-        Ok(square(file, rank))
-    } else {
-        Err(NotationError)
-    }
 }
 
 
@@ -204,9 +187,11 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, NotationError> {
 
 
 fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, NotationError> {
-    Ok(if s == "-" {
-        None
+    if s == "-" {
+        Ok(None)
+    } else if let Some(square) = parse_square(s) {
+        Ok(Some(square))
     } else {
-        Some(try!(parse_square(s)))
-    })
+        Err(NotationError)
+    }
 }

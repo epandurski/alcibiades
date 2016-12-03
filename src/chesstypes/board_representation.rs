@@ -1,6 +1,7 @@
 //! Defines how the chess board is represented in memory.
 
 use std::fmt;
+use regex::Regex;
 
 
 /// `WHITE` or `BLACK`.
@@ -169,6 +170,21 @@ impl fmt::Display for PiecesPlacement {
     }
 }
 
+
+/// Parses square's algebraic notation (lowercase only).
+pub fn parse_square(s: &str) -> Option<Square> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
+    }
+    if RE.is_match(s) {
+        let mut chars = s.chars();
+        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
+        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
+        Some(square(file, rank))
+    } else {
+        None
+    }
+}
 
 /// Returns the square on given file and rank.
 #[inline]
