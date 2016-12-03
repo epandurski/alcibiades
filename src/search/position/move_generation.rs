@@ -6,7 +6,6 @@ use chesstypes::*;
 use board::*;
 use board::bitsets::*;
 use board::tables::{BoardGeometry, ZobristArrays};
-use board::notation::NotationError;
 use search::MoveStack;
 
 
@@ -37,8 +36,8 @@ pub struct MoveGenerator<E: BoardEvaluator> {
 impl<E: BoardEvaluator> MoveGenerator<E> {
     /// Creates a new instance from a `Board` instance.
     ///
-    /// Verifies that the position is legal.
-    pub fn from_board(board: Board) -> Result<MoveGenerator<E>, NotationError> {
+    /// Returns `None` if the position is illegal.
+    pub fn from_board(board: Board) -> Option<MoveGenerator<E>> {
         let mut g = MoveGenerator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
@@ -48,9 +47,9 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         };
         if g.is_legal() {
             g.evaluator = E::new(&g.board());
-            Ok(g)
+            Some(g)
         } else {
-            Err(NotationError)
+            None
         }
     }
 
@@ -1182,7 +1181,7 @@ mod tests {
 
     impl<E: BoardEvaluator> MoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<MoveGenerator<E>, NotationError> {
-            MoveGenerator::from_board(try!(Board::from_fen(fen)))
+            MoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(NotationError)
         }
     }
 

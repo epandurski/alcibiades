@@ -392,7 +392,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     /// string.
     pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
         let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
-        let g = try!(MoveGenerator::from_board(board));
+        let g = try!(MoveGenerator::from_board(board).ok_or(NotationError));
         Ok(Position {
             halfmove_count: ((fullmove_number - 1) << 1) + g.board().to_move as u16,
             board_hash: g.board_hash(),
@@ -426,7 +426,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
         debug_assert!(lower_bound < upper_bound);
         debug_assert!(stand_pat == VALUE_UNKNOWN ||
                       stand_pat == self.evaluator().evaluate(self.board(), self.halfmove_clock()));
-        let in_check = self.position().checkers() != 0;
+        let in_check = self.is_check();
 
         // At the beginning of quiescence, position's static
         // evaluation (`stand_pat`) is used to establish a lower bound
@@ -692,7 +692,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
 
     /// Returns if the side to move is checkmated.
     fn is_checkmate(&self) -> bool {
-        self.position().checkers() != 0 &&
+        self.is_check() &&
         MOVE_STACK.with(|s| unsafe {
             // Check if there are no legal moves.
             let position = self.position_mut();
