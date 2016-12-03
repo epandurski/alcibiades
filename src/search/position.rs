@@ -464,18 +464,17 @@ impl<T: MoveGenerator + 'static> Position<T> {
             // static exchange evaluation is performed to decide if
             // the move should be tried. (In order to correct SEE
             // errors due to pinned and overloaded pieces, at least
-            // one mandatory recapture is always tried at squares of
-            // previous captures.)
+            // one mandatory recapture is always tried at the
+            // destination squares of previous moves.)
             if !in_check && move_type == MOVE_NORMAL && recapture_squares & dest_square_bb == 0 {
                 match self.calc_see(m) {
-                    // This is a losing move -- do not try it.
+                    // A losing move -- do not try it.
                     x if x < 0 => continue,
 
-                    // This is an even exchange -- try it only
-                    // during the first few plys.
-                    0 if ply >= SEE_EXCHANGE_MAX_PLY => continue,
+                    // An even exchange -- try it only during the first few plys.
+                    0 if ply >= SEE_EXCHANGE_MAX_PLY && captured_piece < NO_PIECE => continue,
 
-                    // A winning move -- try it always.
+                    // A safe or winning move -- try it always.
                     _ => (),
                 }
             }
