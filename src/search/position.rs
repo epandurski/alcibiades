@@ -12,7 +12,7 @@ use board::bitsets::*;
 use board::notation::{parse_fen, NotationError};
 use board::tables::{BoardGeometry, ZobristArrays};
 use search::{SearchNode, MoveStack};
-use search::move_generation::MoveGenerator;
+use search::move_generation::StandardGenerator;
 
 
 /// Contains information about a position.
@@ -39,7 +39,7 @@ struct PositionInfo {
 /// the `SearchNode` trait.
 
 // `Position` delegates most of the work to the underlying
-// `MoveGenerator` instance. `Position` adds the following important
+// `StandardGenerator` instance. `Position` adds the following important
 // functionality:
 //
 // 1. Smarter position hashing.
@@ -51,7 +51,7 @@ struct PositionInfo {
 pub struct Position<T: BoardEvaluator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
-    position: UnsafeCell<MoveGenerator<T>>,
+    position: UnsafeCell<StandardGenerator<T>>,
 
     /// The count of half-moves since the beginning of the game.
     halfmove_count: u16,
@@ -395,7 +395,7 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     /// string.
     pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
         let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
-        let g = try!(MoveGenerator::from_board(board).ok_or(NotationError));
+        let g = try!(StandardGenerator::from_board(board).ok_or(NotationError));
         Ok(Position {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
@@ -723,12 +723,12 @@ impl<T: BoardEvaluator + 'static> Position<T> {
     }
 
     #[inline(always)]
-    fn position(&self) -> &MoveGenerator<T> {
+    fn position(&self) -> &StandardGenerator<T> {
         unsafe { &*self.position.get() }
     }
 
     #[inline(always)]
-    unsafe fn position_mut(&self) -> &mut MoveGenerator<T> {
+    unsafe fn position_mut(&self) -> &mut StandardGenerator<T> {
         &mut *self.position.get()
     }
 }
