@@ -30,7 +30,7 @@ pub struct MoveGenerator<E: BoardEvaluator> {
 
     /// Lazily calculated bitboard of all checkers --
     /// `BB_UNIVERSAL_SET` if not calculated yet.
-    _checkers: Cell<Bitboard>,
+    checkers: Cell<Bitboard>,
 }
 
 
@@ -44,7 +44,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
             zobrist: ZobristArrays::get(),
             board: board,
             evaluator: unsafe { uninitialized() },
-            _checkers: Cell::new(BB_UNIVERSAL_SET),
+            checkers: Cell::new(BB_UNIVERSAL_SET),
         };
         if g.is_legal() {
             g.evaluator = E::new(&g.board());
@@ -134,13 +134,13 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
     /// the king.
     #[inline]
     pub fn checkers(&self) -> Bitboard {
-        if self._checkers.get() == BB_UNIVERSAL_SET {
+        if self.checkers.get() == BB_UNIVERSAL_SET {
             // The result is saved, in case it is needed again.
-            self._checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
+            self.checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         }
-        debug_assert_eq!(self._checkers.get(),
+        debug_assert_eq!(self.checkers.get(),
                          self.attacks_to(1 ^ self.board.to_move, self.king_square()));
-        self._checkers.get()
+        self.checkers.get()
     }
 
     /// Generates pseudo-legal moves.
@@ -624,8 +624,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         // Update the en-passant file.
         h ^= self.zobrist.enpassant_file[self.board.enpassant_file];
         self.board.enpassant_file = if played_piece == PAWN &&
-                                        dest_square as isize - orig_square as isize ==
-                                        PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
+                                       dest_square as isize - orig_square as isize ==
+                                       PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
             let file = file(dest_square);
             h ^= self.zobrist.enpassant_file[file];
             file
@@ -639,7 +639,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
 
         // Update the auxiliary fields.
         self.board.occupied = self.board.pieces.color[WHITE] | self.board.pieces.color[BLACK];
-        self._checkers.set(BB_UNIVERSAL_SET);
+        self.checkers.set(BB_UNIVERSAL_SET);
 
         // Tell the evaluator that a move was played.
         self.evaluator.done_move(&self.board, m);
@@ -718,7 +718,7 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
 
         // Update the auxiliary fields.
         self.board.occupied = self.board.pieces.color[WHITE] | self.board.pieces.color[BLACK];
-        self._checkers.set(BB_UNIVERSAL_SET);
+        self.checkers.set(BB_UNIVERSAL_SET);
 
         // Tell the evaluator that a move was taken back.
         self.evaluator.undone_move(&self.board, m);
@@ -817,8 +817,8 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         }) &&
         {
             assert_eq!(self.board.occupied, occupied);
-            assert!(self._checkers.get() == BB_UNIVERSAL_SET ||
-                    self._checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
+            assert!(self.checkers.get() == BB_UNIVERSAL_SET ||
+                    self.checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
             true
         }
     }
@@ -1147,8 +1147,8 @@ fn calc_pawn_dest_sets(us: Color,
                        dest_sets: &mut [Bitboard; 4]) {
     debug_assert!(pawns & !occupied_by_us == 0);
     debug_assert!(occupied_by_us & occupied_by_them == 0);
-    debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) &
-                  !occupied_by_them == 0);
+    debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) & !occupied_by_them ==
+                  0);
     const NOT_CAPTURING: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
                                           BB_UNIVERSAL_SET, // double push
                                           0, // west capture
