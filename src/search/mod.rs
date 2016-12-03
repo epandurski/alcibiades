@@ -502,8 +502,8 @@ pub struct Variation {
 /// Extracts the primary variation for a given position from the
 /// transposition table.
 ///
-/// **Important note:** Values under `-9999`, or over `9999` will be
-/// chopped.
+/// **Important note:** Evaluations under `-9999`, or over `9999` will
+/// be chopped.
 pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> Variation {
     assert!(depth <= DEPTH_MAX, "invalid depth: {}", depth);
     let mut p = position.clone();
