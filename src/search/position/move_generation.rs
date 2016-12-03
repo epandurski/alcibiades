@@ -53,20 +53,6 @@ impl<E: BoardEvaluator> MoveGenerator<E> {
         }
     }
 
-    /// Returns a reference to a properly initialized `BoardGeometry`
-    /// object.
-    #[inline(always)]
-    pub fn geometry(&self) -> &BoardGeometry {
-        self.geometry
-    }
-
-    /// Returns a reference to a properly initialized `ZobristArrays`
-    /// object.
-    #[inline(always)]
-    pub fn zobrist(&self) -> &ZobristArrays {
-        self.zobrist
-    }
-
     /// Returns a reference to the underlying `Board` instance.
     #[inline(always)]
     pub fn board(&self) -> &Board {

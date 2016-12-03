@@ -12,6 +12,7 @@ use chesstypes::*;
 use board::*;
 use board::bitsets::*;
 use board::notation::{parse_fen, NotationError};
+use board::tables::{BoardGeometry, ZobristArrays};
 use search::{SearchNode, MoveStack};
 use self::move_generation::MoveGenerator;
 
@@ -50,6 +51,8 @@ struct PositionInfo {
 // 5. 50 move rule awareness.
 // 6. Threefold/twofold repetition detection.
 pub struct Position<T: BoardEvaluator> {
+    geometry: &'static BoardGeometry,
+    zobrist: &'static ZobristArrays,
     position: UnsafeCell<MoveGenerator<T>>,
 
     /// The count of half-moves since the beginning of the game.
@@ -144,7 +147,7 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
             } else {
                 // If `halfmove_clock` is close to rule-50, we blend
                 // it into the returned hash.
-                hash ^ self.position().zobrist().halfmove_clock[halfmove_clock as usize]
+                hash ^ self.zobrist.halfmove_clock[halfmove_clock as usize]
             }
         }
     }
@@ -364,6 +367,8 @@ impl<T: BoardEvaluator + 'static> SearchNode for Position<T> {
 impl<T: BoardEvaluator + 'static> Clone for Position<T> {
     fn clone(&self) -> Self {
         Position {
+            geometry: self.geometry,
+            zobrist: self.zobrist,
             position: UnsafeCell::new(self.position().clone()),
             board_hash: self.board_hash,
             halfmove_count: self.halfmove_count,
@@ -394,6 +399,8 @@ impl<T: BoardEvaluator + 'static> Position<T> {
         let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
         let g = try!(MoveGenerator::from_board(board).ok_or(NotationError));
         Ok(Position {
+            geometry: BoardGeometry::get(),
+            zobrist: ZobristArrays::get(),
             halfmove_count: ((fullmove_number - 1) << 1) + g.board().to_move as u16,
             board_hash: g.board_hash(),
             position: UnsafeCell::new(g),
@@ -553,9 +560,8 @@ impl<T: BoardEvaluator + 'static> Position<T> {
 
         let dest_square = m.dest_square();  // the exchange square
         let position = self.position();
-        let geometry = position.geometry();
         let occupied = self.board().occupied;
-        let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
+        let behind_blocker: &[Bitboard; 64] = &self.geometry.squares_behind_blocker[dest_square];
         let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
         let color: &[Bitboard; 2] = &self.board().pieces.color;
 
@@ -600,14 +606,15 @@ impl<T: BoardEvaluator + 'static> Position<T> {
             if orig_square_bb & may_xray != 0 {
                 attackers_and_defenders |= {
                     let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
-                    let bb = geometry.attacks_from(ROOK, dest_square, candidates) & candidates &
+                    let bb = self.geometry.attacks_from(ROOK, dest_square, candidates) &
+                             candidates &
                              (piece_type[QUEEN] | piece_type[ROOK]);
                     if bb != 0 {
                         // a straight slider
                         bb
                     } else {
                         // a diagonal slider
-                        geometry.attacks_from(BISHOP, dest_square, candidates) & candidates &
+                        self.geometry.attacks_from(BISHOP, dest_square, candidates) & candidates &
                         (piece_type[QUEEN] | piece_type[BISHOP])
                     }
                 };
