@@ -11,6 +11,7 @@
 
 mod move_stack;
 mod position;
+pub mod move_generation;
 pub mod searchers;
 pub mod tt;
 

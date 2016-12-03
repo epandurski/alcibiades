@@ -1,7 +1,5 @@
 //! Implements the `SearchNode` trait.
 
-mod move_generation;
-
 use std::u16;
 use std::mem::uninitialized;
 use std::cmp::{min, max};
@@ -14,7 +12,7 @@ use board::bitsets::*;
 use board::notation::{parse_fen, NotationError};
 use board::tables::{BoardGeometry, ZobristArrays};
 use search::{SearchNode, MoveStack};
-use self::move_generation::MoveGenerator;
+use search::move_generation::MoveGenerator;
 
 
 /// Contains information about a position.
