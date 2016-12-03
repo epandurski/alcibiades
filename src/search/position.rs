@@ -12,7 +12,7 @@ use board::bitsets::*;
 use board::notation::{parse_fen, NotationError};
 use board::tables::{BoardGeometry, ZobristArrays};
 use search::{SearchNode, MoveStack};
-use search::move_generation::StandardGenerator;
+use search::move_generation::{MoveGenerator, StandardGenerator};
 
 
 /// Contains information about a position.
