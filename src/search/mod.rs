@@ -211,16 +211,16 @@ pub trait HashTableEntry: Copy {
 /// A trait for executing consecutive searches in different starting
 /// positions.
 ///
-/// Here is what the engine should do on each move:
+/// Here is what the engine does on each move:
 ///
-/// 1. Call `start_search`.
+/// 1. Calls `start_search`.
 ///
-/// 2. Continue calling `wait_report` and `try_recv_report`
+/// 2. Continues calling `wait_report` and `try_recv_report`
 ///    periodically, until the returned report indicates that the
 ///    search is done.
 ///
-/// 3. Obtain primary variations from search reports, or directly from
-///    the transposition table.
+/// 3. Obtains the primary variation(s) from search reports, or
+///    directly from the transposition table.
 pub trait SearchExecutor: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
@@ -258,9 +258,10 @@ pub trait SearchExecutor: SetOption {
 
     /// Requests the termination of the current search.
     ///
-    /// After calling `terminate`, `wait_report` and `try_recv_report`
-    /// will continue to be called periodically until the returned
-    /// report indicates that the search is done.
+    /// Can be called for the same search more than once. After
+    /// calling `terminate_search`, `wait_report` and
+    /// `try_recv_report` will continue to be called periodically
+    /// until the returned report indicates that the search is done.
     fn terminate_search(&mut self);
 }
 
