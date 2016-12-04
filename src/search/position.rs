@@ -763,160 +763,160 @@ mod tests {
     use chesstypes::*;
     use search::{SearchNode, MoveStack};
     use search::move_generation::StandardMgen;
-    use board::evaluators::MaterialEvaluator;
+    use board::evaluators::MaterialEval;
 
     #[test]
     fn test_fen_parsing() {
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("nbqkbnr/pppppppp/8/8\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("nbqkbnr/pppppppp/8/8\
                                                                             /4P3/8/PPPP1PPP/RNBQ\
                                                                             KBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr1/pppppppp/8\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr1/pppppppp/8\
                                                                             /8/4P3/8/PPPP1PPP/RN\
                                                                             BQKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPPP1PPP/RNB\
                                                                             QKBN b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPPP1PPP/RNB\
                                                                             QKBNR/ b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPPP1PPP/RNB\
                                                                             QKBNRR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPP01PPP/RNB\
                                                                             QKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPP91PPP/RNB\
                                                                             QKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPP*1PPP/RNB\
                                                                             QKBNR b KQkq e3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPPP1PPP/RNB\
                                                                             QKBNR b KQkq e3 * 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPPP1PPP/RNB\
                                                                             QKBNR b KQkq e3 0 *")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPPP1PPP/RNB\
                                                                             QKBNR b - e3 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("rnbqkbnr/pppppppp/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("rnbqkbnr/pppppppp/8/\
                                                                             8/4P3/8/PPPP1PPP/RNB\
                                                                             QKBNR b KQkq e3 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/8/8/8 w - \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/8/8/8 w - \
                                                                             - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/8/8/7K w \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/8/8/7K w \
                                                                             - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/8/8/8/7K w \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/8/8/8/7K w \
                                                                             - - 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/8/8/8/6KK \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/8/8/8/6KK \
                                                                             w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/pppppppp/p7/8/8/8\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/pppppppp/p7/8/8/8\
                                                                             /8/7K w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/8/7P/PPPPPP\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/8/7P/PPPPPP\
                                                                             PP/7K w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/pppppppp/8/8/8/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/pppppppp/8/8/8/8/\
                                                                             PPPPPPPP/7K w - - 0 \
                                                                             1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/1P6/8/8/8/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/1P6/8/8/8/8/8/7K \
                                                                             w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/1B6/8/8/8/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/1B6/8/8/8/8/8/7K \
                                                                             w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/1N6/8/8/8/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/1N6/8/8/8/8/8/7K \
                                                                             w - - 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k3P3/8/8/8/8/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k3P3/8/8/8/8/8/8/7K \
                                                                             w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k3p3/8/8/8/8/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k3p3/8/8/8/8/8/8/7K \
                                                                             w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/8/8/8/pP5K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/8/8/8/pP5K \
                                                                             w - - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
                                                                             K2R w KQkq - 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
                                                                             K2B w KQkq - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
                                                                             K3 w KQkq - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
                                                                             K3 w KQkq - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r3k2r/8/8/8/8/8/8/R3\
                                                                             K3 w Qkq - 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r2k3r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r2k3r/8/8/8/8/8/8/R3\
                                                                             K3 w Qkq - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r2k3r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r2k3r/8/8/8/8/8/8/R3\
                                                                             K3 w Qk - 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("r2k3r/8/8/8/8/8/8/R3\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("r2k3r/8/8/8/8/8/8/R3\
                                                                             K3 w Q - 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/7P/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/7P/8/8/7K \
                                                                             w - h3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/7P/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/7P/8/8/7K \
                                                                             b - h3 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/7P/8/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/7P/8/8/8/7K \
                                                                             b - h4 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/7P/7P/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/7P/7P/8/7K \
                                                                             b - h3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/7P/8/7P/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/7P/8/7P/7K \
                                                                             b - h3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("k7/8/8/8/6P1/7P/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("k7/8/8/8/6P1/7P/8/7K \
                                                                             b - h3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/6k1/7P/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/6k1/7P/8/8/7K \
                                                                             b - h3 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/6k1/7P/8/8/6RK \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/6k1/7P/8/8/6RK \
                                                                             b - h3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/6k1/3P4/8/8/2B\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/6k1/3P4/8/8/2B\
                                                                             4K b - d3 0 1")
                     .is_ok());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/6k1/7P/4B3/8/7\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/6k1/7P/4B3/8/7\
                                                                             K b - h3 0 1")
                     .is_err());
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/6k1/7P/8/8/7K \
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/6k1/7P/8/8/7K \
                                                                             b - h3 0 0")
                     .is_err());
     }
 
     #[test]
     fn test_evaluate_static() {
-        assert!(Position::<StandardMgen<MaterialEvaluator>>::from_fen("krq5/p7/8/8/8/8/8/\
+        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("krq5/p7/8/8/8/8/8/\
                                                                             KRQ5 w - - 0 1")
                     .ok()
                     .unwrap()
@@ -925,7 +925,7 @@ mod tests {
 
     #[test]
     fn test_evaluate_move() {
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/4P1kP/8/8/8/7p/8/7K \
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/4P1kP/8/8/8/7p/8/7K \
                                                                             w - - 0 1")
                     .ok()
                     .unwrap();
@@ -949,7 +949,7 @@ mod tests {
             }
         }
         assert_eq!(p.evaluate_move(p.null_move()), 0);
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("6k1/1P6/8/4b3/8/8/8/1\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("6k1/1P6/8/4b3/8/8/8/1\
                                                                             R3K2 w - - 0 1")
                     .ok()
                     .unwrap();
@@ -967,35 +967,35 @@ mod tests {
     #[test]
     fn test_qsearch() {
         let mut s = MoveStack::new();
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/6k1/6P1/8/6K1 \
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/6k1/6P1/8/6K1 \
                                                                             b - - 0 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/6k1/6P1/8/5bK\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/6k1/6P1/8/5bK\
                                                                             1 b - - 0 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    225);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/5pkp/6P1/5P1P\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5P1P\
                                                                             /6K1 b - - 0 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/5pkp/6P1/5PKP\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5PKP\
                                                                             /8 b - - 0 1")
                     .ok()
                     .unwrap();
         assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    -100);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
                                                                             2/4p3/2N1P2B/3P1N2/PP\
                                                                             P2PPP/R2QKB1R w - - \
                                                                             5 1")
@@ -1004,7 +1004,7 @@ mod tests {
         assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
                                                                             2/4N3/4P2B/3P1N2/PPP2\
                                                                             PPP/R2QKB1R b - - 5 1")
                     .ok()
@@ -1012,7 +1012,7 @@ mod tests {
         assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    -100);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("rn2kbnr/ppppqppp/8/4p\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("rn2kbnr/ppppqppp/8/4p\
                                                                             3/2N1P1b1/3P1N2/PPP2P\
                                                                             PP/R1BKQB1R w - - 5 1")
                     .ok()
@@ -1020,13 +1020,13 @@ mod tests {
         assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
                    0);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/7k/7q/7K w \
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/7k/7q/7K w \
                                                                             - - 0 1")
                     .ok()
                     .unwrap();
         assert!(p.qsearch(-10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000);
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/6qk/7P/7K \
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/6qk/7P/7K \
                                                                             b - - 0 1")
                     .ok()
                     .unwrap();
@@ -1036,9 +1036,9 @@ mod tests {
     #[test]
     fn test_create_repeated() {
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4"];
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_history("8/8/8/8/6k1/6P1/8/6K1 \
+        let p = Position::<StandardMgen<MaterialEval>>::from_history("8/8/8/8/6k1/6P1/8/6K1 \
                                                                            b - - 0 1",
-                                                                          &mut moves.into_iter())
+                                                                     &mut moves.into_iter())
                     .ok()
                     .unwrap();
         let mut v = MoveStack::new();
@@ -1057,7 +1057,7 @@ mod tests {
 
     #[test]
     fn is_repeated() {
-        let mut p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/5p1b/5Pp1/6P1/6\
+        let mut p = Position::<StandardMgen<MaterialEval>>::from_fen("8/5p1b/5Pp1/6P1/6\
                                                                                 p1/3p1pPk/3PpP2/4\
                                                                                 B2K w - - 0 1")
                         .ok()
@@ -1079,19 +1079,19 @@ mod tests {
 
     #[test]
     fn is_checkmate() {
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/7K/8/5R1k \
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/7K/8/5R1k \
                                                                             b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(p.is_checkmate());
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/7K/6p1/5R1k \
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/7K/6p1/5R1k \
                                                                             b - - 0 1")
                     .ok()
                     .unwrap();
         assert!(!p.is_checkmate());
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/7K/8/5N1k \
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/7K/8/5N1k \
                                                                             b - - 0 1")
                     .ok()
                     .unwrap();
@@ -1102,7 +1102,7 @@ mod tests {
     fn test_static_exchange_evaluation() {
         let mut v = MoveStack::new();
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("5r2/8/8/4q1p1/3P4/k3P\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("5r2/8/8/4q1p1/3P4/k3P\
                                                                             1P1/P2b1R1B/K4R2 w - \
                                                                             - 0 1")
                     .ok()
@@ -1126,7 +1126,7 @@ mod tests {
             }
         }
 
-        let p = Position::<StandardMgen<MaterialEvaluator>>::from_fen("5r2/8/8/4q1p1/3P4/k3P\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("5r2/8/8/4q1p1/3P4/k3P\
                                                                             1P1/P2b1R1B/K4R2 b - \
                                                                             - 0 1")
                     .ok()
@@ -1147,30 +1147,30 @@ mod tests {
 
     #[test]
     fn test_repeated_boards_hash() {
-        let p1 = Position::<StandardMgen<MaterialEvaluator>>::from_fen("8/8/8/8/8/7k/8/7K w \
+        let p1 = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/7k/8/7K w \
                                                                              - - 0 1")
                      .ok()
                      .unwrap();
         let moves: Vec<&str> = vec![];
-        let p2 = Position::<StandardMgen<MaterialEvaluator>>::from_history("8/8/8/8/8/7k/8/7K w \
+        let p2 = Position::<StandardMgen<MaterialEval>>::from_history("8/8/8/8/8/7k/8/7K w \
                                                                             - - 0 1",
-                                                                           &mut moves.into_iter())
+                                                                      &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
-        let p2 = Position::<StandardMgen<MaterialEvaluator>>::from_history("8/8/8/8/8/5k2/8/5K2 \
+        let p2 = Position::<StandardMgen<MaterialEval>>::from_history("8/8/8/8/8/5k2/8/5K2 \
                                                                             w - - 0 1",
-                                                                           &mut moves.into_iter())
+                                                                      &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
-        let p3 = Position::<StandardMgen<MaterialEvaluator>>::from_history("8/8/8/8/8/5k2/8/5K2 \
+        let p3 = Position::<StandardMgen<MaterialEval>>::from_history("8/8/8/8/8/5k2/8/5K2 \
                                                                             w - - 0 1",
-                                                                           &mut moves.into_iter())
+                                                                      &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);

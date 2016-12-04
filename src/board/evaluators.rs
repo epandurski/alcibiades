@@ -10,14 +10,14 @@ use board::bitsets::*;
 /// A simple evaluator that considers only the material available on
 /// the board.
 #[derive(Clone)]
-pub struct MaterialEvaluator;
+pub struct MaterialEval;
 
-impl SetOption for MaterialEvaluator {}
+impl SetOption for MaterialEval {}
 
-impl BoardEvaluator for MaterialEvaluator {
+impl BoardEvaluator for MaterialEval {
     #[allow(unused_variables)]
-    fn new(board: &Board) -> MaterialEvaluator {
-        MaterialEvaluator
+    fn new(board: &Board) -> MaterialEval {
+        MaterialEval
     }
 
     #[allow(unused_variables)]
@@ -48,14 +48,14 @@ impl BoardEvaluator for MaterialEvaluator {
 /// A simple evaluator that adds a random number to the available
 /// material.
 #[derive(Clone)]
-pub struct RandomEvaluator;
+pub struct RandomEval;
 
-impl SetOption for RandomEvaluator {}
+impl SetOption for RandomEval {}
 
-impl BoardEvaluator for RandomEvaluator {
+impl BoardEvaluator for RandomEval {
     #[allow(unused_variables)]
-    fn new(board: &Board) -> RandomEvaluator {
-        RandomEvaluator
+    fn new(board: &Board) -> RandomEval {
+        RandomEval
     }
 
     #[allow(unused_variables)]

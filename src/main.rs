@@ -14,12 +14,11 @@ use search::searchers::{Deepening, StandardSrch};
 use search::tt::Tt;
 use search::move_generation::StandardMgen;
 use search::Position;
-use board::evaluators::RandomEvaluator;
+use board::evaluators::RandomEval;
 use engine::run_server;
 
 fn main() {
-    exit(match run_server::<Deepening<StandardSrch<Tt,
-                                                   Position<StandardMgen<RandomEvaluator>>>>>() {
+    exit(match run_server::<Deepening<StandardSrch<Tt, Position<StandardMgen<RandomEval>>>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })

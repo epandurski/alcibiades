@@ -964,13 +964,13 @@ mod tests {
     use search::tt::Tt;
     use search::position::Position;
     use search::move_generation::StandardMgen;
-    use board::evaluators::RandomEvaluator;
+    use board::evaluators::RandomEval;
 
     #[test]
     fn test_search() {
-        let p = Position::<StandardMgen<RandomEvaluator>>::from_history("8/8/8/8/3q3k/7n/6PP\
-                                                                              /2Q2R1K b - - 0 1",
-                                                                        &mut vec![].into_iter())
+        let p = Position::<StandardMgen<RandomEval>>::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b \
+                                                                    - - 0 1",
+                                                                   &mut vec![].into_iter())
                     .ok()
                     .unwrap();
         let tt = Tt::new(None);
@@ -991,11 +991,9 @@ mod tests {
     #[test]
     fn test_killers() {
         let mut killers = KillerTable::new();
-        let mut p = Position::<StandardMgen<RandomEvaluator>>::from_history("5r2/8/8/4q1p1/3P4/k3\
-                                                                             P1P1/P2b1R1B/K4R2 w \
-                                                                             - - 0 1",
-                                                                            &mut vec![]
-                                                                                     .into_iter())
+        let mut p = Position::<StandardMgen<RandomEval>>::from_history("5r2/8/8/4q1p1/3P4/k3P1P1/\
+                                                                        P2b1R1B/K4R2 w - - 0 1",
+                                                                       &mut vec![].into_iter())
                         .ok()
                         .unwrap();
         let mut v = MoveStack::new();
