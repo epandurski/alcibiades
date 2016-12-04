@@ -1,4 +1,4 @@
-//! Implements various static position evaluators.
+//! Implementations of `BoardEvaluator` trait.
 
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;

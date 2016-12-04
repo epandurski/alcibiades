@@ -1,4 +1,7 @@
-//! Facilities for implementing static position evaluation.
+//! Facilities for implementing static position evaluation and move
+//! generation.
+//!
+//! # Static position evaluation
 //!
 //! An evaluation function is used to heuristically determine the
 //! relative value of a position, i.e. the chances of winning. If we
@@ -18,11 +21,15 @@
 //!
 //! Writing a new static evaluator is as simple as defining a type
 //! that implements the `BoardEvaluator` trait.
+//!
+//! # Move generation
+//!
+//! TODO
 
 pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
-pub mod move_generators;
+pub mod generators;
 pub mod notation;
 
 use chesstypes::*;

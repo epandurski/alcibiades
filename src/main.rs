@@ -14,7 +14,7 @@ use search::searchers::{Deepening, StandardSrch};
 use search::tt::StandardTt;
 use search::Position;
 use board::evaluators::RandomEval;
-use board::move_generators::StandardMgen;
+use board::generators::StandardMgen;
 use engine::run_server;
 
 fn main() {

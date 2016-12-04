@@ -1,4 +1,4 @@
-//! Implements move generation logic.
+//! Implementations of `MoveGenerator` trait.
 
 use std::mem::uninitialized;
 use std::cell::Cell;
