@@ -15,7 +15,7 @@ pub struct MoveStack {
 impl PushMove for MoveStack {
     /// Appends a move to the end of the current move list.
     #[inline]
-    fn push(&mut self, m: Move) {
+    fn push_move(&mut self, m: Move) {
         debug_assert!(self.moves.len() >= self.first_move_index);
         self.moves.push(m);
     }
@@ -202,15 +202,15 @@ mod tests {
         let mut s = MoveStack::new();
         assert!(s.remove_best().is_none());
         s.save();
-        s.push(m);
+        s.push_move(m);
         assert_eq!(s.remove_best().unwrap(), m);
         assert!(s.remove_best().is_none());
         s.restore();
         assert!(s.remove_best().is_none());
-        s.push(m);
-        s.push(m);
+        s.push_move(m);
+        s.push_move(m);
         s.save();
-        s.push(m);
+        s.push_move(m);
         s.restore();
         assert_eq!(s.remove_best().unwrap(), m);
         assert_eq!(s.remove_best().unwrap(), m);

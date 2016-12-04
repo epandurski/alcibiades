@@ -6,8 +6,15 @@ use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::*;
 use board::bitsets::*;
-use board::tables::{BoardGeometry, ZobristArrays};
-use search::MoveStack;
+use board::tables::*;
+
+
+impl PushMove for Vec<Move> {
+    #[inline(always)]
+    fn push_move(&mut self, m: Move) {
+        self.push(m);
+    }
+}
 
 
 /// A trait for move generators.
@@ -335,15 +342,15 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         let king_dests = if generate_all_moves {
             for side in 0..2 {
                 if self.can_castle(side) {
-                    move_stack.push(Move::new(MOVE_CASTLING,
-                                              king_square,
-                                              [[C1, C8], [G1, G8]][side][self.board.to_move],
-                                              0,
-                                              NO_PIECE,
-                                              KING,
-                                              self.board.castling_rights,
-                                              self.board.enpassant_file,
-                                              0));
+                    move_stack.push_move(Move::new(MOVE_CASTLING,
+                                                   king_square,
+                                                   [[C1, C8], [G1, G8]][side][self.board.to_move],
+                                                   0,
+                                                   NO_PIECE,
+                                                   KING,
+                                                   self.board.castling_rights,
+                                                   self.board.enpassant_file,
+                                                   0));
                 }
             }
             !occupied_by_us
@@ -364,7 +371,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         // substituted with the next few lines:
         if cfg!(debug_assertions) {
             generated_move = None;
-            let mut move_stack = MoveStack::new();
+            let mut move_stack = Vec::new();
             self.generate_moves(true, &mut move_stack);
             while let Some(m) = move_stack.pop() {
                 if m.digest() == move_digest {
@@ -895,15 +902,15 @@ impl<T: BoardEvaluator> StandardMgen<T> {
             } else {
                 0
             };
-            move_stack.push(Move::new(MOVE_NORMAL,
-                                      orig_square,
-                                      dest_square,
-                                      0,
-                                      captured_piece,
-                                      piece,
-                                      self.board.castling_rights,
-                                      self.board.enpassant_file,
-                                      move_score));
+            move_stack.push_move(Move::new(MOVE_NORMAL,
+                                           orig_square,
+                                           dest_square,
+                                           0,
+                                           captured_piece,
+                                           piece,
+                                           self.board.castling_rights,
+                                           self.board.enpassant_file,
+                                           move_score));
         }
     }
 
@@ -949,15 +956,15 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                     // en-passant capture
                     x if x == enpassant_bb => {
                         if self.enpassant_special_check_is_ok(orig_square, dest_square) {
-                            move_stack.push(Move::new(MOVE_ENPASSANT,
-                                                      orig_square,
-                                                      dest_square,
-                                                      0,
-                                                      PAWN,
-                                                      PAWN,
-                                                      self.board.castling_rights,
-                                                      self.board.enpassant_file,
-                                                      MOVE_SCORE_MAX));
+                            move_stack.push_move(Move::new(MOVE_ENPASSANT,
+                                                           orig_square,
+                                                           dest_square,
+                                                           0,
+                                                           PAWN,
+                                                           PAWN,
+                                                           self.board.castling_rights,
+                                                           self.board.enpassant_file,
+                                                           MOVE_SCORE_MAX));
                         }
                     }
 
@@ -969,15 +976,15 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                             } else {
                                 0
                             };
-                            move_stack.push(Move::new(MOVE_PROMOTION,
-                                                      orig_square,
-                                                      dest_square,
-                                                      p,
-                                                      captured_piece,
-                                                      PAWN,
-                                                      self.board.castling_rights,
-                                                      self.board.enpassant_file,
-                                                      move_score));
+                            move_stack.push_move(Move::new(MOVE_PROMOTION,
+                                                           orig_square,
+                                                           dest_square,
+                                                           p,
+                                                           captured_piece,
+                                                           PAWN,
+                                                           self.board.castling_rights,
+                                                           self.board.enpassant_file,
+                                                           move_score));
                             if only_queen_promotions {
                                 break;
                             }
@@ -991,15 +998,15 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                         } else {
                             0
                         };
-                        move_stack.push(Move::new(MOVE_NORMAL,
-                                                  orig_square,
-                                                  dest_square,
-                                                  0,
-                                                  captured_piece,
-                                                  PAWN,
-                                                  self.board.castling_rights,
-                                                  self.board.enpassant_file,
-                                                  move_score));
+                        move_stack.push_move(Move::new(MOVE_NORMAL,
+                                                       orig_square,
+                                                       dest_square,
+                                                       0,
+                                                       captured_piece,
+                                                       PAWN,
+                                                       self.board.castling_rights,
+                                                       self.board.enpassant_file,
+                                                       move_score));
                     }
                 }
             }

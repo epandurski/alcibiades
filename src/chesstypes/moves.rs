@@ -310,7 +310,7 @@ impl fmt::Display for Move {
 /// A trait for pushing moves to move containers.
 pub trait PushMove {
     /// Pushes a move to the move container.
-    fn push(&mut self, m: Move);
+    fn push_move(&mut self, m: Move);
 }
 
 

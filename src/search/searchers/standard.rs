@@ -683,7 +683,7 @@ impl<'a, T, N> Search<'a, T, N>
             // two sequential iterations of the loop. `state.killer`
             // remembers where we are.
             if let NodePhase::TriedWinningMoves = state.phase {
-                self.moves.push(m);
+                self.moves.push_move(m);
                 let killer = if let Some(k2) = state.killer {
                     state.phase = NodePhase::TriedKillerMoves;
                     k2
@@ -713,7 +713,7 @@ impl<'a, T, N> Search<'a, T, N>
                     continue;
                 }
                 state.phase = NodePhase::TriedLosingCaptures;
-                self.moves.push(m);
+                self.moves.push_move(m);
 
                 // TODO: Pull selected quiet moves to the top of the
                 // move stack here, using the history
