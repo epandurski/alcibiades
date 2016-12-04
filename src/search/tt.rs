@@ -9,7 +9,7 @@ use search::*;
 
 /// Contains information about a particular position.
 #[derive(Copy, Clone, Debug)]
-pub struct TtEntry {
+pub struct StandardTtEntry {
     value: Value,
 
     // The transposition table maintains a generation number for each
@@ -23,17 +23,17 @@ pub struct TtEntry {
     eval_value: Value,
 }
 
-impl HashTableEntry for TtEntry {
+impl HashTableEntry for StandardTtEntry {
     fn new(value: Value,
            bound: BoundType,
            depth: u8,
            move_digest: MoveDigest,
            eval_value: Value)
-           -> TtEntry {
+           -> StandardTtEntry {
         debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
         debug_assert!(depth <= DEPTH_MAX);
-        TtEntry {
+        StandardTtEntry {
             value: value,
             gen_bound: bound,
             depth: depth,
@@ -69,7 +69,7 @@ impl HashTableEntry for TtEntry {
     }
 }
 
-impl TtEntry {
+impl StandardTtEntry {
     /// Returns the contained data as one `u64` value.
     #[inline(always)]
     fn as_u64(&self) -> u64 {
@@ -80,7 +80,7 @@ impl TtEntry {
 
 /// A large hash-table that stores results of previously performed
 /// searches ("transposition table").
-pub struct Tt {
+pub struct StandardTt {
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.
     generation: Cell<u8>,
@@ -93,10 +93,10 @@ pub struct Tt {
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
 
-impl HashTable for Tt {
-    type Entry = TtEntry;
+impl HashTable for StandardTt {
+    type Entry = StandardTtEntry;
 
-    fn new(size_mb: Option<usize>) -> Tt {
+    fn new(size_mb: Option<usize>) -> StandardTt {
         let size_mb = size_mb.unwrap_or(16);
         let requested_cluster_count = (size_mb * 1024 * 1024) / size_of::<[Record; 4]>();
 
@@ -114,7 +114,7 @@ impl HashTable for Tt {
         }
         assert!(n > 0);
 
-        Tt {
+        StandardTt {
             generation: Cell::new(0),
             cluster_count: n,
             table: UnsafeCell::new(vec![Default::default(); n]),
@@ -227,7 +227,7 @@ impl HashTable for Tt {
     }
 }
 
-impl Tt {
+impl StandardTt {
     /// A helper method for `store`. It implements the record
     /// replacement strategy.
     #[inline(always)]
@@ -263,7 +263,7 @@ impl Tt {
     }
 }
 
-unsafe impl Sync for Tt {}
+unsafe impl Sync for StandardTt {}
 
 
 /// Represents a record in the transposition table.
@@ -280,7 +280,7 @@ unsafe impl Sync for Tt {}
 #[derive(Copy, Clone)]
 struct Record {
     key: u64,
-    data: TtEntry,
+    data: StandardTtEntry,
 }
 
 impl Default for Record {
@@ -332,18 +332,19 @@ mod tests {
 
     #[test]
     fn test_store_and_probe() {
-        let tt = Tt::new(None);
+        let tt = StandardTt::new(None);
         assert!(tt.probe(1).is_none());
-        let data = TtEntry::new(0, 0, 50, 666, 0);
+        let data = StandardTtEntry::new(0, 0, 50, 666, 0);
         assert_eq!(data.depth(), 50);
         assert_eq!(data.move_digest(), 666);
         tt.store(1, data);
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        tt.store(1, TtEntry::new(0, 0, 50, 666, 0));
+        tt.store(1, StandardTtEntry::new(0, 0, 50, 666, 0));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), 666);
         for i in 2..50 {
-            tt.store(i, TtEntry::new(i as i16, 0, i as u8, i as u16, i as i16));
+            tt.store(i,
+                     StandardTtEntry::new(i as i16, 0, i as u8, i as u16, i as i16));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);
@@ -359,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_new_search() {
-        let tt = Tt::new(None);
+        let tt = StandardTt::new(None);
         assert_eq!(tt.generation.get(), 0 << 2);
         tt.new_search();
         assert_eq!(tt.generation.get(), 1 << 2);
