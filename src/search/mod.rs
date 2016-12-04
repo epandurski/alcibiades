@@ -411,7 +411,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     ///
     /// **Important note:** No moves will be generated in repeated and
     /// rule-50 positions.
-    fn generate_moves(&self, move_stack: &mut MoveStack);
+    fn generate_moves<S: PushMove>(&self, move_stack: &mut S);
 
     /// Checks if `move_digest` represents a pseudo-legal move.
     ///

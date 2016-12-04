@@ -12,6 +12,16 @@ pub struct MoveStack {
 }
 
 
+impl PushMove for MoveStack {
+    /// Appends a move to the end of the current move list.
+    #[inline]
+    fn push(&mut self, m: Move) {
+        debug_assert!(self.moves.len() >= self.first_move_index);
+        self.moves.push(m);
+    }
+}
+
+
 impl MoveStack {
     /// Creates a new (empty) instance.
     pub fn new() -> MoveStack {
@@ -76,13 +86,6 @@ impl MoveStack {
     pub fn len(&self) -> usize {
         debug_assert!(self.moves.len() >= self.first_move_index);
         self.moves.len() - self.first_move_index
-    }
-
-    /// Appends a move to the end of the current move list.
-    #[inline]
-    pub fn push(&mut self, m: Move) {
-        debug_assert!(self.moves.len() >= self.first_move_index);
-        self.moves.push(m);
     }
 
     /// Removes the last move from the current move list and returns

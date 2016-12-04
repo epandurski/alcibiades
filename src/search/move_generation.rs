@@ -62,7 +62,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// is `true`, all pseudo-legal moves will be generated. When
     /// `all` is `false`, only **check evasions** and **quiescence
     /// search moves** will be generated.
-    fn generate_moves(&self, all: bool, move_stack: &mut MoveStack);
+    fn generate_moves<S: PushMove>(&self, all: bool, move_stack: &mut S);
 
     /// Checks if `move_digest` represents a pseudo-legal move.
     ///
@@ -217,7 +217,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     /// * `u32::MAX` for captures and pawn promotions to queen.
     ///
     /// * `0` for all other moves.
-    fn generate_moves(&self, all: bool, move_stack: &mut MoveStack) {
+    fn generate_moves<S: PushMove>(&self, all: bool, move_stack: &mut S) {
         // All generated moves with pieces other than the king will be
         // legal. It is possible that some of the king's moves are
         // illegal because the destination square is under
@@ -875,11 +875,11 @@ impl<T: BoardEvaluator> StandardMgen<T> {
     /// square that is within the `legal_dests` set pushes a new move
     /// to `move_stack`. `piece` must not be `PAWN`.
     #[inline(always)]
-    fn push_piece_moves_to_stack(&self,
-                                 piece: PieceType,
-                                 orig_square: Square,
-                                 legal_dests: Bitboard,
-                                 move_stack: &mut MoveStack) {
+    fn push_piece_moves_to_stack<S: PushMove>(&self,
+                                              piece: PieceType,
+                                              orig_square: Square,
+                                              legal_dests: Bitboard,
+                                              move_stack: &mut S) {
         debug_assert!(piece < PAWN);
         debug_assert!(orig_square <= 63);
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
@@ -913,11 +913,11 @@ impl<T: BoardEvaluator> StandardMgen<T> {
     /// the `legal_dests` set. When `only_queen_promotions` is `true`,
     /// promotions to pieces other that queen will not be pushed to
     /// `move_stack`.
-    fn push_pawn_moves_to_stack(&self,
-                                pawns: Bitboard,
-                                legal_dests: Bitboard,
-                                only_queen_promotions: bool,
-                                move_stack: &mut MoveStack) {
+    fn push_pawn_moves_to_stack<S: PushMove>(&self,
+                                             pawns: Bitboard,
+                                             legal_dests: Bitboard,
+                                             only_queen_promotions: bool,
+                                             move_stack: &mut S) {
         debug_assert!(pawns & !self.board.pieces.piece_type[PAWN] == 0);
         debug_assert!(pawns & !self.board.pieces.color[self.board.to_move] == 0);
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
