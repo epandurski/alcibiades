@@ -106,7 +106,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
 }
 
 
-/// Implements the `MoveGenerator` trait.
+/// Implements `MoveGenerator` trait.
 #[derive(Clone)]
 pub struct StandardMgen<T: BoardEvaluator> {
     geometry: &'static BoardGeometry,

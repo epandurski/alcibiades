@@ -1,4 +1,4 @@
-//! Implements the `SearchNode` trait.
+//! Implements `Position`.
 
 use std::u16;
 use std::mem::uninitialized;
@@ -28,26 +28,17 @@ struct PositionInfo {
 }
 
 
-/// Implements the `SearchNode` trait, connecting the game-tree
-/// searcher to the static evaluator.
+/// A generic implementation of `SearchNode` trait.
 ///
-/// The implementation of chess rules is at the heart of every chess
-/// engine. `Position` implements a very fast move generator, and
-/// also: quiescence search, static exchange evaluation, move legality
-/// check, hashing. Re-writing those things is a lot of work. Still,
-/// if you decide to do this, you can write your own implementation of
-/// the `SearchNode` trait.
-
-// `Position` delegates most of the work to the underlying move
-// generator instance. `Position` adds the following important
-// functionality:
-//
-// 1. Smarter position hashing.
-// 2. Exact evaluation of final positions.
-// 3. Static exchange evaluation.
-// 4. Quiescence search.
-// 5. 50 move rule awareness.
-// 6. Threefold/twofold repetition detection.
+/// `Position` delegates some of the work to the underlying
+/// `MoveGenerator` instance, adding the following functionality:
+///
+/// 1. Smart position hashing.
+/// 2. Exact evaluation of final positions.
+/// 3. Static exchange evaluation.
+/// 4. Quiescence search.
+/// 5. 50 move rule awareness.
+/// 6. Threefold/twofold repetition detection.
 pub struct Position<T: MoveGenerator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
