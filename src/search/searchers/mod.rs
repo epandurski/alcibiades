@@ -1,7 +1,7 @@
-//! Implementations of the `SearchExecutor` trait.
+//! Implementations of `SearchExecutor` trait.
 
 mod deepening;
-mod alphabeta;
+mod standard;
 
-pub use self::deepening::Deepening; 
-pub use self::alphabeta::Alphabeta; 
+pub use self::deepening::Deepening;
+pub use self::standard::StandardSrch;
