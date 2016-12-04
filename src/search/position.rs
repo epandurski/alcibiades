@@ -9,10 +9,9 @@ use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::*;
 use board::bitsets::*;
-use board::notation::{parse_fen, NotationError};
-use board::tables::{BoardGeometry, ZobristArrays};
+use board::notation::*;
+use board::tables::*;
 use search::{SearchNode, MoveStack};
-use search::move_generation::MoveGenerator;
 
 
 /// Contains information about a position.
@@ -753,8 +752,8 @@ mod tests {
     use super::*;
     use chesstypes::*;
     use search::{SearchNode, MoveStack};
-    use search::move_generation::StandardMgen;
     use board::evaluators::MaterialEval;
+    use board::move_generators::StandardMgen;
 
     #[test]
     fn test_fen_parsing() {

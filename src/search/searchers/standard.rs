@@ -963,8 +963,8 @@ mod tests {
     use search::{SearchNode, MoveStack, HashTable};
     use search::tt::StandardTt;
     use search::position::Position;
-    use search::move_generation::StandardMgen;
     use board::evaluators::RandomEval;
+    use board::move_generators::StandardMgen;
 
     #[test]
     fn test_search() {
