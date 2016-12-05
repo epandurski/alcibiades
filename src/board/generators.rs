@@ -541,24 +541,10 @@ impl<T: BoardEvaluator> SetOption for StandardMgen<T> {
 
 
 impl<T: BoardEvaluator> StandardMgen<T> {
-    /// Generates pseudo-legal moves.
-    ///
-    /// A pseudo-legal move is a move that is otherwise legal, except
-    /// it might leave the king in check. Every legal move is a
-    /// pseudo-legal move, but not every pseudo-legal move is legal.
-    /// The generated moves will be pushed to `moves`. When `all` is
-    /// `true`, all pseudo-legal moves will be generated. When `all`
-    /// is `false`, only check evasions, captures, and pawn promotions
-    /// to queen will be generated.
-    ///
-    /// The initial move scores for the generated moves are:
-    ///
-    /// * `0` for pawn promotions to pieces other than queen (including
-    ///   captures).
-    ///
-    /// * `u32::MAX` for captures and pawn promotions to queen.
-    ///
-    /// * `0` for all other moves.
+    /// A helper method. It generates pseudo-legal moves and pushes
+    /// them to `moves`. When `all` is `true`, all pseudo-legal moves
+    /// will be generated. When `all` is `false`, only check evasions,
+    /// captures, and pawn promotions to queen will be generated.
     fn generate<U: PushMove>(&self, all: bool, moves: &mut U) {
         let king_square = self.king_square();
         let checkers = self.checkers();

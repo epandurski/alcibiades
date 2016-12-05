@@ -209,6 +209,13 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     ///   destination square is not under attack unnecessary, thus
     ///   saving time.
     ///
+    /// The initial move scores for the generated moves are:
+    ///
+    /// * `0` for pawn promotions to pieces other than queen (including
+    ///   captures).
+    /// * `u32::MAX` for captures and pawn promotions to queen.
+    /// * `0` for all other moves.
+    ///
     /// **Note:** A pseudo-legal move is a move that is otherwise
     /// legal, except it might leave the king in check.
     fn generate_all<T: PushMove>(&self, moves: &mut T);
