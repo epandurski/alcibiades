@@ -15,10 +15,9 @@ pub struct MoveStack {
 
 impl PushMove for MoveStack {
     /// Appends a move to the end of the current move list.
-    #[inline]
+    #[inline(always)]
     fn push_move(&mut self, m: Move) {
-        debug_assert!(self.moves.len() >= self.first_move_index);
-        self.moves.push(m);
+        self.push(m);
     }
 }
 
@@ -87,6 +86,13 @@ impl MoveStack {
     pub fn len(&self) -> usize {
         debug_assert!(self.moves.len() >= self.first_move_index);
         self.moves.len() - self.first_move_index
+    }
+
+    /// Appends a move to the end of the current move list.
+    #[inline]
+    pub fn push(&mut self, m: Move) {
+        debug_assert!(self.moves.len() >= self.first_move_index);
+        self.moves.push(m);
     }
 
     /// Removes the last move from the current move list and returns
