@@ -594,7 +594,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                             piece_legal_dests &
                             self.geometry.squares_at_line[king_square][orig_square]
                         };
-                        self.push_piece_moves(piece, orig_square, piece_legal_dests, moves);
+                        self.add_piece_moves(piece, orig_square, piece_legal_dests, moves);
                     }
                 }
             }
@@ -617,7 +617,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
 
                 // Generate all free pawn moves at once.
                 if free_pawns != 0 {
-                    self.push_pawn_moves(free_pawns, pawn_legal_dests, !generate_all_moves, moves);
+                    self.add_pawn_moves(free_pawns, pawn_legal_dests, !generate_all_moves, moves);
                 }
 
                 // Generate pinned pawn moves pawn by pawn, reducing
@@ -627,7 +627,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                     let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
                     let pawn_legal_dests = pawn_legal_dests &
                                            self.geometry.squares_at_line[king_square][pawn_square];
-                    self.push_pawn_moves(1 << pawn_square,
+                    self.add_pawn_moves(1 << pawn_square,
                                          pawn_legal_dests,
                                          !generate_all_moves,
                                          moves);
@@ -656,7 +656,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
         } else {
             occupied_by_them
         };
-        self.push_piece_moves(KING, king_square, king_dests, moves);
+        self.add_piece_moves(KING, king_square, king_dests, moves);
     }
 
     /// A helper method for `create`. It analyzes the position on the
@@ -761,11 +761,11 @@ impl<T: BoardEvaluator> StandardMgen<T> {
     /// `legal_dests` set adds a new move to `moves`. `piece` must not
     /// be `PAWN`.
     #[inline(always)]
-    fn push_piece_moves<U: AddMove>(&self,
-                                    piece: PieceType,
-                                    orig_square: Square,
-                                    legal_dests: Bitboard,
-                                    moves: &mut U) {
+    fn add_piece_moves<U: AddMove>(&self,
+                                   piece: PieceType,
+                                   orig_square: Square,
+                                   legal_dests: Bitboard,
+                                   moves: &mut U) {
         debug_assert!(piece < PAWN);
         debug_assert!(orig_square <= 63);
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
@@ -798,11 +798,11 @@ impl<T: BoardEvaluator> StandardMgen<T> {
     /// destination squares are within the `legal_dests` set. When
     /// `only_queen_promotions` is `true`, promotions to pieces other
     /// that queen will not be added to `moves`.
-    fn push_pawn_moves<U: AddMove>(&self,
-                                   pawns: Bitboard,
-                                   legal_dests: Bitboard,
-                                   only_queen_promotions: bool,
-                                   moves: &mut U) {
+    fn add_pawn_moves<U: AddMove>(&self,
+                                  pawns: Bitboard,
+                                  legal_dests: Bitboard,
+                                  only_queen_promotions: bool,
+                                  moves: &mut U) {
         debug_assert!(pawns & !self.board.pieces.piece_type[PAWN] == 0);
         debug_assert!(pawns & !self.board.pieces.color[self.board.to_move] == 0);
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
