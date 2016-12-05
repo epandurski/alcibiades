@@ -111,14 +111,14 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     }
 
     #[inline(always)]
-    fn generate_all<S: PushMove>(&self, move_stack: &mut S) {
-        self.generate(true, move_stack)
+    fn generate_all<U: PushMove>(&self, moves: &mut U) {
+        self.generate(true, moves)
     }
 
     #[allow(unused_variables)]
     #[inline(always)]
-    fn generate_forcing<S: PushMove>(&self, ply: u8, checks: u8, move_stack: &mut S) {
-        self.generate(false, move_stack)
+    fn generate_forcing<U: PushMove>(&self, ply: u8, checks: u8, moves: &mut U) {
+        self.generate(false, moves)
     }
 
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
@@ -546,10 +546,10 @@ impl<T: BoardEvaluator> StandardMgen<T> {
     /// A pseudo-legal move is a move that is otherwise legal, except
     /// it might leave the king in check. Every legal move is a
     /// pseudo-legal move, but not every pseudo-legal move is legal.
-    /// The generated moves will be pushed to `move_stack`. When `all`
-    /// is `true`, all pseudo-legal moves will be generated. When
-    /// `all` is `false`, only check evasions, captures, and pawn
-    /// promotions to queen will be generated.
+    /// The generated moves will be pushed to `moves`. When `all` is
+    /// `true`, all pseudo-legal moves will be generated. When `all`
+    /// is `false`, only check evasions, captures, and pawn promotions
+    /// to queen will be generated.
     ///
     /// The initial move scores for the generated moves are:
     ///
@@ -559,15 +559,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
     /// * `u32::MAX` for captures and pawn promotions to queen.
     ///
     /// * `0` for all other moves.
-    fn generate<S: PushMove>(&self, all: bool, move_stack: &mut S) {
-        // All generated moves with pieces other than the king will be
-        // legal. It is possible that some of the king's moves are
-        // illegal because the destination square is under
-        // attack. This is so because verifying that this square is
-        // not under attack is quite expensive, and therefore we hope
-        // that the alpha-beta pruning will eliminate the need for
-        // this verification.
-
+    fn generate<U: PushMove>(&self, all: bool, moves: &mut U) {
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = self.board.pieces.color[self.board.to_move];
@@ -624,10 +616,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                             piece_legal_dests &
                             self.geometry.squares_at_line[king_square][orig_square]
                         };
-                        self.push_piece_moves_to_stack(piece,
-                                                       orig_square,
-                                                       piece_legal_dests,
-                                                       move_stack);
+                        self.push_piece_moves(piece, orig_square, piece_legal_dests, moves);
                     }
                 }
             }
@@ -650,10 +639,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
 
                 // Generate all free pawn moves at once.
                 if free_pawns != 0 {
-                    self.push_pawn_moves_to_stack(free_pawns,
-                                                  pawn_legal_dests,
-                                                  !generate_all_moves,
-                                                  move_stack);
+                    self.push_pawn_moves(free_pawns, pawn_legal_dests, !generate_all_moves, moves);
                 }
 
                 // Generate pinned pawn moves pawn by pawn, reducing
@@ -663,10 +649,10 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                     let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
                     let pawn_legal_dests = pawn_legal_dests &
                                            self.geometry.squares_at_line[king_square][pawn_square];
-                    self.push_pawn_moves_to_stack(1 << pawn_square,
-                                                  pawn_legal_dests,
-                                                  !generate_all_moves,
-                                                  move_stack);
+                    self.push_pawn_moves(1 << pawn_square,
+                                         pawn_legal_dests,
+                                         !generate_all_moves,
+                                         moves);
                 }
             }
         }
@@ -677,22 +663,22 @@ impl<T: BoardEvaluator> StandardMgen<T> {
         let king_dests = if generate_all_moves {
             for side in 0..2 {
                 if self.can_castle(side) {
-                    move_stack.push_move(Move::new(MOVE_CASTLING,
-                                                   king_square,
-                                                   [[C1, C8], [G1, G8]][side][self.board.to_move],
-                                                   0,
-                                                   NO_PIECE,
-                                                   KING,
-                                                   self.board.castling_rights,
-                                                   self.board.enpassant_file,
-                                                   0));
+                    moves.push_move(Move::new(MOVE_CASTLING,
+                                              king_square,
+                                              [[C1, C8], [G1, G8]][side][self.board.to_move],
+                                              0,
+                                              NO_PIECE,
+                                              KING,
+                                              self.board.castling_rights,
+                                              self.board.enpassant_file,
+                                              0));
                 }
             }
             !occupied_by_us
         } else {
             occupied_by_them
         };
-        self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
+        self.push_piece_moves(KING, king_square, king_dests, moves);
     }
 
     /// A helper method for `create`. It analyzes the position on the
@@ -794,14 +780,14 @@ impl<T: BoardEvaluator> StandardMgen<T> {
 
     /// A helper method. It finds all squares attacked by `piece` from
     /// square `orig_square`, and for each square that is within the
-    /// `legal_dests` set pushes a new move to `move_stack`. `piece`
-    /// must not be `PAWN`.
+    /// `legal_dests` set pushes a new move to `moves`. `piece` must
+    /// not be `PAWN`.
     #[inline(always)]
-    fn push_piece_moves_to_stack<S: PushMove>(&self,
-                                              piece: PieceType,
-                                              orig_square: Square,
-                                              legal_dests: Bitboard,
-                                              move_stack: &mut S) {
+    fn push_piece_moves<U: PushMove>(&self,
+                                     piece: PieceType,
+                                     orig_square: Square,
+                                     legal_dests: Bitboard,
+                                     moves: &mut U) {
         debug_assert!(piece < PAWN);
         debug_assert!(orig_square <= 63);
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
@@ -817,28 +803,28 @@ impl<T: BoardEvaluator> StandardMgen<T> {
             } else {
                 0
             };
-            move_stack.push_move(Move::new(MOVE_NORMAL,
-                                           orig_square,
-                                           dest_square,
-                                           0,
-                                           captured_piece,
-                                           piece,
-                                           self.board.castling_rights,
-                                           self.board.enpassant_file,
-                                           move_score));
+            moves.push_move(Move::new(MOVE_NORMAL,
+                                      orig_square,
+                                      dest_square,
+                                      0,
+                                      captured_piece,
+                                      piece,
+                                      self.board.castling_rights,
+                                      self.board.enpassant_file,
+                                      move_score));
         }
     }
 
     /// A helper method. It pushes all pseudo-legal moves by the set
-    /// of pawns given by `pawns` to `move_stack`, ensuring that all
+    /// of pawns given by `pawns` to `moves`, ensuring that all
     /// destination squares are within the `legal_dests` set. When
     /// `only_queen_promotions` is `true`, promotions to pieces other
-    /// that queen will not be pushed to `move_stack`.
-    fn push_pawn_moves_to_stack<S: PushMove>(&self,
-                                             pawns: Bitboard,
-                                             legal_dests: Bitboard,
-                                             only_queen_promotions: bool,
-                                             move_stack: &mut S) {
+    /// that queen will not be pushed to `moves`.
+    fn push_pawn_moves<U: PushMove>(&self,
+                                    pawns: Bitboard,
+                                    legal_dests: Bitboard,
+                                    only_queen_promotions: bool,
+                                    moves: &mut U) {
         debug_assert!(pawns & !self.board.pieces.piece_type[PAWN] == 0);
         debug_assert!(pawns & !self.board.pieces.color[self.board.to_move] == 0);
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
@@ -860,7 +846,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
 
             // For each legal destination, determine the move type
             // (en-passant capture, pawn promotion, normal move), and
-            // push the move to `move_stack`.
+            // push the move to `moves`.
             while pawn_legal_dests != 0 {
                 let dest_square = bitscan_forward_and_reset(&mut pawn_legal_dests);
                 let orig_square = (dest_square as isize - shifts[i]) as Square;
@@ -870,15 +856,15 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                     // en-passant capture
                     x if x == enpassant_bb => {
                         if self.enpassant_special_check_is_ok(orig_square, dest_square) {
-                            move_stack.push_move(Move::new(MOVE_ENPASSANT,
-                                                           orig_square,
-                                                           dest_square,
-                                                           0,
-                                                           PAWN,
-                                                           PAWN,
-                                                           self.board.castling_rights,
-                                                           self.board.enpassant_file,
-                                                           MOVE_SCORE_MAX));
+                            moves.push_move(Move::new(MOVE_ENPASSANT,
+                                                      orig_square,
+                                                      dest_square,
+                                                      0,
+                                                      PAWN,
+                                                      PAWN,
+                                                      self.board.castling_rights,
+                                                      self.board.enpassant_file,
+                                                      MOVE_SCORE_MAX));
                         }
                     }
 
@@ -890,15 +876,15 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                             } else {
                                 0
                             };
-                            move_stack.push_move(Move::new(MOVE_PROMOTION,
-                                                           orig_square,
-                                                           dest_square,
-                                                           p,
-                                                           captured_piece,
-                                                           PAWN,
-                                                           self.board.castling_rights,
-                                                           self.board.enpassant_file,
-                                                           move_score));
+                            moves.push_move(Move::new(MOVE_PROMOTION,
+                                                      orig_square,
+                                                      dest_square,
+                                                      p,
+                                                      captured_piece,
+                                                      PAWN,
+                                                      self.board.castling_rights,
+                                                      self.board.enpassant_file,
+                                                      move_score));
                             if only_queen_promotions {
                                 break;
                             }
@@ -912,15 +898,15 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                         } else {
                             0
                         };
-                        move_stack.push_move(Move::new(MOVE_NORMAL,
-                                                       orig_square,
-                                                       dest_square,
-                                                       0,
-                                                       captured_piece,
-                                                       PAWN,
-                                                       self.board.castling_rights,
-                                                       self.board.enpassant_file,
-                                                       move_score));
+                        moves.push_move(Move::new(MOVE_NORMAL,
+                                                  orig_square,
+                                                  dest_square,
+                                                  0,
+                                                  captured_piece,
+                                                  PAWN,
+                                                  self.board.castling_rights,
+                                                  self.board.enpassant_file,
+                                                  move_score));
                     }
                 }
             }

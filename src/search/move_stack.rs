@@ -2,6 +2,7 @@
 
 use std::slice;
 use chesstypes::*;
+use board::PushMove;
 
 
 /// Stores a list of moves for each position in a given line of play.
@@ -186,6 +187,7 @@ impl MoveStack {
 mod tests {
     use super::*;
     use chesstypes::*;
+    use board::PushMove;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

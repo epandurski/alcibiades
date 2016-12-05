@@ -307,13 +307,6 @@ impl fmt::Display for Move {
 }
 
 
-/// A trait for pushing moves to move containers.
-pub trait PushMove {
-    /// Pushes a move to the move container.
-    fn push_move(&mut self, m: Move);
-}
-
-
 // Field shifts
 const M_SHIFT_SCORE: usize = 32;
 const M_SHIFT_CAPTURED_PIECE: usize = 27;

@@ -223,9 +223,9 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
     }
 
     #[inline]
-    fn generate_moves<S: PushMove>(&self, move_stack: &mut S) {
+    fn generate_moves<U: PushMove>(&self, moves: &mut U) {
         if !self.repeated_or_rule50 {
-            self.position().generate_all(move_stack);
+            self.position().generate_all(moves);
         }
     }
 
