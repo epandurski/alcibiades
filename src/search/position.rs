@@ -200,6 +200,7 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
                              static_evaluation,
                              0,
                              0,
+                             0,
                              &mut *s.get(),
                              &mut searched_nodes)
             });
@@ -393,6 +394,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
                mut stand_pat: Value, // position's static evaluation
                mut recapture_squares: Bitboard,
                ply: u8, // the reached `qsearch` depth
+               checks: u8, // the number of checks in the current line of play
                move_stack: &mut MoveStack,
                searched_nodes: &mut u64)
                -> Value {
@@ -411,7 +413,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
         // possible check evasions will be tried.)
         if in_check {
             // Position's static evaluation is useless when in check.
-            stand_pat = lower_bound
+            stand_pat = lower_bound;
         } else if stand_pat == VALUE_UNKNOWN {
             stand_pat = self.evaluator().evaluate(self.board(), self.halfmove_clock());
         }
@@ -426,7 +428,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
 
         // Generate all forcing moves.
         move_stack.save();
-        self.position().generate_forcing(ply, 0, move_stack);
+        self.position().generate_forcing(ply, checks, move_stack);
 
         // Consider the generated moves one by one. See if any of them
         // can raise the lower bound.
@@ -479,6 +481,11 @@ impl<T: MoveGenerator + 'static> Position<T> {
                                               VALUE_UNKNOWN,
                                               recapture_squares ^ dest_square_bb,
                                               ply + 1,
+                                              if in_check {
+                                                  checks + 1
+                                              } else {
+                                                  checks
+                                              },
                                               move_stack,
                                               searched_nodes);
                     self.position_mut().undo_move(m);
@@ -961,28 +968,28 @@ mod tests {
                                                                             b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0),
                    0);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/6k1/6P1/8/5bK\
                                                                             1 b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0),
                    225);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5P1P\
                                                                             /6K1 b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0),
                    0);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5PKP\
                                                                             /8 b - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0),
                    -100);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
@@ -991,7 +998,7 @@ mod tests {
                                                                             5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0),
                    0);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
@@ -999,7 +1006,7 @@ mod tests {
                                                                             PPP/R2QKB1R b - - 5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0),
                    -100);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("rn2kbnr/ppppqppp/8/4p\
@@ -1007,14 +1014,14 @@ mod tests {
                                                                             PP/R1BKQB1R w - - 5 1")
                     .ok()
                     .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0),
                    0);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/7k/7q/7K w \
                                                                             - - 0 1")
                     .ok()
                     .unwrap();
-        assert!(p.qsearch(-10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000);
+        assert!(p.qsearch(-10000, 10000, VALUE_UNKNOWN, 0, 0, 0, &mut s, &mut 0) <= -10000);
 
         let p = Position::<StandardMgen<MaterialEval>>::from_fen("8/8/8/8/8/6qk/7P/7K \
                                                                             b - - 0 1")
