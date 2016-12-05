@@ -2,7 +2,7 @@
 
 use std::slice;
 use chesstypes::*;
-use board::PushMove;
+use board::AddMove;
 
 
 /// Stores a list of moves for each position in a given line of play.
@@ -13,10 +13,10 @@ pub struct MoveStack {
 }
 
 
-impl PushMove for MoveStack {
+impl AddMove for MoveStack {
     /// Appends a move to the end of the current move list.
     #[inline(always)]
-    fn push_move(&mut self, m: Move) {
+    fn add_move(&mut self, m: Move) {
         self.push(m);
     }
 }
@@ -193,7 +193,6 @@ impl MoveStack {
 mod tests {
     use super::*;
     use chesstypes::*;
-    use board::PushMove;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]
@@ -210,15 +209,15 @@ mod tests {
         let mut s = MoveStack::new();
         assert!(s.remove_best().is_none());
         s.save();
-        s.push_move(m);
+        s.push(m);
         assert_eq!(s.remove_best().unwrap(), m);
         assert!(s.remove_best().is_none());
         s.restore();
         assert!(s.remove_best().is_none());
-        s.push_move(m);
-        s.push_move(m);
+        s.push(m);
+        s.push(m);
         s.save();
-        s.push_move(m);
+        s.push(m);
         s.restore();
         assert_eq!(s.remove_best().unwrap(), m);
         assert_eq!(s.remove_best().unwrap(), m);
