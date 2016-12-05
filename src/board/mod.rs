@@ -149,11 +149,10 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
 ///
 /// A `MoveGenerator` can generate all legal moves in the current
 /// position, play a selected move, and take it back. It provides a
-/// position evaluator, and can calculate Zobrist
-/// hashes.
+/// position evaluator, and can calculate Zobrist hashes.
 ///
 /// **Important note:** `MoveGenerator` is unaware of repeating
-/// positions and fifty-move rule.
+/// positions and the fifty-move rule.
 pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// The type of static evaluator that the implementation works
     /// with.
