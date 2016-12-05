@@ -81,7 +81,7 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
         let mut move_stack = MoveStack::new();
         'played_moves: for played_move in moves {
             move_stack.clear();
-            p.position().generate_moves(true, &mut move_stack);
+            p.position().generate_all(&mut move_stack);
             for m in move_stack.iter() {
                 if played_move == m.notation() {
                     if p.do_move(*m) {
@@ -225,7 +225,7 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
     #[inline]
     fn generate_moves<S: PushMove>(&self, move_stack: &mut S) {
         if !self.repeated_or_rule50 {
-            self.position().generate_moves(true, move_stack);
+            self.position().generate_all(move_stack);
         }
     }
 
@@ -424,9 +424,9 @@ impl<T: MoveGenerator + 'static> Position<T> {
         let obligatory_material_gain = (lower_bound as isize) - (stand_pat as isize) -
                                        2 * (PIECE_VALUES[PAWN] as isize);
 
-        // Generate all non-quiet moves.
+        // Generate all forcing moves.
         move_stack.save();
-        self.position().generate_moves(false, move_stack);
+        self.position().generate_forcing(ply, 0, move_stack);
 
         // Consider the generated moves one by one. See if any of them
         // can raise the lower bound.
@@ -671,7 +671,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
             let move_stack = &mut *s.get();
             let mut no_legal_moves = true;
             move_stack.save();
-            position.generate_moves(true, move_stack);
+            position.generate_all(move_stack);
             for m in move_stack.iter() {
                 if position.do_move(*m).is_some() {
                     position.undo_move(*m);

@@ -110,158 +110,15 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         self.checkers.get()
     }
 
-    /// Generates pseudo-legal moves.
-    ///
-    /// A pseudo-legal move is a move that is otherwise legal, except
-    /// it might leave the king in check. Every legal move is a
-    /// pseudo-legal move, but not every pseudo-legal move is legal.
-    /// The generated moves will be pushed to `move_stack`. When `all`
-    /// is `true`, all pseudo-legal moves will be generated. When
-    /// `all` is `false`, only check evasions, captures, and pawn
-    /// promotions to queen will be generated.
-    ///
-    /// The initial move scores for the generated moves are:
-    ///
-    /// * `0` for pawn promotions to pieces other than queen (including
-    ///   captures).
-    ///
-    /// * `u32::MAX` for captures and pawn promotions to queen.
-    ///
-    /// * `0` for all other moves.
-    fn generate_moves<S: PushMove>(&self, all: bool, move_stack: &mut S) {
-        // All generated moves with pieces other than the king will be
-        // legal. It is possible that some of the king's moves are
-        // illegal because the destination square is under
-        // attack. This is so because verifying that this square is
-        // not under attack is quite expensive, and therefore we hope
-        // that the alpha-beta pruning will eliminate the need for
-        // this verification.
+    #[inline(always)]
+    fn generate_all<S: PushMove>(&self, move_stack: &mut S) {
+        self.generate(true, move_stack)
+    }
 
-        let king_square = self.king_square();
-        let checkers = self.checkers();
-        let occupied_by_us = self.board.pieces.color[self.board.to_move];
-        let occupied_by_them = self.board.occupied ^ occupied_by_us;
-        let generate_all_moves = all || checkers != 0;
-
-        let legal_dests = !occupied_by_us &
-                          match ls1b(checkers) {
-            0 =>
-                // Not in check -- every move destination may be
-                // considered "covering".
-                BB_UNIVERSAL_SET,
-            x if x == checkers =>
-                // Single check -- calculate the check covering
-                // destination subset (the squares between the king
-                // and the checker). Notice that we must OR with "x"
-                // itself, because knights give check not lying on a
-                // line with the king.
-                x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)],
-            _ =>
-                // Double check -- no covering moves.
-                0,
-        };
-
-        if legal_dests != 0 {
-            // This block is not executed when the king is in double
-            // check.
-
-            let pinned = self.find_pinned();
-            let our_pawns = self.board.pieces.piece_type[PAWN] & occupied_by_us;
-            let mut pinned_pawns = our_pawns & pinned;
-            let free_pawns = our_pawns ^ pinned_pawns;
-            let enpassant_bb = self.enpassant_bb();
-
-            // Generate queen, rook, bishop, and knight moves.
-            {
-                let piece_legal_dests = if generate_all_moves {
-                    legal_dests
-                } else {
-                    debug_assert_eq!(legal_dests, !occupied_by_us);
-                    occupied_by_them
-                };
-
-                for piece in QUEEN..PAWN {
-                    let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
-                    while bb != 0 {
-                        let orig_square = bitscan_forward_and_reset(&mut bb);
-                        let piece_legal_dests = if 1 << orig_square & pinned == 0 {
-                            piece_legal_dests
-                        } else {
-                            // The piece is pinned -- reduce the set
-                            // of legal destination to the squares on
-                            // the line of the pin.
-                            piece_legal_dests &
-                            self.geometry.squares_at_line[king_square][orig_square]
-                        };
-                        self.push_piece_moves_to_stack(piece,
-                                                       orig_square,
-                                                       piece_legal_dests,
-                                                       move_stack);
-                    }
-                }
-            }
-
-            // Generate pawn moves.
-            {
-                let pawn_legal_dests = if generate_all_moves {
-                    if checkers & self.board.pieces.piece_type[PAWN] == 0 {
-                        legal_dests
-                    } else {
-                        // We are in check from a pawn, therefore the
-                        // en-passant capture is legal too.
-                        legal_dests | enpassant_bb
-                    }
-                } else {
-                    debug_assert_eq!(checkers, 0);
-                    debug_assert_eq!(legal_dests, !occupied_by_us);
-                    legal_dests & (occupied_by_them | enpassant_bb | BB_PAWN_PROMOTION_RANKS)
-                };
-
-                // Generate all free pawn moves at once.
-                if free_pawns != 0 {
-                    self.push_pawn_moves_to_stack(free_pawns,
-                                                  pawn_legal_dests,
-                                                  !generate_all_moves,
-                                                  move_stack);
-                }
-
-                // Generate pinned pawn moves pawn by pawn, reducing
-                // the set of legal destination for each pawn to the
-                // squares on the line of the pin.
-                while pinned_pawns != 0 {
-                    let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
-                    let pawn_legal_dests = pawn_legal_dests &
-                                           self.geometry.squares_at_line[king_square][pawn_square];
-                    self.push_pawn_moves_to_stack(1 << pawn_square,
-                                                  pawn_legal_dests,
-                                                  !generate_all_moves,
-                                                  move_stack);
-                }
-            }
-        }
-
-        // Generate king moves (pseudo-legal, possibly moving into
-        // check). This is executed even when the king is in double
-        // check.
-        let king_dests = if generate_all_moves {
-            for side in 0..2 {
-                if self.can_castle(side) {
-                    move_stack.push_move(Move::new(MOVE_CASTLING,
-                                                   king_square,
-                                                   [[C1, C8], [G1, G8]][side][self.board.to_move],
-                                                   0,
-                                                   NO_PIECE,
-                                                   KING,
-                                                   self.board.castling_rights,
-                                                   self.board.enpassant_file,
-                                                   0));
-                }
-            }
-            !occupied_by_us
-        } else {
-            occupied_by_them
-        };
-        self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
+    #[allow(unused_variables)]
+    #[inline(always)]
+    fn generate_forcing<S: PushMove>(&self, ply: u8, checks: u8, move_stack: &mut S) {
+        self.generate(false, move_stack)
     }
 
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
@@ -276,7 +133,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         if cfg!(debug_assertions) {
             generated_move = None;
             let mut move_stack = Vec::new();
-            self.generate_moves(true, &mut move_stack);
+            self.generate_all(&mut move_stack);
             while let Some(m) = move_stack.pop() {
                 if m.digest() == move_digest {
                     generated_move = Some(m);
@@ -481,8 +338,8 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         let mut old_hash: u64 = unsafe { uninitialized() };
 
         if cfg!(debug_assertions) {
-            // Assert that `m` was generated by `null_move`,
-            // `try_move_digest`, or `generate_moves`.
+            // Assert that `m` could be generated by `null_move` or
+            // `generate_all`.
             assert!({
                 m.is_null() && played_piece == KING
             } ||
@@ -684,6 +541,160 @@ impl<T: BoardEvaluator> SetOption for StandardMgen<T> {
 
 
 impl<T: BoardEvaluator> StandardMgen<T> {
+    /// Generates pseudo-legal moves.
+    ///
+    /// A pseudo-legal move is a move that is otherwise legal, except
+    /// it might leave the king in check. Every legal move is a
+    /// pseudo-legal move, but not every pseudo-legal move is legal.
+    /// The generated moves will be pushed to `move_stack`. When `all`
+    /// is `true`, all pseudo-legal moves will be generated. When
+    /// `all` is `false`, only check evasions, captures, and pawn
+    /// promotions to queen will be generated.
+    ///
+    /// The initial move scores for the generated moves are:
+    ///
+    /// * `0` for pawn promotions to pieces other than queen (including
+    ///   captures).
+    ///
+    /// * `u32::MAX` for captures and pawn promotions to queen.
+    ///
+    /// * `0` for all other moves.
+    fn generate<S: PushMove>(&self, all: bool, move_stack: &mut S) {
+        // All generated moves with pieces other than the king will be
+        // legal. It is possible that some of the king's moves are
+        // illegal because the destination square is under
+        // attack. This is so because verifying that this square is
+        // not under attack is quite expensive, and therefore we hope
+        // that the alpha-beta pruning will eliminate the need for
+        // this verification.
+
+        let king_square = self.king_square();
+        let checkers = self.checkers();
+        let occupied_by_us = self.board.pieces.color[self.board.to_move];
+        let occupied_by_them = self.board.occupied ^ occupied_by_us;
+        let generate_all_moves = all || checkers != 0;
+
+        let legal_dests = !occupied_by_us &
+                          match ls1b(checkers) {
+            0 =>
+                // Not in check -- every move destination may be
+                // considered "covering".
+                BB_UNIVERSAL_SET,
+            x if x == checkers =>
+                // Single check -- calculate the check covering
+                // destination subset (the squares between the king
+                // and the checker). Notice that we must OR with "x"
+                // itself, because knights give check not lying on a
+                // line with the king.
+                x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)],
+            _ =>
+                // Double check -- no covering moves.
+                0,
+        };
+
+        if legal_dests != 0 {
+            // This block is not executed when the king is in double
+            // check.
+
+            let pinned = self.find_pinned();
+            let our_pawns = self.board.pieces.piece_type[PAWN] & occupied_by_us;
+            let mut pinned_pawns = our_pawns & pinned;
+            let free_pawns = our_pawns ^ pinned_pawns;
+            let enpassant_bb = self.enpassant_bb();
+
+            // Generate queen, rook, bishop, and knight moves.
+            {
+                let piece_legal_dests = if generate_all_moves {
+                    legal_dests
+                } else {
+                    debug_assert_eq!(legal_dests, !occupied_by_us);
+                    occupied_by_them
+                };
+
+                for piece in QUEEN..PAWN {
+                    let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
+                    while bb != 0 {
+                        let orig_square = bitscan_forward_and_reset(&mut bb);
+                        let piece_legal_dests = if 1 << orig_square & pinned == 0 {
+                            piece_legal_dests
+                        } else {
+                            // The piece is pinned -- reduce the set
+                            // of legal destination to the squares on
+                            // the line of the pin.
+                            piece_legal_dests &
+                            self.geometry.squares_at_line[king_square][orig_square]
+                        };
+                        self.push_piece_moves_to_stack(piece,
+                                                       orig_square,
+                                                       piece_legal_dests,
+                                                       move_stack);
+                    }
+                }
+            }
+
+            // Generate pawn moves.
+            {
+                let pawn_legal_dests = if generate_all_moves {
+                    if checkers & self.board.pieces.piece_type[PAWN] == 0 {
+                        legal_dests
+                    } else {
+                        // We are in check from a pawn, therefore the
+                        // en-passant capture is legal too.
+                        legal_dests | enpassant_bb
+                    }
+                } else {
+                    debug_assert_eq!(checkers, 0);
+                    debug_assert_eq!(legal_dests, !occupied_by_us);
+                    legal_dests & (occupied_by_them | enpassant_bb | BB_PAWN_PROMOTION_RANKS)
+                };
+
+                // Generate all free pawn moves at once.
+                if free_pawns != 0 {
+                    self.push_pawn_moves_to_stack(free_pawns,
+                                                  pawn_legal_dests,
+                                                  !generate_all_moves,
+                                                  move_stack);
+                }
+
+                // Generate pinned pawn moves pawn by pawn, reducing
+                // the set of legal destination for each pawn to the
+                // squares on the line of the pin.
+                while pinned_pawns != 0 {
+                    let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
+                    let pawn_legal_dests = pawn_legal_dests &
+                                           self.geometry.squares_at_line[king_square][pawn_square];
+                    self.push_pawn_moves_to_stack(1 << pawn_square,
+                                                  pawn_legal_dests,
+                                                  !generate_all_moves,
+                                                  move_stack);
+                }
+            }
+        }
+
+        // Generate king moves (pseudo-legal, possibly moving into
+        // check). This is executed even when the king is in double
+        // check.
+        let king_dests = if generate_all_moves {
+            for side in 0..2 {
+                if self.can_castle(side) {
+                    move_stack.push_move(Move::new(MOVE_CASTLING,
+                                                   king_square,
+                                                   [[C1, C8], [G1, G8]][side][self.board.to_move],
+                                                   0,
+                                                   NO_PIECE,
+                                                   KING,
+                                                   self.board.castling_rights,
+                                                   self.board.enpassant_file,
+                                                   0));
+                }
+            }
+            !occupied_by_us
+        } else {
+            occupied_by_them
+        };
+        self.push_piece_moves_to_stack(KING, king_square, king_dests, move_stack);
+    }
+
     /// A helper method for `create`. It analyzes the position on the
     /// board and decides if it is legal.
     ///
@@ -781,10 +792,10 @@ impl<T: BoardEvaluator> StandardMgen<T> {
         }
     }
 
-    /// A helper method for `generate_moves`. It finds all squares
-    /// attacked by `piece` from square `orig_square`, and for each
-    /// square that is within the `legal_dests` set pushes a new move
-    /// to `move_stack`. `piece` must not be `PAWN`.
+    /// A helper method. It finds all squares attacked by `piece` from
+    /// square `orig_square`, and for each square that is within the
+    /// `legal_dests` set pushes a new move to `move_stack`. `piece`
+    /// must not be `PAWN`.
     #[inline(always)]
     fn push_piece_moves_to_stack<S: PushMove>(&self,
                                               piece: PieceType,
@@ -818,12 +829,11 @@ impl<T: BoardEvaluator> StandardMgen<T> {
         }
     }
 
-    /// A helper method for `generate_moves`. It pushes all
-    /// pseudo-legal moves by the set of pawns given by `pawns` to
-    /// `move_stack`, ensuring that all destination squares are within
-    /// the `legal_dests` set. When `only_queen_promotions` is `true`,
-    /// promotions to pieces other that queen will not be pushed to
-    /// `move_stack`.
+    /// A helper method. It pushes all pseudo-legal moves by the set
+    /// of pawns given by `pawns` to `move_stack`, ensuring that all
+    /// destination squares are within the `legal_dests` set. When
+    /// `only_queen_promotions` is `true`, promotions to pieces other
+    /// that queen will not be pushed to `move_stack`.
     fn push_pawn_moves_to_stack<S: PushMove>(&self,
                                              pawns: Bitboard,
                                              legal_dests: Bitboard,
@@ -1204,7 +1214,7 @@ mod tests {
                                                                 - h6 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         let mut pawn_dests = 0u64;
         while let Some(m) = stack.pop() {
             if m.played_piece() == PAWN {
@@ -1218,7 +1228,7 @@ mod tests {
                                                                 - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         let mut pawn_dests = 0u64;
         while let Some(m) = stack.pop() {
             if m.played_piece() == PAWN {
@@ -1236,7 +1246,7 @@ mod tests {
                                                                 w - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
 
@@ -1244,7 +1254,7 @@ mod tests {
                                                                 w - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 7);
         stack.clear_all();
 
@@ -1252,7 +1262,7 @@ mod tests {
                                                                 - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 8);
         stack.clear_all();
 
@@ -1260,7 +1270,7 @@ mod tests {
                                                                 - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 22);
         stack.clear_all();
 
@@ -1268,7 +1278,7 @@ mod tests {
                                                                 - c6 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 23);
         stack.clear_all();
 
@@ -1276,7 +1286,7 @@ mod tests {
                                                                 b - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 25);
         stack.clear_all();
 
@@ -1284,7 +1294,7 @@ mod tests {
                                                                 b - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
     }
@@ -1304,7 +1314,7 @@ mod tests {
         let b = StandardMgen::<RandomEval>::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 6);
         stack.clear_all();
 
@@ -1312,14 +1322,14 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 7);
         stack.clear_all();
 
         let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
     }
@@ -1331,7 +1341,7 @@ mod tests {
         let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 6);
         stack.clear_all();
     }
@@ -1343,7 +1353,7 @@ mod tests {
         let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.ply(), 0);
         assert_eq!(stack.len(), 7);
         stack.clear();
@@ -1359,7 +1369,7 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
@@ -1367,7 +1377,7 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 6);
         stack.clear_all();
 
@@ -1375,7 +1385,7 @@ mod tests {
                                                                 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 7);
         stack.clear_all();
 
@@ -1383,7 +1393,7 @@ mod tests {
                                                                 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
@@ -1391,7 +1401,7 @@ mod tests {
                                                                 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 6);
         stack.clear_all();
 
@@ -1399,7 +1409,7 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 5);
         stack.clear_all();
 
@@ -1407,7 +1417,7 @@ mod tests {
                                                                     - 0 1")
                         .ok()
                         .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         let mut count = 0;
         while let Some(m) = stack.pop() {
             if b.do_move(m).is_some() {
@@ -1421,14 +1431,14 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
         let b = StandardMgen::<RandomEval>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
@@ -1436,7 +1446,7 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 7);
         stack.clear_all();
     }
@@ -1449,14 +1459,14 @@ mod tests {
                                                                     R w kKQ f6 0 1")
                         .ok()
                         .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
             if let Some(h) = b.do_move(m) {
                 assert!(h != 0);
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
-                b.generate_moves(true, &mut other_stack);
+                b.generate_all(&mut other_stack);
                 assert_eq!(count, other_stack.len());
             }
         }
@@ -1465,13 +1475,13 @@ mod tests {
                                                                     b kKQ - 0 1")
                         .ok()
                         .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         let count = stack.len();
         while let Some(m) = stack.pop() {
             if b.do_move(m).is_some() {
                 b.undo_move(m);
                 let mut other_stack = MoveStack::new();
-                b.generate_moves(true, &mut other_stack);
+                b.generate_all(&mut other_stack);
                 assert_eq!(count, other_stack.len());
             }
         }
@@ -1494,21 +1504,21 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(false, &mut stack);
+        b.generate_forcing(0, 0, &mut stack);
         assert_eq!(stack.len(), 4);
         stack.clear_all();
 
         let b = StandardMgen::<RandomEval>::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(false, &mut stack);
+        b.generate_forcing(0, 0, &mut stack);
         assert_eq!(stack.len(), 8);
         stack.clear_all();
 
         let b = StandardMgen::<RandomEval>::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(false, &mut stack);
+        b.generate_forcing(0, 0, &mut stack);
         assert_eq!(stack.len(), 7);
         stack.clear_all();
     }
@@ -1521,13 +1531,13 @@ mod tests {
                                                                     g6 0 1")
                         .ok()
                         .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         let count = stack.len();
         stack.clear_all();
         let m = b.null_move();
         assert!(b.do_move(m).is_some());
         b.undo_move(m);
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         assert_eq!(count, stack.len());
         stack.clear_all();
 
@@ -1547,7 +1557,7 @@ mod tests {
                                                                     N2/PPPN1PP1/2K4R b - - 0 1")
                         .ok()
                         .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         let m = stack.pop().unwrap();
         b.do_move(m);
         assert!(b.is_legal());
@@ -1575,7 +1585,7 @@ mod tests {
                                                                 1PPPBP/RNBQK2R b KQkq c3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
@@ -1583,7 +1593,7 @@ mod tests {
                                                                 P1PPPBP/RNB1K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
@@ -1591,7 +1601,7 @@ mod tests {
                                                                 pP1PPPBP/RNB1K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
@@ -1599,7 +1609,7 @@ mod tests {
                                                                 P1PPPBP/RNBQK2R b KQ c3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
@@ -1607,21 +1617,21 @@ mod tests {
                                                                 P1PPPBP/RNB1K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
         let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
         let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/5pPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
-        b.generate_moves(true, &mut stack);
+        b.generate_all(&mut stack);
         try_all(&b, &stack);
     }
 }
