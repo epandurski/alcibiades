@@ -383,10 +383,10 @@ impl<T: MoveGenerator + 'static> Position<T> {
     /// Performs a "quiescence search" and returns an evaluation.
     ///
     /// The "quiescence search" is a restricted search which considers
-    /// only a limited set of moves (winning captures, pawn promotions
-    /// to queen, check evasions). The goal is to statically evaluate
-    /// only "quiet" positions (positions where there are no winning
-    /// tactical moves to be made).
+    /// only a limited set of moves (for example: winning captures,
+    /// pawn promotions to queen, check evasions). The goal is to
+    /// statically evaluate only "quiet" positions (positions where
+    /// there are no winning tactical moves to be made).
     fn qsearch(&self,
                mut lower_bound: Value, // alpha
                upper_bound: Value, // beta
