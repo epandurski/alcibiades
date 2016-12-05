@@ -9,14 +9,6 @@ use board::bitsets::*;
 use board::tables::*;
 
 
-impl AddMove for Vec<Move> {
-    #[inline(always)]
-    fn add_move(&mut self, m: Move) {
-        self.push(m);
-    }
-}
-
-
 /// Implements `MoveGenerator` trait.
 #[derive(Clone)]
 pub struct StandardMgen<T: BoardEvaluator> {

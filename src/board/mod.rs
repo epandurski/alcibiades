@@ -76,6 +76,13 @@ pub trait AddMove {
     fn add_move(&mut self, m: Move);
 }
 
+impl AddMove for Vec<Move> {
+    #[inline(always)]
+    fn add_move(&mut self, m: Move) {
+        self.push(m);
+    }
+}
+
 
 /// A trait used to statically evaluate positions.
 pub trait BoardEvaluator: Clone + Send + SetOption {
