@@ -24,7 +24,10 @@
 //!
 //! # Move generation
 //!
-//! TODO
+//! Generation of moves is at the heart of every chess engine. Writing
+//! a good move generator is not easy. Nevertheless, if you decide to
+//! do so, you should define a type that implements the
+//! `MoveGenerator` trait.
 
 pub mod tables;
 pub mod bitsets;
@@ -267,7 +270,8 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// "Null move" is a pseudo-move that changes nothing on the board
     /// except the side to move. It is sometimes useful to include a
     /// speculative null move in the search tree so as to achieve more
-    /// aggressive pruning.
+    /// aggressive pruning. Null moves are represented as king's moves
+    /// for which the origin and destination squares are the same.
     fn null_move(&self) -> Move;
 
     /// Plays a move on the board.
