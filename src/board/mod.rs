@@ -238,8 +238,9 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     ///
     /// * If the king is in check, all legal moves are included.
     ///
-    /// * If the king is not in check, all legal captures are
-    /// included. Optionally, other moves might be included too. For
+    /// * If the king is not in check, all legal captures are included
+    /// (for speed, possibly omitting en-passant
+    /// captures). Optionally, other moves might be included too. For
     /// example: moves that give check, or pawn promotions to
     /// queen. This is done carefully though, to avoid creating an
     /// infinitely large search tree.
