@@ -120,22 +120,21 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
             // being deemed as a draw.)
             1
         } else {
-            let hash = if !self.root_is_reachable() {
-                self.board_hash
-            } else {
+            let hash = if self.root_is_reachable() {
                 // If the repeated positions that occured before the
                 // root postition are still reachable, we blend their
                 // collective hash into current position's hash.
                 self.board_hash ^ self.repeated_boards_hash
+            } else {
+                self.board_hash
             };
             let halfmove_clock = self.state().halfmove_clock;
-
-            if halfmove_clock < HALFMOVE_CLOCK_THRESHOLD {
-                hash
-            } else {
+            if halfmove_clock >= HALFMOVE_CLOCK_THRESHOLD {
                 // If `halfmove_clock` is close to rule-50, we blend
                 // it into the returned hash.
                 hash ^ self.zobrist.halfmove_clock[halfmove_clock as usize]
+            } else {
+                hash
             }
         }
     }
@@ -214,9 +213,8 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
             // `calc_see` does not handle pawn promotions very well,
             // so for them we simply return some positive value. We
             // could differentiate wining and losing promotions, but
-            // this makes no pracical difference and may cause funny
-            // move ordering, resulting in sometimes promoting rooks
-            // or knights for no good reason.
+            // this would be move complicated, without making any
+            // practical difference.
             PIECE_VALUES[PAWN]
         } else {
             self.calc_see(m)
@@ -405,7 +403,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
 
         // At the beginning of quiescence, position's static
         // evaluation (`stand_pat`) is used to establish a lower bound
-        // on the result. We assume that even if none of the capturing
+        // on the result. We assume that even if none of the forcing
         // moves can improve over the stand pat, there will be at
         // least one "quiet" move that will at least preserve the
         // stand pat value. (Note that this assumption is not true if
@@ -451,12 +449,12 @@ impl<T: MoveGenerator + 'static> Position<T> {
             }
 
             // Decide whether to try the move. Check evasions, pawn
-            // promotions, en-passant captures, and mandatory
-            // recaptures are always tried. For all other moves, a
-            // static exchange evaluation is performed to decide if
-            // the move should be tried. (In order to correct SEE
-            // errors due to pinned and overloaded pieces, at least
-            // one mandatory recapture is always tried at the
+            // promotions, castling, en-passant captures, and
+            // mandatory recaptures are always tried. For all other
+            // moves, a static exchange evaluation is performed to
+            // decide if the move should be tried. (In order to
+            // correct SEE errors due to pinned and overloaded pieces,
+            // at least one mandatory recapture is always tried at the
             // destination squares of previous moves.)
             if !in_check && move_type == MOVE_NORMAL && recapture_squares & dest_square_bb == 0 {
                 match self.calc_see(m) {
