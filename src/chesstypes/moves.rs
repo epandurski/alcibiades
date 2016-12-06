@@ -150,12 +150,12 @@ impl Move {
         debug_assert!(orig_square != dest_square ||
                       move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
         Move((score as u64) << M_SHIFT_SCORE |
-             ((!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE | played_piece << M_SHIFT_PIECE |
-              castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
+             (move_type << M_SHIFT_MOVE_TYPE | aux_data << M_SHIFT_AUX_DATA) as u64 |
+             (played_piece << M_SHIFT_PIECE | castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
               enpassant_file << M_SHIFT_ENPASSANT_FILE |
-              move_type << M_SHIFT_MOVE_TYPE | orig_square << M_SHIFT_ORIG_SQUARE |
-              dest_square << M_SHIFT_DEST_SQUARE |
-              aux_data << M_SHIFT_AUX_DATA) as u64)
+              orig_square << M_SHIFT_ORIG_SQUARE |
+              (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
+              dest_square << M_SHIFT_DEST_SQUARE) as u64)
     }
 
     /// Creates an invalid move instance.

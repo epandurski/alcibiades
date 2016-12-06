@@ -638,37 +638,25 @@ impl<'a, T, N> Search<'a, T, N>
                 self.moves.remove(state.hash_move_digest);
             }
 
-            // Set maximum move scores to captures and pawn promotions
-            // to queen.
+            // Set move scores to captures and pawn promotions to
+            // queen according to their static exchange evaluation.
             for m in self.moves.iter_mut() {
                 let move_score = if m.move_type() == MOVE_PROMOTION {
                     if m.aux_data() == 0 {
-                        MOVE_SCORE_MAX
+                        MOVE_SCORE_MAX - 1
                     } else {
                         0
                     }
                 } else if m.captured_piece() < NO_PIECE {
-                    MOVE_SCORE_MAX
+                    match self.position.evaluate_move(*m) {
+                        see if see > 0 => MOVE_SCORE_MAX - 1,
+                        see if see == 0 => MOVE_SCORE_MAX - 2,
+                        _ => 0,
+                    }
                 } else {
                     0
                 };
                 m.set_score(move_score);
-            }
-
-            // Update the move scores of captures and promotions to
-            // queen according to their static exchange evaluation.
-            for m in self.moves.iter_mut() {
-                if m.score() == MOVE_SCORE_MAX {
-                    let see = self.position.evaluate_move(*m);
-                    let new_move_score = if see > 0 {
-                        MOVE_SCORE_MAX - 1
-                    } else if see == 0 {
-                        MOVE_SCORE_MAX - 2
-                    } else {
-                        0
-                    };
-                    m.set_score(new_move_score);
-                }
             }
         }
 

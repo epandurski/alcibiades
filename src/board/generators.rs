@@ -108,13 +108,8 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     /// The moves are added to `moves`. All generated moves with
     /// pieces other than the king will be legal. Some of the
     /// generated king's moves may be illegal because the destination
-    /// square is under attack. The initial move scores for the
-    /// generated moves are:
-    ///
-    /// * `0` for pawn promotions to pieces other than queen (including
-    ///   captures).
-    /// * `u32::MAX` for captures and pawn promotions to queen.
-    /// * `0` for all other moves.
+    /// square is under attack. The initial move score for all
+    /// generated moves is `0`.
     ///
     /// **Note:** A pseudo-legal move is a move that is otherwise
     /// legal, except it might leave the king in check.
@@ -202,7 +197,6 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         let orig_square_bb = occupied_by_us & (1 << orig_square);
         let dest_square_bb = 1 << dest_square;
         let mut captured_piece = self.get_piece_type_at(dest_square);
-        let move_score;
 
         // Figure out what is the type of the moved piece.
         let piece;
@@ -272,7 +266,6 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
                         debug_assert!(generated_move.is_none());
                         return None;
                     }
-                    move_score = MOVE_SCORE_MAX;
                     captured_piece = PAWN;
                 }
                 x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
@@ -280,21 +273,11 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
                         debug_assert!(generated_move.is_none());
                         return None;
                     }
-                    move_score = if promoted_piece_code == 0 {
-                        MOVE_SCORE_MAX
-                    } else {
-                        0
-                    }
                 }
                 _ => {
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
                         debug_assert!(generated_move.is_none());
                         return None;
-                    }
-                    move_score = if captured_piece < NO_PIECE {
-                        MOVE_SCORE_MAX
-                    } else {
-                        0
                     }
                 }
             }
@@ -308,11 +291,6 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
                 debug_assert!(generated_move.is_none());
                 return None;
             }
-            move_score = if captured_piece < NO_PIECE {
-                MOVE_SCORE_MAX
-            } else {
-                0
-            }
         }
 
         let m = Move::new(move_type,
@@ -323,7 +301,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
                           piece,
                           self.board.castling_rights,
                           self.board.enpassant_file,
-                          move_score);
+                          0);
         debug_assert_eq!(generated_move, Some(m));
         Some(m)
     }
@@ -655,9 +633,9 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                     let pawn_legal_dests = pawn_legal_dests &
                                            self.geometry.squares_at_line[king_square][pawn_square];
                     self.add_pawn_moves(1 << pawn_square,
-                                         pawn_legal_dests,
-                                         !generate_all_moves,
-                                         moves);
+                                        pawn_legal_dests,
+                                        !generate_all_moves,
+                                        moves);
                 }
             }
         }
@@ -803,11 +781,6 @@ impl<T: BoardEvaluator> StandardMgen<T> {
         while piece_legal_dests != 0 {
             let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
-            let move_score = if captured_piece < NO_PIECE {
-                MOVE_SCORE_MAX
-            } else {
-                0
-            };
             moves.add_move(Move::new(MOVE_NORMAL,
                                      orig_square,
                                      dest_square,
@@ -816,7 +789,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                                      piece,
                                      self.board.castling_rights,
                                      self.board.enpassant_file,
-                                     move_score));
+                                     0));
         }
     }
 
@@ -869,18 +842,13 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                                                      PAWN,
                                                      self.board.castling_rights,
                                                      self.board.enpassant_file,
-                                                     MOVE_SCORE_MAX));
+                                                     0));
                         }
                     }
 
                     // pawn promotion
                     x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                         for p in 0..4 {
-                            let move_score = if p == 0 {
-                                MOVE_SCORE_MAX
-                            } else {
-                                0
-                            };
                             moves.add_move(Move::new(MOVE_PROMOTION,
                                                      orig_square,
                                                      dest_square,
@@ -889,7 +857,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                                                      PAWN,
                                                      self.board.castling_rights,
                                                      self.board.enpassant_file,
-                                                     move_score));
+                                                     0));
                             if only_queen_promotions {
                                 break;
                             }
@@ -898,11 +866,6 @@ impl<T: BoardEvaluator> StandardMgen<T> {
 
                     // normal pawn move
                     _ => {
-                        let move_score = if captured_piece < NO_PIECE {
-                            MOVE_SCORE_MAX
-                        } else {
-                            0
-                        };
                         moves.add_move(Move::new(MOVE_NORMAL,
                                                  orig_square,
                                                  dest_square,
@@ -911,7 +874,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
                                                  PAWN,
                                                  self.board.castling_rights,
                                                  self.board.enpassant_file,
-                                                 move_score));
+                                                 0));
                     }
                 }
             }
@@ -1073,10 +1036,6 @@ const PAWN_EAST_CAPTURE: usize = 3;
 /// the pawn is pushed one square forward, the updated bitboard would
 /// be: `gen_shift(1 << E2, PAWN_MOVE_SHIFTS[WHITE][PAWN_PUSH])`
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
-
-
-/// The highest possible move score.
-const MOVE_SCORE_MAX: u32 = ::std::u32::MAX;
 
 
 /// The origin and destination squares of the castling rook.
