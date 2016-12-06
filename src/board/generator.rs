@@ -308,8 +308,6 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
 
     #[inline]
     fn null_move(&self) -> Move {
-        // Null moves are represented as king's moves for which the
-        // destination square equals the origin square.
         let king_square = self.king_square();
         Move::new(MOVE_NORMAL,
                   king_square,
