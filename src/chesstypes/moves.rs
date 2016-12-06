@@ -149,13 +149,23 @@ impl Move {
         debug_assert!(move_type == MOVE_PROMOTION || aux_data == 0);
         debug_assert!(orig_square != dest_square ||
                       move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
-        Move((score as u64) << M_SHIFT_SCORE |
+
+        Move(// The order of those operations could be important to
+             // allow more optimizations.
+             //
+             // Most probably constants:
+             (score as u64) << M_SHIFT_SCORE |
              (move_type << M_SHIFT_MOVE_TYPE | aux_data << M_SHIFT_AUX_DATA) as u64 |
-             (played_piece << M_SHIFT_PIECE | castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
-              enpassant_file << M_SHIFT_ENPASSANT_FILE |
-              orig_square << M_SHIFT_ORIG_SQUARE |
-              (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-              dest_square << M_SHIFT_DEST_SQUARE) as u64)
+             (
+                 // Values that most probably *do not* change in cycle:
+                 castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
+                 enpassant_file << M_SHIFT_ENPASSANT_FILE |
+                 played_piece << M_SHIFT_PIECE |
+                 orig_square << M_SHIFT_ORIG_SQUARE |
+
+                 // Values that most probably *do* change in cycle:
+                 (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
+                 dest_square << M_SHIFT_DEST_SQUARE) as u64)
     }
 
     /// Creates an invalid move instance.
