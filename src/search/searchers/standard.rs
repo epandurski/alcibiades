@@ -633,14 +633,30 @@ impl<'a, T, N> Search<'a, T, N>
             state.phase = NodePhase::GeneratedMoves;
             self.position.generate_moves(self.moves);
 
-            // We should not forget to remove the already tried hash
-            // move from the list.
+            // Remove the already tried hash move from the list.
             if state.hash_move_digest != 0 {
                 self.moves.remove(state.hash_move_digest);
             }
 
-            // We set new move scores to all captures and promotions
-            // to queen according to their static exchange evaluation.
+            // Set maximum move scores to captures and pawn promotions
+            // to queen.
+            for m in self.moves.iter_mut() {
+                let move_score = if m.move_type() == MOVE_PROMOTION {
+                    if m.aux_data() == 0 {
+                        MOVE_SCORE_MAX
+                    } else {
+                        0
+                    }
+                } else if m.captured_piece() < NO_PIECE {
+                    MOVE_SCORE_MAX
+                } else {
+                    0
+                };
+                m.set_score(move_score);
+            }
+
+            // Update the move scores of captures and promotions to
+            // queen according to their static exchange evaluation.
             for m in self.moves.iter_mut() {
                 if m.score() == MOVE_SCORE_MAX {
                     let see = self.position.evaluate_move(*m);
