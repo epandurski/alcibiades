@@ -1,4 +1,4 @@
-//! Implementations of `MoveGenerator` trait.
+/// Implements `StandardMgen`.
 
 use std::mem::uninitialized;
 use std::cell::Cell;
