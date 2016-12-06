@@ -199,6 +199,12 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
 
     /// Returns a bitboard with all enemy pieces and pawns that attack
     /// the king.
+    ///
+    /// **Important note:** The bitboard of checkers is calculated on
+    /// the first call to `checkers`, and is saved in case another
+    /// call is made before doing/undoing any moves. In that case
+    /// `checkers` returns the saved bitboard instead of
+    /// re-calculating it, thus saving time.
     fn checkers(&self) -> Bitboard;
 
     /// Generates all legal moves, possibly including some
