@@ -13,8 +13,8 @@ use std::process::exit;
 use search::searchers::{Deepening, StandardSrch};
 use search::tt::StandardTt;
 use search::Position;
+use board::StandardMgen;
 use board::evaluators::RandomEval;
-use board::generators::StandardMgen;
 use engine::run_server;
 
 fn main() {

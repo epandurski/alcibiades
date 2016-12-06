@@ -1091,7 +1091,6 @@ fn calc_pawn_dest_sets(us: Color,
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use board::*;
     use board::evaluators::RandomEval;
     use board::notation::*;

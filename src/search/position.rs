@@ -764,7 +764,7 @@ mod tests {
     use chesstypes::*;
     use search::{SearchNode, MoveStack};
     use board::evaluators::MaterialEval;
-    use board::generators::StandardMgen;
+    use board::StandardMgen;
 
     #[test]
     fn test_fen_parsing() {

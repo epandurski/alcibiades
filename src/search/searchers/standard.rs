@@ -968,7 +968,7 @@ mod tests {
     use search::tt::StandardTt;
     use search::position::Position;
     use board::evaluators::RandomEval;
-    use board::generators::StandardMgen;
+    use board::StandardMgen;
 
     #[test]
     fn test_search() {
