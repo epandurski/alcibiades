@@ -183,16 +183,10 @@ impl Move {
     ///
     /// The interpretation of the raw value is: `0` -- queen, `1` --
     /// rook, `2` -- bishop, `3` -- knight.
-    #[inline]
+    #[inline(always)]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         debug_assert!(pp_code <= 3);
-        match pp_code {
-            0 => QUEEN,
-            1 => ROOK,
-            2 => BISHOP,
-            3 => KNIGHT,
-            _ => panic!("invalid pp_code"),
-        }
+        QUEEN + pp_code
     }
 
     /// Assigns a new score for the move.
