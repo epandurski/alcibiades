@@ -430,26 +430,13 @@ impl<T: MoveGenerator + 'static> Position<T> {
 
         // Consider the generated moves one by one. See if any of them
         // can raise the lower bound.
-        while let Some(m) = move_stack.remove_best() {
+        'trymoves: while let Some(m) = move_stack.remove_best() {
             let move_type = m.move_type();
             let dest_square_bb = 1 << m.dest_square();
             let captured_piece = m.captured_piece();
 
-            // Ensure that the immediate material gain from this move
-            // is big enough to warrant trying it.
-            let material_gain = if move_type == MOVE_PROMOTION {
-                PIECE_VALUES[captured_piece] +
-                PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
-                PIECE_VALUES[PAWN]
-            } else {
-                PIECE_VALUES[captured_piece]
-            };
-            if (material_gain as isize) < obligatory_material_gain {
-                continue;
-            }
-
             // Decide whether to try the move. Check evasions, pawn
-            // promotions, castling, en-passant captures, and
+            // promotions, en-passant captures, castling, and
             // mandatory recaptures are always tried. For all other
             // moves, a static exchange evaluation is performed to
             // decide if the move should be tried. (In order to
@@ -459,20 +446,37 @@ impl<T: MoveGenerator + 'static> Position<T> {
             if !in_check && move_type == MOVE_NORMAL && recapture_squares & dest_square_bb == 0 {
                 match self.calc_see(m) {
                     // A losing move -- do not try it.
-                    x if x < 0 => continue,
+                    x if x < 0 => continue 'trymoves,
 
                     // An even exchange -- try it only during the first few plys.
-                    0 if ply >= SEE_EXCHANGE_MAX_PLY && captured_piece < NO_PIECE => continue,
+                    0 if ply >= SEE_EXCHANGE_MAX_PLY && captured_piece < NO_PIECE => continue 'trymoves,
 
                     // A safe or winning move -- try it always.
                     _ => (),
                 }
             }
 
-            // Recursively call `qsearch` after playing the move
-            // (`m`). Update the lower bound accordingly.
+            // Try the move.
             unsafe {
                 if self.position_mut().do_move(m).is_some() {
+                    // If the move does not give check, ensure that
+                    // the immediate material gain from the move is
+                    // big enough.
+                    if self.position().checkers() == 0 {
+                        let material_gain = if move_type == MOVE_PROMOTION {
+                            PIECE_VALUES[captured_piece] +
+                            PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
+                            PIECE_VALUES[PAWN]
+                        } else {
+                            PIECE_VALUES[captured_piece]
+                        };
+                        if (material_gain as isize) < obligatory_material_gain {
+                            self.position_mut().undo_move(m);
+                            continue 'trymoves;
+                        }
+                    }
+
+                    // Recursively call `qsearch`.
                     *searched_nodes += 1;
                     let value = -self.qsearch(-upper_bound,
                                               -lower_bound,
@@ -487,9 +491,11 @@ impl<T: MoveGenerator + 'static> Position<T> {
                                               move_stack,
                                               searched_nodes);
                     self.position_mut().undo_move(m);
+
+                    // Update the lower bound.
                     if value >= upper_bound {
                         lower_bound = value;
-                        break;
+                        break 'trymoves;
                     }
                     if value > lower_bound {
                         lower_bound = value;
