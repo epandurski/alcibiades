@@ -288,14 +288,3 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// to `do_move`.
     fn undo_move(&mut self, m: Move);
 }
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_from_fen() {
-        Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").is_ok();
-    }
-}
