@@ -34,13 +34,13 @@ pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
 pub mod notation;
-mod generators;
+mod generator;
 
 use chesstypes::*;
 use uci::SetOption;
 use self::notation::{parse_fen, NotationError};
 
-pub use self::generators::StandardMgen;
+pub use self::generator::StandardMgen;
 
 
 /// Holds a chess position.
