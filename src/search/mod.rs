@@ -308,13 +308,6 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// or pawn advance.
     fn halfmove_clock(&self) -> u8;
 
-    /// Returns the count of half-moves since the beginning of the
-    /// game.
-    ///
-    /// At the beginning of the game it starts at `0`, and is
-    /// incremented after anyone's move.
-    fn halfmove_count(&self) -> u16;
-
     /// Returns if the side to move is in check.
     fn is_check(&self) -> bool;
 

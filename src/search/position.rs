@@ -1,6 +1,5 @@
 //! Implements `Position`.
 
-use std::u16;
 use std::mem::uninitialized;
 use std::cmp::{min, max};
 use std::cell::UnsafeCell;
@@ -42,9 +41,6 @@ pub struct Position<T: MoveGenerator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
     position: UnsafeCell<T>,
-
-    /// The count of half-moves since the beginning of the game.
-    halfmove_count: u16,
 
     /// Information needed so as to be able to undo the played moves.
     state_stack: Vec<PositionInfo>,
@@ -147,11 +143,6 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
     #[inline(always)]
     fn halfmove_clock(&self) -> u8 {
         self.state().halfmove_clock
-    }
-
-    #[inline(always)]
-    fn halfmove_count(&self) -> u16 {
-        self.halfmove_count
     }
 
     #[inline(always)]
@@ -283,7 +274,6 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
                     }
                 }
             };
-            self.halfmove_count += 1;
             self.encountered_boards.push(self.board_hash);
             self.board_hash ^= h;
             debug_assert!(halfmove_clock <= 99);
@@ -321,7 +311,6 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
         unsafe {
             self.position_mut().undo_move(self.state().last_move);
         }
-        self.halfmove_count -= 1;
         self.board_hash = self.encountered_boards.pop().unwrap();
         self.repeated_or_rule50 = false;
         self.state_stack.pop();
@@ -336,7 +325,6 @@ impl<T: MoveGenerator + 'static> Clone for Position<T> {
             zobrist: self.zobrist,
             position: UnsafeCell::new(self.position().clone()),
             board_hash: self.board_hash,
-            halfmove_count: self.halfmove_count,
             repeated_or_rule50: self.repeated_or_rule50,
             repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: self.encountered_boards.clone(),
@@ -361,12 +349,11 @@ impl<T: MoveGenerator + 'static> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
-        let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
+        let (board, halfmove_clock, _) = try!(parse_fen(fen));
         let g = try!(T::from_board(board).ok_or(NotationError));
         Ok(Position {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
-            halfmove_count: ((fullmove_number - 1) << 1) + g.board().to_move as u16,
             board_hash: g.board_hash(),
             position: UnsafeCell::new(g),
             repeated_or_rule50: false,
