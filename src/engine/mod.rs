@@ -97,6 +97,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         // Add up all suported options.
         let mut options = vec![
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 64 * 1024, default: 16 }),
+            ("Clear Hash".to_string(), OptionDescription::Button),
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
         ];
         options.extend(S::options());
@@ -149,15 +150,20 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
     fn set_option(&mut self, name: &str, value: &str) {
         match name {
             "Ponder" => {
+                // TODO: Can we remove this?
                 self.pondering_is_allowed = value == "true";
             }
             "MultiPV" => {
+                // TODO: Can we remove this?
                 self.variation_count = max(value.parse::<usize>().unwrap_or(0), 1);
             }
             "Hash" => {
                 // We do not support re-sizing of the transposition
                 // table once the engine has been started.
                 return;
+            }
+            "Clear Hash" => {
+                self.tt.clear();
             }
             _ => (),
         }
