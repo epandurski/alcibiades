@@ -160,8 +160,8 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
 
 /// A trait for move generators.
 ///
-/// A `MoveGenerator` can generate all legal moves in the current
-/// position, play a selected move, and take it back. It provides a
+/// A `MoveGenerator` holds a chess position, can generate all legal
+/// moves, play a selected move and take it back. It provides a
 /// position evaluator, and can calculate Zobrist hashes.
 ///
 /// **Important note:** `MoveGenerator` is unaware of repeating
