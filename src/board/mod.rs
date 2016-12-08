@@ -177,10 +177,6 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// Returns `None` if the position is illegal.
     fn from_board(board: Board) -> Option<Self>;
 
-    /// Returns a reference to the underlying `Board` instance.
-    #[inline(always)]
-    fn board(&self) -> &Board;
-
     /// Returns the Zobrist hash value for the underlying `Board`
     /// instance.
     ///
@@ -191,13 +187,13 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// entirely different hash numbers.
     ///
     /// **Important note:** This method calculates the hash value
-    /// "from scratch", which can be too slow for some cases. (See
+    /// "from scratch", which can be too slow for some use cases. (See
     /// `do_move`.)
-    fn board_hash(&self) -> u64;
+    fn hash(&self) -> u64;
 
-    /// Returns a reference to a static evaluator bound to the current
-    /// position.
-    fn evaluator(&self) -> &Self::BoardEvaluator;
+    /// Returns a reference to the underlying `Board` instance.
+    #[inline(always)]
+    fn board(&self) -> &Board;
 
     /// Returns a bitboard with all pieces of color `us` that attack
     /// `square`.
@@ -211,6 +207,10 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// `checkers` returns the saved bitboard instead of
     /// re-calculating it, thus saving time.
     fn checkers(&self) -> Bitboard;
+
+    /// Returns a reference to a static evaluator bound to the current
+    /// position.
+    fn evaluator(&self) -> &Self::BoardEvaluator;
 
     /// Generates all legal moves, possibly including some
     /// pseudo-legal moves too.

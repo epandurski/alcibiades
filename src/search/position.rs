@@ -345,7 +345,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
         Ok(Position {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
-            board_hash: g.board_hash(),
+            board_hash: g.hash(),
             position: UnsafeCell::new(g),
             repeated_or_rule50: false,
             repeated_boards_hash: 0,

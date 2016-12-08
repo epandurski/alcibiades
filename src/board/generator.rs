@@ -42,12 +42,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         }
     }
 
-    #[inline(always)]
-    fn board(&self) -> &Board {
-        &self.board
-    }
-
-    fn board_hash(&self) -> u64 {
+    fn hash(&self) -> u64 {
         let mut hash = 0;
         for color in 0..2 {
             for piece in 0..6 {
@@ -67,8 +62,8 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     }
 
     #[inline(always)]
-    fn evaluator(&self) -> &Self::BoardEvaluator {
-        &self.evaluator
+    fn board(&self) -> &Board {
+        &self.board
     }
 
     fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
@@ -100,6 +95,11 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
             self.checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         }
         self.checkers.get()
+    }
+
+    #[inline(always)]
+    fn evaluator(&self) -> &Self::BoardEvaluator {
+        &self.evaluator
     }
 
     /// Generates all legal moves, possibly including some
@@ -348,7 +348,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
 
             // Initialize `old_hash`, which will be used to assert
             // that the returned value (`h`) is calculated correctly.
-            old_hash = self.board_hash();
+            old_hash = self.hash();
         }
 
         // Verify if the move will leave the king in check. (We are
@@ -445,7 +445,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         self.evaluator.done_move(&self.board, m);
 
         debug_assert!(self.is_legal());
-        debug_assert_eq!(old_hash ^ h, self.board_hash());
+        debug_assert_eq!(old_hash ^ h, self.hash());
         Some(h)
     }
 
