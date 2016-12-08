@@ -165,15 +165,6 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
     }
 
     #[inline]
-    fn evaluate_static(&self) -> Value {
-        if self.repeated_or_rule50 {
-            0
-        } else {
-            self.evaluator().evaluate(self.board(), self.halfmove_clock())
-        }
-    }
-
-    #[inline]
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
@@ -751,7 +742,7 @@ mod tests {
     use chesstypes::*;
     use search::{SearchNode, MoveStack};
     use board::evaluators::MaterialEval;
-    use board::StandardMgen;
+    use board::{BoardEvaluator, StandardMgen};
 
     #[test]
     fn test_fen_parsing() {
@@ -904,11 +895,11 @@ mod tests {
 
     #[test]
     fn test_evaluate_static() {
-        assert!(Position::<StandardMgen<MaterialEval>>::from_fen("krq5/p7/8/8/8/8/8/\
+        let p = Position::<StandardMgen<MaterialEval>>::from_fen("krq5/p7/8/8/8/8/8/\
                                                                             KRQ5 w - - 0 1")
                     .ok()
-                    .unwrap()
-                    .evaluate_static() < -20);
+                    .unwrap();
+        assert!(p.evaluator().evaluate(p.board(), p.halfmove_clock()) < -20);
     }
 
     #[test]

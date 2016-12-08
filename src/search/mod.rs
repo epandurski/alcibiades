@@ -325,18 +325,6 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// legal, then the position is final.)
     fn evaluate_final(&self) -> Value;
 
-    /// Statically evaluates the position.
-    ///
-    /// This method considers only static material and positional
-    /// properties of the position. If the position is dynamic, with
-    /// pending tactical threats, this function will return a grossly
-    /// incorrect evaluation.
-    ///
-    /// The returned value will be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions `0` is
-    /// returned.
-    fn evaluate_static(&self) -> Value;
-
     /// Performs quiescence search and returns an evaluation.
     ///
     /// Quiescence search is a restricted search which considers only
@@ -354,8 +342,8 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// exact evaluation is outside of this interval, this method may
     /// return a value that is closer to the the interval bounds than
     /// the exact evaluation, but always staying on the correct side
-    /// of the interval. `static_evaluation` should be the value
-    /// returned by `self.evaluate_static()`, or `VALUE_UNKNOWN`.
+    /// of the interval. `static_evaluation` should be position's
+    /// static evaluation, or `VALUE_UNKNOWN`.
     ///
     /// The first slot in the returned tuple is the calculated
     /// evaluation. It will always be between `VALUE_EVAL_MIN` and

@@ -478,11 +478,18 @@ impl<'a, T, N> Search<'a, T, N>
         let hash = self.position.hash();
         let (entry, eval_value) = if let Some(e) = self.tt.probe(hash) {
             match e.eval_value() {
-                VALUE_UNKNOWN => (e, self.position.evaluate_static()),
+                VALUE_UNKNOWN => {
+                    (e,
+                     self.position
+                         .evaluator()
+                         .evaluate(self.position.board(), self.position.halfmove_clock()))
+                }
                 v => (e, v),
             }
         } else {
-            let v = self.position.evaluate_static();
+            let v = self.position
+                        .evaluator()
+                        .evaluate(self.position.board(), self.position.halfmove_clock());
             (T::Entry::new(0, BOUND_NONE, 0, 0, v), v)
         };
         self.state_stack.push(NodeState {

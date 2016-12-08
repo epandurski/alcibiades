@@ -6,8 +6,9 @@ use std::time::Duration;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
 use std::ops::Deref;
-use chesstypes::*;
 use uci::{SetOption, OptionDescription};
+use chesstypes::*;
+use board::BoardEvaluator;
 use search::*;
 
 
@@ -354,8 +355,9 @@ impl<T: SearchExecutor> Multipv<T> {
             v if v >= self.params.upper_bound || !self.all_moves_are_considered => BOUND_LOWER,
             _ => BOUND_EXACT,
         };
-        let eval_value = self.params.position.evaluate_static();
-        self.tt.store(self.params.position.hash(),
+        let p = &self.params.position;
+        let eval_value = p.evaluator().evaluate(p.board(), p.halfmove_clock());
+        self.tt.store(p.hash(),
                       <T::HashTable as HashTable>::Entry::new(value,
                                                               bound,
                                                               self.params.depth,
