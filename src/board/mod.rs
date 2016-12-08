@@ -199,15 +199,14 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// position.
     fn evaluator(&self) -> &Self::BoardEvaluator;
 
-    /// Returns a bitboard with all pieces and pawns of color `us`
-    /// that attack `square`.
+    /// Returns a bitboard with all pieces of color `us` that attack
+    /// `square`.
     fn attacks_to(&self, us: Color, square: Square) -> Bitboard;
 
-    /// Returns a bitboard with all enemy pieces and pawns that attack
-    /// the king.
+    /// Returns a bitboard with all enemy pieces that attack the king.
     ///
     /// **Important note:** The bitboard of checkers is calculated on
-    /// the first call to `checkers`, and is saved in case another
+    /// the first call to `checkers`, and is stored in case another
     /// call is made before doing/undoing any moves. In that case
     /// `checkers` returns the saved bitboard instead of
     /// re-calculating it, thus saving time.
