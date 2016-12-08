@@ -195,7 +195,7 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
             // `calc_see` does not handle pawn promotions very well,
             // so for them we simply return some positive value. We
             // could differentiate wining and losing promotions, but
-            // this would be move complicated, without making any
+            // this would be more complicated, without making any
             // practical difference.
             PIECE_VALUES[PAWN]
         } else {
