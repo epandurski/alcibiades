@@ -410,7 +410,19 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// **Important note:** This method is slower than
     /// `generate_moves` because it ensures that all returned moves
     /// are legal.
-    fn legal_moves(&self) -> Vec<Move>;
+    fn legal_moves(&self) -> Vec<Move> {
+        let mut position = self.clone();
+        let mut legal_moves = Vec::with_capacity(96);
+        let mut v = Vec::with_capacity(96);
+        position.generate_moves(&mut v);
+        for m in v.iter() {
+            if position.do_move(*m) {
+                legal_moves.push(*m);
+                position.undo_move();
+            }
+        }
+        legal_moves
+    }
 
     /// Returns a null move.
     ///
