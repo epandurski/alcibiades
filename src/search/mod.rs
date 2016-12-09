@@ -332,9 +332,8 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// promotions to queen, check evasions). The goal is to
     /// statically evaluate only "quiet" positions (positions where
     /// there are no winning tactical moves to be made). Although this
-    /// search can cheaply and correctly resolve many tactical issues,
-    /// it is blind to other simple tactical threats like most kinds
-    /// of forks, checks, even a checkmate in one move.
+    /// search can cheaply and correctly resolve some tactical issues,
+    /// it is completely blind to others.
     ///
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
@@ -378,7 +377,8 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// for the current position on the board.
     fn evaluate_move(&self, m: Move) -> Value;
 
-    /// Generates pseudo-legal moves.
+    /// Generates all legal moves, possibly including some
+    /// pseudo-legal moves too.
     ///
     /// A pseudo-legal move is a move that is otherwise legal, except
     /// it might leave the king in check. Every legal move is a
@@ -408,7 +408,8 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// "Null move" is a pseudo-move that changes only the side to
     /// move. It is sometimes useful to include a speculative null
     /// move in the search tree so as to achieve more aggressive
-    /// pruning.
+    /// pruning. Null moves are represented as king's moves for which
+    /// the origin and destination squares are the same.
     fn null_move(&self) -> Move;
 
     /// Plays a move on the board.
