@@ -256,6 +256,8 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     ///
     /// * `checks` specifies how many of the moves in the current line
     ///   of play gave check (`checks` <= `ply`).
+
+    // TODO: Kill `checks` parameter?
     fn generate_forcing<T: AddMove>(&self, ply: u8, checks: u8, moves: &mut T);
 
     /// Checks if `move_digest` represents a pseudo-legal move.

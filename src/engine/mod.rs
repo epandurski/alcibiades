@@ -182,6 +182,8 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
 
     fn go(&mut self, params: GoParams) {
         // Note: We ignore the "mate" field.
+        //
+        // TODO: What should we do with "mate"?
         let GoParams { searchmoves,
                        ponder,
                        wtime,
