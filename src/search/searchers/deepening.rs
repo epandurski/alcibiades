@@ -357,12 +357,8 @@ impl<T: SearchExecutor> Multipv<T> {
         };
         let p = &self.params.position;
         let eval_value = p.evaluator().evaluate(p.board(), p.halfmove_clock());
-        self.tt.store(p.hash(),
-                      <T::HashTable as HashTable>::Entry::new(value,
-                                                              bound,
-                                                              self.params.depth,
-                                                              best_move.digest(),
-                                                              eval_value));
+        self.tt.store(p.hash(), <T::HashTable as HashTable>::Entry::with_eval_value(
+                value, bound, self.params.depth, best_move.digest(), eval_value));
     }
 
     fn change_current_move(&mut self, v: Value) {

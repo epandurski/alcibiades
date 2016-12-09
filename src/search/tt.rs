@@ -24,12 +24,18 @@ pub struct StandardTtEntry {
 }
 
 impl HashTableEntry for StandardTtEntry {
-    fn new(value: Value,
-           bound: BoundType,
-           depth: u8,
-           move_digest: MoveDigest,
-           eval_value: Value)
-           -> StandardTtEntry {
+    #[inline(always)]
+    fn new(value: Value, bound: BoundType, depth: u8, move_digest: MoveDigest) -> StandardTtEntry {
+        Self::with_eval_value(value, bound, depth, move_digest, VALUE_UNKNOWN)
+    }
+
+    #[inline(always)]
+    fn with_eval_value(value: Value,
+                       bound: BoundType,
+                       depth: u8,
+                       move_digest: MoveDigest,
+                       eval_value: Value)
+                       -> StandardTtEntry {
         debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
         debug_assert!(depth <= DEPTH_MAX);
@@ -334,17 +340,16 @@ mod tests {
     fn test_store_and_probe() {
         let tt = StandardTt::new(None);
         assert!(tt.probe(1).is_none());
-        let data = StandardTtEntry::new(0, 0, 50, 666, 0);
+        let data = StandardTtEntry::new(0, 0, 50, 666);
         assert_eq!(data.depth(), 50);
         assert_eq!(data.move_digest(), 666);
         tt.store(1, data);
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        tt.store(1, StandardTtEntry::new(0, 0, 50, 666, 0));
+        tt.store(1, StandardTtEntry::new(0, 0, 50, 666));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), 666);
         for i in 2..50 {
-            tt.store(i,
-                     StandardTtEntry::new(i as i16, 0, i as u8, i as u16, i as i16));
+            tt.store(i, StandardTtEntry::new(i as i16, 0, i as u8, i as u16));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);

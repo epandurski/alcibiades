@@ -170,40 +170,46 @@ pub trait HashTableEntry: Copy {
     /// * `value` -- The value assigned to the position. Must not be
     ///   `VALUE_UNKNOWN`.
     ///
-    /// * `bound` -- The accuracy of the assigned `value`.
+    /// * `bound` -- The accuracy of the assigned value.
     ///
     /// * `depth` -- The depth of search. Must be no greater than
     ///   `DEPTH_MAX`.
     ///
     /// * `move_digest` -- Best or refutation move digest, or `0` if
     ///   no move is available.
-    ///
-    /// * `eval_value` -- The static evaluation of the position, or
-    ///   `VALUE_UNKNOWN`.
-    fn new(value: Value,
-           bound: BoundType,
-           depth: u8,
-           move_digest: MoveDigest,
-           eval_value: Value)
-           -> Self;
+    fn new(value: Value, bound: BoundType, depth: u8, move_digest: MoveDigest) -> Self;
 
-    /// Returns the `value` passed to the constructor.
+    /// Creates a new instance.
+    ///
+    /// The only difference between this function and `new` is that
+    /// this function requires one additional parameter:
+    ///
+    /// * `eval_value` -- Position's static evaluation, or
+    ///   `VALUE_UNKNOWN`.
+    ///
+    /// **Important note:** `eval_value` will be ignored if there is
+    /// no field allotted for it in the underlying memory structure.
+    fn with_eval_value(value: Value,
+                       bound: BoundType,
+                       depth: u8,
+                       move_digest: MoveDigest,
+                       eval_value: Value)
+                       -> Self;
+
+    /// Returns the value assigned to the position.
     fn value(&self) -> Value;
 
-    /// Returns the `bound` passed to the constructor.
+    /// Returns the accuracy of the assigned value.
     fn bound(&self) -> BoundType;
 
-    /// Returns the `depth` passed to the constructor.
+    /// Returns the search depth for the assigned value.
     fn depth(&self) -> u8;
 
-    /// Returns the `move_digest` passed to the constructor.
+    /// Returns best or refutation move digest, or `0` if no move is
+    /// available.
     fn move_digest(&self) -> MoveDigest;
 
-    /// Returns the `eval_value` passed to the constructor, or
-    /// `VALUE_UNKNOWN`.
-    ///
-    /// **Important note:** The implementation of the constructor may
-    /// decide to ignore `eval_value` and not store it.
+    /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
     fn eval_value(&self) -> Value;
 }
 
