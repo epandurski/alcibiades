@@ -332,8 +332,8 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// promotions to queen, check evasions). The goal is to
     /// statically evaluate only "quiet" positions (positions where
     /// there are no winning tactical moves to be made). Although this
-    /// search can cheaply and correctly resolve some tactical issues,
-    /// it is completely blind to others.
+    /// search can cheaply and correctly resolve many simple tactical
+    /// issues, it is completely blind to the more complex ones.
     ///
     /// `lower_bound` and `upper_bound` together give the interval
     /// within which an as precise as possible evaluation is
