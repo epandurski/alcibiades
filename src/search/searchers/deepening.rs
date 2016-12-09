@@ -46,7 +46,7 @@ use search::*;
 /// multi-PV, and "searchmoves" support. (`T` do not need to support
 /// "searchmoves".)
 pub struct Deepening<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Tt>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -62,13 +62,13 @@ pub struct Deepening<T: SearchExecutor> {
 }
 
 impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
-    type HashTable = T::HashTable;
+    type Tt = T::Tt;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = Vec<Variation>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Deepening<T> {
+    fn new(tt: Arc<Self::Tt>) -> Deepening<T> {
         Deepening {
             tt: tt.clone(),
             params: bogus_params(),
@@ -184,7 +184,7 @@ impl<T: SearchExecutor> Deepening<T> {
 
 /// Executes mulit-PV searches with aspiration windows.
 struct Multipv<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Tt>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -211,7 +211,7 @@ lazy_static! {
 }
 
 impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
-    type HashTable = T::HashTable;
+    type Tt = T::Tt;
 
     type SearchNode = T::SearchNode;
 
@@ -219,7 +219,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     // descending move strength, or an empty list.
     type ReportData = Vec<Move>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Multipv<T> {
+    fn new(tt: Arc<Self::Tt>) -> Multipv<T> {
         Multipv {
             tt: tt.clone(),
             params: bogus_params(),
@@ -356,13 +356,12 @@ impl<T: SearchExecutor> Multipv<T> {
             _ => BOUND_EXACT,
         };
         let p = &self.params.position;
-        let eval_value = p.evaluator().evaluate(p.board(), p.halfmove_clock());
         self.tt.store(p.hash(),
-                      <T::HashTable as HashTable>::Entry::new(value,
-                                                              bound,
-                                                              self.params.depth,
-                                                              best_move.digest(),
-                                                              eval_value));
+                      <T::Tt as Tt>::Entry::new(value,
+                                                bound,
+                                                self.params.depth,
+                                                best_move.digest(),
+                                                Default::default()));
     }
 
     fn change_current_move(&mut self, v: Value) {
@@ -383,7 +382,7 @@ impl<T: SearchExecutor> Multipv<T> {
 
 /// Executes searches with aspiration windows.
 struct Aspiration<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Tt>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -407,14 +406,14 @@ struct Aspiration<T: SearchExecutor> {
 }
 
 impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
-    type HashTable = T::HashTable;
+    type Tt = T::Tt;
 
     type SearchNode = T::SearchNode;
 
     // Reports' auxiliary data will always contain an empty move list.
     type ReportData = Vec<Move>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
+    fn new(tt: Arc<Self::Tt>) -> Aspiration<T> {
         Aspiration {
             tt: tt.clone(),
             params: bogus_params(),

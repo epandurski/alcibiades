@@ -137,8 +137,8 @@ pub struct SearchReport<T> {
 /// have a transposition table, which is a large hash table storing
 /// information about positions previously searched, how deeply they
 /// were searched, and what we concluded about them.
-pub trait HashTable: Sync + Send {
-    type Entry: HashTableEntry;
+pub trait Tt: Sync + Send {
+    type Entry: TtEntry;
 
     /// Creates a new transposition table.
     ///
@@ -164,9 +164,9 @@ pub trait HashTable: Sync + Send {
 
 
 /// A trait for transposition table entries.
-pub trait HashTableEntry: Copy {
+pub trait TtEntry: Copy {
     /// The type of auxiliary data that the implementation works with.
-    type AuxData;
+    type AuxData: Default;
 
     /// Creates a new instance.
     ///
@@ -186,7 +186,7 @@ pub trait HashTableEntry: Copy {
            bound: BoundType,
            depth: u8,
            move_digest: MoveDigest,
-           data: Self::AuxData)
+           aux_data: Self::AuxData)
            -> Self;
 
     /// Returns the `value` passed to the constructor.
@@ -202,7 +202,7 @@ pub trait HashTableEntry: Copy {
     fn move_digest(&self) -> MoveDigest;
 
     /// Returns the auxiliary data passed to the constructor.
-    fn data(&self) -> Self::AuxData;
+    fn aux_data(&self) -> Self::AuxData;
 }
 
 
@@ -222,7 +222,7 @@ pub trait HashTableEntry: Copy {
 pub trait SearchExecutor: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
-    type HashTable: HashTable;
+    type Tt: Tt;
 
     /// The type of search node that the implementation works with.
     type SearchNode: SearchNode;
@@ -231,7 +231,7 @@ pub trait SearchExecutor: SetOption {
     type ReportData;
 
     /// Creates a new instance.
-    fn new(tt: Arc<Self::HashTable>) -> Self;
+    fn new(tt: Arc<Self::Tt>) -> Self;
 
     /// Starts a new search.
     ///
@@ -497,7 +497,7 @@ pub struct Variation {
 ///
 /// **Important note:** Evaluations under `-9999`, or over `9999` will
 /// be chopped.
-pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> Variation {
+pub fn extract_pv<T: Tt, N: SearchNode>(tt: &T, position: &N, depth: u8) -> Variation {
     assert!(depth <= DEPTH_MAX, "invalid depth: {}", depth);
     let mut p = position.clone();
     let mut our_turn = true;

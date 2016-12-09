@@ -38,7 +38,7 @@ use search::*;
 /// **Important note:** `StandardSrch` ignores the `searchmoves` search
 /// parameter. It always analyses all legal moves in the root
 /// position.
-pub struct StandardSrch<T: HashTable, N: SearchNode> {
+pub struct StandardSrch<T: Tt, N: SearchNode> {
     phantom: PhantomData<T>,
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command<N>>,
@@ -47,10 +47,10 @@ pub struct StandardSrch<T: HashTable, N: SearchNode> {
 }
 
 impl<T, N> SearchExecutor for StandardSrch<T, N>
-    where T: HashTable + 'static,
+    where T: Tt + 'static,
           N: SearchNode + 'static
 {
-    type HashTable = T;
+    type Tt = T;
 
     type SearchNode = N;
 
@@ -105,7 +105,7 @@ impl<T, N> SearchExecutor for StandardSrch<T, N>
     }
 }
 
-impl<T: HashTable, N: SearchNode> SetOption for StandardSrch<T, N> {
+impl<T: Tt, N: SearchNode> SetOption for StandardSrch<T, N> {
     fn options() -> Vec<(String, OptionDescription)> {
         N::options()
     }
@@ -115,7 +115,7 @@ impl<T: HashTable, N: SearchNode> SetOption for StandardSrch<T, N> {
     }
 }
 
-impl<T: HashTable, N: SearchNode> Drop for StandardSrch<T, N> {
+impl<T: Tt, N: SearchNode> Drop for StandardSrch<T, N> {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();
@@ -175,7 +175,7 @@ fn serve_simple<T, N>(tt: Arc<T>,
                       commands: Receiver<Command<N>>,
                       reports: Sender<SearchReport<()>>,
                       has_reports_condition: Arc<(Mutex<bool>, Condvar)>)
-    where T: HashTable,
+    where T: Tt,
           N: SearchNode
 {
     thread_local!(
@@ -263,7 +263,7 @@ struct TerminatedSearch;
 
 /// Represents a game tree search.        
 struct Search<'a, T, N>
-    where T: HashTable + 'a,
+    where T: Tt + 'a,
           N: SearchNode
 {
     tt: &'a T,
@@ -279,7 +279,7 @@ struct Search<'a, T, N>
 
 
 impl<'a, T, N> Search<'a, T, N>
-    where T: HashTable + 'a,
+    where T: Tt + 'a,
           N: SearchNode
 {
     /// Creates a new instance.
@@ -971,7 +971,7 @@ impl Default for KillerPair {
 mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
-    use search::{SearchNode, MoveStack, HashTable};
+    use search::{SearchNode, MoveStack, Tt};
     use search::tt::StandardTt;
     use search::position::Position;
     use board::evaluators::RandomEval;

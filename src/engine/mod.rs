@@ -49,7 +49,7 @@ enum PlayWhen {
 
 /// Implements `UciEngine` trait.
 struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
-    tt: Arc<S::HashTable>,
+    tt: Arc<S::Tt>,
     position: S::SearchNode,
     current_depth: u8,
 
@@ -117,7 +117,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
     }
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S> {
-        let tt = Arc::new(S::HashTable::new(tt_size_mb));
+        let tt = Arc::new(S::Tt::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
             position: S::SearchNode::from_history(START_POSITION_FEN, &mut vec![].into_iter())

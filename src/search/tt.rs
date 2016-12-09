@@ -23,7 +23,7 @@ pub struct StandardTtEntry {
     eval_value: Value,
 }
 
-impl HashTableEntry for StandardTtEntry {
+impl TtEntry for StandardTtEntry {
     type AuxData = Value;
 
     fn new(value: Value,
@@ -66,7 +66,7 @@ impl HashTableEntry for StandardTtEntry {
 
     /// Returns the `eval_value` passed to the constructor.
     #[inline(always)]
-    fn data(&self) -> Value {
+    fn aux_data(&self) -> Value {
         self.eval_value
     }
 }
@@ -95,7 +95,7 @@ pub struct StandardTt {
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
 
-impl HashTable for StandardTt {
+impl Tt for StandardTt {
     type Entry = StandardTtEntry;
 
     fn new(size_mb: Option<usize>) -> StandardTt {
@@ -319,7 +319,7 @@ mod tests {
     use super::*;
     use super::Record;
     use std;
-    use search::{HashTable, HashTableEntry, DEPTH_MAX};
+    use search::{Tt, TtEntry, DEPTH_MAX};
 
     #[test]
     fn test_max_depth() {
