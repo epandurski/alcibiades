@@ -403,27 +403,6 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// without calling `generate_moves`.
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move>;
 
-    /// Returns all legal moves in the position.
-    ///
-    /// No moves are returned for repeated and rule-50 positions.
-    /// 
-    /// **Important note:** This method is slower than
-    /// `generate_moves` because it ensures that all returned moves
-    /// are legal.
-    fn legal_moves(&self) -> Vec<Move> {
-        let mut position = self.clone();
-        let mut legal_moves = Vec::with_capacity(96);
-        let mut v = Vec::with_capacity(96);
-        position.generate_moves(&mut v);
-        for m in v.iter() {
-            if position.do_move(*m) {
-                legal_moves.push(*m);
-                position.undo_move();
-            }
-        }
-        legal_moves
-    }
-
     /// Returns a null move.
     ///
     /// "Null move" is a pseudo-move that changes only the side to
@@ -446,6 +425,27 @@ pub trait SearchNode: Send + Clone + SetOption {
 
     /// Takes back the last played move.
     fn undo_move(&mut self);
+
+    /// Returns all legal moves in the position.
+    ///
+    /// No moves are returned for repeated and rule-50 positions.
+    ///
+    /// **Important note:** This method is slower than
+    /// `generate_moves` because it ensures that all returned moves
+    /// are legal.
+    fn legal_moves(&self) -> Vec<Move> {
+        let mut position = self.clone();
+        let mut legal_moves = Vec::with_capacity(96);
+        let mut v = Vec::with_capacity(96);
+        position.generate_moves(&mut v);
+        for m in v.iter() {
+            if position.do_move(*m) {
+                legal_moves.push(*m);
+                position.undo_move();
+            }
+        }
+        legal_moves
+    }
 }
 
 
