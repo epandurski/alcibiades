@@ -165,6 +165,9 @@ pub trait HashTable: Sync + Send {
 
 /// A trait for transposition table entries.
 pub trait HashTableEntry: Copy {
+    /// The type of auxiliary data that the implementation works with.
+    type AuxData;
+
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. Must not be
@@ -178,13 +181,12 @@ pub trait HashTableEntry: Copy {
     /// * `move_digest` -- Best or refutation move digest, or `0` if
     ///   no move is available.
     ///
-    /// * `eval_value` -- The static evaluation of the position, or
-    ///   `VALUE_UNKNOWN`.
+    /// * `data` -- Auxiliary data.
     fn new(value: Value,
            bound: BoundType,
            depth: u8,
            move_digest: MoveDigest,
-           eval_value: Value)
+           data: Self::AuxData)
            -> Self;
 
     /// Returns the `value` passed to the constructor.
@@ -199,12 +201,8 @@ pub trait HashTableEntry: Copy {
     /// Returns the `move_digest` passed to the constructor.
     fn move_digest(&self) -> MoveDigest;
 
-    /// Returns the `eval_value` passed to the constructor, or
-    /// `VALUE_UNKNOWN`.
-    ///
-    /// **Important note:** The implementation of the constructor may
-    /// decide to ignore `eval_value` and not store it.
-    fn eval_value(&self) -> Value;
+    /// Returns the auxiliary data passed to the constructor.
+    fn data(&self) -> Self::AuxData;
 }
 
 

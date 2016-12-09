@@ -24,6 +24,8 @@ pub struct StandardTtEntry {
 }
 
 impl HashTableEntry for StandardTtEntry {
+    type AuxData = Value;
+
     fn new(value: Value,
            bound: BoundType,
            depth: u8,
@@ -64,7 +66,7 @@ impl HashTableEntry for StandardTtEntry {
 
     /// Returns the `eval_value` passed to the constructor.
     #[inline(always)]
-    fn eval_value(&self) -> Value {
+    fn data(&self) -> Value {
         self.eval_value
     }
 }
