@@ -248,7 +248,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// infinitely large search tree.
     ///
     /// To be able to intelligently decide which moves to include,
-    /// `generate_focing` should be supplied with some information
+    /// `generate_forcing` should be supplied with some information
     /// about the currently running quiescence search: `ply` specifies
     /// the number of half-moves in the current line of play.
     fn generate_forcing<T: AddMove>(&self, ply: u8, moves: &mut T);
