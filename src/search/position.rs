@@ -400,7 +400,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
             lower_bound = stand_pat;
         }
         let obligatory_material_gain = (lower_bound as isize) - (stand_pat as isize) -
-                                       2 * (PIECE_VALUES[PAWN] as isize);
+                                       (PIECE_VALUES[KNIGHT] - 4 * PIECE_VALUES[PAWN] / 3) as isize;
 
         // Generate all forcing moves.
         move_stack.save();
