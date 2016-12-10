@@ -249,16 +249,9 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     ///
     /// To be able to intelligently decide which moves to include,
     /// `generate_focing` should be supplied with some information
-    /// about the currently running quiescence search:
-    ///
-    /// * `ply` specifies the number of moves in the current line of
-    ///   play (half-moves).
-    ///
-    /// * `checks` specifies how many of the moves in the current line
-    ///   of play gave check (`checks` <= `ply`).
-
-    // TODO: Kill `checks` parameter?
-    fn generate_forcing<T: AddMove>(&self, ply: u8, checks: u8, moves: &mut T);
+    /// about the currently running quiescence search: `ply` specifies
+    /// the number of half-moves in the current line of play.
+    fn generate_forcing<T: AddMove>(&self, ply: u8, moves: &mut T);
 
     /// Checks if `move_digest` represents a pseudo-legal move.
     ///

@@ -131,7 +131,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     /// **Note:** `ply` and `checks` parameters are ignored.
     #[allow(unused_variables)]
     #[inline(always)]
-    fn generate_forcing<U: AddMove>(&self, ply: u8, checks: u8, moves: &mut U) {
+    fn generate_forcing<U: AddMove>(&self, ply: u8, moves: &mut U) {
         self.generate(false, moves)
     }
 
@@ -1451,21 +1451,21 @@ mod tests {
                                                                 1")
                     .ok()
                     .unwrap();
-        b.generate_forcing(0, 0, &mut stack);
+        b.generate_forcing(0, &mut stack);
         assert_eq!(stack.len(), 4);
         stack.clear_all();
 
         let b = StandardMgen::<RandomEval>::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1")
                     .ok()
                     .unwrap();
-        b.generate_forcing(0, 0, &mut stack);
+        b.generate_forcing(0, &mut stack);
         assert_eq!(stack.len(), 8);
         stack.clear_all();
 
         let b = StandardMgen::<RandomEval>::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1")
                     .ok()
                     .unwrap();
-        b.generate_forcing(0, 0, &mut stack);
+        b.generate_forcing(0, &mut stack);
         assert_eq!(stack.len(), 7);
         stack.clear_all();
     }
