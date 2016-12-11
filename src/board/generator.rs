@@ -1,4 +1,4 @@
-/// Implements `StandardMgen`.
+/// Implements `Generator`.
 
 use std::mem::uninitialized;
 use std::cell::Cell;
@@ -11,7 +11,7 @@ use board::tables::*;
 
 /// Implements the `MoveGenerator` trait.
 #[derive(Clone)]
-pub struct StandardMgen<T: BoardEvaluator> {
+pub struct Generator<T: BoardEvaluator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
     board: Board,
@@ -23,11 +23,11 @@ pub struct StandardMgen<T: BoardEvaluator> {
 }
 
 
-impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
+impl<T: BoardEvaluator> MoveGenerator for Generator<T> {
     type BoardEvaluator = T;
 
-    fn from_board(board: Board) -> Option<StandardMgen<T>> {
-        let mut g = StandardMgen {
+    fn from_board(board: Board) -> Option<Generator<T>> {
+        let mut g = Generator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
             board: board,
@@ -642,7 +642,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
 }
 
 
-impl<T: BoardEvaluator> SetOption for StandardMgen<T> {
+impl<T: BoardEvaluator> SetOption for Generator<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
@@ -653,7 +653,7 @@ impl<T: BoardEvaluator> SetOption for StandardMgen<T> {
 }
 
 
-impl<T: BoardEvaluator> StandardMgen<T> {
+impl<T: BoardEvaluator> Generator<T> {
     /// A helper method for `create`. It analyzes the position on the
     /// board and decides if it is legal.
     ///
@@ -1077,16 +1077,16 @@ mod tests {
     use chesstypes::*;
     use search::MoveStack;
 
-    impl<E: BoardEvaluator> StandardMgen<E> {
-        fn from_fen(fen: &str) -> Result<StandardMgen<E>, NotationError> {
-            StandardMgen::from_board(try!(Board::from_fen(fen))).ok_or(NotationError)
+    impl<E: BoardEvaluator> Generator<E> {
+        fn from_fen(fen: &str) -> Result<Generator<E>, NotationError> {
+            Generator::from_board(try!(Board::from_fen(fen))).ok_or(NotationError)
         }
     }
 
     #[test]
     fn test_attacks_from() {
         use board::tables::*;
-        let b = StandardMgen::<RandomEval>::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1")
+        let b = Generator::<RandomEval>::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1")
                     .ok()
                     .unwrap();
         let g = BoardGeometry::get();
@@ -1106,7 +1106,7 @@ mod tests {
 
     #[test]
     fn test_attacks_to() {
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q \
+        let b = Generator::<RandomEval>::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q \
                                                                 w - - 0 1")
                     .ok()
                     .unwrap();
@@ -1139,7 +1139,7 @@ mod tests {
     fn test_pawn_dest_sets() {
         let mut stack = MoveStack::new();
 
-        let b = StandardMgen::<RandomEval>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w \
+        let b = Generator::<RandomEval>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w \
                                                                 - h6 0 1")
                     .ok()
                     .unwrap();
@@ -1153,7 +1153,7 @@ mod tests {
         assert_eq!(pawn_dests,
                    1 << H3 | 1 << H4 | 1 << G6 | 1 << E8 | 1 << H5 | 1 << G7 | 1 << H6 | 1 << D8);
 
-        let b = StandardMgen::<RandomEval>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b \
+        let b = Generator::<RandomEval>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b \
                                                                 - - 0 1")
                     .ok()
                     .unwrap();
@@ -1171,7 +1171,7 @@ mod tests {
     fn test_move_generation_1() {
         let mut stack = MoveStack::new();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 \
+        let b = Generator::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 \
                                                                 w - - 0 1")
                     .ok()
                     .unwrap();
@@ -1179,7 +1179,7 @@ mod tests {
         assert_eq!(stack.len(), 5);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 \
+        let b = Generator::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 \
                                                                 w - - 0 1")
                     .ok()
                     .unwrap();
@@ -1187,7 +1187,7 @@ mod tests {
         assert_eq!(stack.len(), 7);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w \
+        let b = Generator::<RandomEval>::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w \
                                                                 - - 0 1")
                     .ok()
                     .unwrap();
@@ -1195,7 +1195,7 @@ mod tests {
         assert_eq!(stack.len(), 8);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w \
+        let b = Generator::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w \
                                                                 - - 0 1")
                     .ok()
                     .unwrap();
@@ -1203,7 +1203,7 @@ mod tests {
         assert_eq!(stack.len(), 22);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w \
+        let b = Generator::<RandomEval>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w \
                                                                 - c6 0 1")
                     .ok()
                     .unwrap();
@@ -1211,7 +1211,7 @@ mod tests {
         assert_eq!(stack.len(), 23);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k \
+        let b = Generator::<RandomEval>::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k \
                                                                 b - - 0 1")
                     .ok()
                     .unwrap();
@@ -1219,7 +1219,7 @@ mod tests {
         assert_eq!(stack.len(), 25);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 \
+        let b = Generator::<RandomEval>::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 \
                                                                 b - - 0 1")
                     .ok()
                     .unwrap();
@@ -1232,22 +1232,22 @@ mod tests {
     fn test_move_generation_2() {
         let mut stack = MoveStack::new();
 
-        assert!(StandardMgen::<RandomEval>::from_fen("8/8/7k/8/4pP2/8/3B4/7K b - f3 0 \
+        assert!(Generator::<RandomEval>::from_fen("8/8/7k/8/4pP2/8/3B4/7K b - f3 0 \
                                                                 1")
                     .is_err());
-        assert!(StandardMgen::<RandomEval>::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
-        assert!(StandardMgen::<RandomEval>::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 \
+        assert!(Generator::<RandomEval>::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
+        assert!(Generator::<RandomEval>::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 \
                                                                 0 1")
                     .is_ok());
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1")
+        let b = Generator::<RandomEval>::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_all(&mut stack);
         assert_eq!(stack.len(), 6);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 \
+        let b = Generator::<RandomEval>::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 \
                                                                 1")
                     .ok()
                     .unwrap();
@@ -1255,7 +1255,7 @@ mod tests {
         assert_eq!(stack.len(), 7);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1")
+        let b = Generator::<RandomEval>::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1")
                     .ok()
                     .unwrap();
         b.generate_all(&mut stack);
@@ -1267,7 +1267,7 @@ mod tests {
     fn test_move_generation_3() {
         let mut stack = MoveStack::new();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
+        let b = Generator::<RandomEval>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_all(&mut stack);
@@ -1279,7 +1279,7 @@ mod tests {
     fn test_move_generation_4() {
         let mut stack = MoveStack::new();
 
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1")
+        let b = Generator::<RandomEval>::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_all(&mut stack);
@@ -1294,7 +1294,7 @@ mod tests {
     fn test_move_generation_5() {
         let mut stack = MoveStack::new();
 
-        let b = StandardMgen::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 \
+        let b = Generator::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 \
                                                                 1")
                     .ok()
                     .unwrap();
@@ -1302,7 +1302,7 @@ mod tests {
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 \
+        let b = Generator::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 \
                                                                 1")
                     .ok()
                     .unwrap();
@@ -1310,7 +1310,7 @@ mod tests {
         assert_eq!(stack.len(), 19 + 6);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - \
+        let b = Generator::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - \
                                                                 0 1")
                     .ok()
                     .unwrap();
@@ -1318,7 +1318,7 @@ mod tests {
         assert_eq!(stack.len(), 19 + 7);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - \
+        let b = Generator::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - \
                                                                 0 1")
                     .ok()
                     .unwrap();
@@ -1326,7 +1326,7 @@ mod tests {
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - \
+        let b = Generator::<RandomEval>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - \
                                                                 0 1")
                     .ok()
                     .unwrap();
@@ -1334,7 +1334,7 @@ mod tests {
         assert_eq!(stack.len(), 19 + 6);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 \
+        let b = Generator::<RandomEval>::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 \
                                                                 1")
                     .ok()
                     .unwrap();
@@ -1342,7 +1342,7 @@ mod tests {
         assert_eq!(stack.len(), 5);
         stack.clear_all();
 
-        let mut b = StandardMgen::<RandomEval>::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ \
+        let mut b = Generator::<RandomEval>::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ \
                                                                     - 0 1")
                         .ok()
                         .unwrap();
@@ -1356,7 +1356,7 @@ mod tests {
         }
         assert_eq!(count, 19 + 4);
 
-        let b = StandardMgen::<RandomEval>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 \
+        let b = Generator::<RandomEval>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 \
                                                                 1")
                     .ok()
                     .unwrap();
@@ -1364,14 +1364,14 @@ mod tests {
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1")
+        let b = Generator::<RandomEval>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1")
                     .ok()
                     .unwrap();
         b.generate_all(&mut stack);
         assert_eq!(stack.len(), 19 + 5);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 \
+        let b = Generator::<RandomEval>::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 \
                                                                 1")
                     .ok()
                     .unwrap();
@@ -1384,7 +1384,7 @@ mod tests {
     fn test_do_undo_move() {
         let mut stack = MoveStack::new();
 
-        let mut b = StandardMgen::<RandomEval>::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2\
+        let mut b = Generator::<RandomEval>::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2\
                                                                     R w kKQ f6 0 1")
                         .ok()
                         .unwrap();
@@ -1400,7 +1400,7 @@ mod tests {
             }
         }
         assert_eq!(stack.len(), 0);
-        let mut b = StandardMgen::<RandomEval>::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R \
+        let mut b = Generator::<RandomEval>::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R \
                                                                     b kKQ - 0 1")
                         .ok()
                         .unwrap();
@@ -1418,7 +1418,7 @@ mod tests {
 
     #[test]
     fn test_find_pinned() {
-        let b = StandardMgen::<RandomEval>::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/\
+        let b = Generator::<RandomEval>::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/\
                                                                 6b1 w - - 0 1")
                     .ok()
                     .unwrap();
@@ -1429,7 +1429,7 @@ mod tests {
     fn test_generate_only_captures() {
         let mut stack = MoveStack::new();
 
-        let b = StandardMgen::<RandomEval>::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 \
+        let b = Generator::<RandomEval>::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 \
                                                                 1")
                     .ok()
                     .unwrap();
@@ -1437,14 +1437,14 @@ mod tests {
         assert_eq!(stack.len(), 4);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1")
+        let b = Generator::<RandomEval>::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1")
                     .ok()
                     .unwrap();
         b.generate_forcing(false, &mut stack);
         assert_eq!(stack.len(), 8);
         stack.clear_all();
 
-        let b = StandardMgen::<RandomEval>::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1")
+        let b = Generator::<RandomEval>::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1")
                     .ok()
                     .unwrap();
         b.generate_forcing(false, &mut stack);
@@ -1456,7 +1456,7 @@ mod tests {
     fn test_null_move() {
         let mut stack = MoveStack::new();
 
-        let mut b = StandardMgen::<RandomEval>::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K \
+        let mut b = Generator::<RandomEval>::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K \
                                                                     g6 0 1")
                         .ok()
                         .unwrap();
@@ -1470,7 +1470,7 @@ mod tests {
         assert_eq!(count, stack.len());
         stack.clear_all();
 
-        let mut b = StandardMgen::<RandomEval>::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 \
+        let mut b = Generator::<RandomEval>::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 \
                                                                     1")
                         .ok()
                         .unwrap();
@@ -1482,7 +1482,7 @@ mod tests {
     fn test_move_into_check_bug() {
         let mut stack = MoveStack::new();
 
-        let mut b = StandardMgen::<RandomEval>::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5\
+        let mut b = Generator::<RandomEval>::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5\
                                                                     N2/PPPN1PP1/2K4R b - - 0 1")
                         .ok()
                         .unwrap();
@@ -1495,7 +1495,7 @@ mod tests {
     #[test]
     fn test_try_move_digest() {
         use board::BoardEvaluator;
-        fn try_all<E: BoardEvaluator>(b: &StandardMgen<E>, stack: &MoveStack) {
+        fn try_all<E: BoardEvaluator>(b: &Generator<E>, stack: &MoveStack) {
             let mut i = 0;
             loop {
                 if let Some(m) = b.try_move_digest(i) {
@@ -1510,7 +1510,7 @@ mod tests {
         }
 
         let mut stack = MoveStack::new();
-        let b = StandardMgen::<RandomEval>::from_fen("rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP\
+        let b = Generator::<RandomEval>::from_fen("rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP\
                                                                 1PPPBP/RNBQK2R b KQkq c3 0 1")
                     .ok()
                     .unwrap();
@@ -1518,7 +1518,7 @@ mod tests {
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = StandardMgen::<RandomEval>::from_fen("rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/p\
+        let b = Generator::<RandomEval>::from_fen("rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/p\
                                                                 P1PPPBP/RNB1K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
@@ -1526,7 +1526,7 @@ mod tests {
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = StandardMgen::<RandomEval>::from_fen("rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/\
+        let b = Generator::<RandomEval>::from_fen("rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/\
                                                                 pP1PPPBP/RNB1K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
@@ -1534,7 +1534,7 @@ mod tests {
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = StandardMgen::<RandomEval>::from_fen("rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/p\
+        let b = Generator::<RandomEval>::from_fen("rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/p\
                                                                 P1PPPBP/RNBQK2R b KQ c3 0 1")
                     .ok()
                     .unwrap();
@@ -1542,7 +1542,7 @@ mod tests {
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = StandardMgen::<RandomEval>::from_fen("rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/p\
+        let b = Generator::<RandomEval>::from_fen("rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/p\
                                                                 P1PPPBP/RNB1K2R b KQkq - 0 1")
                     .ok()
                     .unwrap();
@@ -1550,14 +1550,14 @@ mod tests {
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
+        let b = Generator::<RandomEval>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_all(&mut stack);
         try_all(&b, &stack);
 
         stack.clear_all();
-        let b = StandardMgen::<RandomEval>::from_fen("8/8/8/8/5pPk/8/8/7K b - g3 0 1")
+        let b = Generator::<RandomEval>::from_fen("8/8/8/8/5pPk/8/8/7K b - g3 0 1")
                     .ok()
                     .unwrap();
         b.generate_all(&mut stack);

@@ -25,10 +25,10 @@
 //! # Move generation
 //!
 //! Generation of moves is at the heart of every chess
-//! engine. `StandardMgen` provides a very fast move generator.
-//! Writing a good move generator is not easy. Nevertheless, if you
-//! decide to do so, you should define your own type that implements
-//! the `MoveGenerator` trait.
+//! engine. `Generator` provides a very fast move generator.  Writing
+//! a good move generator is not easy. Nevertheless, if you decide to
+//! do so, you should define your own type that implements the
+//! `MoveGenerator` trait.
 
 pub mod tables;
 pub mod bitsets;
@@ -40,7 +40,7 @@ use chesstypes::*;
 use uci::SetOption;
 use self::notation::{parse_fen, NotationError};
 
-pub use self::generator::StandardMgen;
+pub use self::generator::Generator;
 
 
 /// Holds a chess position.

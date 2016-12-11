@@ -13,13 +13,13 @@ use std::process::exit;
 use search::searchers::{Deepening, StandardSrch};
 use search::tt::StandardTt;
 use search::Position;
-use board::StandardMgen;
+use board::Generator;
 use board::evaluators::RandomEval;
 use engine::run_server;
 
 fn main() {
     exit(match run_server::<Deepening<StandardSrch<StandardTt,
-                                                   Position<StandardMgen<RandomEval>>>>>() {
+                                                   Position<Generator<RandomEval>>>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })
