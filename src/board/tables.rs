@@ -157,6 +157,34 @@ pub struct BoardGeometry {
     /// . . . . . . . .
     /// ```
     pub squares_behind_blocker: [[Bitboard; 64]; 64],
+
+    /// Contains bitboards with the squares attacked by a pawn from a
+    /// given square.
+    ///
+    /// # Examples:
+    ///
+    /// ```text
+    /// g.pawn_attacks[WHITE][F6]
+    /// . . . . . . . .
+    /// . . . . 1 . 1 .
+    /// . . . . . P . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    ///
+    /// g.pawn_attacks[BLACK][H8]
+    /// . . . . . . . p
+    /// . . . . . . 1 .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// . . . . . . . .
+    /// ```
+    pub pawn_attacks: [[Bitboard; 64]; 2],
 }
 
 
@@ -167,6 +195,7 @@ impl BoardGeometry {
             squares_at_line: [[0; 64]; 64],
             squares_between_including: [[0; 64]; 64],
             squares_behind_blocker: [[0; 64]; 64],
+            pawn_attacks: [[0; 64]; 2],
         };
 
         // Fill `bg.squares_at_line`.
@@ -199,6 +228,15 @@ impl BoardGeometry {
                 bg.squares_between_including[a][b] = bg.squares_at_line[a][b] &
                                                      !bg.squares_behind_blocker[a][b] &
                                                      !bg.squares_behind_blocker[b][a];
+            }
+        }
+
+        // Fill `bg.pawn_attacks`.
+        const SHIFTS: [[isize; 2]; 2] = [[7, 9], [-9, -7]];
+        for us in 0..2 {
+            for a in 0..64 {
+                bg.pawn_attacks[us][a] = (gen_shift(1 << a, SHIFTS[us][0]) & !BB_FILE_H) |
+                                         (gen_shift(1 << a, SHIFTS[us][1]) & !BB_FILE_A);
             }
         }
 

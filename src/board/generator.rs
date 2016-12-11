@@ -69,8 +69,6 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
         debug_assert!(square <= 63);
         let occupied_by_us = self.board.pieces.color[us];
-        let square_bb = 1 << square;
-        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
 
         (self.geometry.attacks_from(ROOK, square, self.board.occupied) & occupied_by_us &
          (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
@@ -80,10 +78,8 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
          self.board.pieces.piece_type[KNIGHT]) |
         (self.geometry.attacks_from(KING, square, self.board.occupied) & occupied_by_us &
          self.board.pieces.piece_type[KING]) |
-        (gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_us &
-         self.board.pieces.piece_type[PAWN] & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
-        (gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_us &
-         self.board.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
+        (self.geometry.pawn_attacks[1 ^ us][square] & occupied_by_us &
+         self.board.pieces.piece_type[PAWN])
     }
 
     #[inline]
@@ -213,13 +209,8 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
         let mut their_king_square = unsafe { uninitialized() };
         let pawn_dests = occupied_by_them | self.enpassant_bb() | BB_PAWN_PROMOTION_RANKS |
                          if generate_checks {
-            let bb = self.board.pieces.piece_type[KING] & occupied_by_them;
-            their_king_square = bitscan_1bit(bb);
-            let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.board.to_move];
-
-            // Our pawn on some of these squares would attack thier king:
-            (gen_shift(bb, -shifts[PAWN_EAST_CAPTURE]) & !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)) |
-            (gen_shift(bb, -shifts[PAWN_WEST_CAPTURE]) & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8))
+            their_king_square = bitscan_1bit(self.board.pieces.piece_type[KING] & occupied_by_them);
+            self.geometry.pawn_attacks[1 ^ self.board.to_move][their_king_square]
         } else {
             0
         };
@@ -946,22 +937,13 @@ impl<T: BoardEvaluator> StandardMgen<T> {
         (self.geometry.attacks_from(ROOK, square, occupied) & occupied_by_them &
          (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) != 0 ||
         (self.geometry.attacks_from(BISHOP, square, occupied) & occupied_by_them &
-         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) !=
-        0 ||
+         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) != 0 ||
         (self.geometry.attacks_from(KNIGHT, square, occupied) & occupied_by_them &
          self.board.pieces.piece_type[KNIGHT]) != 0 ||
         (self.geometry.attacks_from(KING, square, occupied) & occupied_by_them &
          self.board.pieces.piece_type[KING]) != 0 ||
-        {
-            let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
-            let square_bb = 1 << square;
-            gen_shift(square_bb, -shifts[PAWN_EAST_CAPTURE]) & occupied_by_them &
-            self.board.pieces.piece_type[PAWN] &
-            !(BB_FILE_H | BB_RANK_1 | BB_RANK_8) != 0 ||
-            gen_shift(square_bb, -shifts[PAWN_WEST_CAPTURE]) & occupied_by_them &
-            self.board.pieces.piece_type[PAWN] & !(BB_FILE_A | BB_RANK_1 | BB_RANK_8) !=
-            0
-        }
+        (self.geometry.pawn_attacks[self.board.to_move][square] & occupied_by_them &
+         self.board.pieces.piece_type[PAWN] != 0)
     }
 
     /// A helper method. It returns the type of the piece at `square`.
