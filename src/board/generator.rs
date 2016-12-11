@@ -115,7 +115,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     /// legal, except it might leave the king in check.
     #[inline(always)]
     fn generate_all<U: AddMove>(&self, moves: &mut U) {
-        self.generate(true, 0, moves)
+        self.generate(true, moves)
     }
 
     /// Generates moves for the quiescence search.
@@ -132,7 +132,7 @@ impl<T: BoardEvaluator> MoveGenerator for StandardMgen<T> {
     #[allow(unused_variables)]
     #[inline(always)]
     fn generate_forcing<U: AddMove>(&self, ply: u8, moves: &mut U) {
-        self.generate(false, ply, moves)
+        self.generate(false, moves)
     }
 
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
@@ -540,7 +540,7 @@ impl<T: BoardEvaluator> StandardMgen<T> {
     /// to `moves`. When `all` is `true`, all pseudo-legal moves will
     /// be generated. When `all` is `false`, only check evasions,
     /// captures, and pawn promotions to queen will be generated.
-    fn generate<U: AddMove>(&self, all: bool, ply: u8, moves: &mut U) {
+    fn generate<U: AddMove>(&self, all: bool, moves: &mut U) {
         let king_square = self.king_square();
         let checkers = self.checkers();
         let occupied_by_us = self.board.pieces.color[self.board.to_move];
