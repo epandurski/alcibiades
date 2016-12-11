@@ -994,7 +994,7 @@ mod tests {
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
-        let value = search.run(VALUE_MIN, VALUE_MAX, 2, Move::invalid())
+        let value = search.run(VALUE_MIN, VALUE_MAX, 1, Move::invalid())
                           .ok()
                           .unwrap();
         assert!(value < -300);

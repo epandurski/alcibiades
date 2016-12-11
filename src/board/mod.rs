@@ -240,18 +240,11 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     ///
     /// * If the king is in check, all legal moves are included.
     ///
-    /// * If the king is not in check, all legal captures are included
-    /// (for speed, possibly omitting en-passant
-    /// captures). Optionally, other moves might be included too. For
-    /// example: moves that give check, or pawn promotions to
-    /// queen. This is done carefully though, to avoid creating an
-    /// infinitely large search tree.
+    /// * Captures and pawn promotions to queen are always included.
     ///
-    /// To be able to intelligently decide which moves to include,
-    /// `generate_forcing` should be supplied with some information
-    /// about the currently running quiescence search: `ply` specifies
-    /// the number of half-moves in the current line of play.
-    fn generate_forcing<T: AddMove>(&self, ply: u8, moves: &mut T);
+    /// * If `generate_checks` is `true`, moves that give check are
+    ///   included too (possibly omitting discovered checks).
+    fn generate_forcing<T: AddMove>(&self, generate_checks: bool, moves: &mut T);
 
     /// Checks if `move_digest` represents a pseudo-legal move.
     ///
