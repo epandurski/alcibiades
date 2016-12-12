@@ -1,13 +1,11 @@
 //! Implements `Position`.
 
-use std::mem::uninitialized;
-use std::cmp::{min, max};
+use std::cmp::min;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::*;
-use board::bitsets::*;
 use board::notation::*;
 use board::tables::*;
 use search::{SearchNode, MoveStack};
@@ -38,7 +36,6 @@ struct PositionInfo {
 /// 5. 50 move rule awareness.
 /// 6. Threefold/twofold repetition detection.
 pub struct Position<T: MoveGenerator> {
-    geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
     position: UnsafeCell<T>,
 
@@ -176,129 +173,23 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
         } else {
             let mut searched_nodes = 0;
             let value = MOVE_STACK.with(|s| unsafe {
-                self.qsearch(lower_bound,
-                             upper_bound,
-                             static_evaluation,
-                             0,
-                             0,
-                             &mut *s.get(),
-                             &mut searched_nodes)
+                qsearch(self.position_mut(),
+                        lower_bound,
+                        upper_bound,
+                        static_evaluation,
+                        self.halfmove_clock(),
+                        0,
+                        0,
+                        &mut *s.get(),
+                        &mut searched_nodes)
             });
             (value, searched_nodes)
         }
     }
 
-    // Calculates the static exchange evaluation (SEE) value for a
-    // move.
-    //
-    // This method returns the likely evaluation change (material) to
-    // be lost or gained as a result of a given move. It examines the
-    // consequence of a series of exchanges on the destination square
-    // after a given move. The result is calculated without actually
-    // doing any moves on the board.
+    #[inline(always)]
     fn evaluate_move(&self, m: Move) -> Value {
-        debug_assert!(m.played_piece() < NO_PIECE);
-        debug_assert!(m.captured_piece() <= NO_PIECE);
-
-        let dest_square = m.dest_square();  // the exchange square
-        let position = self.position();
-        let occupied = self.board().occupied;
-        let behind_blocker: &[Bitboard; 64] = &self.geometry.squares_behind_blocker[dest_square];
-        let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
-        let color: &[Bitboard; 2] = &self.board().pieces.color;
-
-        // Those will be updated on each capture:
-        let mut us = self.board().to_move;
-        let mut depth = 0;
-        let mut piece = m.played_piece();
-        let mut orig_square_bb = 1 << m.orig_square();
-        let mut attackers_and_defenders = position.attacks_to(WHITE, dest_square) |
-                                          position.attacks_to(BLACK, dest_square);
-
-        // `may_xray` holds the set of pieces that may block attacks
-        // from other pieces, and therefore we must consider adding
-        // new attackers/defenders every time a piece from the
-        // `may_xray` set makes a capture.
-        let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
-
-        // The `gain` array will hold the total material gained at
-        // each `depth`, from the viewpoint of the side that made the
-        // last capture (`us`).
-        let mut gain: [Value; 34] = unsafe { uninitialized() };
-        let captured_piece_value = PIECE_VALUES[m.captured_piece()];
-        gain[depth] = if m.move_type() == MOVE_PROMOTION {
-            // Adding `1` guarantees that SEE will be greater than
-            // zero if the promoted pawn is protected.
-            captured_piece_value + 1
-        } else {
-            captured_piece_value
-        };
-
-        // Examine the possible exchanges, fill the `gain` array.
-        'exchange: while orig_square_bb != 0 {
-            // Store a speculative value that will be used if the
-            // captured piece happens to be defended.
-            gain[depth + 1] = PIECE_VALUES[piece] - gain[depth];
-
-            if max(-gain[depth], gain[depth + 1]) < 0 {
-                // The side that made the last capture wins even if
-                // the captured piece happens to be defended. This is
-                // good enough for our purposes, so we stop here.
-                break;
-            }
-
-            // Register that `orig_square_bb` is now vacant.
-            attackers_and_defenders &= !orig_square_bb;
-
-            // Consider adding new attackers/defenders, now that
-            // `orig_square_bb` is vacant.
-            if orig_square_bb & may_xray != 0 {
-                attackers_and_defenders |= {
-                    let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
-                    let bb = self.geometry.attacks_from(ROOK, dest_square, candidates) &
-                             candidates &
-                             (piece_type[QUEEN] | piece_type[ROOK]);
-                    if bb != 0 {
-                        // a straight slider
-                        bb
-                    } else {
-                        // a diagonal slider
-                        self.geometry.attacks_from(BISHOP, dest_square, candidates) & candidates &
-                        (piece_type[QUEEN] | piece_type[BISHOP])
-                    }
-                };
-            }
-
-            // Change the side to move.
-            us ^= 1;
-
-            // Find the next piece to enter the exchange. (The least
-            // valuable piece belonging to the side to move.)
-            let candidates = attackers_and_defenders & color[us];
-            for p in (KING..NO_PIECE).rev() {
-                let bb = candidates & piece_type[p];
-                if bb != 0 {
-                    depth += 1;
-                    piece = p;
-                    orig_square_bb = ls1b(bb);
-                    continue 'exchange;
-                }
-            }
-            break 'exchange;
-        }
-
-        // Negamax the `gain` array for the final static exchange
-        // evaluation. (The `gain` array actually represents an unary
-        // tree, at each node of which the player can either continue
-        // the exchange or back off.)
-        unsafe {
-            while depth > 0 {
-                *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
-                                                          *gain.get_unchecked(depth));
-                depth -= 1;
-            }
-        }
-        gain[0]
+        self.position().calc_see(m)
     }
 
     #[inline]
@@ -410,7 +301,6 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
 impl<T: MoveGenerator + 'static> Clone for Position<T> {
     fn clone(&self) -> Self {
         Position {
-            geometry: self.geometry,
             zobrist: self.zobrist,
             position: UnsafeCell::new(self.position().clone()),
             board_hash: self.board_hash,
@@ -441,7 +331,6 @@ impl<T: MoveGenerator + 'static> Position<T> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
         let g = try!(T::from_board(board).ok_or(NotationError));
         Ok(Position {
-            geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
             board_hash: g.hash(),
             position: UnsafeCell::new(g),
@@ -453,144 +342,6 @@ impl<T: MoveGenerator + 'static> Position<T> {
                                   last_move: Move::invalid(),
                               }],
         })
-    }
-
-    /// Performs a "quiescence search" and returns an evaluation.
-    ///
-    /// The "quiescence search" is a restricted search which considers
-    /// only a limited set of moves (for example: winning captures,
-    /// pawn promotions to queen, check evasions). The goal is to
-    /// statically evaluate only "quiet" positions (positions where
-    /// there are no winning tactical moves to be made).
-    fn qsearch(&self,
-               mut lower_bound: Value, // alpha
-               upper_bound: Value, // beta
-               mut stand_pat: Value, // position's static evaluation
-               mut recapture_squares: Bitboard,
-               ply: u8, // the reached `qsearch` depth
-               move_stack: &mut MoveStack,
-               searched_nodes: &mut u64)
-               -> Value {
-        debug_assert!(lower_bound < upper_bound);
-        debug_assert!(stand_pat == VALUE_UNKNOWN ||
-                      stand_pat == self.evaluator().evaluate(self.board(), self.halfmove_clock()));
-        let in_check = self.is_check();
-
-        // At the beginning of quiescence, position's static
-        // evaluation (`stand_pat`) is used to establish a lower bound
-        // on the result. We assume that even if none of the forcing
-        // moves can improve over the stand pat, there will be at
-        // least one "quiet" move that will at least preserve the
-        // stand pat value. (Note that this assumption is not true if
-        // the the side to move is in check, because in this case all
-        // possible check evasions will be tried.)
-        if in_check {
-            // Position's static evaluation is useless when in check.
-            stand_pat = lower_bound;
-        } else if stand_pat == VALUE_UNKNOWN {
-            stand_pat = self.evaluator().evaluate(self.board(), self.halfmove_clock());
-        }
-        if stand_pat >= upper_bound {
-            return stand_pat;
-        }
-        if stand_pat > lower_bound {
-            lower_bound = stand_pat;
-        }
-        let obligatory_material_gain = (lower_bound as isize) - (stand_pat as isize) -
-                                       (PIECE_VALUES[KNIGHT] - 4 * PIECE_VALUES[PAWN] / 3) as isize;
-
-        // Generate all forcing moves. (Include checks only during the
-        // first ply.)
-        move_stack.save();
-        self.position().generate_forcing(ply == 0, move_stack);
-
-        // Consider the generated moves one by one. See if any of them
-        // can raise the lower bound.
-        'trymoves: while let Some(m) = move_stack.remove_best() {
-            let move_type = m.move_type();
-            let dest_square_bb = 1 << m.dest_square();
-            let captured_piece = m.captured_piece();
-
-            // Decide whether to try the move. Check evasions,
-            // en-passant captures (for them SEE is often wrong), and
-            // mandatory recaptures are always tried. (In order to
-            // correct SEE errors due to pinned and overloaded pieces,
-            // at least one mandatory recapture is always tried at the
-            // destination squares of previous moves.) For all other
-            // moves, a static exchange evaluation is performed to
-            // decide if the move should be tried.
-            if !in_check && move_type != MOVE_ENPASSANT && recapture_squares & dest_square_bb == 0 {
-                match self.evaluate_move(m) {
-                    // A losing move -- do not try it.
-                    x if x < 0 => continue 'trymoves,
-
-                    // An even exchange -- try it only during the first few plys.
-                    0 if ply >= SEE_EXCHANGE_MAX_PLY && captured_piece < NO_PIECE => continue 'trymoves,
-
-                    // A safe or winning move -- try it always.
-                    _ => (),
-                }
-            }
-
-            // Try the move.
-            unsafe {
-                if self.position_mut().do_move(m).is_some() {
-                    // If the move does not give check, ensure that
-                    // the immediate material gain from the move is
-                    // big enough.
-                    if self.position().checkers() == 0 {
-                        let material_gain = if move_type == MOVE_PROMOTION {
-                            PIECE_VALUES[captured_piece] +
-                            PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
-                            PIECE_VALUES[PAWN]
-                        } else {
-                            PIECE_VALUES[captured_piece]
-                        };
-                        if (material_gain as isize) < obligatory_material_gain {
-                            self.position_mut().undo_move(m);
-                            continue 'trymoves;
-                        }
-                    }
-
-                    // Recursively call `qsearch`.
-                    *searched_nodes += 1;
-                    let value = -self.qsearch(-upper_bound,
-                                              -lower_bound,
-                                              VALUE_UNKNOWN,
-                                              recapture_squares ^ dest_square_bb,
-                                              ply + 1,
-                                              move_stack,
-                                              searched_nodes);
-                    self.position_mut().undo_move(m);
-
-                    // Update the lower bound.
-                    if value >= upper_bound {
-                        lower_bound = value;
-                        break 'trymoves;
-                    }
-                    if value > lower_bound {
-                        lower_bound = value;
-                    }
-
-                    // Mark that a recapture at this square has been tried.
-                    recapture_squares &= !dest_square_bb;
-                }
-            }
-        }
-        move_stack.restore();
-
-        // Return the determined lower bound. (We should make sure
-        // that the returned value is between `VALUE_EVAL_MIN` and
-        // `VALUE_EVAL_MAX`, regardless of the initial bounds passed
-        // to `qsearch`. If we do not take this precautions, the
-        // search algorithm will abstain from checkmating the
-        // opponent, seeking the huge material gain that `qsearch`
-        // promised.)
-        match lower_bound {
-            x if x < VALUE_EVAL_MIN => VALUE_EVAL_MIN,
-            x if x > VALUE_EVAL_MAX => VALUE_EVAL_MAX,
-            x => x,
-        }
     }
 
     /// Forgets the previous playing history, preserves only the set
@@ -695,6 +446,146 @@ const SEE_EXCHANGE_MAX_PLY: u8 = 2;
 /// `halfmove_clock` will not be blended into position's hash until it
 /// gets greater or equal to this number.
 const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
+
+
+/// Performs a "quiescence search" and returns an evaluation.
+///
+/// The "quiescence search" is a restricted search which considers
+/// only a limited set of moves (for example: winning captures,
+/// pawn promotions to queen, check evasions). The goal is to
+/// statically evaluate only "quiet" positions (positions where
+/// there are no winning tactical moves to be made).
+fn qsearch<T: MoveGenerator>(position: &mut T,
+                             mut lower_bound: Value, // alpha
+                             upper_bound: Value, // beta
+                             mut stand_pat: Value, // position's static evaluation
+                             halfmove_clock: u8,
+                             mut recapture_squares: Bitboard,
+                             ply: u8, // the reached `qsearch` depth
+                             move_stack: &mut MoveStack,
+                             searched_nodes: &mut u64)
+                             -> Value {
+    debug_assert!(lower_bound < upper_bound);
+    debug_assert!(stand_pat == VALUE_UNKNOWN ||
+                  stand_pat == position.evaluator().evaluate(position.board(), halfmove_clock));
+    let in_check = position.checkers() != 0;
+
+    // At the beginning of quiescence, position's static
+    // evaluation (`stand_pat`) is used to establish a lower bound
+    // on the result. We assume that even if none of the forcing
+    // moves can improve over the stand pat, there will be at
+    // least one "quiet" move that will at least preserve the
+    // stand pat value. (Note that this assumption is not true if
+    // the the side to move is in check, because in this case all
+    // possible check evasions will be tried.)
+    if in_check {
+        // Position's static evaluation is useless when in check.
+        stand_pat = lower_bound;
+    } else if stand_pat == VALUE_UNKNOWN {
+        stand_pat = position.evaluator().evaluate(position.board(), halfmove_clock);
+    }
+    if stand_pat >= upper_bound {
+        return stand_pat;
+    }
+    if stand_pat > lower_bound {
+        lower_bound = stand_pat;
+    }
+    let obligatory_material_gain = (lower_bound as isize) - (stand_pat as isize) -
+                                   (PIECE_VALUES[KNIGHT] - 4 * PIECE_VALUES[PAWN] / 3) as isize;
+
+    // Generate all forcing moves. (Include checks only during the
+    // first ply.)
+    move_stack.save();
+    position.generate_forcing(ply == 0, move_stack);
+
+    // Consider the generated moves one by one. See if any of them
+    // can raise the lower bound.
+    'trymoves: while let Some(m) = move_stack.remove_best() {
+        let move_type = m.move_type();
+        let dest_square_bb = 1 << m.dest_square();
+        let captured_piece = m.captured_piece();
+
+        // Decide whether to try the move. Check evasions,
+        // en-passant captures (for them SEE is often wrong), and
+        // mandatory recaptures are always tried. (In order to
+        // correct SEE errors due to pinned and overloaded pieces,
+        // at least one mandatory recapture is always tried at the
+        // destination squares of previous moves.) For all other
+        // moves, a static exchange evaluation is performed to
+        // decide if the move should be tried.
+        if !in_check && move_type != MOVE_ENPASSANT && recapture_squares & dest_square_bb == 0 {
+            match position.calc_see(m) {
+                // A losing move -- do not try it.
+                x if x < 0 => continue 'trymoves,
+
+                // An even exchange -- try it only during the first few plys.
+                0 if ply >= SEE_EXCHANGE_MAX_PLY && captured_piece < NO_PIECE => continue 'trymoves,
+
+                // A safe or winning move -- try it always.
+                _ => (),
+            }
+        }
+
+        // Try the move.
+        if position.do_move(m).is_some() {
+            // If the move does not give check, ensure that
+            // the immediate material gain from the move is
+            // big enough.
+            if position.checkers() == 0 {
+                let material_gain = if move_type == MOVE_PROMOTION {
+                    PIECE_VALUES[captured_piece] +
+                    PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
+                    PIECE_VALUES[PAWN]
+                } else {
+                    PIECE_VALUES[captured_piece]
+                };
+                if (material_gain as isize) < obligatory_material_gain {
+                    position.undo_move(m);
+                    continue 'trymoves;
+                }
+            }
+
+            // Recursively call `qsearch`.
+            *searched_nodes += 1;
+            let value = -qsearch(position,
+                                 -upper_bound,
+                                 -lower_bound,
+                                 VALUE_UNKNOWN,
+                                 0,
+                                 recapture_squares ^ dest_square_bb,
+                                 ply + 1,
+                                 move_stack,
+                                 searched_nodes);
+            position.undo_move(m);
+
+            // Update the lower bound.
+            if value >= upper_bound {
+                lower_bound = value;
+                break 'trymoves;
+            }
+            if value > lower_bound {
+                lower_bound = value;
+            }
+
+            // Mark that a recapture at this square has been tried.
+            recapture_squares &= !dest_square_bb;
+        }
+    }
+    move_stack.restore();
+
+    // Return the determined lower bound. (We should make sure
+    // that the returned value is between `VALUE_EVAL_MIN` and
+    // `VALUE_EVAL_MAX`, regardless of the initial bounds passed
+    // to `qsearch`. If we do not take this precautions, the
+    // search algorithm will abstain from checkmating the
+    // opponent, seeking the huge material gain that `qsearch`
+    // promised.)
+    match lower_bound {
+        x if x < VALUE_EVAL_MIN => VALUE_EVAL_MIN,
+        x if x > VALUE_EVAL_MAX => VALUE_EVAL_MAX,
+        x => x,
+    }
+}
 
 
 /// A helper function. It sets all unique (non-repeated) values in
@@ -932,71 +823,135 @@ mod tests {
 
     #[test]
     fn test_qsearch() {
-        let mut s = MoveStack::new();
-        let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/6k1/6P1/8/6K1 \
-                                                                            b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+        use super::qsearch;
+        unsafe {
+            let mut s = MoveStack::new();
+            let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 \
+                                                                   1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(qsearch(p.position_mut(),
+                               -1000,
+                               1000,
+                               VALUE_UNKNOWN,
+                               0,
+                               0,
+                               0,
+                               &mut s,
+                               &mut 0),
+                       0);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/6k1/6P1/8/5bK\
-                                                                            1 b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   225);
+            let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - \
+                                                                   0 1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(qsearch(p.position_mut(),
+                               -1000,
+                               1000,
+                               VALUE_UNKNOWN,
+                               0,
+                               0,
+                               0,
+                               &mut s,
+                               &mut 0),
+                       225);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5P1P\
-                                                                            /6K1 b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+            let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - \
+                                                                   - 0 1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(qsearch(p.position_mut(),
+                               -1000,
+                               1000,
+                               VALUE_UNKNOWN,
+                               0,
+                               0,
+                               0,
+                               &mut s,
+                               &mut 0),
+                       0);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5PKP\
-                                                                            /8 b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   -100);
+            let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - \
+                                                                   0 1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(qsearch(p.position_mut(),
+                               -1000,
+                               1000,
+                               VALUE_UNKNOWN,
+                               0,
+                               0,
+                               0,
+                               &mut s,
+                               &mut 0),
+                       -100);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
-                                                                            2/4p3/2N1P2B/3P1N2/PP\
-                                                                            P2PPP/R2QKB1R w - - \
-                                                                            5 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+            let p = Position::<Generator<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1\
+                                                                   P2B/3P1N2/PPP2PPP/R2QKB1R w - \
+                                                                   - 5 1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(qsearch(p.position_mut(),
+                               -1000,
+                               1000,
+                               VALUE_UNKNOWN,
+                               0,
+                               0,
+                               0,
+                               &mut s,
+                               &mut 0),
+                       0);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p\
-                                                                            2/4N3/4P2B/3P1N2/PPP2\
-                                                                            PPP/R2QKB1R b - - 5 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   -100);
+            let p = Position::<Generator<MaterialEval>>::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2\
+                                                                   B/3P1N2/PPP2PPP/R2QKB1R b - - \
+                                                                   5 1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(qsearch(p.position_mut(),
+                               -1000,
+                               1000,
+                               VALUE_UNKNOWN,
+                               0,
+                               0,
+                               0,
+                               &mut s,
+                               &mut 0),
+                       -100);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("rn2kbnr/ppppqppp/8/4p\
-                                                                            3/2N1P1b1/3P1N2/PPP2P\
-                                                                            PP/R1BKQB1R w - - 5 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.qsearch(-1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+            let p = Position::<Generator<MaterialEval>>::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1\
+                                                                   /3P1N2/PPP2PPP/R1BKQB1R w - - \
+                                                                   5 1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(qsearch(p.position_mut(),
+                               -1000,
+                               1000,
+                               VALUE_UNKNOWN,
+                               0,
+                               0,
+                               0,
+                               &mut s,
+                               &mut 0),
+                       0);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/8/7k/7q/7K w \
-                                                                            - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert!(p.qsearch(-10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000);
+            let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1")
+                        .ok()
+                        .unwrap();
+            assert!(qsearch(p.position_mut(),
+                            -10000,
+                            10000,
+                            VALUE_UNKNOWN,
+                            0,
+                            0,
+                            0,
+                            &mut s,
+                            &mut 0) <= -10000);
 
-        let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/8/6qk/7P/7K \
-                                                                            b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).1, 1);
+            let p = Position::<Generator<MaterialEval>>::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1")
+                        .ok()
+                        .unwrap();
+            assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).1, 1);
+        }
     }
 
     #[test]

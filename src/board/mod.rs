@@ -36,9 +36,13 @@ pub mod evaluators;
 pub mod notation;
 mod generator;
 
+use std::mem::uninitialized;
+use std::cmp::max;
 use chesstypes::*;
 use uci::SetOption;
-use self::notation::{parse_fen, NotationError};
+use self::bitsets::*;
+use self::notation::*;
+use self::tables::*;
 
 pub use self::generator::Generator;
 
@@ -286,4 +290,117 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// The move passed to this method **must** be the last move passed
     /// to `do_move`.
     fn undo_move(&mut self, m: Move);
+
+    /// Calculates the static exchange evaluation (SEE) value for a
+    /// move.
+    ///
+    /// This method returns the likely evaluation change (material) to
+    /// be lost or gained as a result of a given move. It examines the
+    /// consequence of a series of exchanges on the destination square
+    /// after a given move. The result is calculated without actually
+    /// doing any moves on the board.
+    fn calc_see(&self, m: Move) -> Value {
+        debug_assert!(m.played_piece() < NO_PIECE);
+        debug_assert!(m.captured_piece() <= NO_PIECE);
+        const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
+
+        let dest_square = m.dest_square();  // the exchange square
+        let occupied = self.board().occupied;
+        let geometry = BoardGeometry::get();
+        let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
+        let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
+        let color: &[Bitboard; 2] = &self.board().pieces.color;
+
+        // These variables will be updated on each capture:
+        let mut us = self.board().to_move;
+        let mut depth = 0;
+        let mut piece = m.played_piece();
+        let mut orig_square_bb = 1 << m.orig_square();
+        let mut attackers_and_defenders = self.attacks_to(WHITE, dest_square) |
+                                          self.attacks_to(BLACK, dest_square);
+
+        // `may_xray` holds the set of pieces that may block attacks
+        // from other pieces, and therefore we must consider adding
+        // new attackers/defenders every time a piece from the
+        // `may_xray` set makes a capture.
+        let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
+
+        // The `gain` array will hold the total material gained at
+        // each `depth`, from the viewpoint of the side that made the
+        // last capture (`us`).
+        let mut gain: [Value; 34] = unsafe { uninitialized() };
+        let captured_piece_value = PIECE_VALUES[m.captured_piece()];
+        gain[depth] = if m.move_type() == MOVE_PROMOTION {
+            // Adding `1` guarantees that SEE will be greater than
+            // zero if the promoted pawn is protected.
+            captured_piece_value + 1
+        } else {
+            captured_piece_value
+        };
+
+        // Examine the possible exchanges, fill the `gain` array.
+        'exchange: while orig_square_bb != 0 {
+            // Store a speculative value that will be used if the
+            // captured piece happens to be defended.
+            gain[depth + 1] = PIECE_VALUES[piece] - gain[depth];
+
+            if max(-gain[depth], gain[depth + 1]) < 0 {
+                // The side that made the last capture wins even if
+                // the captured piece happens to be defended. This is
+                // good enough for our purposes, so we stop here.
+                break;
+            }
+
+            // Register that `orig_square_bb` is now vacant.
+            attackers_and_defenders &= !orig_square_bb;
+
+            // Consider adding new attackers/defenders, now that
+            // `orig_square_bb` is vacant.
+            if orig_square_bb & may_xray != 0 {
+                attackers_and_defenders |= {
+                    let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
+                    let bb = geometry.attacks_from(ROOK, dest_square, candidates) & candidates &
+                             (piece_type[QUEEN] | piece_type[ROOK]);
+                    if bb != 0 {
+                        // a straight slider
+                        bb
+                    } else {
+                        // a diagonal slider
+                        geometry.attacks_from(BISHOP, dest_square, candidates) & candidates &
+                        (piece_type[QUEEN] | piece_type[BISHOP])
+                    }
+                };
+            }
+
+            // Change the side to move.
+            us ^= 1;
+
+            // Find the next piece to enter the exchange. (The least
+            // valuable piece belonging to the side to move.)
+            let candidates = attackers_and_defenders & color[us];
+            for p in (KING..NO_PIECE).rev() {
+                let bb = candidates & piece_type[p];
+                if bb != 0 {
+                    depth += 1;
+                    piece = p;
+                    orig_square_bb = ls1b(bb);
+                    continue 'exchange;
+                }
+            }
+            break 'exchange;
+        }
+
+        // Negamax the `gain` array for the final static exchange
+        // evaluation. (The `gain` array actually represents an unary
+        // tree, at each node of which the player can either continue
+        // the exchange or back off.)
+        unsafe {
+            while depth > 0 {
+                *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
+                                                          *gain.get_unchecked(depth));
+                depth -= 1;
+            }
+        }
+        gain[0]
+    }
 }
