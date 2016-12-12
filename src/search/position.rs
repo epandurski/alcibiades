@@ -188,6 +188,14 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
         }
     }
 
+    // Calculates the static exchange evaluation (SEE) value for a
+    // move.
+    //
+    // This method returns the likely evaluation change (material) to
+    // be lost or gained as a result of a given move. It examines the
+    // consequence of a series of exchanges on the destination square
+    // after a given move. The result is calculated without actually
+    // doing any moves on the board.
     fn evaluate_move(&self, m: Move) -> Value {
         debug_assert!(m.played_piece() < NO_PIECE);
         debug_assert!(m.captured_piece() <= NO_PIECE);
