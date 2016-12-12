@@ -35,7 +35,7 @@ impl<T: BoardEvaluator> MoveGenerator for Generator<T> {
             checkers: Cell::new(BB_UNIVERSAL_SET),
         };
         if g.is_legal() {
-            g.evaluator = T::new(&g.board());
+            g.evaluator = T::new(g.board());
             Some(g)
         } else {
             None
