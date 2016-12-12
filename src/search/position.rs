@@ -227,6 +227,8 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
         let mut gain: [Value; 34] = unsafe { uninitialized() };
         let captured_piece_value = PIECE_VALUES[m.captured_piece()];
         gain[depth] = if m.move_type() == MOVE_PROMOTION {
+            // Adding `1` guarantees that SEE will be greater than
+            // zero if the promoted pawn is protected.
             captured_piece_value + 1
         } else {
             captured_piece_value
