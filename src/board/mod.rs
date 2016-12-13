@@ -247,7 +247,8 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// * Captures and pawn promotions to queen are always included.
     ///
     /// * If `generate_checks` is `true`, moves that give check are
-    ///   included too (possibly omitting discovered checks).
+    ///   included too. Discovered checks and checks given by castling
+    ///   can be omitted for speed.
     fn generate_forcing<T: AddMove>(&self, generate_checks: bool, moves: &mut T);
 
     /// Checks if `move_digest` represents a pseudo-legal move.
