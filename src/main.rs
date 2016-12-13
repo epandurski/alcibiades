@@ -7,6 +7,7 @@ pub mod chesstypes;
 pub mod uci;
 pub mod board;
 pub mod search;
+pub mod quiescence;
 pub mod engine;
 
 use std::process::exit;
