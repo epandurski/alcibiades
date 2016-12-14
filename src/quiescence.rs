@@ -7,10 +7,6 @@ pub struct QsearchParams<T: MoveGenerator> {
     /// The root position for the search.
     pub position: T,
 
-    /// The number of half-moves since the last piece capture or pawn
-    /// advance.
-    pub halfmove_clock: u8,
-
     /// The requested search depth.
     ///
     /// This is the depth at which the main search stops and the
