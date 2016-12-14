@@ -177,7 +177,6 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
                         lower_bound,
                         upper_bound,
                         static_evaluation,
-                        self.halfmove_clock(),
                         0,
                         0,
                         &mut *s.get(),
@@ -459,7 +458,6 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                              mut lower_bound: Value, // alpha
                              upper_bound: Value, // beta
                              mut stand_pat: Value, // position's static evaluation
-                             halfmove_clock: u8,
                              mut recapture_squares: Bitboard,
                              ply: u8, // the reached `qsearch` depth
                              move_stack: &mut MoveStack,
@@ -467,7 +465,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                              -> Value {
     debug_assert!(lower_bound < upper_bound);
     debug_assert!(stand_pat == VALUE_UNKNOWN ||
-                  stand_pat == position.evaluator().evaluate(position.board(), halfmove_clock));
+                  stand_pat == position.evaluator().evaluate(position.board()));
     let in_check = position.checkers() != 0;
 
     // At the beginning of quiescence, position's static
@@ -482,7 +480,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
         // Position's static evaluation is useless when in check.
         stand_pat = lower_bound;
     } else if stand_pat == VALUE_UNKNOWN {
-        stand_pat = position.evaluator().evaluate(position.board(), halfmove_clock);
+        stand_pat = position.evaluator().evaluate(position.board());
     }
     if stand_pat >= upper_bound {
         return stand_pat;
@@ -551,7 +549,6 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                                  -upper_bound,
                                  -lower_bound,
                                  VALUE_UNKNOWN,
-                                 0,
                                  recapture_squares ^ dest_square_bb,
                                  ply + 1,
                                  move_stack,
@@ -777,7 +774,7 @@ mod tests {
                                                                             KRQ5 w - - 0 1")
                     .ok()
                     .unwrap();
-        assert!(p.evaluator().evaluate(p.board(), p.halfmove_clock()) < -20);
+        assert!(p.evaluator().evaluate(p.board()) < -20);
     }
 
     #[test]
@@ -836,7 +833,6 @@ mod tests {
                                VALUE_UNKNOWN,
                                0,
                                0,
-                               0,
                                &mut s,
                                &mut 0),
                        0);
@@ -849,7 +845,6 @@ mod tests {
                                -1000,
                                1000,
                                VALUE_UNKNOWN,
-                               0,
                                0,
                                0,
                                &mut s,
@@ -866,7 +861,6 @@ mod tests {
                                VALUE_UNKNOWN,
                                0,
                                0,
-                               0,
                                &mut s,
                                &mut 0),
                        0);
@@ -879,7 +873,6 @@ mod tests {
                                -1000,
                                1000,
                                VALUE_UNKNOWN,
-                               0,
                                0,
                                0,
                                &mut s,
@@ -897,7 +890,6 @@ mod tests {
                                VALUE_UNKNOWN,
                                0,
                                0,
-                               0,
                                &mut s,
                                &mut 0),
                        0);
@@ -911,7 +903,6 @@ mod tests {
                                -1000,
                                1000,
                                VALUE_UNKNOWN,
-                               0,
                                0,
                                0,
                                &mut s,
@@ -929,7 +920,6 @@ mod tests {
                                VALUE_UNKNOWN,
                                0,
                                0,
-                               0,
                                &mut s,
                                &mut 0),
                        0);
@@ -941,7 +931,6 @@ mod tests {
                             -10000,
                             10000,
                             VALUE_UNKNOWN,
-                            0,
                             0,
                             0,
                             &mut s,

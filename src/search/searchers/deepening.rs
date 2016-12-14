@@ -356,7 +356,7 @@ impl<T: SearchExecutor> Multipv<T> {
             _ => BOUND_EXACT,
         };
         let p = &self.params.position;
-        let eval_value = p.evaluator().evaluate(p.board(), p.halfmove_clock());
+        let eval_value = p.evaluator().evaluate(p.board());
         self.tt.store(p.hash(), <T::HashTable as HashTable>::Entry::with_eval_value(
                 value, bound, self.params.depth, best_move.digest(), eval_value));
     }

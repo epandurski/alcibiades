@@ -483,14 +483,14 @@ impl<'a, T, N> Search<'a, T, N>
                     (e,
                      self.position
                          .evaluator()
-                         .evaluate(self.position.board(), self.position.halfmove_clock()))
+                         .evaluate(self.position.board()))
                 }
                 v => (e, v),
             }
         } else {
             let v = self.position
                         .evaluator()
-                        .evaluate(self.position.board(), self.position.halfmove_clock());
+                        .evaluate(self.position.board());
             (T::Entry::with_eval_value(0, BOUND_NONE, 0, 0, v), v)
         };
         self.state_stack.push(NodeState {
@@ -546,7 +546,7 @@ impl<'a, T, N> Search<'a, T, N>
         if !last_move.is_null() && eval_value >= beta &&
            {
             let p = &self.position;
-            !p.evaluator().is_zugzwangy(p.board(), p.halfmove_clock())
+            !p.evaluator().is_zugzwangy(p.board())
         } {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {

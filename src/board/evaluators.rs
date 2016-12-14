@@ -20,8 +20,7 @@ impl BoardEvaluator for MaterialEval {
         MaterialEval
     }
 
-    #[allow(unused_variables)]
-    fn evaluate(&self, board: &Board, halfmove_clock: u8) -> Value {
+    fn evaluate(&self, board: &Board) -> Value {
         use board::bitsets::*;
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
         let piece_type = board.pieces.piece_type;
@@ -37,9 +36,9 @@ impl BoardEvaluator for MaterialEval {
         result
     }
 
-    #[inline]
     #[allow(unused_variables)]
-    fn is_zugzwangy(&self, board: &Board, halfmove_clock: u8) -> bool {
+    #[inline]
+    fn is_zugzwangy(&self, board: &Board) -> bool {
         false
     }
 }
@@ -58,8 +57,7 @@ impl BoardEvaluator for RandomEval {
         RandomEval
     }
 
-    #[allow(unused_variables)]
-    fn evaluate(&self, board: &Board, halfmove_clock: u8) -> Value {
+    fn evaluate(&self, board: &Board) -> Value {
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
         let piece_type = board.pieces.piece_type;
         let color = board.pieces.color;
@@ -76,9 +74,9 @@ impl BoardEvaluator for RandomEval {
         result + (hasher.finish() >> 59) as i16
     }
 
-    #[inline]
     #[allow(unused_variables)]
-    fn is_zugzwangy(&self, board: &Board, halfmove_clock: u8) -> bool {
+    #[inline]
+    fn is_zugzwangy(&self, board: &Board) -> bool {
         false
     }
 }

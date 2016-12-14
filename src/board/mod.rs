@@ -110,19 +110,17 @@ pub trait BoardEvaluator: Clone + Send + SetOption {
     /// Evaluates the the position to which the instance is bound.
     ///
     /// `board` points to the position to which the instance is bound.
-    /// `halfmove_clock` gives the number of half-moves since the last
-    /// piece capture or pawn advance.
     ///
     /// The returned value must be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
-    fn evaluate(&self, board: &Board, halfmove_clock: u8) -> Value;
+    fn evaluate(&self, board: &Board) -> Value;
 
     /// Returns whether the position is zugzwangy.
     ///
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
     /// method returns `true`.
-    fn is_zugzwangy(&self, board: &Board, halfmove_clock: u8) -> bool;
+    fn is_zugzwangy(&self, board: &Board) -> bool;
 
     /// Updates evaluator's state to keep up with a move that will be
     /// played.
