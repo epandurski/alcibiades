@@ -1,4 +1,4 @@
-//! Defines types and constants related to position evaluation.
+//! Defines the position evaluation type and its constants.
 
 
 /// Evaluation value in centipawns.

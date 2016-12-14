@@ -323,7 +323,8 @@ mod tests {
     use super::*;
     use super::Record;
     use std;
-    use search::{HashTable, HashTableEntry, DEPTH_MAX};
+    use chesstypes::*;
+    use search::{HashTable, HashTableEntry};
 
     #[test]
     fn test_max_depth() {

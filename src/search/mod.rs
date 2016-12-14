@@ -26,10 +26,6 @@ pub use self::move_stack::MoveStack;
 pub use self::position::Position;
 
 
-/// The maximum search depth in half-moves.
-pub const DEPTH_MAX: u8 = 63;
-
-
 /// Parameters describing a new search.
 ///
 /// **Important note:** `lower_bound` and `upper_bound` fields
