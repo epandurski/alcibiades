@@ -16,7 +16,7 @@ pub trait Qsearch {
     /// TODO
     fn qsearch(position: Self::MoveGenerator,
                halfmove_clock: u8,
-               depth: u8,
+               depth: Depth,
                lower_bound: Value,
                upper_bound: Value,
                static_evaluation: Value)

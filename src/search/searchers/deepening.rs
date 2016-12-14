@@ -55,7 +55,7 @@ pub struct Deepening<T: SearchExecutor> {
     multipv: Multipv<T>,
 
     // The search depth completed so far.
-    depth: u8,
+    depth: Depth,
 
     // The value for the root position so far.
     value: Value,
@@ -426,6 +426,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
     }
 
     fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
+        debug_assert!(params.depth >= 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
         debug_assert!(params.upper_bound <= VALUE_MAX);

@@ -74,6 +74,7 @@ impl<T, N> SearchExecutor for StandardSrch<T, N>
     }
 
     fn start_search(&mut self, params: SearchParams<N>) {
+        assert!(params.depth >= 0, "depth must be at least 0.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
@@ -328,7 +329,7 @@ impl<'a, T, N> Search<'a, T, N>
     pub fn run(&mut self,
                mut alpha: Value, // lower bound
                beta: Value, // upper bound
-               depth: u8,
+               depth: Depth,
                last_move: Move)
                -> Result<Value, TerminatedSearch> {
         // This implementation performs a modified alpha-beta search.
@@ -471,7 +472,7 @@ impl<'a, T, N> Search<'a, T, N>
     fn node_begin(&mut self,
                   alpha: Value,
                   beta: Value,
-                  depth: u8,
+                  depth: Depth,
                   last_move: Move)
                   -> Result<Option<Value>, TerminatedSearch> {
         // Probe the transposition table.
@@ -549,15 +550,15 @@ impl<'a, T, N> Search<'a, T, N>
         } {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {
-                depth as i8 - NULL_MOVE_REDUCTION as i8 - 1
+                depth - NULL_MOVE_REDUCTION - 1
             } else {
-                depth as i8 - NULL_MOVE_REDUCTION as i8
+                depth - NULL_MOVE_REDUCTION
             };
 
             // Check if the TT indicates that trying a null move is
             // futile. We rely on the fact that if no normal move can
             // reach `beta`, a null move will not do it either.
-            if entry.depth() >= max(0, reduced_depth) as u8 && entry.value() < beta &&
+            if entry.depth() >= max(0, reduced_depth) && entry.value() < beta &&
                entry.bound() & BOUND_UPPER != 0 {
                 return Ok(None);
             }
@@ -565,7 +566,7 @@ impl<'a, T, N> Search<'a, T, N>
             // Play a null move and search.
             let m = self.position.null_move();
             if self.position.do_move(m) {
-                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1) as u8, m));
+                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1), m));
                 self.position.undo_move();
                 if value >= beta {
                     // The result we are about to return is more or
@@ -762,7 +763,7 @@ impl<'a, T, N> Search<'a, T, N>
     /// A helper method for `run`. It stores the updated node
     /// information in the transposition table.
     #[inline]
-    fn store(&mut self, value: Value, bound: BoundType, depth: u8, best_move: Move) {
+    fn store(&mut self, value: Value, bound: BoundType, depth: Depth, best_move: Move) {
         self.tt.store(self.position.hash(),
                       T::Entry::with_eval_value(value,
                                                 bound,
@@ -812,7 +813,7 @@ const NODE_COUNT_REPORT_INTERVAL: u64 = 10000;
 
 /// The number of half-moves with which the search depth will be
 /// reduced when trying null moves.
-const NULL_MOVE_REDUCTION: u8 = 3;
+const NULL_MOVE_REDUCTION: i8 = 3;
 
 
 /// Moves with move scores higher than this number will be searched at

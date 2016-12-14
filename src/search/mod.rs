@@ -45,8 +45,8 @@ pub struct SearchParams<T: SearchNode> {
 
     /// The requested search depth.
     ///
-    /// Should be no greater than `DEPTH_MAX`.
-    pub depth: u8,
+    /// Should be between `DEPTH_MIN` and `DEPTH_MAX`.
+    pub depth: Depth,
 
     /// The lower bound for the new search.
     ///
@@ -97,7 +97,7 @@ pub struct SearchReport<T> {
     ///
     /// **Note:** Depth-first searches should send `0` in all reports
     /// except the last one.
-    pub depth: u8,
+    pub depth: Depth,
 
     /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
     /// if not available.
@@ -168,12 +168,12 @@ pub trait HashTableEntry: Copy {
     ///
     /// * `bound` -- The accuracy of the assigned value.
     ///
-    /// * `depth` -- The depth of search. Must be no greater than
-    ///   `DEPTH_MAX`.
+    /// * `depth` -- The depth of search. Must be between `DEPTH_MIN`
+    ///   and `DEPTH_MAX`.
     ///
     /// * `move_digest` -- Best or refutation move digest, or `0` if
     ///   no move is available.
-    fn new(value: Value, bound: BoundType, depth: u8, move_digest: MoveDigest) -> Self;
+    fn new(value: Value, bound: BoundType, depth: Depth, move_digest: MoveDigest) -> Self;
 
     /// Creates a new instance.
     ///
@@ -187,7 +187,7 @@ pub trait HashTableEntry: Copy {
     /// no field allotted for it in the underlying memory structure.
     fn with_eval_value(value: Value,
                        bound: BoundType,
-                       depth: u8,
+                       depth: Depth,
                        move_digest: MoveDigest,
                        eval_value: Value)
                        -> Self;
@@ -199,7 +199,7 @@ pub trait HashTableEntry: Copy {
     fn bound(&self) -> BoundType;
 
     /// Returns the search depth for the assigned value.
-    fn depth(&self) -> u8;
+    fn depth(&self) -> Depth;
 
     /// Returns best or refutation move digest, or `0` if no move is
     /// available.
@@ -501,7 +501,7 @@ pub struct Variation {
 ///
 /// **Important note:** Evaluations under `-9999`, or over `9999` will
 /// be chopped.
-pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) -> Variation {
+pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: Depth) -> Variation {
     assert!(depth <= DEPTH_MAX, "invalid depth: {}", depth);
     let mut p = position.clone();
     let mut our_turn = true;
@@ -511,7 +511,7 @@ pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N, depth: u8) 
     let mut pv_moves = Vec::new();
 
     'move_extraction: while let Some(entry) = tt.probe(p.hash()) {
-        let pv_length = pv_moves.len() as u8;
+        let pv_length = pv_moves.len() as i8;
 
         // Before considering the next value from the transposition
         // table, we make sure that it is reliable enough, and at

@@ -5,7 +5,7 @@ pub mod time_manager;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
-use std::cmp::max;
+use std::cmp::{min, max};
 use std::io;
 use chesstypes::*;
 use uci::*;
@@ -42,7 +42,7 @@ enum PlayWhen {
     TimeManagement(TimeManager), // Stop when the time manager says.
     MoveTime(u64), // Stop after the given number of milliseconds.
     Nodes(u64), // Stop when the given number of nodes has been searched.
-    Depth(u8), // Stop when the given search depth has been reached.
+    Depth(Depth), // Stop when the given search depth has been completed.
     Never, // An infinite search.
 }
 
@@ -51,7 +51,7 @@ enum PlayWhen {
 struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     tt: Arc<S::HashTable>,
     position: S::SearchNode,
-    current_depth: u8,
+    current_depth: Depth,
 
     // From `SearchThread`.
     status: SearchStatus,
@@ -208,7 +208,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         } else if nodes.is_some() {
             PlayWhen::Nodes(nodes.unwrap())
         } else if depth.is_some() {
-            PlayWhen::Depth(depth.unwrap() as u8)
+            PlayWhen::Depth(min(depth.unwrap(), DEPTH_MAX as u64) as Depth)
         } else {
             PlayWhen::TimeManagement(TimeManager::new(self.position.board().to_move,
                                                       self.pondering_is_allowed,
@@ -433,7 +433,7 @@ struct SearchStatus {
     pub done: bool,
 
     /// The search depth completed so far.
-    pub depth: u8,
+    pub depth: Depth,
 
     /// The best variations found so far, sorted by descending first
     /// move strength. The first move in each variation will be

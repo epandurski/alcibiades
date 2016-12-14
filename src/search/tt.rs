@@ -1,5 +1,6 @@
 //! Implements `HashTable` and `HashTableEntry` traits.
 
+use std::isize;
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
@@ -18,27 +19,31 @@ pub struct StandardTtEntry {
     // 6 bits) and the bound type (the lowest 2 bits).
     gen_bound: u8,
 
-    depth: u8,
+    depth: Depth,
     move_digest: MoveDigest,
     eval_value: Value,
 }
 
 impl HashTableEntry for StandardTtEntry {
     #[inline(always)]
-    fn new(value: Value, bound: BoundType, depth: u8, move_digest: MoveDigest) -> StandardTtEntry {
+    fn new(value: Value,
+           bound: BoundType,
+           depth: Depth,
+           move_digest: MoveDigest)
+           -> StandardTtEntry {
         Self::with_eval_value(value, bound, depth, move_digest, VALUE_UNKNOWN)
     }
 
     #[inline(always)]
     fn with_eval_value(value: Value,
                        bound: BoundType,
-                       depth: u8,
+                       depth: Depth,
                        move_digest: MoveDigest,
                        eval_value: Value)
                        -> StandardTtEntry {
         debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
-        debug_assert!(depth <= DEPTH_MAX);
+        debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
         StandardTtEntry {
             value: value,
             gen_bound: bound,
@@ -59,7 +64,7 @@ impl HashTableEntry for StandardTtEntry {
     }
 
     #[inline(always)]
-    fn depth(&self) -> u8 {
+    fn depth(&self) -> Depth {
         self.depth
     }
 
@@ -170,7 +175,7 @@ impl HashTable for StandardTt {
         // 4 slots.)
         let mut cluster = unsafe { self.cluster_mut(key) };
         let mut replace_index = 0;
-        let mut replace_score = 0xff;
+        let mut replace_score = isize::MAX;
         for (i, record) in cluster.iter_mut().enumerate() {
             // Check if this is an empty slot, or an old record for
             // the same key. If this this is the case we will use this
@@ -237,20 +242,20 @@ impl StandardTt {
     /// A helper method for `store`. It implements the record
     /// replacement strategy.
     #[inline(always)]
-    fn calc_score(&self, record: &Record) -> u8 {
+    fn calc_score(&self, record: &Record) -> isize {
         // Here we try to return higher values for the records that
         // are move likely to save CPU work in the future:
 
         // Positions from the current generation are always scored
         // higher than positions from older generations.
         (if record.generation() == self.generation.get() {
-            128
+            DEPTH_MAX as isize + 2
         } else {
             0
         }) 
             
         // Positions with higher search depths are scored higher.
-        + record.data.depth()
+        + record.data.depth() as isize
             
         // Positions with exact evaluations are given slight advantage.
         + (if record.data.bound() == BOUND_EXACT {
@@ -327,11 +332,6 @@ mod tests {
     use search::{HashTable, HashTableEntry};
 
     #[test]
-    fn test_max_depth() {
-        assert!(DEPTH_MAX < 127);
-    }
-
-    #[test]
     fn test_cluster_size() {
         assert_eq!(std::mem::size_of::<[Record; 4]>(), 64);
         assert_eq!(std::mem::size_of::<Record>(), 16);
@@ -350,7 +350,7 @@ mod tests {
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), 666);
         for i in 2..50 {
-            tt.store(i, StandardTtEntry::new(i as i16, 0, i as u8, i as u16));
+            tt.store(i, StandardTtEntry::new(i as i16, 0, i as Depth, i as u16));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);
