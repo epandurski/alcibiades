@@ -1,3 +1,17 @@
+//! Facilities for implementing quiescence searching.
+//!
+//! Most chess programs, at the end of the main search perform a more
+//! limited quiescence search, containing fewer moves. The purpose of
+//! this search is to only evaluate "quiet" positions, or positions
+//! where there are no winning tactical moves to be made. Simply
+//! stopping your search when you reach the desired depth and then
+//! evaluate, is very dangerous. Consider the situation where the last
+//! move is QxP. If you stop there and evaluate, you might think that
+//! you have won a pawn. But what if you were to search one move
+//! deeper and find that the next move is PxQ? You didn't win a pawn,
+//! you actually lost a queen. Hence the need to make sure that you
+//! are evaluating only quiescent (quiet) positions.
+
 use chesstypes::*;
 use board::MoveGenerator;
 

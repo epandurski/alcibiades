@@ -13,6 +13,7 @@ mod move_stack;
 mod position;
 pub mod searchers;
 pub mod tt;
+pub mod quiescence;
 
 use std::time::Duration;
 use std::sync::Arc;
