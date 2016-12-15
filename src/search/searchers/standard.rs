@@ -12,9 +12,8 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::*;
+use board::{BoardEvaluator, AddMove};
 use search::*;
-use search::quiescence::QsearchResult;
 
 
 /// Executes alpha-beta searches with null move pruning and late move

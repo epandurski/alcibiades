@@ -8,8 +8,8 @@ use chesstypes::*;
 use board::*;
 use board::notation::*;
 use board::tables::*;
-use search::{SearchNode, MoveStack};
-use search::quiescence::{Qsearch, QsearchParams, QsearchResult};
+use search::{SearchNode, MoveStack, QsearchResult};
+use search::quiescence::{Qsearch, QsearchParams};
 
 
 /// Contains information about a position.
@@ -430,8 +430,8 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 mod tests {
     use super::*;
     use chesstypes::*;
-    use search::{SearchNode, MoveStack};
-    use search::quiescence::{QsearchResult, StandardQsearch};
+    use search::{SearchNode, QsearchResult, MoveStack};
+    use search::quiescence::StandardQsearch;
     use board::evaluators::MaterialEval;
     use board::{BoardEvaluator, Generator};
 

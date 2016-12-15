@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::{MoveGenerator, BoardEvaluator};
-use search::MoveStack;
+use search::{QsearchResult, MoveStack};
 
 
 /// Parameters describing a quiescence search.
@@ -57,27 +57,6 @@ pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
     /// Saves the re-calculation if position's static evaluation is
     /// already available.
     pub static_evaluation: Value,
-}
-
-
-/// A trait for quiescence searches' results.
-pub trait QsearchResult {
-    /// Creates a new instance.
-    ///
-    /// * `value` -- the calculated evaluation for the position. Must
-    ///   be between `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`.
-    ///
-    /// * `searched_nodes` -- the number of positions searched to
-    ///   calculate the evaluation.
-    fn new(value: Value, searched_nodes: u64) -> Self;
-
-    /// Returns the calculated evaluation for the position.
-    ///
-    /// Will always be between `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`.
-    fn value(&self) -> Value;
-
-    /// Retruns the number of positions searched to calculate the evaluation.
-    fn searched_nodes(&self) -> u64;
 }
 
 
