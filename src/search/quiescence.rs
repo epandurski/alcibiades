@@ -7,6 +7,12 @@
 //! winning tactical moves to be made). Although this search can
 //! cheaply and correctly resolve many simple tactical issues, it is
 //! completely blind to the more complex ones.
+//!
+//! `StandardQsearch` implements a classic quiescence search algorithm
+//! with stand pat, delta pruning, static exchange evaluation, check
+//! evasions, limited checks and recaptures. If you decide to write
+//! your own quiescence search routine, you should define your own
+//! type that implements the `Qsearch` trait.
 
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
@@ -168,14 +174,14 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                   stand_pat == position.evaluator().evaluate(position.board()));
     let in_check = position.checkers() != 0;
 
-    // At the beginning of quiescence, position's static
-    // evaluation (`stand_pat`) is used to establish a lower bound
-    // on the result. We assume that even if none of the forcing
-    // moves can improve over the stand pat, there will be at
-    // least one "quiet" move that will at least preserve the
-    // stand pat value. (Note that this assumption is not true if
-    // the the side to move is in check, because in this case all
-    // possible check evasions will be tried.)
+    // At the beginning of quiescence, position's static evaluation
+    // (`stand_pat`) is used to establish a lower bound on the
+    // result. We assume that even if none of the forcing moves can
+    // improve on the stand pat, there will be at least one "quiet"
+    // move that will at least preserve the stand pat value. (Note
+    // that this assumption is not true if the the side to move is in
+    // check, because in this case all possible check evasions will be
+    // tried.)
     if in_check {
         // Position's static evaluation is useless when in check.
         stand_pat = lower_bound;

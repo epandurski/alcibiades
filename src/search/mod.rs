@@ -270,15 +270,22 @@ pub trait SearchExecutor: SetOption {
 }
 
 
-/// A trait for chess positions.
+/// A trait for chess positions -- a convenient interface for the
+/// tree-searching algorithm.
 ///
-/// `SearchNode` presents a convenient interface to the tree-searching
-/// algorithm. A `SearchNode` can generate all possible moves (plus a
-/// "null move") in the current position, play a selected move and
-/// take it back. It can also quickly (without doing extensive
-/// tree-searching) evaluate the chances of the sides, so that the
-/// tree-searching algorithm can use this evaluation to assign
-/// realistic game outcomes to its leaf nodes.
+/// A `SearchNode` can generate all legal moves in the current
+/// position, play a selected move and take it back. It can also
+/// quickly (without doing extensive tree-searching) evaluate the
+/// chances of the sides, so that the tree-searching algorithm can use
+/// this evaluation to assign realistic game outcomes to its leaf
+/// nodes. `SearchNode` improves on `MoveGenerator` by adding the
+/// following functionality:
+///
+/// 1. Smart position hashing.
+/// 2. Exact evaluation of final positions.
+/// 3. Quiescence search.
+/// 4. 50 move rule awareness.
+/// 5. Threefold/twofold repetition detection.
 ///
 /// **Important note:** Repeating positions are considered a draw
 /// after the first repetition, not after the second one as the chess

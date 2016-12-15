@@ -26,16 +26,6 @@ struct PositionInfo {
 
 
 /// A generic implementation of `SearchNode` trait.
-///
-/// `Position` delegates some of the work to the underlying
-/// `MoveGenerator` instance, adding the following functionality:
-///
-/// 1. Smart position hashing.
-/// 2. Exact evaluation of final positions.
-/// 3. Static exchange evaluation.
-/// 4. Quiescence search.
-/// 5. 50 move rule awareness.
-/// 6. Threefold/twofold repetition detection.
 pub struct Position<T: Qsearch> {
     zobrist: &'static ZobristArrays,
     position: UnsafeCell<T::MoveGenerator>,
