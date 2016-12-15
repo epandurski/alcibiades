@@ -9,6 +9,7 @@ use board::*;
 use board::notation::*;
 use board::tables::*;
 use search::{SearchNode, MoveStack};
+use search::quiescence::{Qsearch, QsearchParams, QsearchResult};
 
 
 /// Contains information about a position.
@@ -35,9 +36,9 @@ struct PositionInfo {
 /// 4. Quiescence search.
 /// 5. 50 move rule awareness.
 /// 6. Threefold/twofold repetition detection.
-pub struct Position<T: MoveGenerator> {
+pub struct Position<T: Qsearch> {
     zobrist: &'static ZobristArrays,
-    position: UnsafeCell<T>,
+    position: UnsafeCell<T::MoveGenerator>,
 
     /// Information needed so as to be able to undo the played moves.
     state_stack: Vec<PositionInfo>,
@@ -64,8 +65,10 @@ pub struct Position<T: MoveGenerator> {
 }
 
 
-impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
-    type BoardEvaluator = T::BoardEvaluator;
+impl<T: Qsearch + 'static> SearchNode for Position<T> {
+    type BoardEvaluator = <<T as Qsearch>::MoveGenerator as MoveGenerator>::BoardEvaluator;
+
+    type QsearchHints = T::Hints;
 
     fn from_history(fen: &str,
                     moves: &mut Iterator<Item = &str>)
@@ -122,7 +125,7 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
                 self.board_hash
             };
             let halfmove_clock = self.state().halfmove_clock;
-            if halfmove_clock >= HALFMOVE_CLOCK_THRESHOLD {
+            if halfmove_clock >= 70 {
                 // If `halfmove_clock` is close to rule-50, we blend
                 // it into the returned hash.
                 hash ^ self.zobrist.halfmove_clock[halfmove_clock as usize]
@@ -166,23 +169,22 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
                            lower_bound: Value,
                            upper_bound: Value,
                            static_evaluation: Value)
-                           -> (Value, u64) {
+                           -> QsearchResult<Self::QsearchHints> {
         debug_assert!(lower_bound < upper_bound);
         if self.repeated_or_rule50 {
-            (0, 0)
+            QsearchResult {
+                value: 0,
+                searched_nodes: 0,
+                hints: Default::default(),
+            }
         } else {
-            let mut searched_nodes = 0;
-            let value = MOVE_STACK.with(|s| unsafe {
-                qsearch(self.position_mut(),
-                        lower_bound,
-                        upper_bound,
-                        static_evaluation,
-                        0,
-                        0,
-                        &mut *s.get(),
-                        &mut searched_nodes)
-            });
-            (value, searched_nodes)
+            T::qsearch(QsearchParams {
+                position: unsafe { self.position_mut() },
+                depth: 0,
+                lower_bound: lower_bound,
+                upper_bound: upper_bound,
+                static_evaluation: static_evaluation,
+            })
         }
     }
 
@@ -205,24 +207,6 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
         } else {
             self.position().try_move_digest(move_digest)
         }
-    }
-
-    fn legal_moves(&self) -> Vec<Move> {
-        let mut legal_moves = Vec::with_capacity(96);
-        MOVE_STACK.with(|s| unsafe {
-            let position = self.position_mut();
-            let move_stack = &mut *s.get();
-            move_stack.save();
-            self.generate_moves(move_stack);
-            for m in move_stack.iter() {
-                if position.do_move(*m).is_some() {
-                    legal_moves.push(*m);
-                    position.undo_move(*m);
-                }
-            }
-            move_stack.restore();
-        });
-        legal_moves
     }
 
     #[inline(always)]
@@ -297,7 +281,7 @@ impl<T: MoveGenerator + 'static> SearchNode for Position<T> {
 }
 
 
-impl<T: MoveGenerator + 'static> Clone for Position<T> {
+impl<T: Qsearch + 'static> Clone for Position<T> {
     fn clone(&self) -> Self {
         Position {
             zobrist: self.zobrist,
@@ -312,7 +296,7 @@ impl<T: MoveGenerator + 'static> Clone for Position<T> {
 }
 
 
-impl<T: MoveGenerator + 'static> SetOption for Position<T> {
+impl<T: Qsearch + 'static> SetOption for Position<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
@@ -323,12 +307,12 @@ impl<T: MoveGenerator + 'static> SetOption for Position<T> {
 }
 
 
-impl<T: MoveGenerator + 'static> Position<T> {
+impl<T: Qsearch + 'static> Position<T> {
     /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
     /// string.
     pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
-        let g = try!(T::from_board(board).ok_or(NotationError));
+        let g = try!(T::MoveGenerator::from_board(board).ok_or(NotationError));
         Ok(Position {
             zobrist: ZobristArrays::get(),
             board_hash: g.hash(),
@@ -390,13 +374,16 @@ impl<T: MoveGenerator + 'static> Position<T> {
 
     /// Returns if the side to move is checkmated.
     fn is_checkmate(&self) -> bool {
+        thread_local!(
+            static MOVES: UnsafeCell<Vec<Move>> = UnsafeCell::new(Vec::new())
+        );
+
         self.is_check() &&
-        MOVE_STACK.with(|s| unsafe {
+        MOVES.with(|s| unsafe {
             // Check if there are no legal moves.
             let position = self.position_mut();
             let move_stack = &mut *s.get();
             let mut no_legal_moves = true;
-            move_stack.save();
             position.generate_all(move_stack);
             for m in move_stack.iter() {
                 if position.do_move(*m).is_some() {
@@ -405,7 +392,7 @@ impl<T: MoveGenerator + 'static> Position<T> {
                     break;
                 }
             }
-            move_stack.restore();
+            move_stack.clear();
             no_legal_moves
         })
     }
@@ -416,171 +403,13 @@ impl<T: MoveGenerator + 'static> Position<T> {
     }
 
     #[inline(always)]
-    fn position(&self) -> &T {
+    fn position(&self) -> &T::MoveGenerator {
         unsafe { &*self.position.get() }
     }
 
     #[inline(always)]
-    unsafe fn position_mut(&self) -> &mut T {
+    unsafe fn position_mut(&self) -> &mut T::MoveGenerator {
         &mut *self.position.get()
-    }
-}
-
-
-/// Thread-local storage for the generated moves.
-thread_local!(
-    static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
-);
-
-
-/// The material value of pieces.
-const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
-
-
-/// Exchanges with SEE==0 will not be tried in `qsearch` once this ply
-/// has been reached.
-const SEE_EXCHANGE_MAX_PLY: u8 = 2;
-
-
-/// `halfmove_clock` will not be blended into position's hash until it
-/// gets greater or equal to this number.
-const HALFMOVE_CLOCK_THRESHOLD: u8 = 70;
-
-
-/// Performs a "quiescence search" and returns an evaluation.
-///
-/// The "quiescence search" is a restricted search which considers
-/// only a limited set of moves (for example: winning captures,
-/// pawn promotions to queen, check evasions). The goal is to
-/// statically evaluate only "quiet" positions (positions where
-/// there are no winning tactical moves to be made).
-fn qsearch<T: MoveGenerator>(position: &mut T,
-                             mut lower_bound: Value, // alpha
-                             upper_bound: Value, // beta
-                             mut stand_pat: Value, // position's static evaluation
-                             mut recapture_squares: Bitboard,
-                             ply: u8, // the reached `qsearch` depth
-                             move_stack: &mut MoveStack,
-                             searched_nodes: &mut u64)
-                             -> Value {
-    debug_assert!(lower_bound < upper_bound);
-    debug_assert!(stand_pat == VALUE_UNKNOWN ||
-                  stand_pat == position.evaluator().evaluate(position.board()));
-    let in_check = position.checkers() != 0;
-
-    // At the beginning of quiescence, position's static
-    // evaluation (`stand_pat`) is used to establish a lower bound
-    // on the result. We assume that even if none of the forcing
-    // moves can improve over the stand pat, there will be at
-    // least one "quiet" move that will at least preserve the
-    // stand pat value. (Note that this assumption is not true if
-    // the the side to move is in check, because in this case all
-    // possible check evasions will be tried.)
-    if in_check {
-        // Position's static evaluation is useless when in check.
-        stand_pat = lower_bound;
-    } else if stand_pat == VALUE_UNKNOWN {
-        stand_pat = position.evaluator().evaluate(position.board());
-    }
-    if stand_pat >= upper_bound {
-        return stand_pat;
-    }
-    if stand_pat > lower_bound {
-        lower_bound = stand_pat;
-    }
-    let obligatory_material_gain = (lower_bound as isize) - (stand_pat as isize) -
-                                   (PIECE_VALUES[KNIGHT] - 4 * PIECE_VALUES[PAWN] / 3) as isize;
-
-    // Generate all forcing moves. (Include checks only during the
-    // first ply.)
-    move_stack.save();
-    position.generate_forcing(ply == 0, move_stack);
-
-    // Consider the generated moves one by one. See if any of them
-    // can raise the lower bound.
-    'trymoves: while let Some(m) = move_stack.remove_best() {
-        let move_type = m.move_type();
-        let dest_square_bb = 1 << m.dest_square();
-        let captured_piece = m.captured_piece();
-
-        // Decide whether to try the move. Check evasions,
-        // en-passant captures (for them SEE is often wrong), and
-        // mandatory recaptures are always tried. (In order to
-        // correct SEE errors due to pinned and overloaded pieces,
-        // at least one mandatory recapture is always tried at the
-        // destination squares of previous moves.) For all other
-        // moves, a static exchange evaluation is performed to
-        // decide if the move should be tried.
-        if !in_check && move_type != MOVE_ENPASSANT && recapture_squares & dest_square_bb == 0 {
-            match position.calc_see(m) {
-                // A losing move -- do not try it.
-                x if x < 0 => continue 'trymoves,
-
-                // An even exchange -- try it only during the first few plys.
-                0 if ply >= SEE_EXCHANGE_MAX_PLY && captured_piece < NO_PIECE => continue 'trymoves,
-
-                // A safe or winning move -- try it always.
-                _ => (),
-            }
-        }
-
-        // Try the move.
-        if position.do_move(m).is_some() {
-            // If the move does not give check, ensure that
-            // the immediate material gain from the move is
-            // big enough.
-            if position.checkers() == 0 {
-                let material_gain = if move_type == MOVE_PROMOTION {
-                    PIECE_VALUES[captured_piece] +
-                    PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
-                    PIECE_VALUES[PAWN]
-                } else {
-                    PIECE_VALUES[captured_piece]
-                };
-                if (material_gain as isize) < obligatory_material_gain {
-                    position.undo_move(m);
-                    continue 'trymoves;
-                }
-            }
-
-            // Recursively call `qsearch`.
-            *searched_nodes += 1;
-            let value = -qsearch(position,
-                                 -upper_bound,
-                                 -lower_bound,
-                                 VALUE_UNKNOWN,
-                                 recapture_squares ^ dest_square_bb,
-                                 ply + 1,
-                                 move_stack,
-                                 searched_nodes);
-            position.undo_move(m);
-
-            // Update the lower bound.
-            if value >= upper_bound {
-                lower_bound = value;
-                break 'trymoves;
-            }
-            if value > lower_bound {
-                lower_bound = value;
-            }
-
-            // Mark that a recapture at this square has been tried.
-            recapture_squares &= !dest_square_bb;
-        }
-    }
-    move_stack.restore();
-
-    // Return the determined lower bound. (We should make sure
-    // that the returned value is between `VALUE_EVAL_MIN` and
-    // `VALUE_EVAL_MAX`, regardless of the initial bounds passed
-    // to `qsearch`. If we do not take this precautions, the
-    // search algorithm will abstain from checkmating the
-    // opponent, seeking the huge material gain that `qsearch`
-    // promised.)
-    match lower_bound {
-        x if x < VALUE_EVAL_MIN => VALUE_EVAL_MIN,
-        x if x > VALUE_EVAL_MAX => VALUE_EVAL_MAX,
-        x => x,
     }
 }
 

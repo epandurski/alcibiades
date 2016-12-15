@@ -14,6 +14,7 @@ use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::*;
 use search::*;
+use search::quiescence::QsearchResult;
 
 
 /// Executes alpha-beta searches with null move pruning and late move
@@ -514,8 +515,11 @@ impl<'a, T, N> Search<'a, T, N>
 
         // On leaf nodes, do quiescence search.
         if depth == 0 {
-            let (value, nodes) = self.position.evaluate_quiescence(alpha, beta, eval_value);
-            try!(self.report_progress(nodes));
+            let QsearchResult { value, searched_nodes, .. } = self.position
+                                                                  .evaluate_quiescence(alpha,
+                                                                                       beta,
+                                                                                       eval_value);
+            try!(self.report_progress(searched_nodes));
             let bound = if value >= beta {
                 BOUND_LOWER
             } else if value <= alpha {

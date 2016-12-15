@@ -22,6 +22,7 @@ use uci::SetOption;
 use chesstypes::*;
 use board::*;
 use board::notation::NotationError;
+use self::quiescence::QsearchResult;
 
 pub use self::move_stack::MoveStack;
 pub use self::position::Position;
@@ -290,6 +291,10 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// with.
     type BoardEvaluator: BoardEvaluator;
 
+    /// The type of auxiliary hints that the quiescence search
+    /// provides.
+    type QsearchHints: Default;
+
     /// Instantiates a new chess position from playing history.
     ///
     /// `fen` should be the Forsyth–Edwards Notation of a legal
@@ -328,7 +333,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// legal, then the position is final.)
     fn evaluate_final(&self) -> Value;
 
-    /// Performs quiescence search and returns an evaluation.
+    /// Performs quiescence search and returns a result.
     ///
     /// Quiescence search is a restricted search which considers only
     /// a limited set of moves (for example: winning captures, pawn
@@ -347,20 +352,14 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// of the interval. `static_evaluation` should be position's
     /// static evaluation, or `VALUE_UNKNOWN`.
     ///
-    /// The first slot in the returned tuple is the calculated
-    /// evaluation. It will always be between `VALUE_EVAL_MIN` and
-    /// `VALUE_EVAL_MAX`. For repeated and rule-50 positions it will
-    /// be `0`. The second slot in the returned tuple is the number of
-    /// positions that were searched in order to calculate the
-    /// evaluation.
-    ///
     /// **Important note:** This method will return a reliable result
-    /// even when the side to move is in check.
+    /// even when the side to move is in check. Repeated and rule-50
+    /// positions are always evaluated to `0`.
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
                            static_evaluation: Value)
-                           -> (Value, u64);
+                           -> QsearchResult<Self::QsearchHints>;
 
     /// Returns the likely evaluation change (material) to be lost or
     /// gained as a result of a given move.

@@ -12,6 +12,7 @@ pub mod engine;
 use std::process::exit;
 use search::searchers::{Deepening, StandardSrch};
 use search::tt::StandardTt;
+use search::quiescence::StandardQsearch;
 use search::Position;
 use board::Generator;
 use board::evaluators::RandomEval;
@@ -19,7 +20,7 @@ use engine::run_server;
 
 fn main() {
     exit(match run_server::<Deepening<StandardSrch<StandardTt,
-                                                   Position<Generator<RandomEval>>>>>() {
+                                                   Position<StandardQsearch<Generator<RandomEval>>>>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })

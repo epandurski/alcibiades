@@ -1,19 +1,16 @@
 //! Facilities for implementing quiescence searching.
 //!
-//! Most chess programs, at the end of the main search perform a more
-//! limited quiescence search, containing fewer moves. The purpose of
-//! this search is to only evaluate "quiet" positions, or positions
-//! where there are no winning tactical moves to be made. Simply
-//! stopping your search when you reach the desired depth and then
-//! evaluate, is very dangerous. Consider the situation where the last
-//! move is QxP. If you stop there and evaluate, you might think that
-//! you have won a pawn. But what if you were to search one move
-//! deeper and find that the next move is PxQ? You didn't win a pawn,
-//! you actually lost a queen. Hence the need to make sure that you
-//! are evaluating only quiescent (quiet) positions.
+//! Quiescence search is a restricted search which considers only a
+//! limited set of moves (for example: winning captures, pawn
+//! promotions to queen, check evasions). The goal is to statically
+//! evaluate only "quiet" positions (positions where there are no
+//! winning tactical moves to be made). Although this search can
+//! cheaply and correctly resolve many simple tactical issues, it is
+//! completely blind to the more complex ones.
 
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
+use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::{MoveGenerator, BoardEvaluator};
 use search::MoveStack;
@@ -58,8 +55,10 @@ pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
 
 
 /// Results from a quiescence search.
-pub struct QsearchResult<T> {
+pub struct QsearchResult<T: Default> {
     /// The calculated evaluation for the analyzed position.
+    ///
+    /// Should always be between `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`.
     pub value: Value,
 
     /// The number of positions that were searched in order to
@@ -72,11 +71,15 @@ pub struct QsearchResult<T> {
 
 
 /// A trait for performing quiescence searches.
-pub trait Qsearch {
+pub trait Qsearch: SetOption + Send {
     type MoveGenerator: MoveGenerator;
-    type Hints;
+
+    type Hints: Default;
 
     /// TODO
+    ///
+    /// **Important note:** This should return a reliable result even
+    /// when the side to move is in check.
     fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> QsearchResult<Self::Hints>;
 }
 
@@ -109,6 +112,17 @@ impl<T: MoveGenerator> Qsearch for StandardQsearch<T> {
             searched_nodes: searched_nodes,
             hints: (),
         }
+    }
+}
+
+
+impl<T: MoveGenerator> SetOption for StandardQsearch<T> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        T::options()
+    }
+
+    fn set_option(name: &str, value: &str) {
+        T::set_option(name, value)
     }
 }
 
