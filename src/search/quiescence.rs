@@ -54,48 +54,79 @@ pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
 }
 
 
-/// Results from a quiescence search.
-pub struct QsearchResult<T: Default> {
-    /// The calculated evaluation for the analyzed position.
+/// A trait for quiescence searches' results.
+pub trait QsearchResult {
+    /// Creates a new instance.
     ///
-    /// Should always be between `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`.
-    pub value: Value,
+    /// * `value` -- the calculated evaluation for the position. Must
+    ///   be between `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`.
+    ///
+    /// * `searched_nodes` -- the number of positions searched to
+    ///   calculate the evaluation.
+    fn new(value: Value, searched_nodes: u64) -> Self;
 
-    /// The number of positions that were searched in order to
-    /// calculate the evaluation.
-    pub searched_nodes: u64,
+    /// Returns the calculated evaluation for the position.
+    ///
+    /// Will always be between `VALUE_EVAL_MIN` and `VALUE_EVAL_MAX`.
+    fn value(&self) -> Value;
 
-    /// Auxiliary hints regarding the analyzed position.
-    pub hints: T,
+    /// Retruns the number of positions searched to calculate the evaluation.
+    fn searched_nodes(&self) -> u64;
 }
 
 
 /// A trait for performing quiescence searches.
 pub trait Qsearch: SetOption + Send {
+    /// The type of move generator that the implementation works with.
     type MoveGenerator: MoveGenerator;
 
-    type Hints: Default;
+    /// The type of result object that the search produces.
+    type QsearchResult: QsearchResult;
 
-    /// TODO
-    ///
-    /// **Important note:** This should return a reliable result even
-    /// when the side to move is in check.
-    fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> QsearchResult<Self::Hints>;
+    /// Performs a quiescence search and returns a result object.
+    fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> Self::QsearchResult;
 }
 
 
-/// Implements a classical quiescence search routine.
+/// Implements the `QsearchResult` trait.
+pub struct StandardQsearchResult {
+    value: Value,
+    searched_nodes: u64,
+}
+
+impl QsearchResult for StandardQsearchResult {
+    #[inline(always)]
+    fn new(value: Value, searched_nodes: u64) -> Self {
+        debug_assert!(VALUE_EVAL_MIN <= value && value <= VALUE_EVAL_MAX);
+        StandardQsearchResult {
+            value: value,
+            searched_nodes: searched_nodes,
+        }
+    }
+
+    #[inline(always)]
+    fn value(&self) -> Value {
+        self.value
+    }
+
+    #[inline(always)]
+    fn searched_nodes(&self) -> u64 {
+        self.searched_nodes
+    }
+}
+
+
+/// Implements the `Qsearch` trait.
 pub struct StandardQsearch<T: MoveGenerator> {
     phantom: PhantomData<T>,
 }
 
-
 impl<T: MoveGenerator> Qsearch for StandardQsearch<T> {
     type MoveGenerator = T;
 
-    type Hints = ();
+    type QsearchResult = StandardQsearchResult;
 
-    fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> QsearchResult<Self::Hints> {
+    fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> Self::QsearchResult {
         let mut searched_nodes = 0;
         let value = MOVE_STACK.with(|s| unsafe {
             qsearch(params.position,
@@ -107,14 +138,9 @@ impl<T: MoveGenerator> Qsearch for StandardQsearch<T> {
                     &mut *s.get(),
                     &mut searched_nodes)
         });
-        QsearchResult {
-            value: value,
-            searched_nodes: searched_nodes,
-            hints: (),
-        }
+        StandardQsearchResult::new(value, searched_nodes)
     }
 }
-
 
 impl<T: MoveGenerator> SetOption for StandardQsearch<T> {
     fn options() -> Vec<(String, OptionDescription)> {
@@ -127,13 +153,7 @@ impl<T: MoveGenerator> SetOption for StandardQsearch<T> {
 }
 
 
-/// Performs a "quiescence search" and returns an evaluation.
-///
-/// The "quiescence search" is a restricted search which considers
-/// only a limited set of moves (for example: winning captures,
-/// pawn promotions to queen, check evasions). The goal is to
-/// statically evaluate only "quiet" positions (positions where
-/// there are no winning tactical moves to be made).
+/// A classical recursive quiescence search implementation.
 fn qsearch<T: MoveGenerator>(position: &mut T,
                              mut lower_bound: Value, // alpha
                              upper_bound: Value, // beta
@@ -278,3 +298,77 @@ const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 /// Exchanges with SEE==0 will not be tried in `qsearch` once this ply
 /// has been reached.
 const SEE_EXCHANGE_MAX_PLY: i8 = 2;
+
+
+#[cfg(test)]
+mod tests {
+    use chesstypes::*;
+    use search::MoveStack;
+    use board::evaluators::MaterialEval;
+    use board::{Board, MoveGenerator, Generator};
+
+    type Pos = Generator<MaterialEval>;
+
+    #[test]
+    fn test_qsearch() {
+        use super::qsearch;
+        let mut s = MoveStack::new();
+        let mut p = Pos::from_board(Board::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+                   0);
+
+        let mut p = Pos::from_board(Board::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+                   225);
+
+        let mut p = Pos::from_board(Board::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+                   0);
+
+        let mut p = Pos::from_board(Board::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+                   -100);
+
+        let mut p = Pos::from_board(Board::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP\
+                                                     2PPP/R2QKB1R w - - 5 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+                   0);
+
+        let mut p = Pos::from_board(Board::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2P\
+                                                     PP/R2QKB1R b - - 5 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+                   -100);
+
+        let mut p = Pos::from_board(Board::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PP\
+                                                     P/R1BKQB1R w - - 5 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
+                   0);
+
+        let mut p = Pos::from_board(Board::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1")
+                                        .ok()
+                                        .unwrap())
+                        .unwrap();
+        assert!(qsearch(&mut p, -10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000);
+    }
+}

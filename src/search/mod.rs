@@ -291,9 +291,8 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// with.
     type BoardEvaluator: BoardEvaluator;
 
-    /// The type of auxiliary hints that the quiescence search
-    /// provides.
-    type QsearchHints: Default;
+    /// The type of result object that `evaluate_quiescence` returns.
+    type QsearchResult: QsearchResult;
 
     /// Instantiates a new chess position from playing history.
     ///
@@ -359,7 +358,7 @@ pub trait SearchNode: Send + Clone + SetOption {
                            lower_bound: Value,
                            upper_bound: Value,
                            static_evaluation: Value)
-                           -> QsearchResult<Self::QsearchHints>;
+                           -> Self::QsearchResult;
 
     /// Returns the likely evaluation change (material) to be lost or
     /// gained as a result of a given move.

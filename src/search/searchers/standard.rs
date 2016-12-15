@@ -515,21 +515,18 @@ impl<'a, T, N> Search<'a, T, N>
 
         // On leaf nodes, do quiescence search.
         if depth == 0 {
-            let QsearchResult { value, searched_nodes, .. } = self.position
-                                                                  .evaluate_quiescence(alpha,
-                                                                                       beta,
-                                                                                       eval_value);
-            try!(self.report_progress(searched_nodes));
-            let bound = if value >= beta {
+            let result = self.position.evaluate_quiescence(alpha, beta, eval_value);
+            try!(self.report_progress(result.searched_nodes()));
+            let bound = if result.value() >= beta {
                 BOUND_LOWER
-            } else if value <= alpha {
+            } else if result.value() <= alpha {
                 BOUND_UPPER
             } else {
                 BOUND_EXACT
             };
             self.tt.store(hash,
-                          T::Entry::with_eval_value(value, bound, 0, 0, eval_value));
-            return Ok(Some(value));
+                          T::Entry::with_eval_value(result.value(), bound, 0, 0, eval_value));
+            return Ok(Some(result.value()));
         }
 
         // Save the current move list. Also, save checkers and pinned
@@ -983,16 +980,19 @@ mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
     use search::{SearchNode, MoveStack, HashTable};
+    use search::quiescence::StandardQsearch;
     use search::tt::StandardTt;
     use search::position::Position;
     use board::evaluators::RandomEval;
     use board::Generator;
 
+    type Pos = Position<StandardQsearch<Generator<RandomEval>>>;
+
     #[test]
     fn test_search() {
-        let p = Position::<Generator<RandomEval>>::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b \
+        let p = Pos::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b \
                                                                     - - 0 1",
-                                                                &mut vec![].into_iter())
+                                  &mut vec![].into_iter())
                     .ok()
                     .unwrap();
         let tt = StandardTt::new(None);
@@ -1013,9 +1013,9 @@ mod tests {
     #[test]
     fn test_killers() {
         let mut killers = KillerTable::new();
-        let mut p = Position::<Generator<RandomEval>>::from_history("5r2/8/8/4q1p1/3P4/k3P1P1/\
+        let mut p = Pos::from_history("5r2/8/8/4q1p1/3P4/k3P1P1/\
                                                                         P2b1R1B/K4R2 w - - 0 1",
-                                                                    &mut vec![].into_iter())
+                                      &mut vec![].into_iter())
                         .ok()
                         .unwrap();
         let mut v = MoveStack::new();
