@@ -17,9 +17,14 @@ use board::MoveGenerator;
 
 
 /// Parameters describing a quiescence search.
-pub struct QsearchParams<T: MoveGenerator> {
-    /// The root position for the search.
-    pub position: T,
+pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
+    /// A mutable reference to the root position for the search.
+    ///
+    /// **Important note:** The search routine may use this reference
+    /// to do and undo moves, but when the search is finished, all
+    /// played moves must be taken back so that the board is restored
+    /// to its original state.
+    pub position: &'a mut T,
 
     /// The requested search depth.
     ///
