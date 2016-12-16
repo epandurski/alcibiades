@@ -431,12 +431,12 @@ mod tests {
     use super::*;
     use chesstypes::*;
     use search::{SearchNode, QsearchResult, MoveStack};
-    use search::stock::StandardQsearch;
+    use search::stock::StdQsearch;
     use move_generation::Generator;
     use board::evaluators::MaterialEval;
     use board::BoardEvaluator;
 
-    type Pos = Position<StandardQsearch<Generator<MaterialEval>>>;
+    type Pos = Position<StdQsearch<Generator<MaterialEval>>>;
 
     #[test]
     fn test_fen_parsing() {

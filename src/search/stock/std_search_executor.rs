@@ -1,4 +1,4 @@
-//! Implements `StandardSearchExecutor`.
+//! Implements `StdSearchExecutor`.
 
 use std::mem;
 use std::cmp::max;
@@ -36,10 +36,10 @@ use search::*;
 /// depth for moves that are ordered closer to the end (likely
 /// fail-low nodes).
 ///
-/// **Important note:** `StandardSearchExecutor` ignores the `searchmoves`
+/// **Important note:** `StdSearchExecutor` ignores the `searchmoves`
 /// search parameter. It always analyses all legal moves in the root
 /// position.
-pub struct StandardSearchExecutor<T: HashTable, N: SearchNode> {
+pub struct StdSearchExecutor<T: HashTable, N: SearchNode> {
     phantom: PhantomData<T>,
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command<N>>,
@@ -47,7 +47,7 @@ pub struct StandardSearchExecutor<T: HashTable, N: SearchNode> {
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl<T, N> SearchExecutor for StandardSearchExecutor<T, N>
+impl<T, N> SearchExecutor for StdSearchExecutor<T, N>
     where T: HashTable + 'static,
           N: SearchNode + 'static
 {
@@ -57,11 +57,11 @@ impl<T, N> SearchExecutor for StandardSearchExecutor<T, N>
 
     type ReportData = ();
 
-    fn new(tt: Arc<T>) -> StandardSearchExecutor<T, N> {
+    fn new(tt: Arc<T>) -> StdSearchExecutor<T, N> {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
-        StandardSearchExecutor {
+        StdSearchExecutor {
             phantom: PhantomData,
             thread_commands: commands_tx,
             thread_reports: reports_rx,
@@ -81,7 +81,7 @@ impl<T, N> SearchExecutor for StandardSearchExecutor<T, N>
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(params.searchmoves.is_empty() ||
                       contains_same_moves(&params.searchmoves, &params.position.legal_moves()),
-                      "StandardSearchExecutor ignores searchmoves");
+                      "StdSearchExecutor ignores searchmoves");
         self.thread_commands.send(Command::Start(params)).unwrap();
     }
 
@@ -107,7 +107,7 @@ impl<T, N> SearchExecutor for StandardSearchExecutor<T, N>
     }
 }
 
-impl<T: HashTable, N: SearchNode> SetOption for StandardSearchExecutor<T, N> {
+impl<T: HashTable, N: SearchNode> SetOption for StdSearchExecutor<T, N> {
     fn options() -> Vec<(String, OptionDescription)> {
         N::options()
     }
@@ -117,7 +117,7 @@ impl<T: HashTable, N: SearchNode> SetOption for StandardSearchExecutor<T, N> {
     }
 }
 
-impl<T: HashTable, N: SearchNode> Drop for StandardSearchExecutor<T, N> {
+impl<T: HashTable, N: SearchNode> Drop for StdSearchExecutor<T, N> {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();
@@ -980,11 +980,11 @@ mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
     use search::{SearchNode, MoveStack, HashTable};
-    use search::stock::{StandardHashTable, StandardQsearch};
+    use search::stock::{StdHashTable, StdQsearch};
     use move_generation::{Position, Generator};
     use board::evaluators::RandomEval;
 
-    type Pos = Position<StandardQsearch<Generator<RandomEval>>>;
+    type Pos = Position<StdQsearch<Generator<RandomEval>>>;
 
     #[test]
     fn test_search() {
@@ -993,7 +993,7 @@ mod tests {
                                   &mut vec![].into_iter())
                     .ok()
                     .unwrap();
-        let tt = StandardHashTable::new(None);
+        let tt = StdHashTable::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);

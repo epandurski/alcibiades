@@ -12,14 +12,14 @@ pub mod engine;
 
 use std::process::exit;
 use search::Deepening;
-use search::stock::{StandardHashTable, StandardQsearch, StandardSearchExecutor};
+use search::stock::{StdHashTable, StdQsearch, StdSearchExecutor};
 use move_generation::{Position, Generator};
 use board::evaluators::RandomEval;
 use engine::run_server;
 
 fn main() {
-    type SearchNode = Position<StandardQsearch<Generator<RandomEval>>>;
-    exit(match run_server::<Deepening<StandardSearchExecutor<StandardHashTable, SearchNode>>>() {
+    type SearchNode = Position<StdQsearch<Generator<RandomEval>>>;
+    exit(match run_server::<Deepening<StdSearchExecutor<StdHashTable, SearchNode>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })

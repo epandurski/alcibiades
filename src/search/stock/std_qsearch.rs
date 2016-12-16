@@ -18,16 +18,16 @@ use search::quiescence::*;
 
 
 /// Implements the `QsearchResult` trait.
-pub struct StandardQsearchResult {
+pub struct StdQsearchResult {
     value: Value,
     searched_nodes: u64,
 }
 
-impl QsearchResult for StandardQsearchResult {
+impl QsearchResult for StdQsearchResult {
     #[inline(always)]
     fn new(value: Value, searched_nodes: u64) -> Self {
         debug_assert!(VALUE_EVAL_MIN <= value && value <= VALUE_EVAL_MAX);
-        StandardQsearchResult {
+        StdQsearchResult {
             value: value,
             searched_nodes: searched_nodes,
         }
@@ -50,14 +50,14 @@ impl QsearchResult for StandardQsearchResult {
 /// Performs classical quiescence search with stand pat, delta
 /// pruning, static exchange evaluation, check evasions, limited
 /// checks and recaptures.
-pub struct StandardQsearch<T: MoveGenerator> {
+pub struct StdQsearch<T: MoveGenerator> {
     phantom: PhantomData<T>,
 }
 
-impl<T: MoveGenerator> Qsearch for StandardQsearch<T> {
+impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
     type MoveGenerator = T;
 
-    type QsearchResult = StandardQsearchResult;
+    type QsearchResult = StdQsearchResult;
 
     fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> Self::QsearchResult {
         let mut searched_nodes = 0;
@@ -71,11 +71,11 @@ impl<T: MoveGenerator> Qsearch for StandardQsearch<T> {
                     &mut *s.get(),
                     &mut searched_nodes)
         });
-        StandardQsearchResult::new(value, searched_nodes)
+        StdQsearchResult::new(value, searched_nodes)
     }
 }
 
-impl<T: MoveGenerator> SetOption for StandardQsearch<T> {
+impl<T: MoveGenerator> SetOption for StdQsearch<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
