@@ -72,12 +72,13 @@ pub trait Qsearch: SetOption + Send {
 
 /// A trait for move generators.
 ///
-/// A `MoveGenerator` holds a chess position, can generate all legal
-/// moves, play a selected move and take it back. It provides a
-/// position evaluator, and can calculate Zobrist hashes.
+/// A `MoveGenerator` holds a chess position, can generate all or a
+/// subset of all legal moves, perform static exchange evaluation,
+/// play a selected move and take it back. It provides a position
+/// evaluator, and can calculate Zobrist hashes.
 ///
 /// **Important note:** `MoveGenerator` is unaware of repeating
-/// positions and the fifty-move rule.
+/// positions and rule-50.
 pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// The type of static evaluator that the implementation works
     /// with.
