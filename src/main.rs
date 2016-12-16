@@ -11,7 +11,7 @@ pub mod move_generation;
 pub mod engine;
 
 use std::process::exit;
-use search::searchers::Deepening;
+use search::Deepening;
 use search::stock::{StandardTt, StandardQsearch, StandardSearch};
 use move_generation::{Position, Generator};
 use board::evaluators::RandomEval;

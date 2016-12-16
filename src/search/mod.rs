@@ -10,8 +10,8 @@
 //! that implements the `SearchExecutor` trait.
 
 mod move_stack;
+mod deepening;
 pub mod stock;
-pub mod searchers;
 pub mod quiescence;
 
 use std::time::Duration;
@@ -23,9 +23,10 @@ use board::*;
 use board::notation::NotationError;
 
 pub use self::move_stack::MoveStack;
+pub use self::deepening::Deepening;
 
 
-/// Parameters describing a new search.
+/// Parameters describing a search.
 ///
 /// **Important note:** `lower_bound` and `upper_bound` fields
 /// together give the interval within which an as precise as possible
@@ -36,10 +37,10 @@ pub use self::move_stack::MoveStack;
 /// interval (i.e. "fail-soft").
 #[derive(Clone)]
 pub struct SearchParams<T: SearchNode> {
-    /// A number identifying the new search.
+    /// A number identifying the search.
     pub search_id: usize,
 
-    /// The root position for the new search.
+    /// The root position for the search.
     pub position: T,
 
     /// The requested search depth.
@@ -47,12 +48,12 @@ pub struct SearchParams<T: SearchNode> {
     /// Should be between `DEPTH_MIN` and `DEPTH_MAX`.
     pub depth: Depth,
 
-    /// The lower bound for the new search.
+    /// The lower bound for the search.
     ///
     /// Should be no lesser than `VALUE_MIN`.
     pub lower_bound: Value,
 
-    /// The upper bound for the new search.
+    /// The upper bound for the search.
     ///
     /// Should be greater than `lower_bound`, but no greater than
     /// `VALUE_MAX`.
