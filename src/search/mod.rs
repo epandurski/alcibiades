@@ -10,8 +10,8 @@
 //! that implements the `SearchExecutor` trait.
 
 mod move_stack;
+pub mod stock;
 pub mod searchers;
-pub mod tt;
 pub mod quiescence;
 
 use std::time::Duration;

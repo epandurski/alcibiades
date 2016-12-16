@@ -11,16 +11,15 @@ pub mod move_generation;
 pub mod engine;
 
 use std::process::exit;
-use search::searchers::{Deepening, StandardSrch};
-use search::tt::StandardTt;
-use search::quiescence::StandardQsearch;
+use search::searchers::Deepening;
+use search::stock::{StandardTt, StandardQsearch, StandardSearch};
 use move_generation::{Position, Generator};
 use board::evaluators::RandomEval;
 use engine::run_server;
 
 fn main() {
-    exit(match run_server::<Deepening<StandardSrch<StandardTt,
-                                                   Position<StandardQsearch<Generator<RandomEval>>>>>>() {
+    type SearchNode = Position<StandardQsearch<Generator<RandomEval>>>;
+    exit(match run_server::<Deepening<StandardSearch<StandardTt, SearchNode>>>() {
         Ok(_) => 0,
         Err(_) => 1,
     })

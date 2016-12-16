@@ -38,7 +38,7 @@ use search::*;
 /// **Important note:** `StandardSrch` ignores the `searchmoves` search
 /// parameter. It always analyses all legal moves in the root
 /// position.
-pub struct StandardSrch<T: HashTable, N: SearchNode> {
+pub struct StandardSearch<T: HashTable, N: SearchNode> {
     phantom: PhantomData<T>,
     thread_join_handle: Option<thread::JoinHandle<()>>,
     thread_commands: Sender<Command<N>>,
@@ -46,7 +46,7 @@ pub struct StandardSrch<T: HashTable, N: SearchNode> {
     has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
 }
 
-impl<T, N> SearchExecutor for StandardSrch<T, N>
+impl<T, N> SearchExecutor for StandardSearch<T, N>
     where T: HashTable + 'static,
           N: SearchNode + 'static
 {
@@ -56,11 +56,11 @@ impl<T, N> SearchExecutor for StandardSrch<T, N>
 
     type ReportData = ();
 
-    fn new(tt: Arc<T>) -> StandardSrch<T, N> {
+    fn new(tt: Arc<T>) -> StandardSearch<T, N> {
         let (commands_tx, commands_rx) = channel();
         let (reports_tx, reports_rx) = channel();
         let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
-        StandardSrch {
+        StandardSearch {
             phantom: PhantomData,
             thread_commands: commands_tx,
             thread_reports: reports_rx,
@@ -106,7 +106,7 @@ impl<T, N> SearchExecutor for StandardSrch<T, N>
     }
 }
 
-impl<T: HashTable, N: SearchNode> SetOption for StandardSrch<T, N> {
+impl<T: HashTable, N: SearchNode> SetOption for StandardSearch<T, N> {
     fn options() -> Vec<(String, OptionDescription)> {
         N::options()
     }
@@ -116,7 +116,7 @@ impl<T: HashTable, N: SearchNode> SetOption for StandardSrch<T, N> {
     }
 }
 
-impl<T: HashTable, N: SearchNode> Drop for StandardSrch<T, N> {
+impl<T: HashTable, N: SearchNode> Drop for StandardSearch<T, N> {
     fn drop(&mut self) {
         self.thread_commands.send(Command::Exit).unwrap();
         self.thread_join_handle.take().unwrap().join().unwrap();
@@ -979,8 +979,7 @@ mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
     use search::{SearchNode, MoveStack, HashTable};
-    use search::quiescence::StandardQsearch;
-    use search::tt::StandardTt;
+    use search::stock::{StandardTt, StandardQsearch};
     use move_generation::{Position, Generator};
     use board::evaluators::RandomEval;
 

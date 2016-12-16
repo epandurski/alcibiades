@@ -431,7 +431,7 @@ mod tests {
     use super::*;
     use chesstypes::*;
     use search::{SearchNode, QsearchResult, MoveStack};
-    use search::quiescence::StandardQsearch;
+    use search::stock::StandardQsearch;
     use move_generation::Generator;
     use board::evaluators::MaterialEval;
     use board::BoardEvaluator;
