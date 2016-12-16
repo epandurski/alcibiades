@@ -1,10 +1,9 @@
 //! Implementations of various search traits.
 
-mod standard_tt;
-mod standard_search;
+mod standard_hash_table;
+mod standard_search_executor;
 mod standard_qsearch;
 
-pub use self::standard_tt::*;
-pub use self::standard_search::*;
+pub use self::standard_hash_table::*;
+pub use self::standard_search_executor::*;
 pub use self::standard_qsearch::*;
-
