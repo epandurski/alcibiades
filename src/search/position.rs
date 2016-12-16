@@ -5,10 +5,10 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::*;
-use board::notation::*;
-use board::tables::*;
-use search::{SearchNode, MoveStack, QsearchResult};
+use board::Board;
+use board::tables::ZobristArrays;
+use board::notation::{parse_fen, NotationError};
+use search::{SearchNode, QsearchResult};
 use search::quiescence::{MoveGenerator, Qsearch, QsearchParams};
 
 
@@ -64,11 +64,11 @@ impl<T: Qsearch + 'static> SearchNode for Position<T> {
                     moves: &mut Iterator<Item = &str>)
                     -> Result<Position<T>, NotationError> {
         let mut p: Position<T> = try!(Position::from_fen(fen));
-        let mut move_stack = MoveStack::new();
+        let mut move_list = Vec::new();
         'played_moves: for played_move in moves {
-            move_stack.clear();
-            p.position().generate_all(&mut move_stack);
-            for m in move_stack.iter() {
+            move_list.clear();
+            p.position().generate_all(&mut move_list);
+            for m in move_list.iter() {
                 if played_move == m.notation() {
                     if p.do_move(*m) {
                         continue 'played_moves;

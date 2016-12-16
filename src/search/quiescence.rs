@@ -15,7 +15,7 @@ use std::mem::uninitialized;
 use std::cmp::max;
 use uci::SetOption;
 use chesstypes::*;
-use board::*;
+use board::{Board, BoardEvaluator};
 use search::QsearchResult;
 
 
@@ -223,6 +223,8 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
         let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
         let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
         let color: &[Bitboard; 2] = &self.board().pieces.color;
+        let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
+        let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
 
         // These variables will be updated on each capture:
         let mut us = self.board().to_move;
@@ -242,6 +244,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
         // each `depth`, from the viewpoint of the side that made the
         // last capture (`us`).
         let mut gain: [Value; 34] = unsafe { uninitialized() };
+
         let captured_piece_value = PIECE_VALUES[m.captured_piece()];
         gain[depth] = if m.move_type() == MOVE_PROMOTION {
             // Adding `1` guarantees that SEE will be greater than
@@ -271,16 +274,15 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
             // `orig_square_bb` is vacant.
             if orig_square_bb & may_xray != 0 {
                 attackers_and_defenders |= {
-                    let candidates = occupied & behind_blocker[bitscan_forward(orig_square_bb)];
-                    let bb = geometry.attacks_from(ROOK, dest_square, candidates) & candidates &
-                             (piece_type[QUEEN] | piece_type[ROOK]);
-                    if bb != 0 {
-                        // a straight slider
-                        bb
-                    } else {
-                        // a diagonal slider
-                        geometry.attacks_from(BISHOP, dest_square, candidates) & candidates &
-                        (piece_type[QUEEN] | piece_type[BISHOP])
+                    let behind = behind_blocker[bitscan_forward(orig_square_bb)] & occupied;
+                    match behind & straight_sliders &
+                          geometry.attacks_from(ROOK, dest_square, behind) {
+                        0 => {
+                            // not a straight slider, may be a diagonal slider
+                            behind & diag_sliders &
+                            geometry.attacks_from(BISHOP, dest_square, behind)
+                        }
+                        square_bb => square_bb, // a straight slider
                     }
                 };
             }
