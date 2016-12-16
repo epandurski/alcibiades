@@ -238,7 +238,7 @@ mod tests {
     use chesstypes::*;
     use search::MoveStack;
     use search::quiescence::MoveGenerator;
-    use move_generation::Generator;
+    use search::stock::Generator;
     use board::evaluators::MaterialEval;
     use board::Board;
 

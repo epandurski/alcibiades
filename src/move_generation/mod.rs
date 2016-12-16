@@ -6,8 +6,6 @@
 //! so, you can define your own type that implements the
 //! `MoveGenerator` trait.
 
-mod generator;
 mod position;
 
-pub use self::generator::Generator;
 pub use self::position::Position;

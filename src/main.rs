@@ -12,8 +12,8 @@ pub mod engine;
 
 use std::process::exit;
 use search::Deepening;
-use search::stock::{StdHashTable, StdQsearch, StdSearchExecutor};
-use move_generation::{Position, Generator};
+use search::stock::{StdHashTable, StdQsearch, StdSearchExecutor, Generator};
+use move_generation::Position;
 use board::evaluators::RandomEval;
 use engine::run_server;
 
