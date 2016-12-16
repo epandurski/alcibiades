@@ -979,9 +979,8 @@ impl Default for KillerPair {
 mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
-    use search::{SearchNode, MoveStack, HashTable};
+    use search::{SearchNode, Position, MoveStack, HashTable};
     use search::stock::{StdHashTable, StdQsearch, StdMoveGenerator};
-    use move_generation::Position;
     use board::evaluators::RandomEval;
 
     type Pos = Position<StdQsearch<StdMoveGenerator<RandomEval>>>;

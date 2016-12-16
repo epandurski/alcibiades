@@ -7,13 +7,11 @@ pub mod chesstypes;
 pub mod uci;
 pub mod board;
 pub mod search;
-pub mod move_generation;
 pub mod engine;
 
 use std::process::exit;
-use search::Deepening;
+use search::{Deepening, Position};
 use search::stock::{StdHashTable, StdQsearch, StdSearchExecutor, StdMoveGenerator};
-use move_generation::Position;
 use board::evaluators::RandomEval;
 use engine::run_server;
 
