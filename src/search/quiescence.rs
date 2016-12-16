@@ -293,13 +293,15 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
             // Find the next piece to enter the exchange. (The least
             // valuable piece belonging to the side to move.)
             let candidates = attackers_and_defenders & color[us];
-            for p in (KING..NO_PIECE).rev() {
-                let bb = candidates & piece_type[p];
-                if bb != 0 {
-                    depth += 1;
-                    piece = p;
-                    orig_square_bb = ls1b(bb);
-                    continue 'exchange;
+            if candidates != 0 {
+                for p in (KING..NO_PIECE).rev() {
+                    let bb = candidates & piece_type[p];
+                    if bb != 0 {
+                        depth += 1;
+                        piece = p;
+                        orig_square_bb = ls1b(bb);
+                        continue 'exchange;
+                    }
                 }
             }
             break 'exchange;
