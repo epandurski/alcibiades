@@ -278,11 +278,11 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                     match behind & straight_sliders &
                           geometry.attacks_from(ROOK, dest_square, behind) {
                         0 => {
-                            // not a straight slider, may be a diagonal slider
+                            // Not a straight slider -- possibly a diagonal slider.
                             behind & diag_sliders &
                             geometry.attacks_from(BISHOP, dest_square, behind)
                         }
-                        square_bb => square_bb, // a straight slider
+                        x => x,
                     }
                 };
             }
