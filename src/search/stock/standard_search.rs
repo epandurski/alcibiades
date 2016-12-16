@@ -979,7 +979,7 @@ mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
     use search::{SearchNode, MoveStack, HashTable};
-    use search::stock::{StandardTt, StandardQsearch};
+    use search::stock::{StandardHashTable, StandardQsearch};
     use move_generation::{Position, Generator};
     use board::evaluators::RandomEval;
 
@@ -992,7 +992,7 @@ mod tests {
                                   &mut vec![].into_iter())
                     .ok()
                     .unwrap();
-        let tt = StandardTt::new(None);
+        let tt = StandardHashTable::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);

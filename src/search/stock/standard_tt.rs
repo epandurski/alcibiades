@@ -10,7 +10,7 @@ use search::*;
 
 /// Contains information about a particular position.
 #[derive(Copy, Clone, Debug)]
-pub struct StandardTtEntry {
+pub struct StandardHashTableEntry {
     value: Value,
 
     // The transposition table maintains a generation number for each
@@ -24,13 +24,13 @@ pub struct StandardTtEntry {
     eval_value: Value,
 }
 
-impl HashTableEntry for StandardTtEntry {
+impl HashTableEntry for StandardHashTableEntry {
     #[inline(always)]
     fn new(value: Value,
            bound: BoundType,
            depth: Depth,
            move_digest: MoveDigest)
-           -> StandardTtEntry {
+           -> StandardHashTableEntry {
         Self::with_eval_value(value, bound, depth, move_digest, VALUE_UNKNOWN)
     }
 
@@ -40,11 +40,11 @@ impl HashTableEntry for StandardTtEntry {
                        depth: Depth,
                        move_digest: MoveDigest,
                        eval_value: Value)
-                       -> StandardTtEntry {
+                       -> StandardHashTableEntry {
         debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
         debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
-        StandardTtEntry {
+        StandardHashTableEntry {
             value: value,
             gen_bound: bound,
             depth: depth,
@@ -80,7 +80,7 @@ impl HashTableEntry for StandardTtEntry {
     }
 }
 
-impl StandardTtEntry {
+impl StandardHashTableEntry {
     /// Returns the contained data as one `u64` value.
     #[inline(always)]
     fn as_u64(&self) -> u64 {
@@ -91,7 +91,7 @@ impl StandardTtEntry {
 
 /// A large hash-table that stores results of previously performed
 /// searches ("transposition table").
-pub struct StandardTt {
+pub struct StandardHashTable {
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.
     generation: Cell<u8>,
@@ -104,10 +104,10 @@ pub struct StandardTt {
     table: UnsafeCell<Vec<[Record; 4]>>,
 }
 
-impl HashTable for StandardTt {
-    type Entry = StandardTtEntry;
+impl HashTable for StandardHashTable {
+    type Entry = StandardHashTableEntry;
 
-    fn new(size_mb: Option<usize>) -> StandardTt {
+    fn new(size_mb: Option<usize>) -> StandardHashTable {
         let size_mb = size_mb.unwrap_or(16);
         let requested_cluster_count = (size_mb * 1024 * 1024) / size_of::<[Record; 4]>();
 
@@ -125,7 +125,7 @@ impl HashTable for StandardTt {
         }
         assert!(n > 0);
 
-        StandardTt {
+        StandardHashTable {
             generation: Cell::new(0),
             cluster_count: n,
             table: UnsafeCell::new(vec![Default::default(); n]),
@@ -238,7 +238,7 @@ impl HashTable for StandardTt {
     }
 }
 
-impl StandardTt {
+impl StandardHashTable {
     /// A helper method for `store`. It implements the record
     /// replacement strategy.
     #[inline(always)]
@@ -274,7 +274,7 @@ impl StandardTt {
     }
 }
 
-unsafe impl Sync for StandardTt {}
+unsafe impl Sync for StandardHashTable {}
 
 
 /// Represents a record in the transposition table.
@@ -291,7 +291,7 @@ unsafe impl Sync for StandardTt {}
 #[derive(Copy, Clone)]
 struct Record {
     key: u64,
-    data: StandardTtEntry,
+    data: StandardHashTableEntry,
 }
 
 impl Default for Record {
@@ -339,18 +339,19 @@ mod tests {
 
     #[test]
     fn test_store_and_probe() {
-        let tt = StandardTt::new(None);
+        let tt = StandardHashTable::new(None);
         assert!(tt.probe(1).is_none());
-        let data = StandardTtEntry::new(0, 0, 50, 666);
+        let data = StandardHashTableEntry::new(0, 0, 50, 666);
         assert_eq!(data.depth(), 50);
         assert_eq!(data.move_digest(), 666);
         tt.store(1, data);
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        tt.store(1, StandardTtEntry::new(0, 0, 50, 666));
+        tt.store(1, StandardHashTableEntry::new(0, 0, 50, 666));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), 666);
         for i in 2..50 {
-            tt.store(i, StandardTtEntry::new(i as i16, 0, i as Depth, i as u16));
+            tt.store(i,
+                     StandardHashTableEntry::new(i as i16, 0, i as Depth, i as u16));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);
@@ -366,7 +367,7 @@ mod tests {
 
     #[test]
     fn test_new_search() {
-        let tt = StandardTt::new(None);
+        let tt = StandardHashTable::new(None);
         assert_eq!(tt.generation.get(), 0 << 2);
         tt.new_search();
         assert_eq!(tt.generation.get(), 1 << 2);
