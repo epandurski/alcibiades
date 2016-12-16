@@ -7,6 +7,7 @@ use chesstypes::*;
 use board::*;
 use board::bitsets::*;
 use board::tables::*;
+use search::quiescence::MoveGenerator;
 
 
 /// Implements the `MoveGenerator` trait.
@@ -1089,6 +1090,7 @@ mod tests {
     use board::notation::*;
     use chesstypes::*;
     use search::MoveStack;
+    use search::quiescence::MoveGenerator;
 
     impl<E: BoardEvaluator> Generator<E> {
         fn from_fen(fen: &str) -> Result<Generator<E>, NotationError> {

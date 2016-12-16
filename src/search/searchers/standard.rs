@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::{BoardEvaluator, AddMove};
+use board::*;
 use search::*;
 
 

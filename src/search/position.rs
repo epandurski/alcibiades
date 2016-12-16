@@ -9,7 +9,7 @@ use board::*;
 use board::notation::*;
 use board::tables::*;
 use search::{SearchNode, MoveStack, QsearchResult};
-use search::quiescence::{Qsearch, QsearchParams};
+use search::quiescence::{MoveGenerator, Qsearch, QsearchParams};
 
 
 /// Contains information about a position.

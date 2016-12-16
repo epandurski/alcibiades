@@ -2,7 +2,6 @@
 
 use std::slice;
 use chesstypes::*;
-use board::AddMove;
 
 
 /// Stores a list of moves for each position in a given line of play.

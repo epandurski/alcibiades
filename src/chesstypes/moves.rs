@@ -311,6 +311,20 @@ impl fmt::Display for Move {
 }
 
 
+/// A trait for adding moves to move containers.
+pub trait AddMove {
+    /// Adds a move to the move container.
+    fn add_move(&mut self, m: Move);
+}
+
+impl AddMove for Vec<Move> {
+    #[inline(always)]
+    fn add_move(&mut self, m: Move) {
+        self.push(m);
+    }
+}
+
+
 // Field shifts
 const M_SHIFT_SCORE: usize = 32;
 const M_SHIFT_CAPTURED_PIECE: usize = 27;
