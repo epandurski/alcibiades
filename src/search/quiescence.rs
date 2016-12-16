@@ -15,6 +15,8 @@ use std::mem::uninitialized;
 use std::cmp::max;
 use uci::SetOption;
 use chesstypes::*;
+use board::bitsets::*;
+use board::tables::BoardGeometry;
 use board::{Board, BoardEvaluator};
 use search::QsearchResult;
 
@@ -210,48 +212,45 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// after a given move. The result is calculated without actually
     /// doing any moves on the board.
     fn calc_see(&self, m: Move) -> Value {
-        use board::bitsets::*;
-        use board::tables::BoardGeometry;
-
         debug_assert!(m.played_piece() < NO_PIECE);
         debug_assert!(m.captured_piece() <= NO_PIECE);
         const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
 
-        let dest_square = m.dest_square();  // the exchange square
-        let occupied = self.board().occupied;
+        // This is the square on which all the action takes place.
+        let exchange_square = m.dest_square();
+
         let geometry = BoardGeometry::get();
-        let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[dest_square];
+        let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[exchange_square];
         let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
         let color: &[Bitboard; 2] = &self.board().pieces.color;
+        let occupied = self.board().occupied;
         let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
         let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
+
+        // `may_xray` holds the set of pieces that may block attacks
+        // from other pieces. We will consider adding new
+        // attackers/defenders every time a piece from the `may_xray`
+        // set makes a capture.
+        let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
 
         // These variables will be updated on each capture:
         let mut us = self.board().to_move;
         let mut depth = 0;
-        let mut piece = m.played_piece();
+        let mut piece;
         let mut orig_square_bb = 1 << m.orig_square();
-        let mut attackers_and_defenders = self.attacks_to(WHITE, dest_square) |
-                                          self.attacks_to(BLACK, dest_square);
-
-        // `may_xray` holds the set of pieces that may block attacks
-        // from other pieces, and therefore we must consider adding
-        // new attackers/defenders every time a piece from the
-        // `may_xray` set makes a capture.
-        let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
+        let mut attackers_and_defenders = self.attacks_to(WHITE, exchange_square) |
+                                          self.attacks_to(BLACK, exchange_square);
 
         // The `gain` array will hold the total material gained at
         // each `depth`, from the viewpoint of the side that made the
         // last capture (`us`).
         let mut gain: [Value; 34] = unsafe { uninitialized() };
-
-        let captured_piece_value = PIECE_VALUES[m.captured_piece()];
-        gain[depth] = if m.move_type() == MOVE_PROMOTION {
-            // Adding `1` guarantees that SEE will be greater than
-            // zero if the promoted pawn is protected.
-            captured_piece_value + 1
+        gain[0] = if m.move_type() == MOVE_PROMOTION {
+            piece = Move::piece_from_aux_data(m.aux_data());
+            PIECE_VALUES[m.captured_piece()] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
         } else {
-            captured_piece_value
+            piece = m.played_piece();
+            PIECE_VALUES[m.captured_piece()]
         };
 
         // Examine the possible exchanges, fill the `gain` array.
@@ -276,11 +275,11 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 attackers_and_defenders |= {
                     let behind = behind_blocker[bitscan_forward(orig_square_bb)] & occupied;
                     match behind & straight_sliders &
-                          geometry.attacks_from(ROOK, dest_square, behind) {
+                          geometry.attacks_from(ROOK, exchange_square, behind) {
                         0 => {
                             // Not a straight slider -- possibly a diagonal slider.
                             behind & diag_sliders &
-                            geometry.attacks_from(BISHOP, dest_square, behind)
+                            geometry.attacks_from(BISHOP, exchange_square, behind)
                         }
                         x => x,
                     }

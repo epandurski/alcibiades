@@ -761,23 +761,23 @@ mod tests {
                     .unwrap();
         p.generate_moves(&mut v);
         while let Some(m) = v.pop() {
-            if m.notation() == "c2c1q" {
-                assert!(p.evaluate_move(m) > 0);
+            if m.notation() == "c2c1r" {
+                assert_eq!(p.evaluate_move(m), 400);
             }
             if m.notation() == "c2c1n" {
-                assert!(p.evaluate_move(m) > 0);
+                assert_eq!(p.evaluate_move(m), 225);
             }
             if m.notation() == "e2e1q" {
-                assert!(p.evaluate_move(m) > 0);
+                assert_eq!(p.evaluate_move(m), 875);
             }
             if m.notation() == "e2e1n" {
-                assert!(p.evaluate_move(m) > 0);
+                assert_eq!(p.evaluate_move(m), 225);
             }
             if m.notation() == "g2g1q" {
-                assert!(p.evaluate_move(m) < 0);
+                assert_eq!(p.evaluate_move(m), -100);
             }
             if m.notation() == "g2g1r" {
-                assert!(p.evaluate_move(m) < 0);
+                assert_eq!(p.evaluate_move(m), -100);
             }
         }
     }
