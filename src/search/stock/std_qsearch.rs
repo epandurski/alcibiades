@@ -238,11 +238,11 @@ mod tests {
     use chesstypes::*;
     use search::MoveStack;
     use search::quiescence::MoveGenerator;
-    use search::stock::Generator;
+    use search::stock::StdMoveGenerator;
     use board::evaluators::MaterialEval;
     use board::Board;
 
-    type Pos = Generator<MaterialEval>;
+    type Pos = StdMoveGenerator<MaterialEval>;
 
     #[test]
     fn test_qsearch() {
