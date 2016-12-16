@@ -47,11 +47,9 @@ impl QsearchResult for StandardQsearchResult {
 
 /// Implements the `Qsearch` trait.
 /// 
-/// `StandardQsearch` implements a classic quiescence search algorithm
-/// with stand pat, delta pruning, static exchange evaluation, check
-/// evasions, limited checks and recaptures. If you decide to write
-/// your own quiescence search routine, you should define your own
-/// type that implements the `Qsearch` trait.
+/// Performs classical quiescence search with stand pat, delta
+/// pruning, static exchange evaluation, check evasions, limited
+/// checks and recaptures.
 pub struct StandardQsearch<T: MoveGenerator> {
     phantom: PhantomData<T>,
 }

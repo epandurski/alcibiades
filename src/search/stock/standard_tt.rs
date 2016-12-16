@@ -1,4 +1,4 @@
-//! Implements `HashTable` and `HashTableEntry` traits.
+//! Implements `StandardHashTable` and `StandardHashTableEntry`.
 
 use std::isize;
 use std::cell::{UnsafeCell, Cell};
@@ -8,7 +8,7 @@ use chesstypes::*;
 use search::*;
 
 
-/// Contains information about a particular position.
+/// Implements the `HashTableEntry` trait.
 #[derive(Copy, Clone, Debug)]
 pub struct StandardHashTableEntry {
     value: Value,
@@ -89,8 +89,7 @@ impl StandardHashTableEntry {
 }
 
 
-/// A large hash-table that stores results of previously performed
-/// searches ("transposition table").
+/// Implements the `HashTable` trait.
 pub struct StandardHashTable {
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.

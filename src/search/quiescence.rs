@@ -7,6 +7,9 @@
 //! winning tactical moves to be made). Although this search can
 //! cheaply and correctly resolve many simple tactical issues, it is
 //! completely blind to the more complex ones.
+//!
+//! To implement your own quiescence search routine, you must define a
+//! type that implements the `Qsearch` trait.
 
 use std::mem::uninitialized;
 use std::cmp::max;
