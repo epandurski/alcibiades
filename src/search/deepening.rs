@@ -1,5 +1,4 @@
-//! Implements iterative deepening, aspiration windows, multi-PV,
-//! "searchmoves".
+//! Implements `Deepening`.
 
 use std::cmp::{min, max};
 use std::time::Duration;

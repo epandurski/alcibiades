@@ -1,12 +1,4 @@
-//! Facilities for implementing quiescence searching.
-//!
-//! Quiescence search is a restricted search which considers only a
-//! limited set of moves (for example: winning captures, pawn
-//! promotions to queen, check evasions). The goal is to statically
-//! evaluate only "quiet" positions (positions where there are no
-//! winning tactical moves to be made). Although this search can
-//! cheaply and correctly resolve many simple tactical issues, it is
-//! completely blind to the more complex ones.
+//! Implements `StdQsearch` and `StdQsearchResult`.
 
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
