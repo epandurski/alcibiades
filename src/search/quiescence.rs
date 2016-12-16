@@ -261,8 +261,11 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
 
             if max(-gain[depth], gain[depth + 1]) < 0 {
                 // The side that made the last capture wins even if
-                // the captured piece happens to be defended. This is
-                // good enough for our purposes, so we stop here.
+                // the captured piece happens to be defended. So, we
+                // stop here to save precious CPU cycles. Note that
+                // here we may happen to return an incorrect SEE
+                // value, but the sign will be correct, which is by
+                // far the most important information.
                 break;
             }
 
