@@ -432,8 +432,9 @@ mod tests {
     use chesstypes::*;
     use search::{SearchNode, QsearchResult, MoveStack};
     use search::quiescence::StandardQsearch;
+    use move_generation::Generator;
     use board::evaluators::MaterialEval;
-    use board::{BoardEvaluator, Generator};
+    use board::BoardEvaluator;
 
     type Pos = Position<StandardQsearch<Generator<MaterialEval>>>;
 

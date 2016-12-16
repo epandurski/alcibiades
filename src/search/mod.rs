@@ -10,7 +10,6 @@
 //! that implements the `SearchExecutor` trait.
 
 mod move_stack;
-mod position;
 pub mod searchers;
 pub mod tt;
 pub mod quiescence;
@@ -24,7 +23,6 @@ use board::*;
 use board::notation::NotationError;
 
 pub use self::move_stack::MoveStack;
-pub use self::position::Position;
 
 
 /// Parameters describing a new search.

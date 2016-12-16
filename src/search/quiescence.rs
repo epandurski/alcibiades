@@ -539,8 +539,9 @@ mod tests {
     use chesstypes::*;
     use search::MoveStack;
     use search::quiescence::MoveGenerator;
+    use move_generation::Generator;
     use board::evaluators::MaterialEval;
-    use board::{Board, Generator};
+    use board::Board;
 
     type Pos = Generator<MaterialEval>;
 

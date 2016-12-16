@@ -981,9 +981,8 @@ mod tests {
     use search::{SearchNode, MoveStack, HashTable};
     use search::quiescence::StandardQsearch;
     use search::tt::StandardTt;
-    use search::position::Position;
+    use move_generation::{Position, Generator};
     use board::evaluators::RandomEval;
-    use board::Generator;
 
     type Pos = Position<StandardQsearch<Generator<RandomEval>>>;
 

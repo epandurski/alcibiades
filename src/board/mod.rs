@@ -1,7 +1,4 @@
-//! Facilities for implementing static position evaluation and move
-//! generation.
-//!
-//! # Static position evaluation
+//! Facilities for implementing static position evaluation.
 //!
 //! An evaluation function is used to heuristically determine the
 //! relative value of a position, i.e. the chances of winning. If we
@@ -21,26 +18,15 @@
 //!
 //! Writing a new static evaluator is as simple as defining a type
 //! that implements the `BoardEvaluator` trait.
-//!
-//! # Move generation
-//!
-//! Generation of moves is at the heart of every chess
-//! engine. `Generator` provides a very fast move generator.  Writing
-//! a good move generator is not easy. Nevertheless, if you decide to
-//! do so, you should define your own type that implements the
-//! `MoveGenerator` trait.
 
 pub mod tables;
 pub mod bitsets;
 pub mod evaluators;
 pub mod notation;
-mod generator;
 
 use chesstypes::*;
 use uci::SetOption;
 use self::notation::*;
-
-pub use self::generator::Generator;
 
 
 /// Holds a chess position.

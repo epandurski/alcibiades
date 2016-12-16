@@ -1089,6 +1089,7 @@ mod tests {
     use board::evaluators::RandomEval;
     use board::notation::*;
     use chesstypes::*;
+    use move_generation::Generator;
     use search::MoveStack;
     use search::quiescence::MoveGenerator;
 
