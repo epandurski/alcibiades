@@ -361,24 +361,24 @@ impl<T: Qsearch + 'static> Position<T> {
     /// Returns if the side to move is checkmated.
     fn is_checkmate(&self) -> bool {
         thread_local!(
-            static MOVES: UnsafeCell<Vec<Move>> = UnsafeCell::new(Vec::new())
+            static MOVE_LIST: UnsafeCell<Vec<Move>> = UnsafeCell::new(Vec::new())
         );
 
         self.is_check() &&
-        MOVES.with(|s| unsafe {
+        MOVE_LIST.with(|s| unsafe {
             // Check if there are no legal moves.
             let position = self.position_mut();
-            let move_stack = &mut *s.get();
+            let move_list = &mut *s.get();
             let mut no_legal_moves = true;
-            position.generate_all(move_stack);
-            for m in move_stack.iter() {
+            position.generate_all(move_list);
+            for m in move_list.iter() {
                 if position.do_move(*m).is_some() {
                     position.undo_move(*m);
                     no_legal_moves = false;
                     break;
                 }
             }
-            move_stack.clear();
+            move_list.clear();
             no_legal_moves
         })
     }
