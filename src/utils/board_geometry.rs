@@ -251,7 +251,7 @@ impl BoardGeometry {
                         occupied: Bitboard)
                         -> Bitboard {
         debug_assert!(piece < PAWN);
-        debug_assert!(from_square <= 63);
+        assert!(from_square <= 63);
         unsafe {
             match piece {
                 QUEEN => {
