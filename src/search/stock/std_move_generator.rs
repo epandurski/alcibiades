@@ -67,6 +67,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     }
 
     fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
+        debug_assert!(us <= 1);
         debug_assert!(square <= 63);
         let occupied_by_us = self.board.pieces.color[us];
 
@@ -910,10 +911,12 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             let between_our_king_and: &[Bitboard; 64] =
                 &self.geometry.squares_between_including[king_square];
             while pinners != 0 {
-                let pinner_square = bitscan_forward_and_reset(&mut pinners);
-                let bb = defenders & between_our_king_and[pinner_square];
-                if ls1b(bb) == bb {
-                    pinned |= bb;
+                unsafe {
+                    let pinner_square = bitscan_forward_and_reset(&mut pinners);
+                    let bb = defenders & *between_our_king_and.get_unchecked(pinner_square);
+                    if ls1b(bb) == bb {
+                        pinned |= bb;
+                    }
                 }
             }
         }
@@ -936,7 +939,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     #[inline(always)]
     fn king_square(&self) -> Square {
         bitscan_1bit(self.board.pieces.piece_type[KING] &
-                     self.board.pieces.color[self.board.to_move])
+                     unsafe { self.board.pieces.color.get_unchecked(self.board.to_move) })
     }
 
     /// A helper method. It returns if the king of the side to move
@@ -950,8 +953,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         (self.geometry.attacks_from(ROOK, square, occupied) & occupied_by_them &
          (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) != 0 ||
         (self.geometry.attacks_from(BISHOP, square, occupied) & occupied_by_them &
-         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) !=
-        0 ||
+         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) != 0 ||
         (self.geometry.attacks_from(KNIGHT, square, occupied) & occupied_by_them &
          self.board.pieces.piece_type[KNIGHT]) != 0 ||
         (self.geometry.attacks_from(KING, square, occupied) & occupied_by_them &
