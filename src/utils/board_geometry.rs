@@ -254,13 +254,13 @@ impl BoardGeometry {
         debug_assert!(from_square <= 63);
         unsafe {
             match piece {
-                KING => KING_ATTACKS[from_square],
                 QUEEN => {
                     BISHOP_MAP[from_square].attacks(occupied) |
                     ROOK_MAP[from_square].attacks(occupied)
                 }
                 ROOK => ROOK_MAP[from_square].attacks(occupied),
                 BISHOP => BISHOP_MAP[from_square].attacks(occupied),
+                KING => KING_ATTACKS[from_square],
                 _ => KNIGHT_ATTACKS[from_square],
             }
         }
