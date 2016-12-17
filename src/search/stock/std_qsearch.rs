@@ -4,7 +4,7 @@ use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use search::{Evaluator, QsearchResult, MoveStack};
+use search::*;
 use search::quiescence::*;
 
 
@@ -227,7 +227,7 @@ const SEE_EXCHANGE_MAX_PLY: i8 = 2;
 #[cfg(test)]
 mod tests {
     use chesstypes::*;
-    use search::MoveStack;
+    use search::*;
     use search::quiescence::MoveGenerator;
     use search::stock::StdMoveGenerator;
     use board::evaluators::MaterialEval;

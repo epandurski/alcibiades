@@ -6,7 +6,7 @@ use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use board::tables::ZobristArrays;
-use search::{SearchNode, QsearchResult};
+use search::*;
 use search::quiescence::{MoveGenerator, Qsearch, QsearchParams};
 
 
@@ -426,9 +426,7 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use chesstypes::*;
-    use search::{Evaluator, SearchNode, QsearchResult, MoveStack};
+    use search::*;
     use search::stock::{StdQsearch, StdMoveGenerator};
     use board::evaluators::MaterialEval;
 

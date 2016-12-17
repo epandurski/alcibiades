@@ -4,7 +4,7 @@ use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use uci::SetOption;
 use board::bitsets::*;
-use search::Evaluator;
+use search::{Value, Evaluator};
 
 
 /// A simple evaluator that considers only the material available on
