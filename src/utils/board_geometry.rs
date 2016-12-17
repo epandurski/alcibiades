@@ -255,13 +255,13 @@ impl BoardGeometry {
         unsafe {
             match piece {
                 QUEEN => {
-                    BISHOP_MAP[from_square].attacks(occupied) |
-                    ROOK_MAP[from_square].attacks(occupied)
+                    BISHOP_MAP.get_unchecked(from_square).attacks(occupied) |
+                    ROOK_MAP.get_unchecked(from_square).attacks(occupied)
                 }
-                ROOK => ROOK_MAP[from_square].attacks(occupied),
-                BISHOP => BISHOP_MAP[from_square].attacks(occupied),
-                KNIGHT => KNIGHT_ATTACKS[from_square],
-                _ => KING_ATTACKS[from_square],
+                ROOK => ROOK_MAP.get_unchecked(from_square).attacks(occupied),
+                BISHOP => BISHOP_MAP.get_unchecked(from_square).attacks(occupied),
+                KNIGHT => *KNIGHT_ATTACKS.get_unchecked(from_square),
+                _ => *KING_ATTACKS.get_unchecked(from_square),
             }
         }
     }
