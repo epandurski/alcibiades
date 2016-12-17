@@ -17,7 +17,7 @@
 //! be grossly incorrect.
 //!
 //! Writing a new static evaluator is as simple as defining a type
-//! that implements the `BoardEvaluator` trait.
+//! that implements the `Evaluator` trait.
 
 pub mod tables;
 pub mod bitsets;
@@ -63,7 +63,7 @@ impl Board {
 
 
 /// A trait used to statically evaluate positions.
-pub trait BoardEvaluator: Clone + Send + SetOption {
+pub trait Evaluator: Clone + Send + SetOption {
     /// Creates a new instance and binds it to a given position.
     ///
     /// When a new instance is created, it is bound to a particular

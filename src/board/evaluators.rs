@@ -1,4 +1,4 @@
-//! Implementations of `BoardEvaluator` trait.
+//! Implementations of `Evaluator` trait.
 
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
@@ -14,7 +14,7 @@ pub struct MaterialEval;
 
 impl SetOption for MaterialEval {}
 
-impl BoardEvaluator for MaterialEval {
+impl Evaluator for MaterialEval {
     #[allow(unused_variables)]
     fn new(board: &Board) -> MaterialEval {
         MaterialEval
@@ -51,7 +51,7 @@ pub struct RandomEval;
 
 impl SetOption for RandomEval {}
 
-impl BoardEvaluator for RandomEval {
+impl Evaluator for RandomEval {
     #[allow(unused_variables)]
     fn new(board: &Board) -> RandomEval {
         RandomEval

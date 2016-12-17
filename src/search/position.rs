@@ -56,7 +56,7 @@ pub struct Position<T: Qsearch> {
 
 
 impl<T: Qsearch + 'static> SearchNode for Position<T> {
-    type BoardEvaluator = <<T as Qsearch>::MoveGenerator as MoveGenerator>::BoardEvaluator;
+    type Evaluator = <<T as Qsearch>::MoveGenerator as MoveGenerator>::Evaluator;
 
     type QsearchResult = T::QsearchResult;
 
@@ -141,7 +141,7 @@ impl<T: Qsearch + 'static> SearchNode for Position<T> {
     }
 
     #[inline(always)]
-    fn evaluator(&self) -> &Self::BoardEvaluator {
+    fn evaluator(&self) -> &Self::Evaluator {
         self.position().evaluator()
     }
 
@@ -433,7 +433,7 @@ mod tests {
     use search::{SearchNode, QsearchResult, MoveStack};
     use search::stock::{StdQsearch, StdMoveGenerator};
     use board::evaluators::MaterialEval;
-    use board::BoardEvaluator;
+    use board::Evaluator;
 
     type Pos = Position<StdQsearch<StdMoveGenerator<MaterialEval>>>;
 

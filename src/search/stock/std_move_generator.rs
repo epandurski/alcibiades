@@ -12,7 +12,7 @@ use search::quiescence::MoveGenerator;
 
 /// Implements the `MoveGenerator` trait.
 #[derive(Clone)]
-pub struct StdMoveGenerator<T: BoardEvaluator> {
+pub struct StdMoveGenerator<T: Evaluator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
     board: Board,
@@ -24,8 +24,8 @@ pub struct StdMoveGenerator<T: BoardEvaluator> {
 }
 
 
-impl<T: BoardEvaluator> MoveGenerator for StdMoveGenerator<T> {
-    type BoardEvaluator = T;
+impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
+    type Evaluator = T;
 
     fn from_board(board: Board) -> Option<StdMoveGenerator<T>> {
         let mut g = StdMoveGenerator {
@@ -95,7 +95,7 @@ impl<T: BoardEvaluator> MoveGenerator for StdMoveGenerator<T> {
     }
 
     #[inline(always)]
-    fn evaluator(&self) -> &Self::BoardEvaluator {
+    fn evaluator(&self) -> &Self::Evaluator {
         &self.evaluator
     }
 
@@ -656,7 +656,7 @@ impl<T: BoardEvaluator> MoveGenerator for StdMoveGenerator<T> {
 }
 
 
-impl<T: BoardEvaluator> SetOption for StdMoveGenerator<T> {
+impl<T: Evaluator> SetOption for StdMoveGenerator<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
@@ -667,7 +667,7 @@ impl<T: BoardEvaluator> SetOption for StdMoveGenerator<T> {
 }
 
 
-impl<T: BoardEvaluator> StdMoveGenerator<T> {
+impl<T: Evaluator> StdMoveGenerator<T> {
     /// A helper method for `create`. It analyzes the position on the
     /// board and decides if it is legal.
     ///
@@ -1093,7 +1093,7 @@ mod tests {
     use search::stock::StdMoveGenerator;
     use search::quiescence::MoveGenerator;
 
-    impl<E: BoardEvaluator> StdMoveGenerator<E> {
+    impl<E: Evaluator> StdMoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, NotationError> {
             StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(NotationError)
         }
@@ -1511,8 +1511,8 @@ mod tests {
 
     #[test]
     fn test_try_move_digest() {
-        use board::BoardEvaluator;
-        fn try_all<E: BoardEvaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
+        use board::Evaluator;
+        fn try_all<E: Evaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
             let mut i = 0;
             loop {
                 if let Some(m) = b.try_move_digest(i) {

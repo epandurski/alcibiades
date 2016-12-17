@@ -296,7 +296,7 @@ pub trait SearchExecutor: SetOption {
 pub trait SearchNode: Send + Clone + SetOption {
     /// The type of static evaluator that the implementation works
     /// with.
-    type BoardEvaluator: BoardEvaluator;
+    type Evaluator: Evaluator;
 
     /// The type of result object that `evaluate_quiescence` returns.
     type QsearchResult: QsearchResult;
@@ -327,7 +327,7 @@ pub trait SearchNode: Send + Clone + SetOption {
 
     /// Returns a reference to a static evaluator bound to the current
     /// position.
-    fn evaluator(&self) -> &Self::BoardEvaluator;
+    fn evaluator(&self) -> &Self::Evaluator;
 
     /// Evaluates a final position.
     ///

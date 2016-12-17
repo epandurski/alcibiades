@@ -17,7 +17,7 @@ use uci::SetOption;
 use chesstypes::*;
 use board::bitsets::*;
 use board::tables::BoardGeometry;
-use board::{Board, BoardEvaluator};
+use board::{Board, Evaluator};
 use search::QsearchResult;
 
 
@@ -84,7 +84,7 @@ pub trait Qsearch: SetOption + Send {
 pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// The type of static evaluator that the implementation works
     /// with.
-    type BoardEvaluator: BoardEvaluator;
+    type Evaluator: Evaluator;
 
     /// Creates a new instance, consuming the supplied `Board`
     /// instance.
@@ -125,7 +125,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
 
     /// Returns a reference to a static evaluator bound to the current
     /// position.
-    fn evaluator(&self) -> &Self::BoardEvaluator;
+    fn evaluator(&self) -> &Self::Evaluator;
 
     /// Generates all legal moves, possibly including some
     /// pseudo-legal moves too.
