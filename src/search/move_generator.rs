@@ -1,15 +1,4 @@
-//! Facilities for implementing quiescence searching.
-//!
-//! Quiescence search is a restricted search which considers only a
-//! limited set of moves (for example: winning captures, pawn
-//! promotions to queen, check evasions). The goal is to statically
-//! evaluate only "quiet" positions (positions where there are no
-//! winning tactical moves to be made). Although this search can
-//! cheaply and correctly resolve many simple tactical issues, it is
-//! completely blind to the more complex ones.
-//!
-//! To implement your own quiescence search routine, you must define a
-//! type that implements the `Qsearch` trait.
+//! Defines `MoveGenerator` trait.
 
 use std::mem::uninitialized;
 use std::cmp::max;

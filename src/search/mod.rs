@@ -11,7 +11,7 @@
 
 mod deepening;
 mod position;
-mod generator;
+mod move_generator;
 pub mod stock;
 pub mod quiescence;
 
@@ -23,7 +23,7 @@ use chesstypes::*;
 
 pub use self::deepening::Deepening;
 pub use self::position::Position;
-pub use self::generator::MoveGenerator;
+pub use self::move_generator::MoveGenerator;
 
 
 /// Search depth in half-moves.
