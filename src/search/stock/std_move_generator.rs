@@ -4,8 +4,7 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use search::Evaluator;
-use search::quiescence::MoveGenerator;
+use search::{MoveGenerator, Evaluator};
 use utils::bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
 
@@ -1087,9 +1086,8 @@ fn calc_pawn_dest_sets(us: Color,
 mod tests {
     use chesstypes::*;
     use utils::MoveStack;
-    use search::Evaluator;
+    use search::{MoveGenerator, Evaluator};
     use search::stock::{StdMoveGenerator, RandomEval};
-    use search::quiescence::MoveGenerator;
 
     impl<E: Evaluator> StdMoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, NotationError> {
