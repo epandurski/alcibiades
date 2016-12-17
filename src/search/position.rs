@@ -427,9 +427,9 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 mod tests {
     use utils::MoveStack;
     use search::*;
-    use search::stock::{StdQsearch, StdMoveGenerator, MaterialEval};
+    use search::stock::{StdQsearch, StdMoveGenerator, MaterialEvaluator};
 
-    type Pos = Position<StdQsearch<StdMoveGenerator<MaterialEval>>>;
+    type Pos = Position<StdQsearch<StdMoveGenerator<MaterialEvaluator>>>;
 
     #[test]
     fn test_fen_parsing() {
