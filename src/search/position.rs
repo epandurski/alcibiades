@@ -292,8 +292,7 @@ impl<T: Qsearch + 'static> SetOption for Position<T> {
 
 
 impl<T: Qsearch + 'static> Position<T> {
-    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
-    /// string.
+    /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
         let g = try!(T::MoveGenerator::from_board(board).ok_or(NotationError));

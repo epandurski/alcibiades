@@ -196,8 +196,7 @@ pub struct Board {
 }
 
 impl Board {
-    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
-    /// string.
+    /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<Board, NotationError> {
         parse_fen(fen).map(|x| x.0)
     }

@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use std::cmp::{min, max};
 use std::io;
-use chesstypes::*;
 use uci::*;
 use search::*;
 use self::time_manager::*;

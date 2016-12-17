@@ -327,8 +327,7 @@ mod tests {
     use super::*;
     use super::Record;
     use std;
-    use chesstypes::*;
-    use search::{HashTable, HashTableEntry};
+    use search::*;
 
     #[test]
     fn test_cluster_size() {
