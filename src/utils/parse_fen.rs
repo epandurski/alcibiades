@@ -1,4 +1,4 @@
-//! Implements Forsyth–Edwards Notation parsing.
+//! Implements `parse_fen` function.
 
 use regex::Regex;
 use chesstypes::*;
