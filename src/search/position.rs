@@ -176,7 +176,7 @@ impl<T: Qsearch + 'static> SearchNode for Position<T> {
 
     #[inline(always)]
     fn evaluate_move(&self, m: Move) -> Value {
-        self.position().calc_see(m)
+        self.position().evaluate_move(m)
     }
 
     #[inline]

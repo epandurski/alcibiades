@@ -211,7 +211,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// consequence of a series of exchanges on the destination square
     /// after a given move. The result is calculated without actually
     /// doing any moves on the board.
-    fn calc_see(&self, m: Move) -> Value {
+    fn evaluate_move(&self, m: Move) -> Value {
         debug_assert!(m.played_piece() < NO_PIECE);
         debug_assert!(m.captured_piece() <= NO_PIECE);
         const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];

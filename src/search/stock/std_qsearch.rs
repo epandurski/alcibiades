@@ -136,7 +136,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
         // moves, a static exchange evaluation is performed to
         // decide if the move should be tried.
         if !in_check && move_type != MOVE_ENPASSANT && recapture_squares & dest_square_bb == 0 {
-            match position.calc_see(m) {
+            match position.evaluate_move(m) {
                 // A losing move -- do not try it.
                 x if x < 0 => continue 'trymoves,
 
