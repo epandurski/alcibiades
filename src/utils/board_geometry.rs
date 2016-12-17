@@ -260,8 +260,8 @@ impl BoardGeometry {
                 }
                 ROOK => ROOK_MAP[from_square].attacks(occupied),
                 BISHOP => BISHOP_MAP[from_square].attacks(occupied),
-                KING => KING_ATTACKS[from_square],
-                _ => KNIGHT_ATTACKS[from_square],
+                KNIGHT => KNIGHT_ATTACKS[from_square],
+                _ => KING_ATTACKS[from_square],
             }
         }
     }
