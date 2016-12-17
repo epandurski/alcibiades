@@ -12,6 +12,7 @@ use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use search::*;
+use utils::MoveStack;
 
 
 /// Implements the `SearchExecutor` trait.
@@ -980,6 +981,7 @@ mod tests {
     use chesstypes::*;
     use search::*;
     use search::stock::{StdHashTable, StdQsearch, StdMoveGenerator, RandomEval};
+    use utils::MoveStack;
 
     type Pos = Position<StdQsearch<StdMoveGenerator<RandomEval>>>;
 

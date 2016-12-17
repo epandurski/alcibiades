@@ -6,6 +6,7 @@ use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use search::*;
 use search::quiescence::*;
+use utils::MoveStack;
 
 
 /// Implements the `QsearchResult` trait.
@@ -51,6 +52,9 @@ impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
     type QsearchResult = StdQsearchResult;
 
     fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> Self::QsearchResult {
+        thread_local!(
+            static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
+        );
         let mut searched_nodes = 0;
         let value = MOVE_STACK.with(|s| unsafe {
             qsearch(params.position,
@@ -90,6 +94,8 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
     debug_assert!(lower_bound < upper_bound);
     debug_assert!(stand_pat == VALUE_UNKNOWN ||
                   stand_pat == position.evaluator().evaluate(position.board()));
+    const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
+
     let in_check = position.checkers() != 0;
 
     // At the beginning of quiescence, position's static evaluation
@@ -141,7 +147,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                 x if x < 0 => continue 'trymoves,
 
                 // An even exchange -- try it only during the first few plys.
-                0 if ply >= SEE_EXCHANGE_MAX_PLY && captured_piece < NO_PIECE => continue 'trymoves,
+                0 if ply >= 2 && captured_piece < NO_PIECE => continue 'trymoves,
 
                 // A safe or winning move -- try it always.
                 _ => (),
@@ -209,27 +215,13 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
 }
 
 
-/// Thread-local storage for the generated moves.
-thread_local!(
-    static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
-);
-
-
-/// The material value of pieces.
-const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
-
-
-/// Exchanges with SEE==0 will not be tried in `qsearch` once this ply
-/// has been reached.
-const SEE_EXCHANGE_MAX_PLY: i8 = 2;
-
-
 #[cfg(test)]
 mod tests {
     use chesstypes::*;
     use search::*;
     use search::quiescence::MoveGenerator;
     use search::stock::{MaterialEval, StdMoveGenerator};
+    use utils::MoveStack;
 
     type Pos = StdMoveGenerator<MaterialEval>;
 

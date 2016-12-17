@@ -425,6 +425,7 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 
 #[cfg(test)]
 mod tests {
+    use utils::MoveStack;
     use search::*;
     use search::stock::{StdQsearch, StdMoveGenerator, MaterialEval};
 

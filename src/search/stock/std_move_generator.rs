@@ -1086,7 +1086,8 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use chesstypes::*;
-    use search::{Evaluator, MoveStack};
+    use utils::MoveStack;
+    use search::Evaluator;
     use search::stock::{StdMoveGenerator, RandomEval};
     use search::quiescence::MoveGenerator;
 

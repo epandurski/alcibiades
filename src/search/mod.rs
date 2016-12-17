@@ -9,7 +9,6 @@
 //! To implement your own search algorithm, you must define a type
 //! that implements the `SearchExecutor` trait.
 
-mod move_stack;
 mod deepening;
 mod position;
 pub mod stock;
@@ -21,7 +20,6 @@ use std::sync::mpsc::TryRecvError;
 use uci::SetOption;
 use chesstypes::*;
 
-pub use self::move_stack::MoveStack;
 pub use self::deepening::Deepening;
 pub use self::position::Position;
 
