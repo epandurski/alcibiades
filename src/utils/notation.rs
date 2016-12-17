@@ -1,11 +1,7 @@
 //! Implements Forsyth–Edwards Notation parsing.
 
 use regex::Regex;
-use super::*;
-
-
-/// Represents a notation error.
-pub struct NotationError;
+use chesstypes::*;
 
 
 /// Parses Forsyth–Edwards Notation (FEN).

@@ -2,7 +2,7 @@
 
 use rand::{Rng, thread_rng};
 use chesstypes::*;
-use utils::bitsets::*;
+use super::bitsets::*;
 
 
 /// Tables and methods useful for move generation and position

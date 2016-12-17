@@ -7,7 +7,7 @@ use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use search::*;
 use search::quiescence::*;
-use utils::ZobristArrays;
+use utils::{parse_fen, ZobristArrays};
 
 
 /// Contains information about a position.
