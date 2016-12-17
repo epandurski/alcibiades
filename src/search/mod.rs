@@ -616,7 +616,8 @@ pub trait Evaluator: Clone + Send + SetOption {
     ///
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
-    /// method returns `true`.
+    /// method returns `true`. This is useful when we want to decide
+    /// whether it is safe to try a null move.
     fn is_zugzwangy(&self, board: &Board) -> bool;
 
     /// Updates evaluator's state to keep up with a move that will be

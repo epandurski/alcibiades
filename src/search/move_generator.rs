@@ -13,8 +13,8 @@ use utils::BoardGeometry;
 ///
 /// A `MoveGenerator` holds a chess position and can:
 ///
-/// * Generate all legal moves (plus a "null move"), or a subset of
-///   all legal moves in the current position.
+/// * Generate all legal moves, or a subset of all legal moves in the
+///   current position.
 ///
 /// * Perform static exchange evaluation for the generated moves.
 ///
