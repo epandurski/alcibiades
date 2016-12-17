@@ -231,7 +231,6 @@ mod tests {
     use search::quiescence::MoveGenerator;
     use search::stock::StdMoveGenerator;
     use board::evaluators::MaterialEval;
-    use board::Board;
 
     type Pos = StdMoveGenerator<MaterialEval>;
 

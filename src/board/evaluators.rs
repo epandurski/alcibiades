@@ -3,7 +3,6 @@
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use uci::SetOption;
-use board::*;
 use board::bitsets::*;
 use search::Evaluator;
 

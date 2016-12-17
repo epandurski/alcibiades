@@ -1,14 +1,14 @@
 //! Implements Forsyth–Edwards Notation parsing.
 
-use chesstypes::*;
-use board::Board;
+use regex::Regex;
+use super::*;
 
 
 /// Represents a notation error.
 pub struct NotationError;
 
 
-/// Parses a Forsyth–Edwards Notation (FEN) string.
+/// Parses Forsyth–Edwards Notation (FEN).
 ///
 /// Returns a tuple with the following elements: `0`) a board
 /// instance, `1`) halfmove clock, `2`) fullmove number.
@@ -81,6 +81,30 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
         }
     }
     Err(NotationError)
+}
+
+
+/// Parses square's algebraic notation (lowercase only).
+///
+/// # Example:
+///
+/// ```
+/// use chesstypes::*;
+/// assert_eq!(parse_square("a1").ok().unwrap(), A1);
+/// assert!(parse_square("A1").is_err());
+/// ```
+pub fn parse_square(s: &str) -> Result<Square, NotationError> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
+    }
+    if RE.is_match(s) {
+        let mut chars = s.chars();
+        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
+        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
+        Ok(square(file, rank))
+    } else {
+        Err(NotationError)
+    }
 }
 
 
@@ -189,9 +213,19 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, NotationError> {
 fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, NotationError> {
     if s == "-" {
         Ok(None)
-    } else if let Some(square) = parse_square(s) {
-        Ok(Some(square))
     } else {
-        Err(NotationError)
+        parse_square(s).map(|x| Some(x))
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use chesstypes::*;
+
+    #[test]
+    fn test_parse_square() {
+        assert_eq!(parse_square("a1").ok().unwrap(), A1);
+        assert!(parse_square("A1").is_err());
     }
 }

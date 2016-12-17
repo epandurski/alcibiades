@@ -20,8 +20,6 @@ use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use uci::SetOption;
 use chesstypes::*;
-use board::*;
-use board::notation::NotationError;
 
 pub use self::move_stack::MoveStack;
 pub use self::deepening::Deepening;

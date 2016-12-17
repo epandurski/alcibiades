@@ -1,7 +1,7 @@
 //! Defines how the chess board is represented in memory.
 
 use std::fmt;
-use regex::Regex;
+use super::*;
 
 
 /// `WHITE` or `BLACK`.
@@ -171,20 +171,38 @@ impl fmt::Display for PiecesPlacement {
 }
 
 
-/// Parses square's algebraic notation (lowercase only).
-pub fn parse_square(s: &str) -> Option<Square> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
-    }
-    if RE.is_match(s) {
-        let mut chars = s.chars();
-        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
-        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
-        Some(square(file, rank))
-    } else {
-        None
+/// Holds a chess position.
+#[derive(Clone)]
+pub struct Board {
+    /// The placement of the pieces on the board.
+    pub pieces: PiecesPlacement,
+
+    /// The side to move.
+    pub to_move: Color,
+
+    /// The castling rights for both players.
+    pub castling_rights: CastlingRights,
+
+    /// If the previous move was a double pawn push, contains pushed
+    /// pawn's file (a value between 0 and 7). Otherwise contains `8`.
+    pub enpassant_file: usize,
+
+    /// The set of all occupied squares on the board.
+    ///
+    /// Always equals `self.pieces.color[WHITE] |
+    /// self.pieces.color[BLACK]`. Deserves a field on its own because
+    /// it is very frequently needed.
+    pub occupied: Bitboard,
+}
+
+impl Board {
+    /// Creates a new instance from a Forsyth–Edwards Notation (FEN)
+    /// string.
+    pub fn from_fen(fen: &str) -> Result<Board, NotationError> {
+        parse_fen(fen).map(|x| x.0)
     }
 }
+
 
 /// Returns the square on given file and rank.
 #[inline]

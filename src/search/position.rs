@@ -5,9 +5,7 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::Board;
 use board::tables::ZobristArrays;
-use board::notation::{parse_fen, NotationError};
 use search::{SearchNode, QsearchResult};
 use search::quiescence::{MoveGenerator, Qsearch, QsearchParams};
 

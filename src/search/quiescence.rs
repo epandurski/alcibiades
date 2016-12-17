@@ -17,7 +17,6 @@ use uci::SetOption;
 use chesstypes::*;
 use board::bitsets::*;
 use board::tables::BoardGeometry;
-use board::Board;
 use search::{Evaluator, QsearchResult};
 
 

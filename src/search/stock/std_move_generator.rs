@@ -4,7 +4,6 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::*;
 use board::bitsets::*;
 use board::tables::*;
 use search::Evaluator;
@@ -1086,9 +1085,7 @@ fn calc_pawn_dest_sets(us: Color,
 
 #[cfg(test)]
 mod tests {
-    use board::*;
     use board::evaluators::RandomEval;
-    use board::notation::*;
     use chesstypes::*;
     use search::{Evaluator, MoveStack};
     use search::stock::StdMoveGenerator;
