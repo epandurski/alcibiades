@@ -1,11 +1,11 @@
 //! Defines basic types and constants like squares, pieces, moves,
 //! value.
 
-pub mod board_representation;
+pub mod board;
 pub mod castling;
 pub mod moves;
 
-pub use self::board_representation::*;
+pub use self::board::*;
 pub use self::castling::*;
 pub use self::moves::*;
 
