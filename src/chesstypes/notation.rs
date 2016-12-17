@@ -85,15 +85,7 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
 
 
 /// Parses square's algebraic notation (lowercase only).
-///
-/// # Example:
-///
-/// ```
-/// use chesstypes::*;
-/// assert_eq!(parse_square("a1").ok().unwrap(), A1);
-/// assert!(parse_square("A1").is_err());
-/// ```
-pub fn parse_square(s: &str) -> Result<Square, NotationError> {
+fn parse_square(s: &str) -> Result<Square, NotationError> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
     }
@@ -215,17 +207,5 @@ fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, NotationError> 
         Ok(None)
     } else {
         parse_square(s).map(|x| Some(x))
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use chesstypes::*;
-
-    #[test]
-    fn test_parse_square() {
-        assert_eq!(parse_square("a1").ok().unwrap(), A1);
-        assert!(parse_square("A1").is_err());
     }
 }
