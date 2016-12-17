@@ -229,8 +229,7 @@ mod tests {
     use chesstypes::*;
     use search::*;
     use search::quiescence::MoveGenerator;
-    use search::stock::StdMoveGenerator;
-    use board::evaluators::MaterialEval;
+    use search::stock::{MaterialEval, StdMoveGenerator};
 
     type Pos = StdMoveGenerator<MaterialEval>;
 

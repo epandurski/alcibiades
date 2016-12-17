@@ -979,8 +979,7 @@ mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
     use search::*;
-    use search::stock::{StdHashTable, StdQsearch, StdMoveGenerator};
-    use board::evaluators::RandomEval;
+    use search::stock::{StdHashTable, StdQsearch, StdMoveGenerator, RandomEval};
 
     type Pos = Position<StdQsearch<StdMoveGenerator<RandomEval>>>;
 

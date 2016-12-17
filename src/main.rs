@@ -11,8 +11,7 @@ pub mod engine;
 
 use std::process::exit;
 use search::{Deepening, Position};
-use search::stock::{StdHashTable, StdQsearch, StdSearchExecutor, StdMoveGenerator};
-use board::evaluators::RandomEval;
+use search::stock::{StdHashTable, StdQsearch, StdSearchExecutor, StdMoveGenerator, RandomEval};
 use engine::run_server;
 
 fn main() {

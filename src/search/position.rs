@@ -426,8 +426,7 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 #[cfg(test)]
 mod tests {
     use search::*;
-    use search::stock::{StdQsearch, StdMoveGenerator};
-    use board::evaluators::MaterialEval;
+    use search::stock::{StdQsearch, StdMoveGenerator, MaterialEval};
 
     type Pos = Position<StdQsearch<StdMoveGenerator<MaterialEval>>>;
 

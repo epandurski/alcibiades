@@ -1085,10 +1085,9 @@ fn calc_pawn_dest_sets(us: Color,
 
 #[cfg(test)]
 mod tests {
-    use board::evaluators::RandomEval;
     use chesstypes::*;
     use search::{Evaluator, MoveStack};
-    use search::stock::StdMoveGenerator;
+    use search::stock::{StdMoveGenerator, RandomEval};
     use search::quiescence::MoveGenerator;
 
     impl<E: Evaluator> StdMoveGenerator<E> {
