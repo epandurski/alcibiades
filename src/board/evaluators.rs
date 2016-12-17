@@ -5,6 +5,7 @@ use chesstypes::*;
 use uci::SetOption;
 use board::*;
 use board::bitsets::*;
+use search::Evaluator;
 
 
 /// A simple evaluator that considers only the material available on

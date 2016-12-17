@@ -11,7 +11,6 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::*;
 use search::*;
 
 

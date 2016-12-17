@@ -17,8 +17,8 @@ use uci::SetOption;
 use chesstypes::*;
 use board::bitsets::*;
 use board::tables::BoardGeometry;
-use board::{Board, Evaluator};
-use search::QsearchResult;
+use board::Board;
+use search::{Evaluator, QsearchResult};
 
 
 /// Parameters describing a quiescence search.

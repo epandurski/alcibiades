@@ -7,6 +7,7 @@ use chesstypes::*;
 use board::*;
 use board::bitsets::*;
 use board::tables::*;
+use search::Evaluator;
 use search::quiescence::MoveGenerator;
 
 
@@ -1089,7 +1090,7 @@ mod tests {
     use board::evaluators::RandomEval;
     use board::notation::*;
     use chesstypes::*;
-    use search::MoveStack;
+    use search::{Evaluator, MoveStack};
     use search::stock::StdMoveGenerator;
     use search::quiescence::MoveGenerator;
 
@@ -1511,7 +1512,7 @@ mod tests {
 
     #[test]
     fn test_try_move_digest() {
-        use board::Evaluator;
+        use search::Evaluator;
         fn try_all<E: Evaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
             let mut i = 0;
             loop {

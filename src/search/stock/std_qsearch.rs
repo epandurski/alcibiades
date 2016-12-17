@@ -4,8 +4,7 @@ use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::*;
-use search::{QsearchResult, MoveStack};
+use search::{Evaluator, QsearchResult, MoveStack};
 use search::quiescence::*;
 
 

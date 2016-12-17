@@ -7,7 +7,6 @@ use std::sync::mpsc::TryRecvError;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::*;
 use search::*;
 
 
