@@ -5,9 +5,9 @@ use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::tables::ZobristArrays;
 use search::*;
-use search::quiescence::{MoveGenerator, Qsearch, QsearchParams};
+use search::quiescence::*;
+use utils::ZobristArrays;
 
 
 /// Contains information about a position.

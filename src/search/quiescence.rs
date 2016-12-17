@@ -15,9 +15,9 @@ use std::mem::uninitialized;
 use std::cmp::max;
 use uci::SetOption;
 use chesstypes::*;
-use board::bitsets::*;
-use board::tables::BoardGeometry;
 use search::*;
+use utils::bitsets::*;
+use utils::BoardGeometry;
 
 
 /// Parameters describing a quiescence search.

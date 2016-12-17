@@ -4,10 +4,10 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
-use board::bitsets::*;
-use board::tables::*;
 use search::Evaluator;
 use search::quiescence::MoveGenerator;
+use utils::bitsets::*;
+use utils::{BoardGeometry, ZobristArrays};
 
 
 /// Implements the `MoveGenerator` trait.
@@ -1098,7 +1098,7 @@ mod tests {
 
     #[test]
     fn test_attacks_from() {
-        use board::tables::*;
+        use utils::BoardGeometry;
         let b = StdMoveGenerator::<RandomEval>::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1")
                     .ok()
                     .unwrap();

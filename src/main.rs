@@ -5,7 +5,7 @@ extern crate rand;
 
 pub mod chesstypes;
 pub mod uci;
-pub mod board;
+pub mod utils;
 pub mod search;
 pub mod engine;
 

@@ -3,8 +3,8 @@
 use std::hash::{Hasher, SipHasher};
 use chesstypes::*;
 use uci::SetOption;
-use board::bitsets::*;
 use search::{Value, Evaluator};
+use utils::bitsets::*;
 
 
 /// A simple evaluator that considers only the material available on
@@ -21,7 +21,7 @@ impl Evaluator for MaterialEval {
     }
 
     fn evaluate(&self, board: &Board) -> Value {
-        use board::bitsets::*;
+        use utils::bitsets::*;
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
         let piece_type = board.pieces.piece_type;
         let color = board.pieces.color;
