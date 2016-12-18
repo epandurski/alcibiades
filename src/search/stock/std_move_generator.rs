@@ -138,7 +138,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         };
 
         if legal_dests != 0 {
-            let pinned = self.find_pinned();
+            let pinned = self.find_pinned(king_square);
 
             // Generate queen, rook, bishop, and knight moves.
             for piece in QUEEN..PAWN {
@@ -221,7 +221,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             return self.generate_all(moves);
         }
         let king_square = self.king_square();
-        let pinned = self.find_pinned();
+        let pinned = self.find_pinned(king_square);
         let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let occupied_by_them = self.board.occupied ^ occupied_by_us;
         let enpassant_bb = self.enpassant_bb();
@@ -319,8 +319,8 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         let orig_square = get_orig_square(move_digest);
         let dest_square = get_dest_square(move_digest);
         let promoted_piece_code = get_aux_data(move_digest);
-        let king_square = self.king_square();
         let checkers = self.checkers();
+        let king_square = self.king_square();
 
         if move_type == MOVE_CASTLING {
             let side = if dest_square < orig_square {
@@ -384,7 +384,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             };
 
             // Verify if the moved piece is pinned.
-            if orig_square_bb & self.find_pinned() != 0 {
+            if orig_square_bb & self.find_pinned(king_square) != 0 {
                 pseudo_legal_dests &= self.geometry.squares_at_line[king_square][orig_square]
             }
         };
@@ -918,10 +918,9 @@ impl<T: Evaluator> StdMoveGenerator<T> {
 
     /// A helper method. It returns all pinned pieces belonging to the
     /// side to move.
-    fn find_pinned(&self) -> Bitboard {
+    fn find_pinned(&self, king_square: Square) -> Bitboard {
         let mut pinned = 0;
         unsafe {
-            let king_square = self.king_square();
             let occupied_by_them = *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move);
 
             // To find the pinners, we "remove" all our pieces from the
@@ -1488,7 +1487,7 @@ mod tests {
                                                                 6b1 w - - 0 1")
                     .ok()
                     .unwrap();
-        assert_eq!(b.find_pinned(), 1 << F2 | 1 << D6 | 1 << G4);
+        assert_eq!(b.find_pinned(b.king_square()), 1 << F2 | 1 << D6 | 1 << G4);
     }
 
     #[test]
