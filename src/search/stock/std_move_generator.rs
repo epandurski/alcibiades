@@ -114,8 +114,8 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     /// legal, except it might leave the king in check.
     fn generate_all<U: AddMove>(&self, moves: &mut U) {
         let king_square = self.king_square();
-        let occupied_by_us = self.board.pieces.color[self.board.to_move];
         let checkers = self.checkers();
+        let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
             0 =>
