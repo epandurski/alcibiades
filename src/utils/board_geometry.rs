@@ -251,18 +251,44 @@ impl BoardGeometry {
                         occupied: Bitboard)
                         -> Bitboard {
         debug_assert!(piece < PAWN);
-        assert!(from_square <= 63);
+        debug_assert!(from_square <= 63);
         unsafe {
             match piece {
                 QUEEN => {
-                    BISHOP_MAP.get_unchecked(from_square).attacks(occupied) |
-                    ROOK_MAP.get_unchecked(from_square).attacks(occupied)
+                    BISHOP_MAP[from_square].attacks(occupied) |
+                    ROOK_MAP[from_square].attacks(occupied)
                 }
-                ROOK => ROOK_MAP.get_unchecked(from_square).attacks(occupied),
-                BISHOP => BISHOP_MAP.get_unchecked(from_square).attacks(occupied),
-                KNIGHT => *KNIGHT_ATTACKS.get_unchecked(from_square),
-                _ => *KING_ATTACKS.get_unchecked(from_square),
+                ROOK => ROOK_MAP[from_square].attacks(occupied),
+                BISHOP => BISHOP_MAP[from_square].attacks(occupied),
+                KNIGHT => KNIGHT_ATTACKS[from_square],
+                _ => KING_ATTACKS[from_square],
             }
+        }
+    }
+
+    /// Returns the set of squares that are attacked by a piece from a
+    /// given square.
+    ///
+    /// This is unsafe version of `attacks_from`. This version is
+    /// slightly faster because it does not verify that `from_square
+    /// <= 63`. It is caller's responsibility to ensure that.
+    #[inline(always)]
+    pub unsafe fn attacks_from_unsafe(&self,
+                                      piece: PieceType,
+                                      from_square: Square,
+                                      occupied: Bitboard)
+                                      -> Bitboard {
+        debug_assert!(piece < PAWN);
+        debug_assert!(from_square <= 63);
+        match piece {
+            QUEEN => {
+                BISHOP_MAP.get_unchecked(from_square).attacks(occupied) |
+                ROOK_MAP.get_unchecked(from_square).attacks(occupied)
+            }
+            ROOK => ROOK_MAP.get_unchecked(from_square).attacks(occupied),
+            BISHOP => BISHOP_MAP.get_unchecked(from_square).attacks(occupied),
+            KNIGHT => *KNIGHT_ATTACKS.get_unchecked(from_square),
+            _ => *KING_ATTACKS.get_unchecked(from_square),
         }
     }
 }

@@ -67,20 +67,21 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     }
 
     fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
-        debug_assert!(us <= 1);
-        debug_assert!(square <= 63);
+        assert!(square <= 63);
         let occupied_by_us = self.board.pieces.color[us];
-
-        (self.geometry.attacks_from(ROOK, square, self.board.occupied) & occupied_by_us &
-         (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
-        (self.geometry.attacks_from(BISHOP, square, self.board.occupied) & occupied_by_us &
-         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
-        (self.geometry.attacks_from(KNIGHT, square, self.board.occupied) & occupied_by_us &
-         self.board.pieces.piece_type[KNIGHT]) |
-        (self.geometry.attacks_from(KING, square, self.board.occupied) & occupied_by_us &
-         self.board.pieces.piece_type[KING]) |
-        (unsafe { *self.geometry.pawn_attacks.get_unchecked(1 ^ us).get_unchecked(square) } &
-         occupied_by_us & self.board.pieces.piece_type[PAWN])
+        unsafe {
+            (self.geometry.attacks_from_unsafe(ROOK, square, self.board.occupied) & occupied_by_us &
+             (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
+            (self.geometry.attacks_from_unsafe(BISHOP, square, self.board.occupied) &
+             occupied_by_us &
+             (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
+            (self.geometry.attacks_from_unsafe(KNIGHT, square, self.board.occupied) &
+             occupied_by_us & self.board.pieces.piece_type[KNIGHT]) |
+            (self.geometry.attacks_from_unsafe(KING, square, self.board.occupied) &
+             occupied_by_us & self.board.pieces.piece_type[KING]) |
+            (*self.geometry.pawn_attacks.get_unchecked(1 ^ us).get_unchecked(square) &
+             occupied_by_us & self.board.pieces.piece_type[PAWN])
+        }
     }
 
     #[inline]
@@ -112,8 +113,8 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     /// **Note:** A pseudo-legal move is a move that is otherwise
     /// legal, except it might leave the king in check.
     fn generate_all<U: AddMove>(&self, moves: &mut U) {
-        let occupied_by_us = self.board.pieces.color[self.board.to_move];
         let king_square = self.king_square();
+        let occupied_by_us = self.board.pieces.color[self.board.to_move];
         let checkers = self.checkers();
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
@@ -216,35 +217,52 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         if self.checkers() != 0 {
             return self.generate_all(moves);
         }
+        let king_square = self.king_square();
+        let pinned = self.find_pinned();
         let occupied_by_us = self.board.pieces.color[self.board.to_move];
         let occupied_by_them = self.board.occupied ^ occupied_by_us;
-        let pinned = self.find_pinned();
-        let our_king_square = self.king_square();
-        let their_king_square;
-        let pawn_dests = occupied_by_them | self.enpassant_bb() | BB_PAWN_PROMOTION_RANKS |
-                         if generate_checks {
-            their_king_square = bitscan_1bit(self.board.pieces.piece_type[KING] & occupied_by_them);
-            self.geometry.pawn_attacks[1 ^ self.board.to_move][their_king_square]
-        } else {
-            their_king_square = 0; // will never be read
-            0
-        };
+        let enpassant_bb = self.enpassant_bb();
+        let pawn_dests;
 
         // Generate queen, rook, bishop, and knight moves.
-        for piece in QUEEN..PAWN {
-            let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
-            while bb != 0 {
-                let orig_square = bitscan_forward_and_reset(&mut bb);
-                let mut piece_dests = occupied_by_them;
-                if generate_checks {
-                    piece_dests |= !occupied_by_us &
-                                   self.geometry
-                                       .attacks_from(piece, their_king_square, self.board.occupied);
+        if generate_checks {
+            let their_king_square = bitscan_1bit(self.board.pieces.piece_type[KING] &
+                                                 occupied_by_them);
+            unsafe {
+                pawn_dests = occupied_by_them | enpassant_bb | BB_PAWN_PROMOTION_RANKS |
+                             *self.geometry
+                                  .pawn_attacks
+                                  .get_unchecked(1 ^ self.board.to_move)
+                                  .get_unchecked(their_king_square);
+                for piece in QUEEN..PAWN {
+                    let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
+                    while bb != 0 {
+                        let orig_square = bitscan_forward_and_reset(&mut bb);
+                        let checking_squares = !occupied_by_us &
+                                               self.geometry
+                                                   .attacks_from_unsafe(piece,
+                                                                        their_king_square,
+                                                                        self.board.occupied);
+                        let mut dests = occupied_by_them | checking_squares;
+                        if 1 << orig_square & pinned != 0 {
+                            dests &= self.geometry.squares_at_line[king_square][orig_square];
+                        }
+                        self.add_piece_moves(piece, orig_square, dests, moves);
+                    }
                 }
-                if 1 << orig_square & pinned != 0 {
-                    piece_dests &= self.geometry.squares_at_line[our_king_square][orig_square]
+            }
+        } else {
+            pawn_dests = occupied_by_them | enpassant_bb | BB_PAWN_PROMOTION_RANKS;
+            for piece in QUEEN..PAWN {
+                let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
+                while bb != 0 {
+                    let orig_square = bitscan_forward_and_reset(&mut bb);
+                    let mut dests = occupied_by_them;
+                    if 1 << orig_square & pinned != 0 {
+                        dests &= self.geometry.squares_at_line[king_square][orig_square];
+                    }
+                    self.add_piece_moves(piece, orig_square, dests, moves);
                 }
-                self.add_piece_moves(piece, orig_square, piece_dests, moves);
             }
         }
 
@@ -259,13 +277,13 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             while pinned_pawns != 0 {
                 let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
                 let pawn_dests = pawn_dests &
-                                 self.geometry.squares_at_line[our_king_square][pawn_square];
+                                 self.geometry.squares_at_line[king_square][pawn_square];
                 self.add_pawn_moves(1 << pawn_square, pawn_dests, true, moves);
             }
         }
 
         // Generate king moves.
-        self.add_piece_moves(KING, our_king_square, occupied_by_them, moves);
+        self.add_piece_moves(KING, king_square, occupied_by_them, moves);
     }
 
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
@@ -787,8 +805,10 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
 
         let mut piece_legal_dests = legal_dests &
-                                    self.geometry
-                                        .attacks_from(piece, orig_square, self.board.occupied);
+                                    unsafe {
+            self.geometry
+                .attacks_from_unsafe(piece, orig_square, self.board.occupied)
+        };
         while piece_legal_dests != 0 {
             let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
@@ -903,11 +923,13 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             // board, and then verify if a bishop or a rook placed on our
             // king's square can attack any enemy bishops, rooks, or
             // queens.
-            let mut pinners = (self.geometry.attacks_from(ROOK, king_square, occupied_by_them) &
+            let mut pinners = (self.geometry
+                                   .attacks_from_unsafe(ROOK, king_square, occupied_by_them) &
                                (self.board.pieces.piece_type[QUEEN] |
                                 self.board.pieces.piece_type[ROOK]) &
                                occupied_by_them) |
-                              (self.geometry.attacks_from(BISHOP, king_square, occupied_by_them) &
+                              (self.geometry
+                                   .attacks_from_unsafe(BISHOP, king_square, occupied_by_them) &
                                (self.board.pieces.piece_type[QUEEN] |
                                 self.board.pieces.piece_type[BISHOP]) &
                                occupied_by_them);
@@ -948,27 +970,31 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     #[inline(always)]
     fn king_square(&self) -> Square {
         bitscan_1bit(self.board.pieces.piece_type[KING] &
-                     self.board.pieces.color[self.board.to_move])
+                     unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) })
     }
 
     /// A helper method. It returns if the king of the side to move
     /// would be in check if moved to `square`.
     fn king_would_be_in_check(&self, square: Square) -> bool {
         debug_assert!(square <= 63);
-        let them = 1 ^ self.board.to_move;
-        let occupied = self.board.occupied & !(1 << self.king_square());
-        let occupied_by_them = self.board.pieces.color[them];
+        unsafe {
+            let occupied = self.board.occupied & !(1 << self.king_square());
+            let occupied_by_them = self.board.pieces.color.get_unchecked(1 ^ self.board.to_move);
 
-        (self.geometry.attacks_from(ROOK, square, occupied) & occupied_by_them &
-         (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) != 0 ||
-        (self.geometry.attacks_from(BISHOP, square, occupied) & occupied_by_them &
-         (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) != 0 ||
-        (self.geometry.attacks_from(KNIGHT, square, occupied) & occupied_by_them &
-         self.board.pieces.piece_type[KNIGHT]) != 0 ||
-        (self.geometry.attacks_from(KING, square, occupied) & occupied_by_them &
-         self.board.pieces.piece_type[KING]) != 0 ||
-        (self.geometry.pawn_attacks[self.board.to_move][square] & occupied_by_them &
-         self.board.pieces.piece_type[PAWN] != 0)
+            (self.geometry.attacks_from_unsafe(ROOK, square, occupied) & occupied_by_them &
+             (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) !=
+            0 ||
+            (self.geometry.attacks_from_unsafe(BISHOP, square, occupied) & occupied_by_them &
+             (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) !=
+            0 ||
+            (self.geometry.attacks_from_unsafe(KNIGHT, square, occupied) & occupied_by_them &
+             self.board.pieces.piece_type[KNIGHT]) != 0 ||
+            (self.geometry.attacks_from_unsafe(KING, square, occupied) & occupied_by_them &
+             self.board.pieces.piece_type[KING]) != 0 ||
+            (*self.geometry.pawn_attacks.get_unchecked(self.board.to_move).get_unchecked(square) &
+             occupied_by_them &
+             self.board.pieces.piece_type[PAWN] != 0)
+        }
     }
 
     /// A helper method. It returns the type of the piece at `square`.
