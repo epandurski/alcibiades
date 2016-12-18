@@ -1044,10 +1044,15 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     fn can_castle(&self, side: CastlingSide) -> bool {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        self.board.castling_rights.can_castle(self.board.to_move, side) &&
-        self.board.occupied & BETWEEN[self.board.to_move][side] == 0 &&
-        self.checkers() == 0 &&
-        !self.king_would_be_in_check([[D1, F1], [D8, F8]][self.board.to_move][side])
+        unsafe {
+            self.board.castling_rights.can_castle(self.board.to_move, side) &&
+            (self.board.occupied &
+             *BETWEEN.get_unchecked(self.board.to_move).get_unchecked(side) == 0) &&
+            self.checkers() == 0 &&
+            !self.king_would_be_in_check(*[[D1, F1], [D8, F8]]
+                                              .get_unchecked(self.board.to_move)
+                                              .get_unchecked(side))
+        }
     }
 }
 
