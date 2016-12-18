@@ -69,6 +69,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
         assert!(square <= 63);
         let occupied_by_us = self.board.pieces.color[us];
+
         unsafe {
             (self.geometry.attacks_from_unsafe(ROOK, square, self.board.occupied) & occupied_by_us &
              (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
@@ -113,8 +114,8 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     /// **Note:** A pseudo-legal move is a move that is otherwise
     /// legal, except it might leave the king in check.
     fn generate_all<U: AddMove>(&self, moves: &mut U) {
-        let king_square = self.king_square();
         let checkers = self.checkers();
+        let king_square = self.king_square();
         let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
