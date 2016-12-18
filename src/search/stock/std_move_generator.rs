@@ -546,24 +546,30 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         self.board.pieces.color[us] |= dest_square_bb;
         h ^= self.zobrist.pieces[us][dest_piece][dest_square];
 
-        // Update castling rights (null moves do not affect castling).
-        if orig_square != dest_square {
-            h ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
-            self.board.castling_rights.update(orig_square, dest_square);
-            h ^= self.zobrist.castling_rights[self.board.castling_rights.value()];
-        }
+        unsafe {
+            // Update castling rights (null moves do not affect castling).
+            if orig_square != dest_square {
+                h ^= *self.zobrist
+                          .castling_rights
+                          .get_unchecked(self.board.castling_rights.value());
+                self.board.castling_rights.update(orig_square, dest_square);
+                h ^= *self.zobrist
+                          .castling_rights
+                          .get_unchecked(self.board.castling_rights.value());
+            }
 
-        // Update the en-passant file.
-        h ^= self.zobrist.enpassant_file[self.board.enpassant_file];
-        self.board.enpassant_file = if played_piece == PAWN &&
-                                       dest_square as isize - orig_square as isize ==
-                                       PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
-            let file = file(dest_square);
-            h ^= self.zobrist.enpassant_file[file];
-            file
-        } else {
-            8
-        };
+            // Update the en-passant file.
+            h ^= *self.zobrist.enpassant_file.get_unchecked(self.board.enpassant_file);
+            self.board.enpassant_file = if played_piece == PAWN &&
+                                           dest_square as isize - orig_square as isize ==
+                                           PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
+                let file = file(dest_square);
+                h ^= *self.zobrist.enpassant_file.get_unchecked(file);
+                file
+            } else {
+                8
+            };
+        }
 
         // Change the side to move.
         self.board.to_move = them;
