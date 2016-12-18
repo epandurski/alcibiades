@@ -917,7 +917,8 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     }
 
     /// A helper method. It returns all pinned pieces belonging to the
-    /// side to move.
+    /// side to move. `king_square` should the side to move's king
+    /// square.
     fn find_pinned(&self, king_square: Square) -> Bitboard {
         let mut pinned = 0;
         unsafe {
