@@ -114,8 +114,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     /// **Note:** A pseudo-legal move is a move that is otherwise
     /// legal, except it might leave the king in check.
     fn generate_all<U: AddMove>(&self, moves: &mut U) {
-        let checkers = self.checkers();
-        let king_square = self.king_square();
+        let (king_square, checkers) = self.find_king_square_and_checkers();
         let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
@@ -217,10 +216,10 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     ///   included too. Discovered checks and checks given by castling
     ///   are omitted for speed.
     fn generate_forcing<U: AddMove>(&self, generate_checks: bool, moves: &mut U) {
-        if self.checkers() != 0 {
+        let (king_square, checkers) = self.find_king_square_and_checkers();
+        if checkers != 0 {
             return self.generate_all(moves);
         }
-        let king_square = self.king_square();
         let pinned = self.find_pinned(king_square);
         let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let occupied_by_them = self.board.occupied ^ occupied_by_us;
@@ -319,8 +318,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         let orig_square = get_orig_square(move_digest);
         let dest_square = get_dest_square(move_digest);
         let promoted_piece_code = get_aux_data(move_digest);
-        let checkers = self.checkers();
-        let king_square = self.king_square();
+        let (king_square, checkers) = self.find_king_square_and_checkers();
 
         if move_type == MOVE_CASTLING {
             let side = if dest_square < orig_square {
@@ -976,6 +974,18 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     fn king_square(&self) -> Square {
         bitscan_1bit(self.board.pieces.piece_type[KING] &
                      unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) })
+    }
+
+    /// A helper method. It returns the square that the king of the
+    /// side to move occupies, and its checker. Needed only for
+    /// performance reasons.
+    #[inline]
+    fn find_king_square_and_checkers(&self) -> (Square, Bitboard) {
+        let king_square = self.king_square();
+        if self.checkers.get() == BB_UNIVERSAL_SET {
+            self.checkers.set(self.attacks_to(1 ^ self.board.to_move, king_square));
+        }
+        (king_square, self.checkers.get())
     }
 
     /// A helper method. It returns if the king of the side to move
