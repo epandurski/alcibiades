@@ -244,7 +244,7 @@ impl BoardGeometry {
     /// board which is occupied with pieces according to the
     /// `occupied` bitboard. `piece` **must not** be `PAWN`. It does
     /// not matter if `from_square` is occupied or not.
-    #[inline(always)]
+    #[inline]
     pub fn attacks_from(&self,
                         piece: PieceType,
                         from_square: Square,

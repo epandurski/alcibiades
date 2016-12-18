@@ -433,8 +433,10 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
         } else {
             // This is not a pawn move, nor a castling move.
-            pseudo_legal_dests &= self.geometry
-                                      .attacks_from(piece, orig_square, self.board.occupied);
+            pseudo_legal_dests &= unsafe {
+                self.geometry
+                    .attacks_from_unsafe(piece, orig_square, self.board.occupied)
+            };
             if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 ||
                promoted_piece_code != 0 {
                 debug_assert!(generated_move.is_none());
