@@ -1029,7 +1029,9 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         if self.board.enpassant_file >= 8 {
             0
         } else {
-            [1 << A6, 1 << A3][self.board.to_move] << self.board.enpassant_file
+            unsafe {
+                *[1 << A6, 1 << A3].get_unchecked(self.board.to_move) << self.board.enpassant_file
+            }
         }
     }
 
