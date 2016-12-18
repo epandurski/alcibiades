@@ -87,9 +87,6 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
     #[inline]
     fn checkers(&self) -> Bitboard {
-        debug_assert!(self.checkers.get() == BB_UNIVERSAL_SET ||
-                      self.checkers.get() ==
-                      self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         if self.checkers.get() == BB_UNIVERSAL_SET {
             self.checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         }
