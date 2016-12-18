@@ -94,7 +94,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
     debug_assert!(lower_bound < upper_bound);
     debug_assert!(stand_pat == VALUE_UNKNOWN ||
                   stand_pat == position.evaluator().evaluate(position.board()));
-    const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
+    const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
     let in_check = position.checkers() != 0;
 
@@ -165,7 +165,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                     PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -
                     PIECE_VALUES[PAWN]
                 } else {
-                    PIECE_VALUES[captured_piece]
+                    unsafe { *PIECE_VALUES.get_unchecked(captured_piece) }
                 };
                 if (material_gain as isize) < obligatory_material_gain {
                     position.undo_move(m);
