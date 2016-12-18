@@ -125,9 +125,13 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 // and the checker). Notice that we must OR with "x"
                 // itself, because knights give check not lying on a
                 // line with the king.
-                x | unsafe { *self.geometry.squares_between_including
-                                           .get_unchecked(king_square)
-                                           .get_unchecked(bitscan_1bit(x)) },
+                x |
+                unsafe {
+                    *self.geometry
+                         .squares_between_including
+                         .get_unchecked(king_square)
+                         .get_unchecked(bitscan_1bit(x))
+                },
             _ =>
                 // Double check -- no covering moves.
                 0,
@@ -342,7 +346,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             return Some(m);
         }
 
-        let occupied_by_us = self.board.pieces.color[self.board.to_move];
+        let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let orig_square_bb = occupied_by_us & (1 << orig_square);
         let dest_square_bb = 1 << dest_square;
         let mut captured_piece = self.get_piece_type_at(dest_square);
@@ -370,7 +374,13 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             pseudo_legal_dests &= match ls1b(checkers) {
                 0 => BB_UNIVERSAL_SET,
                 x if x == checkers => {
-                    x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)]
+                    x |
+                    unsafe {
+                        *self.geometry
+                             .squares_between_including
+                             .get_unchecked(king_square)
+                             .get_unchecked(bitscan_1bit(x))
+                    }
                 }
                 _ => {
                     debug_assert!(generated_move.is_none());
@@ -392,16 +402,16 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 pseudo_legal_dests |= enpassant_bb;
             }
 
-            let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
-            calc_pawn_dest_sets(self.board.to_move,
-                                occupied_by_us,
-                                self.board.pieces.color[1 ^ self.board.to_move],
-                                enpassant_bb,
-                                orig_square_bb,
-                                &mut dest_sets);
-            pseudo_legal_dests &= dest_sets[PAWN_PUSH] | dest_sets[PAWN_DOUBLE_PUSH] |
-                                  dest_sets[PAWN_WEST_CAPTURE] |
-                                  dest_sets[PAWN_EAST_CAPTURE];
+            unsafe {
+                let mut dest_sets: [Bitboard; 4] = uninitialized();
+                calc_pawn_dest_sets(self.board.to_move,
+                                    occupied_by_us,
+                                    *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move),
+                                    enpassant_bb,
+                                    orig_square_bb,
+                                    &mut dest_sets);
+                pseudo_legal_dests &= dest_sets[0] | dest_sets[1] | dest_sets[2] | dest_sets[3];
+            }
             if pseudo_legal_dests & dest_square_bb == 0 {
                 debug_assert!(generated_move.is_none());
                 return None;
