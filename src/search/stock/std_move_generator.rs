@@ -114,7 +114,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     /// **Note:** A pseudo-legal move is a move that is otherwise
     /// legal, except it might leave the king in check.
     fn generate_all<U: AddMove>(&self, moves: &mut U) {
-        let (king_square, checkers) = self.find_king_square_and_checkers();
+        let (king_square, checkers) = self.king_square_and_checkers();
         let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let legal_dests = !occupied_by_us &
                           match ls1b(checkers) {
@@ -216,7 +216,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     ///   included too. Discovered checks and checks given by castling
     ///   are omitted for speed.
     fn generate_forcing<U: AddMove>(&self, generate_checks: bool, moves: &mut U) {
-        let (king_square, checkers) = self.find_king_square_and_checkers();
+        let (king_square, checkers) = self.king_square_and_checkers();
         if checkers != 0 {
             return self.generate_all(moves);
         }
@@ -318,7 +318,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         let orig_square = get_orig_square(move_digest);
         let dest_square = get_dest_square(move_digest);
         let promoted_piece_code = get_aux_data(move_digest);
-        let (king_square, checkers) = self.find_king_square_and_checkers();
+        let (king_square, checkers) = self.king_square_and_checkers();
 
         if move_type == MOVE_CASTLING {
             let side = if dest_square < orig_square {
@@ -957,17 +957,6 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         pinned
     }
 
-    /// A helper method. It returns a bitboard representing the
-    /// en-passant target square if there is one.
-    #[inline(always)]
-    fn enpassant_bb(&self) -> Bitboard {
-        if self.board.enpassant_file >= 8 {
-            0
-        } else {
-            [1 << A6, 1 << A3][self.board.to_move] << self.board.enpassant_file
-        }
-    }
-
     /// A helper method. It returns the square that the king of the
     /// side to move occupies.
     #[inline(always)]
@@ -980,7 +969,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     /// side to move occupies, and its checker. Needed only for
     /// performance reasons.
     #[inline]
-    fn find_king_square_and_checkers(&self) -> (Square, Bitboard) {
+    fn king_square_and_checkers(&self) -> (Square, Bitboard) {
         let king_square = self.king_square();
         if self.checkers.get() == BB_UNIVERSAL_SET {
             self.checkers.set(self.attacks_to(1 ^ self.board.to_move, king_square));
@@ -1016,20 +1005,35 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         }
     }
 
-    /// A helper method. It returns the type of the piece at `square`.
+    /// A helper method. It returns if castling on the given `side` is
+    /// pseudo-legal. `king_square` should be the square that the king
+    /// of the side to move occupies.
     #[inline(always)]
-    fn get_piece_type_at(&self, square: Square) -> PieceType {
-        debug_assert!(square <= 63);
-        let bb = 1 << square & self.board.occupied;
-        if bb == 0 {
-            return NO_PIECE;
+    fn can_castle(&self, king_square: Square, side: CastlingSide) -> bool {
+        debug_assert_eq!(king_square, self.king_square());
+        const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
+                                             [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
+        unsafe {
+            self.board.castling_rights.can_castle(self.board.to_move, side) &&
+            (self.board.occupied &
+             *BETWEEN.get_unchecked(self.board.to_move).get_unchecked(side) == 0) &&
+            self.checkers() == 0 &&
+            !self.king_would_be_in_check(king_square,
+                                         *[[D1, F1], [D8, F8]]
+                                              .get_unchecked(self.board.to_move)
+                                              .get_unchecked(side))
         }
-        for i in (KING..NO_PIECE).rev() {
-            if bb & self.board.pieces.piece_type[i] != 0 {
-                return i;
-            }
+    }
+
+    /// A helper method. It returns a bitboard representing the
+    /// en-passant target square if there is one.
+    #[inline(always)]
+    fn enpassant_bb(&self) -> Bitboard {
+        if self.board.enpassant_file >= 8 {
+            0
+        } else {
+            [1 << A6, 1 << A3][self.board.to_move] << self.board.enpassant_file
         }
-        panic!("invalid board");
     }
 
     /// A helper method. It tests for the rare occasion when the two
@@ -1052,24 +1056,20 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         true
     }
 
-    /// A helper method. It returns if castling on the given `side` is
-    /// pseudo-legal. `king_square` should be the square that the king
-    /// of the side to move occupies.
+    /// A helper method. It returns the type of the piece at `square`.
     #[inline(always)]
-    fn can_castle(&self, king_square: Square, side: CastlingSide) -> bool {
-        debug_assert_eq!(king_square, self.king_square());
-        const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
-                                             [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
-        unsafe {
-            self.board.castling_rights.can_castle(self.board.to_move, side) &&
-            (self.board.occupied &
-             *BETWEEN.get_unchecked(self.board.to_move).get_unchecked(side) == 0) &&
-            self.checkers() == 0 &&
-            !self.king_would_be_in_check(king_square,
-                                         *[[D1, F1], [D8, F8]]
-                                              .get_unchecked(self.board.to_move)
-                                              .get_unchecked(side))
+    fn get_piece_type_at(&self, square: Square) -> PieceType {
+        debug_assert!(square <= 63);
+        let bb = 1 << square & self.board.occupied;
+        if bb == 0 {
+            return NO_PIECE;
         }
+        for i in (KING..NO_PIECE).rev() {
+            if bb & self.board.pieces.piece_type[i] != 0 {
+                return i;
+            }
+        }
+        panic!("invalid board");
     }
 }
 
