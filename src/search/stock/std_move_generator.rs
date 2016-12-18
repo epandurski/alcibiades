@@ -128,7 +128,9 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 // and the checker). Notice that we must OR with "x"
                 // itself, because knights give check not lying on a
                 // line with the king.
-                x | self.geometry.squares_between_including[king_square][bitscan_1bit(x)],
+                x | unsafe { *self.geometry.squares_between_including
+                                           .get_unchecked(king_square)
+                                           .get_unchecked(bitscan_1bit(x)) },
             _ =>
                 // Double check -- no covering moves.
                 0,
