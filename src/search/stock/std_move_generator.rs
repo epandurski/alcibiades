@@ -188,7 +188,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
         // Generate king moves (pseudo-legal, possibly moving into check).
         for side in 0..2 {
-            if self.can_castle(side) {
+            if self.can_castle(king_square, side) {
                 moves.add_move(Move::new(MOVE_CASTLING,
                                          king_square,
                                          [[C1, C8], [G1, G8]][side][self.board.to_move],
@@ -326,7 +326,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             } else {
                 KINGSIDE
             };
-            if !self.can_castle(side) || orig_square != king_square ||
+            if !self.can_castle(king_square, side) || orig_square != king_square ||
                dest_square != [[C1, C8], [G1, G8]][side][self.board.to_move] ||
                promoted_piece_code != 0 {
                 debug_assert!(generated_move.is_none());
@@ -508,7 +508,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         // other than the king do not leave the king in check.)
         if played_piece == KING {
             if orig_square != dest_square {
-                if self.king_would_be_in_check(dest_square) {
+                if self.king_would_be_in_check(orig_square, dest_square) {
                     return None;  // the king is in check -- illegal move
                 }
             } else {
@@ -989,25 +989,29 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     }
 
     /// A helper method. It returns if the king of the side to move
-    /// would be in check if moved to `square`.
-    fn king_would_be_in_check(&self, square: Square) -> bool {
-        debug_assert!(square <= 63);
+    /// would be in check if moved from `orig_square` to
+    /// `dest_square`.
+    fn king_would_be_in_check(&self, orig_square: Square, dest_square: Square) -> bool {
+        debug_assert_eq!(orig_square, self.king_square());
+        debug_assert!(dest_square <= 63);
         unsafe {
-            let occupied = self.board.occupied & !(1 << self.king_square());
+            let occupied = self.board.occupied & !(1 << orig_square);
             let occupied_by_them = self.board.pieces.color.get_unchecked(1 ^ self.board.to_move);
 
-            (self.geometry.attacks_from_unsafe(ROOK, square, occupied) & occupied_by_them &
+            (self.geometry.attacks_from_unsafe(ROOK, dest_square, occupied) & occupied_by_them &
              (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) !=
             0 ||
-            (self.geometry.attacks_from_unsafe(BISHOP, square, occupied) & occupied_by_them &
+            (self.geometry.attacks_from_unsafe(BISHOP, dest_square, occupied) & occupied_by_them &
              (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) !=
             0 ||
-            (self.geometry.attacks_from_unsafe(KNIGHT, square, occupied) & occupied_by_them &
-             self.board.pieces.piece_type[KNIGHT]) != 0 ||
-            (self.geometry.attacks_from_unsafe(KING, square, occupied) & occupied_by_them &
-             self.board.pieces.piece_type[KING]) != 0 ||
-            (*self.geometry.pawn_attacks.get_unchecked(self.board.to_move).get_unchecked(square) &
-             occupied_by_them &
+            (self.geometry.attacks_from_unsafe(KNIGHT, dest_square, occupied) &
+             occupied_by_them & self.board.pieces.piece_type[KNIGHT]) != 0 ||
+            (self.geometry.attacks_from_unsafe(KING, dest_square, occupied) &
+             occupied_by_them & self.board.pieces.piece_type[KING]) != 0 ||
+            (*self.geometry
+                  .pawn_attacks
+                  .get_unchecked(self.board.to_move)
+                  .get_unchecked(dest_square) & occupied_by_them &
              self.board.pieces.piece_type[PAWN] != 0)
         }
     }
@@ -1048,10 +1052,12 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         true
     }
 
-    /// A helper method. It returns if castling on a given `side` is
-    /// pseudo-legal.
+    /// A helper method. It returns if castling on the given `side` is
+    /// pseudo-legal. `king_square` should be the square that the king
+    /// of the side to move occupies.
     #[inline(always)]
-    fn can_castle(&self, side: CastlingSide) -> bool {
+    fn can_castle(&self, king_square: Square, side: CastlingSide) -> bool {
+        debug_assert_eq!(king_square, self.king_square());
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
         unsafe {
@@ -1059,7 +1065,8 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             (self.board.occupied &
              *BETWEEN.get_unchecked(self.board.to_move).get_unchecked(side) == 0) &&
             self.checkers() == 0 &&
-            !self.king_would_be_in_check(*[[D1, F1], [D8, F8]]
+            !self.king_would_be_in_check(king_square,
+                                         *[[D1, F1], [D8, F8]]
                                               .get_unchecked(self.board.to_move)
                                               .get_unchecked(side))
         }
