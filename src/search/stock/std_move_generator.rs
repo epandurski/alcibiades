@@ -219,7 +219,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         }
         let king_square = self.king_square();
         let pinned = self.find_pinned();
-        let occupied_by_us = self.board.pieces.color[self.board.to_move];
+        let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let occupied_by_them = self.board.occupied ^ occupied_by_us;
         let enpassant_bb = self.enpassant_bb();
         let pawn_dests;
