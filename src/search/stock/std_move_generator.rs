@@ -837,18 +837,20 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         debug_assert!(pawns & !self.board.pieces.piece_type[PAWN] == 0);
         debug_assert!(pawns & !self.board.pieces.color[self.board.to_move] == 0);
 
-        let mut dest_sets: [Bitboard; 4] = unsafe { uninitialized() };
+        let mut dest_sets: [Bitboard; 4];
         let enpassant_bb = self.enpassant_bb();
-        calc_pawn_dest_sets(self.board.to_move,
-                            self.board.pieces.color[self.board.to_move],
-                            self.board.pieces.color[1 ^ self.board.to_move],
-                            enpassant_bb,
-                            pawns,
-                            &mut dest_sets);
+        let shifts = unsafe {
+            dest_sets = uninitialized();
+            calc_pawn_dest_sets(self.board.to_move,
+                                *self.board.pieces.color.get_unchecked(self.board.to_move),
+                                *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move),
+                                enpassant_bb,
+                                pawns,
+                                &mut dest_sets)
+        };
 
         // Process each pawn move sub-type (push, double push, west
         // capture, east capture).
-        let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[self.board.to_move];
         for i in 0..4 {
             let mut pawn_legal_dests = dest_sets[i] & legal_dests;
 
@@ -1093,7 +1095,9 @@ fn calc_pawn_dest_sets(us: Color,
                        occupied_by_them: Bitboard,
                        enpassant_bb: Bitboard,
                        pawns: Bitboard,
-                       dest_sets: &mut [Bitboard; 4]) {
+                       dest_sets: &mut [Bitboard; 4])
+                       -> &'static [isize; 4] {
+    debug_assert!(us <= 1);
     debug_assert!(pawns & !occupied_by_us == 0);
     debug_assert!(occupied_by_us & occupied_by_them == 0);
     debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) & !occupied_by_them ==
@@ -1106,7 +1110,7 @@ fn calc_pawn_dest_sets(us: Color,
                                           BB_RANK_2 | BB_RANK_7,
                                           !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
                                           !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
-    let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[us];
+    let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
     let capture_targets = occupied_by_them | enpassant_bb;
     for i in 0..4 {
         dest_sets[i] = gen_shift(pawns & PROPER_ORIGIN[i], shifts[i]) &
@@ -1117,6 +1121,9 @@ fn calc_pawn_dest_sets(us: Color,
     // Double pushes are trickier -- for a double push to be
     // pseudo-legal, a single push must be pseudo-legal too.
     dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+
+    // For convenience, return a reference to the pawn shift array for `us`.
+    shifts
 }
 
 
