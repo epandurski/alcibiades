@@ -167,112 +167,118 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     fn evaluate_move(&self, m: Move) -> Value {
         debug_assert!(m.played_piece() < NO_PIECE);
         debug_assert!(m.captured_piece() <= NO_PIECE);
-        const PIECE_VALUES: [Value; 7] = [10000, 975, 500, 325, 325, 100, 0];
+        const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
         // This is the square on which all the action takes place.
         let exchange_square = m.dest_square();
 
-        let geometry = BoardGeometry::get();
-        let behind_blocker: &[Bitboard; 64] = &geometry.squares_behind_blocker[exchange_square];
-        let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
-        let color: &[Bitboard; 2] = &self.board().pieces.color;
-        let occupied = self.board().occupied;
-        let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
-        let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
+        unsafe {
+            let geometry = BoardGeometry::get();
+            let behind_blocker: &[Bitboard; 64] = geometry.squares_behind_blocker
+                                                          .get_unchecked(exchange_square);
+            let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
+            let color: &[Bitboard; 2] = &self.board().pieces.color;
+            let occupied = self.board().occupied;
+            let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
+            let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
 
-        // `may_xray` holds the set of pieces that may block attacks
-        // from other pieces. We will consider adding new
-        // attackers/defenders every time a piece from the `may_xray`
-        // set makes a capture.
-        let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] | piece_type[QUEEN];
+            // `may_xray` holds the set of pieces that may block attacks
+            // from other pieces. We will consider adding new
+            // attackers/defenders every time a piece from the `may_xray`
+            // set makes a capture.
+            let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] |
+                           piece_type[QUEEN];
 
-        // These variables will be updated on each capture:
-        let mut us = self.board().to_move;
-        let mut depth = 0;
-        let mut piece;
-        let mut orig_square_bb = 1 << m.orig_square();
-        let mut attackers_and_defenders = self.attacks_to(WHITE, exchange_square) |
-                                          self.attacks_to(BLACK, exchange_square);
+            // These variables will be updated on each capture:
+            let mut us = self.board().to_move;
+            let mut depth = 0;
+            let mut piece;
+            let mut orig_square_bb = 1 << m.orig_square();
+            let mut attackers_and_defenders = self.attacks_to(WHITE, exchange_square) |
+                                              self.attacks_to(BLACK, exchange_square);
 
-        // The `gain` array will hold the total material gained at
-        // each `depth`, from the viewpoint of the side that made the
-        // last capture (`us`).
-        let mut gain: [Value; 34] = unsafe { uninitialized() };
-        gain[0] = if m.move_type() == MOVE_PROMOTION {
-            piece = Move::piece_from_aux_data(m.aux_data());
-            PIECE_VALUES[m.captured_piece()] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
-        } else {
-            piece = m.played_piece();
-            PIECE_VALUES[m.captured_piece()]
-        };
+            // The `gain` array will hold the total material gained at
+            // each `depth`, from the viewpoint of the side that made the
+            // last capture (`us`).
+            let mut gain: [Value; 34] = uninitialized();
+            gain[0] = if m.move_type() == MOVE_PROMOTION {
+                piece = Move::piece_from_aux_data(m.aux_data());
+                PIECE_VALUES[m.captured_piece()] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
+            } else {
+                piece = m.played_piece();
+                *PIECE_VALUES.get_unchecked(m.captured_piece())
+            };
 
-        // Examine the possible exchanges, fill the `gain` array.
-        'exchange: while orig_square_bb != 0 {
-            // Store a speculative value that will be used if the
-            // captured piece happens to be defended.
-            gain[depth + 1] = PIECE_VALUES[piece] - gain[depth];
+            // Examine the possible exchanges, fill the `gain` array.
+            'exchange: while orig_square_bb != 0 {
+                let current_gain = *gain.get_unchecked(depth);
 
-            if max(-gain[depth], gain[depth + 1]) < 0 {
-                // The side that made the last capture wins even if
-                // the captured piece happens to be defended. So, we
-                // stop here to save precious CPU cycles. Note that
-                // here we may happen to return an incorrect SEE
-                // value, but the sign will be correct, which is by
-                // far the most important information.
-                break;
-            }
+                // Store a speculative value that will be used if the
+                // captured piece happens to be defended.
+                let speculative_gain: &mut Value = gain.get_unchecked_mut(depth + 1);
+                *speculative_gain = *PIECE_VALUES.get_unchecked(piece) - current_gain;
 
-            // Register that `orig_square_bb` is now vacant.
-            attackers_and_defenders &= !orig_square_bb;
+                if max(-current_gain, *speculative_gain) < 0 {
+                    // The side that made the last capture wins even if
+                    // the captured piece happens to be defended. So, we
+                    // stop here to save precious CPU cycles. Note that
+                    // here we may happen to return an incorrect SEE
+                    // value, but the sign will be correct, which is by
+                    // far the most important information.
+                    break;
+                }
 
-            // Consider adding new attackers/defenders, now that
-            // `orig_square_bb` is vacant.
-            if orig_square_bb & may_xray != 0 {
-                attackers_and_defenders |= {
-                    let behind = behind_blocker[bitscan_forward(orig_square_bb)] & occupied;
-                    match behind & straight_sliders &
-                          geometry.attacks_from(ROOK, exchange_square, behind) {
-                        0 => {
-                            // Not a straight slider -- possibly a diagonal slider.
-                            behind & diag_sliders &
-                            geometry.attacks_from(BISHOP, exchange_square, behind)
+                // Register that `orig_square_bb` is now vacant.
+                attackers_and_defenders &= !orig_square_bb;
+
+                // Consider adding new attackers/defenders, now that
+                // `orig_square_bb` is vacant.
+                if orig_square_bb & may_xray != 0 {
+                    attackers_and_defenders |= {
+                        let behind = occupied &
+                                     *behind_blocker.get_unchecked(bitscan_forward(orig_square_bb));
+                        match behind & straight_sliders &
+                              geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
+                            0 => {
+                                // Not a straight slider -- possibly a diagonal slider.
+                                behind & diag_sliders &
+                                geometry.attacks_from_unsafe(BISHOP, exchange_square, behind)
+                            }
+                            x => x,
                         }
-                        x => x,
-                    }
-                };
-            }
+                    };
+                }
 
-            // Change the side to move.
-            us ^= 1;
+                // Change the side to move.
+                us ^= 1;
 
-            // Find the next piece to enter the exchange. (The least
-            // valuable piece belonging to the side to move.)
-            let candidates = attackers_and_defenders & color[us];
-            if candidates != 0 {
-                for p in (KING..NO_PIECE).rev() {
-                    let bb = candidates & piece_type[p];
-                    if bb != 0 {
-                        depth += 1;
-                        piece = p;
-                        orig_square_bb = ls1b(bb);
-                        continue 'exchange;
+                // Find the next piece to enter the exchange. (The least
+                // valuable piece belonging to the side to move.)
+                let candidates = attackers_and_defenders & *color.get_unchecked(us);
+                if candidates != 0 {
+                    for p in (KING..NO_PIECE).rev() {
+                        let bb = candidates & piece_type[p];
+                        if bb != 0 {
+                            depth += 1;
+                            piece = p;
+                            orig_square_bb = ls1b(bb);
+                            continue 'exchange;
+                        }
                     }
                 }
+                break 'exchange;
             }
-            break 'exchange;
-        }
 
-        // Negamax the `gain` array for the final static exchange
-        // evaluation. (The `gain` array actually represents an unary
-        // tree, at each node of which the player can either continue
-        // the exchange or back off.)
-        unsafe {
+            // Negamax the `gain` array for the final static exchange
+            // evaluation. (The `gain` array actually represents an unary
+            // tree, at each node of which the player can either continue
+            // the exchange or back off.)
             while depth > 0 {
                 *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
                                                           *gain.get_unchecked(depth));
                 depth -= 1;
             }
+            gain[0]
         }
-        gain[0]
     }
 }
