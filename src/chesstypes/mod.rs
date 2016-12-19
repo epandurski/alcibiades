@@ -170,12 +170,16 @@ impl CastlingRights {
         // origin and destination squares should be AND-ed with the
         // castling rights value, to derive the updated castling
         // rights.
-        const CASTLING_RELATION: [usize; 64] = [!WQ, !0, !0, !0, !W, !0, !0, !WK, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !BQ, !0, !0, !0,
-                                                !B, !0, !0, !BK];
+        const CASTLING_RELATION: [usize; 64] = [
+            !WQ, !0, !0, !0, !W, !0, !0, !WK,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !BQ, !0, !0, !0, !B, !0, !0, !BK
+        ];
         self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }
 
