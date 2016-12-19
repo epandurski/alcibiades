@@ -108,9 +108,10 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// property of this method is that two similar positions generate
     /// entirely different hash numbers.
     ///
-    /// **Important note:** This method calculates the hash value
-    /// "from scratch", which can be too slow for some use cases. (See
-    /// `do_move`.)
+    /// **Important note:** This method will be relatively slow if the
+    /// implementation calculates the hash value "from
+    /// scratch". Inspect the implementation before using `hash` in
+    /// time-critical paths. (See `do_move`.)
     fn hash(&self) -> u64;
 
     /// Returns a reference to the underlying `Board` instance.
