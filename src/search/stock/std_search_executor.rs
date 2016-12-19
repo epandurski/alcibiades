@@ -878,7 +878,7 @@ impl KillerTable {
     #[inline]
     pub fn register(&mut self, half_move: usize, m: Move) {
         debug_assert!(half_move < self.array.len());
-        if m.captured_piece() != PIECE_NONE || m.move_type() == MOVE_PROMOTION {
+        if m.captured_piece() < PIECE_NONE || m.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
             // captures and promotions.
             return;
