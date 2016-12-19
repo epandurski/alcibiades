@@ -5,7 +5,8 @@ use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use chesstypes::squares::*;
-use search::{Board, MoveGenerator, Evaluator, Move, MoveDigest, AddMove};
+use search::{Board, Evaluator, Move, MoveDigest, AddMove};
+use search::quiescence::MoveGenerator;
 use utils::bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
 
@@ -1169,7 +1170,8 @@ mod tests {
     use chesstypes::*;
     use chesstypes::squares::*;
     use utils::MoveStack;
-    use search::{IllegalPosition, Board, MoveGenerator, Evaluator};
+    use search::{IllegalPosition, Board, Evaluator};
+    use search::quiescence::MoveGenerator;
     use search::stock::{StdMoveGenerator, RandomEvaluator};
 
     impl<E: Evaluator> StdMoveGenerator<E> {

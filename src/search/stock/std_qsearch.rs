@@ -218,6 +218,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
 #[cfg(test)]
 mod tests {
     use search::*;
+    use search::quiescence::MoveGenerator;
     use search::stock::{MaterialEvaluator, StdMoveGenerator};
     use utils::MoveStack;
 
