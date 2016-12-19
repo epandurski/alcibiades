@@ -164,7 +164,7 @@ enum Command<N: SearchNode> {
 /// // Send a command to start a new search:
 /// commands_tx.send(Command::Search {
 ///     search_id: 0,
-///     position: Position::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
+///     position: StdSearchNode::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
 ///     depth: 5,
 ///     lower_bound: VALUE_MIN,
 ///     upper_bound: VALUE_MAX,
