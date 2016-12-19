@@ -1169,12 +1169,12 @@ mod tests {
     use chesstypes::*;
     use chesstypes::squares::*;
     use utils::MoveStack;
-    use search::{NotationError, Board, MoveGenerator, Evaluator};
+    use search::{IllegalPosition, Board, MoveGenerator, Evaluator};
     use search::stock::{StdMoveGenerator, RandomEvaluator};
 
     impl<E: Evaluator> StdMoveGenerator<E> {
-        fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, NotationError> {
-            StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(NotationError)
+        fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalPosition> {
+            StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(IllegalPosition)
         }
     }
 

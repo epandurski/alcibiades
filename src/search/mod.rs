@@ -390,8 +390,8 @@ pub trait SearchExecutor: SetOption {
 }
 
 
-/// Represents a notation error.
-pub struct NotationError;
+/// Represents an illegal position error.
+pub struct IllegalPosition;
 
 
 /// Holds a chess position.
@@ -420,7 +420,7 @@ pub struct Board {
 
 impl Board {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
-    pub fn from_fen(fen: &str) -> Result<Board, NotationError> {
+    pub fn from_fen(fen: &str) -> Result<Board, IllegalPosition> {
         parse_fen(fen).map(|x| x.0)
     }
 }
@@ -464,7 +464,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// moves that were played from that position. The move format is
     /// long algebraic notation. Examples: `e2e4`, `e7e5`, `e1g1`
     /// (white short castling), `e7e8q` (for promotion).
-    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, NotationError>;
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, IllegalPosition>;
 
     /// Returns an almost unique hash value for the position.
     ///

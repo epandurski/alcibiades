@@ -4,7 +4,7 @@ use regex::Regex;
 use chesstypes::*;
 use chesstypes::files::*;
 use chesstypes::ranks::*;
-use search::{NotationError, Board};
+use search::{IllegalPosition, Board};
 
 
 /// Parses Forsyth–Edwards Notation (FEN).
@@ -50,7 +50,7 @@ use search::{NotationError, Board};
 ///
 /// ## Example:
 /// The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
-pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
+pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), IllegalPosition> {
     let fileds: Vec<_> = s.split_whitespace().collect();
     if fileds.len() == 6 {
         let pieces = try!(parse_fen_piece_placement(fileds[0]));
@@ -60,13 +60,13 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
             match to_move {
                 WHITE if rank(x) == RANK_6 => file(x),
                 BLACK if rank(x) == RANK_3 => file(x),
-                _ => return Err(NotationError),
+                _ => return Err(IllegalPosition),
             }
         } else {
             8
         };
-        let halfmove_clock = try!(fileds[4].parse::<u8>().map_err(|_| NotationError));
-        let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| NotationError));
+        let halfmove_clock = try!(fileds[4].parse::<u8>().map_err(|_| IllegalPosition));
+        let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| IllegalPosition));
         if let 1...9000 = fullmove_number {
             return Ok((Board {
                 occupied: pieces.color[WHITE] | pieces.color[BLACK],
@@ -79,12 +79,12 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), NotationError> {
                        fullmove_number));
         }
     }
-    Err(NotationError)
+    Err(IllegalPosition)
 }
 
 
 /// Parses square's algebraic notation (lowercase only).
-fn parse_square(s: &str) -> Result<Square, NotationError> {
+fn parse_square(s: &str) -> Result<Square, IllegalPosition> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^[a-h][1-8]$").unwrap();
     }
@@ -94,12 +94,12 @@ fn parse_square(s: &str) -> Result<Square, NotationError> {
         let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as usize;
         Ok(square(file, rank))
     } else {
-        Err(NotationError)
+        Err(IllegalPosition)
     }
 }
 
 
-fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, NotationError> {
+fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, IllegalPosition> {
     // These are the possible productions in the grammar.
     enum Token {
         Piece(Color, PieceType),
@@ -134,12 +134,12 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, NotationError> 
             'p' => Token::Piece(BLACK, PAWN),
             n @ '1'...'8' => Token::EmptySquares(n.to_digit(9).unwrap()),
             '/' => Token::Separator,
-            _ => return Err(NotationError),
+            _ => return Err(IllegalPosition),
         };
         match token {
             Token::Piece(color, piece_type) => {
                 if file > 7 {
-                    return Err(NotationError);
+                    return Err(IllegalPosition);
                 }
                 let mask = 1 << square(file, rank);
                 pieces.piece_type[piece_type] |= mask;
@@ -149,7 +149,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, NotationError> 
             Token::EmptySquares(n) => {
                 file += n as usize;
                 if file > 8 {
-                    return Err(NotationError);
+                    return Err(IllegalPosition);
                 }
             }
             Token::Separator => {
@@ -157,7 +157,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, NotationError> 
                     file = 0;
                     rank -= 1;
                 } else {
-                    return Err(NotationError);
+                    return Err(IllegalPosition);
                 }
             }
         }
@@ -165,23 +165,23 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, NotationError> 
 
     // Make sure that all squares were initialized.
     if file != 8 || rank != 0 {
-        return Err(NotationError);
+        return Err(IllegalPosition);
     }
 
     Ok(pieces)
 }
 
 
-fn parse_fen_active_color(s: &str) -> Result<Color, NotationError> {
+fn parse_fen_active_color(s: &str) -> Result<Color, IllegalPosition> {
     match s {
         "w" => Ok(WHITE),
         "b" => Ok(BLACK),
-        _ => Err(NotationError),
+        _ => Err(IllegalPosition),
     }
 }
 
 
-fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, NotationError> {
+fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, IllegalPosition> {
     let mut rights = CastlingRights::new(0);
     if s != "-" {
         for c in s.chars() {
@@ -190,10 +190,10 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, NotationError> {
                 'Q' => (WHITE, QUEENSIDE),
                 'k' => (BLACK, KINGSIDE),
                 'q' => (BLACK, QUEENSIDE),
-                _ => return Err(NotationError),
+                _ => return Err(IllegalPosition),
             };
             if !rights.grant(color, side) {
-                return Err(NotationError);
+                return Err(IllegalPosition);
             }
         }
     }
@@ -201,7 +201,7 @@ fn parse_fen_castling_rights(s: &str) -> Result<CastlingRights, NotationError> {
 }
 
 
-fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, NotationError> {
+fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, IllegalPosition> {
     if s == "-" {
         Ok(None)
     } else {

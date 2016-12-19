@@ -59,7 +59,7 @@ impl<T: Qsearch + 'static> SearchNode for Position<T> {
 
     fn from_history(fen: &str,
                     moves: &mut Iterator<Item = &str>)
-                    -> Result<Position<T>, NotationError> {
+                    -> Result<Position<T>, IllegalPosition> {
         let mut p: Position<T> = try!(Position::from_fen(fen));
         let mut move_list = Vec::new();
         'played_moves: for played_move in moves {
@@ -73,7 +73,7 @@ impl<T: Qsearch + 'static> SearchNode for Position<T> {
                     break;
                 }
             }
-            return Err(NotationError);
+            return Err(IllegalPosition);
         }
         p.declare_as_root();
         Ok(p)
@@ -292,9 +292,9 @@ impl<T: Qsearch + 'static> SetOption for Position<T> {
 
 impl<T: Qsearch + 'static> Position<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
-    pub fn from_fen(fen: &str) -> Result<Position<T>, NotationError> {
+    pub fn from_fen(fen: &str) -> Result<Position<T>, IllegalPosition> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
-        let g = try!(T::MoveGenerator::from_board(board).ok_or(NotationError));
+        let g = try!(T::MoveGenerator::from_board(board).ok_or(IllegalPosition));
         Ok(Position {
             zobrist: ZobristArrays::get(),
             board_hash: g.hash(),
