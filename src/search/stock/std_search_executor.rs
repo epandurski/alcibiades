@@ -492,7 +492,7 @@ impl<'a, T, N> Search<'a, T, N>
             let v = self.position
                         .evaluator()
                         .evaluate(self.position.board());
-            (T::Entry::with_eval_value(0, BOUND_NONE, 0, 0, v), v)
+            (T::Entry::with_eval_value(0, BOUND_NONE, 0, MoveDigest::invalid(), v), v)
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
@@ -525,7 +525,11 @@ impl<'a, T, N> Search<'a, T, N>
                 BOUND_EXACT
             };
             self.tt.store(hash,
-                          T::Entry::with_eval_value(result.value(), bound, 0, 0, eval_value));
+                          T::Entry::with_eval_value(result.value(),
+                                                    bound,
+                                                    0,
+                                                    MoveDigest::invalid(),
+                                                    eval_value));
             return Ok(Some(result.value()));
         }
 
@@ -578,7 +582,7 @@ impl<'a, T, N> Search<'a, T, N>
                                   T::Entry::with_eval_value(beta,
                                                             BOUND_LOWER,
                                                             depth,
-                                                            0,
+                                                            MoveDigest::invalid(),
                                                             eval_value));
                     return Ok(Some(beta));
                 }
@@ -649,7 +653,7 @@ impl<'a, T, N> Search<'a, T, N>
             self.position.generate_moves(self.moves);
 
             // Remove the already tried hash move from the list.
-            if state.hash_move_digest != 0 {
+            if state.hash_move_digest != MoveDigest::invalid() {
                 self.moves.remove(state.hash_move_digest);
             }
 
@@ -711,7 +715,7 @@ impl<'a, T, N> Search<'a, T, N>
                     state.killer = Some(k2);
                     k1
                 };
-                if killer != 0 {
+                if killer != MoveDigest::invalid() {
                     if let Some(mut m) = self.moves.remove(killer) {
                         if self.position.do_move(m) {
                             m.set_score(MOVE_SCORE_MAX);
@@ -883,7 +887,7 @@ impl KillerTable {
         let minor = &mut pair.minor;
         let major = &mut pair.major;
         let digest = m.digest();
-        debug_assert!(digest != 0);
+        debug_assert!(digest != MoveDigest::invalid());
 
         // Register the move in one of the slots.
         if major.digest == digest {
@@ -962,11 +966,11 @@ impl Default for KillerPair {
     fn default() -> KillerPair {
         KillerPair {
             minor: Killer {
-                digest: 0,
+                digest: MoveDigest::invalid(),
                 hits: 0,
             },
             major: Killer {
-                digest: 0,
+                digest: MoveDigest::invalid(),
                 hits: 0,
             },
         }

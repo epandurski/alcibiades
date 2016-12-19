@@ -311,15 +311,15 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             }
         }
 
-        if move_digest == 0 {
+        if move_digest == MoveDigest::invalid() {
             debug_assert!(generated_move.is_none());
             return None;
         }
 
-        let move_type = get_move_type(move_digest);
-        let orig_square = get_orig_square(move_digest);
-        let dest_square = get_dest_square(move_digest);
-        let promoted_piece_code = get_aux_data(move_digest);
+        let move_type = move_digest.move_type();
+        let orig_square = move_digest.orig_square();
+        let dest_square = move_digest.dest_square();
+        let promoted_piece_code = move_digest.aux_data();
         let (king_square, checkers) = self.king_square_and_checkers();
 
         if move_type == MOVE_CASTLING {

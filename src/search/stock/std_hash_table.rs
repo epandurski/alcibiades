@@ -180,7 +180,7 @@ impl HashTable for StdHashTable {
             // the same key. If this this is the case we will use this
             // slot for the new record.
             if record.key == 0 || record.key ^ record.data.as_u64() == key {
-                if data.move_digest == 0 {
+                if data.move_digest == MoveDigest::invalid() {
                     data.move_digest = record.data.move_digest; // Preserve any existing move.
                 }
                 replace_index = i;

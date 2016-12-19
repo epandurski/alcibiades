@@ -17,7 +17,7 @@ pub const MOVE_NORMAL: MoveType = 3;
 /// Encodes the minimum needed information that unambiguously
 /// describes a move.
 ///
-/// It is laid out the following way:
+/// `MoveDigest` is a `u16` number. It is laid out the following way:
 ///
 ///  ```text
 ///   15                                                           0
@@ -33,36 +33,50 @@ pub const MOVE_NORMAL: MoveType = 3;
 /// There are 4 "move type"s: `0`) en-passant capture; `1`) pawn
 /// promotion; `2`) castling; `3`) normal move. "Aux data" encodes the
 /// type of the promoted piece if the move type is pawn promotion,
-/// otherwise it is zero.  For valid moves the digest value will never
-/// be `0`.
-pub type MoveDigest = u16;
+/// otherwise it is zero.
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+#[derive(PartialEq, Eq)]
+pub struct MoveDigest(u16);
 
+impl MoveDigest {
+    /// Creates an invalid move digest instance.
+    ///
+    /// The returned instance contains `0`. This is sometimes useful
+    /// in places where any move is required but no is available.
+    #[inline(always)]
+    pub fn invalid() -> MoveDigest {
+        MoveDigest(0)
+    }
 
-/// Extracts the move type from a `MoveDigest`.
-#[inline(always)]
-pub fn get_move_type(move_digest: MoveDigest) -> MoveType {
-    ((move_digest & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
-}
+    /// Returns the move type.
+    #[inline(always)]
+    pub fn move_type(&self) -> MoveType {
+        ((self.0 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
+    }
 
+    /// Returns the origin square of the played piece.
+    #[inline(always)]
+    pub fn orig_square(&self) -> Square {
+        ((self.0 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
+    }
 
-/// Extracts the origin square from a `MoveDigest`.
-#[inline(always)]
-pub fn get_orig_square(move_digest: MoveDigest) -> Square {
-    ((move_digest & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
-}
+    /// Returns the destination square for the played piece.
+    #[inline(always)]
+    pub fn dest_square(&self) -> Square {
+        ((self.0 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
+    }
 
-
-/// Extracts the destination square from a `MoveDigest`.
-#[inline(always)]
-pub fn get_dest_square(move_digest: MoveDigest) -> Square {
-    ((move_digest & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
-}
-
-
-/// Extracts the auxiliary data from a `MoveDigest`.
-#[inline(always)]
-pub fn get_aux_data(move_digest: MoveDigest) -> usize {
-    ((move_digest & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
+    /// Returns a value between 0 and 3 representing the auxiliary
+    /// data.
+    ///
+    /// When the move type is pawn promotion, "aux data" encodes the
+    /// promoted piece type. For all other move types "aux data" is
+    /// zero.
+    #[inline(always)]
+    pub fn aux_data(&self) -> usize {
+        ((self.0 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
+    }
 }
 
 
@@ -171,8 +185,9 @@ impl Move {
     /// Creates an invalid move instance.
     ///
     /// The returned instance tries to mimic a legal move, but its
-    /// move digest equals `0`. This is sometimes useful in places
-    /// where any move is required but no is available.
+    /// move digest equals `MoveDigest::invalid()`. This is sometimes
+    /// useful in places where any move is required but no is
+    /// available.
     #[inline(always)]
     pub fn invalid() -> Move {
         Move(((!PIECE_NONE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
@@ -262,7 +277,7 @@ impl Move {
     /// Returns the least significant 16 bits of the raw move value.
     #[inline(always)]
     pub fn digest(&self) -> MoveDigest {
-        self.0 as MoveDigest
+        MoveDigest(self.0 as u16)
     }
 
     /// Returns the algebraic notation of the move.
