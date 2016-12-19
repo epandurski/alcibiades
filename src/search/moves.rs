@@ -1,17 +1,7 @@
 //! Defines data structures describing chess moves.
 
 use std::fmt;
-use super::*;
-
-
-/// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
-/// `MOVE_NORMAL`.
-pub type MoveType = usize;
-
-pub const MOVE_ENPASSANT: MoveType = 0;
-pub const MOVE_PROMOTION: MoveType = 1;
-pub const MOVE_CASTLING: MoveType = 2;
-pub const MOVE_NORMAL: MoveType = 3;
+use chesstypes::*;
 
 
 /// Encodes the minimum needed information that unambiguously
@@ -377,6 +367,7 @@ fn notation(square: Square) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use chesstypes::*;
     use chesstypes::squares::*;
     const NO_ENPASSANT_FILE: usize = 8;
@@ -477,12 +468,11 @@ mod tests {
         m.set_score(0);
         assert_eq!(m.score(), 0);
         assert_eq!(n3.aux_data(), 1);
-        assert_eq!(n1.digest(), (n1.0 & 0xffff) as MoveDigest);
         assert!(m.is_pawn_advance_or_capure());
         assert!(!n2.is_pawn_advance_or_capure());
         assert!(n4.is_pawn_advance_or_capure());
         assert!(n5.is_pawn_advance_or_capure());
         assert!(!Move::invalid().is_null());
-        assert_eq!(Move::invalid().digest(), 0);
+        assert_eq!(Move::invalid().digest(), MoveDigest::invalid());
     }
 }

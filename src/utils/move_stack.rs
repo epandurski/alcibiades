@@ -1,7 +1,7 @@
 //! Implements `MoveStack`.
 
 use std::slice;
-use chesstypes::*;
+use search::{Move, MoveDigest, AddMove};
 
 
 /// Stores a list of moves for each position in a given line of play.
@@ -193,6 +193,7 @@ mod tests {
     use super::*;
     use chesstypes::*;
     use chesstypes::squares::*;
+    use search::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

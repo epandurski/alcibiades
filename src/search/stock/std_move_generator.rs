@@ -5,7 +5,7 @@ use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
 use chesstypes::squares::*;
-use search::{MoveGenerator, Evaluator};
+use search::{MoveGenerator, Evaluator, Move, MoveDigest, AddMove};
 use utils::bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
 
@@ -1590,11 +1590,12 @@ mod tests {
 
     #[test]
     fn test_try_move_digest() {
+        use std::mem::transmute;
         use search::Evaluator;
         fn try_all<E: Evaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
-            let mut i = 0;
+            let mut i = 0u16;
             loop {
-                if let Some(m) = b.try_move_digest(i) {
+                if let Some(m) = b.try_move_digest(unsafe { transmute(i) }) {
                     assert!(stack.iter().find(|x| **x == m).is_some());
                 }
                 if i == 0xffff {

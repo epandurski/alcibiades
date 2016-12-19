@@ -6,7 +6,6 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
-use chesstypes::*;
 use search::*;
 
 

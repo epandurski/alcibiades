@@ -1022,7 +1022,7 @@ mod tests {
         let mut v = MoveStack::new();
         p.generate_moves(&mut v);
         let mut i = 1;
-        let mut previous_move_digest = 0;
+        let mut previous_move_digest = MoveDigest::invalid();
         while let Some(m) = v.pop() {
             if m.captured_piece() == PIECE_NONE && p.do_move(m) {
                 for _ in 0..i {
@@ -1036,7 +1036,7 @@ mod tests {
                 previous_move_digest = m.digest();
             }
         }
-        assert!(killers.get(1) == (0, 0));
+        assert!(killers.get(1) == (MoveDigest::invalid(), MoveDigest::invalid()));
     }
 }
 

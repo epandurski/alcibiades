@@ -4,7 +4,6 @@ use std::isize;
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
-use chesstypes::*;
 use search::*;
 
 
@@ -339,16 +338,16 @@ mod tests {
     fn test_store_and_probe() {
         let tt = StdHashTable::new(None);
         assert!(tt.probe(1).is_none());
-        let data = StdHashTableEntry::new(0, 0, 50, 666);
+        let data = StdHashTableEntry::new(0, 0, 50, MoveDigest::invalid());
         assert_eq!(data.depth(), 50);
-        assert_eq!(data.move_digest(), 666);
+        assert_eq!(data.move_digest(), MoveDigest::invalid());
         tt.store(1, data);
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        tt.store(1, StdHashTableEntry::new(0, 0, 50, 666));
+        tt.store(1, StdHashTableEntry::new(0, 0, 50, MoveDigest::invalid()));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        assert_eq!(tt.probe(1).unwrap().move_digest(), 666);
+        assert_eq!(tt.probe(1).unwrap().move_digest(), MoveDigest::invalid());
         for i in 2..50 {
-            tt.store(i, StdHashTableEntry::new(i as i16, 0, i as Depth, i as u16));
+            tt.store(i, StdHashTableEntry::new(i as i16, 0, i as Depth, MoveDigest::invalid()));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);
