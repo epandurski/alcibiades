@@ -984,10 +984,10 @@ mod tests {
     use super::{Search, KillerTable};
     use chesstypes::*;
     use search::*;
-    use search::stock::{StdHashTable, StdQsearch, StdMoveGenerator, RandomEvaluator};
+    use search::stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, RandomEvaluator};
     use utils::MoveStack;
 
-    type Pos = Position<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
+    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
 
     #[test]
     fn test_search() {

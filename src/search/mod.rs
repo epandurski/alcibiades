@@ -10,7 +10,6 @@
 //! that implements the `SearchExecutor` trait.
 
 mod deepening;
-mod position;
 mod moves;
 pub mod stock;
 pub mod quiescence;
@@ -23,7 +22,6 @@ use utils::parse_fen;
 use chesstypes::*;
 
 pub use self::deepening::Deepening;
-pub use self::position::Position;
 pub use self::moves::{Move, MoveDigest, AddMove};
 
 

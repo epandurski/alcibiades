@@ -1,4 +1,4 @@
-//! Implements `Position`.
+//! Implements `StdSearchNode`.
 
 use std::cmp::min;
 use std::cell::UnsafeCell;
@@ -22,8 +22,8 @@ struct PositionInfo {
 }
 
 
-/// A generic implementation of `SearchNode` trait.
-pub struct Position<T: Qsearch> {
+/// Implements the `SearchNode` trait.
+pub struct StdSearchNode<T: Qsearch> {
     zobrist: &'static ZobristArrays,
     position: UnsafeCell<T::MoveGenerator>,
 
@@ -52,15 +52,13 @@ pub struct Position<T: Qsearch> {
 }
 
 
-impl<T: Qsearch + 'static> SearchNode for Position<T> {
+impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
     type Evaluator = <<T as Qsearch>::MoveGenerator as MoveGenerator>::Evaluator;
 
     type QsearchResult = T::QsearchResult;
 
-    fn from_history(fen: &str,
-                    moves: &mut Iterator<Item = &str>)
-                    -> Result<Position<T>, IllegalPosition> {
-        let mut p: Position<T> = try!(Position::from_fen(fen));
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, IllegalPosition> {
+        let mut p: StdSearchNode<T> = try!(StdSearchNode::from_fen(fen));
         let mut move_list = Vec::new();
         'played_moves: for played_move in moves {
             move_list.clear();
@@ -264,9 +262,9 @@ impl<T: Qsearch + 'static> SearchNode for Position<T> {
 }
 
 
-impl<T: Qsearch + 'static> Clone for Position<T> {
+impl<T: Qsearch + 'static> Clone for StdSearchNode<T> {
     fn clone(&self) -> Self {
-        Position {
+        StdSearchNode {
             zobrist: self.zobrist,
             position: UnsafeCell::new(self.position().clone()),
             board_hash: self.board_hash,
@@ -279,7 +277,7 @@ impl<T: Qsearch + 'static> Clone for Position<T> {
 }
 
 
-impl<T: Qsearch + 'static> SetOption for Position<T> {
+impl<T: Qsearch + 'static> SetOption for StdSearchNode<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
@@ -290,12 +288,12 @@ impl<T: Qsearch + 'static> SetOption for Position<T> {
 }
 
 
-impl<T: Qsearch + 'static> Position<T> {
+impl<T: Qsearch + 'static> StdSearchNode<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
-    pub fn from_fen(fen: &str) -> Result<Position<T>, IllegalPosition> {
+    pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalPosition> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
         let g = try!(T::MoveGenerator::from_board(board).ok_or(IllegalPosition));
-        Ok(Position {
+        Ok(StdSearchNode {
             zobrist: ZobristArrays::get(),
             board_hash: g.hash(),
             position: UnsafeCell::new(g),
@@ -426,9 +424,9 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 mod tests {
     use utils::MoveStack;
     use search::*;
-    use search::stock::{StdQsearch, StdMoveGenerator, MaterialEvaluator};
+    use search::stock::{StdSearchNode, StdQsearch, StdMoveGenerator, MaterialEvaluator};
 
-    type Pos = Position<StdQsearch<StdMoveGenerator<MaterialEvaluator>>>;
+    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<MaterialEvaluator>>>;
 
     #[test]
     fn test_fen_parsing() {

@@ -10,12 +10,12 @@ pub mod search;
 pub mod engine;
 
 use std::process::exit;
-use search::{Deepening, Position};
-use search::stock::{StdHashTable, StdQsearch, StdSearchExecutor, StdMoveGenerator, RandomEvaluator};
 use engine::run_server;
+use search::Deepening;
+use search::stock::*;
 
 fn main() {
-    type SearchNode = Position<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
+    type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
     exit(match run_server::<Deepening<StdSearchExecutor<StdHashTable, SearchNode>>>() {
         Ok(_) => 0,
         Err(_) => 1,
