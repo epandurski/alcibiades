@@ -22,7 +22,7 @@ use utils::parse_fen;
 use board::*;
 
 pub use self::deepening::Deepening;
-pub use self::moves::{Move, MoveDigest, AddMove};
+pub use self::moves::*;
 
 
 /// Search depth in half-moves.

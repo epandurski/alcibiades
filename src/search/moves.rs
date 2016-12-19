@@ -4,6 +4,22 @@ use std::fmt;
 use board::*;
 
 
+/// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or `MOVE_NORMAL`.
+pub type MoveType = usize;
+
+/// Represents en-passant capture move type.
+pub const MOVE_ENPASSANT: MoveType = 0;
+
+/// Represents pawn promotion move type.
+pub const MOVE_PROMOTION: MoveType = 1;
+
+/// Represents castling move type.
+pub const MOVE_CASTLING: MoveType = 2;
+
+/// Represents "normal move" move type.
+pub const MOVE_NORMAL: MoveType = 3;
+
+
 /// Encodes the minimum needed information that unambiguously
 /// describes a move.
 ///
@@ -36,6 +52,7 @@ impl MoveDigest {
     /// in places where any move is required but no is available.
     #[inline(always)]
     pub fn invalid() -> MoveDigest {
+        debug_assert!(MOVE_NORMAL != 0);
         MoveDigest(0)
     }
 

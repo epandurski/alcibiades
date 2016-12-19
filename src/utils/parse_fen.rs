@@ -35,11 +35,11 @@ use search::{IllegalPosition, Board};
 ///    castle kingside), "Q" (White can castle queenside), "k" (Black
 ///    can castle kingside), and/or "q" (Black can castle queenside).
 ///
-/// 4. En passant target square (in algebraic notation). If there's no
-///    en passant target square, this is "-". If a pawn has just made a
-///    2-square move, this is the position "behind" the pawn. This is
-///    recorded regardless of whether there is a pawn in position to
-///    make an en passant capture.
+/// 4. En-passant target square (in algebraic notation). If there's no
+///    en-passant target square, this is "-". If a pawn has just made
+///    a 2-square move, this is the position "behind" the pawn. This
+///    is recorded regardless of whether there is a pawn in position
+///    to make an en-passant capture.
 ///
 /// 5. Halfmove clock. This is the number of halfmoves since the last
 ///    pawn advance or capture. This is used to determine if a draw can

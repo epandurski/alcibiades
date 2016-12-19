@@ -35,19 +35,6 @@ pub const PAWN: PieceType = 5;
 pub const PIECE_NONE: PieceType = 6;
 
 
-/// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or `MOVE_NORMAL`.
-pub type MoveType = usize;
-
-/// `0`
-pub const MOVE_ENPASSANT: MoveType = 0;
-/// `1`
-pub const MOVE_PROMOTION: MoveType = 1;
-/// `2`
-pub const MOVE_CASTLING: MoveType = 2;
-/// `3`
-pub const MOVE_NORMAL: MoveType = 3;
-
-
 /// From 0 to 63 (0 is A1, 1 is B1, .. , 62 is G8, 63 is H8).
 pub type Square = usize;
 
