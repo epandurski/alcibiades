@@ -201,7 +201,7 @@ mod tests {
                           E2,
                           E4,
                           0,
-                          NO_PIECE,
+                          PIECE_NONE,
                           PAWN,
                           CastlingRights::new(0),
                           NO_ENPASSANT_FILE,

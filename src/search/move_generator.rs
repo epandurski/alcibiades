@@ -165,8 +165,8 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// `generate_all`, `generate_forcing`, `try_move_digest`, or
     /// `null_move` methods for the current position on the board.
     fn evaluate_move(&self, m: Move) -> Value {
-        debug_assert!(m.played_piece() < NO_PIECE);
-        debug_assert!(m.captured_piece() <= NO_PIECE);
+        debug_assert!(m.played_piece() < PIECE_NONE);
+        debug_assert!(m.captured_piece() <= PIECE_NONE);
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
         // This is the square on which all the action takes place.
@@ -256,7 +256,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 // valuable piece belonging to the side to move.)
                 let candidates = attackers_and_defenders & *color.get_unchecked(us);
                 if candidates != 0 {
-                    for p in (KING..NO_PIECE).rev() {
+                    for p in (KING..PIECE_NONE).rev() {
                         let bb = candidates & piece_type[p];
                         if bb != 0 {
                             depth += 1;

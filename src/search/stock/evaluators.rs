@@ -28,7 +28,7 @@ impl Evaluator for MaterialEvaluator {
         let us = board.to_move;
         let them = 1 ^ us;
         let mut result = 0;
-        for piece in QUEEN..NO_PIECE {
+        for piece in QUEEN..PIECE_NONE {
             result += PIECE_VALUES[piece] *
                       (pop_count(piece_type[piece] & color[us]) as i16 -
                        pop_count(piece_type[piece] & color[them]) as i16);
@@ -64,7 +64,7 @@ impl Evaluator for RandomEvaluator {
         let us = board.to_move;
         let them = 1 ^ us;
         let mut result = 0;
-        for piece in QUEEN..NO_PIECE {
+        for piece in QUEEN..PIECE_NONE {
             result += PIECE_VALUES[piece] *
                       (pop_count(piece_type[piece] & color[us]) as i16 -
                        pop_count(piece_type[piece] & color[them]) as i16);

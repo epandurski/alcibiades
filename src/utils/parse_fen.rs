@@ -89,8 +89,8 @@ fn parse_square(s: &str) -> Result<Square, NotationError> {
     }
     if RE.is_match(s) {
         let mut chars = s.chars();
-        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as File;
-        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as Rank;
+        let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as usize;
+        let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as usize;
         Ok(square(file, rank))
     } else {
         Err(NotationError)
@@ -146,7 +146,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, NotationError> 
                 file += 1;
             }
             Token::EmptySquares(n) => {
-                file += n as File;
+                file += n as usize;
                 if file > 8 {
                     return Err(NotationError);
                 }

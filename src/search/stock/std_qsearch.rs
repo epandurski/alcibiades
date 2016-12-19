@@ -147,7 +147,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                 x if x < 0 => continue 'trymoves,
 
                 // An even exchange -- try it only during the first few plys.
-                0 if ply >= 2 && captured_piece < NO_PIECE => continue 'trymoves,
+                0 if ply >= 2 && captured_piece < PIECE_NONE => continue 'trymoves,
 
                 // A safe or winning move -- try it always.
                 _ => (),

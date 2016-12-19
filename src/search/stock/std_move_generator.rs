@@ -195,7 +195,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                                          king_square,
                                          [[C1, C8], [G1, G8]][side][self.board.to_move],
                                          0,
-                                         NO_PIECE,
+                                         PIECE_NONE,
                                          KING,
                                          self.board.castling_rights,
                                          self.board.enpassant_file,
@@ -338,7 +338,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                               orig_square,
                               dest_square,
                               0,
-                              NO_PIECE,
+                              PIECE_NONE,
                               KING,
                               self.board.castling_rights,
                               self.board.enpassant_file,
@@ -355,7 +355,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         // Figure out what is the type of the moved piece.
         let piece;
         'pieces: loop {
-            for i in KING..NO_PIECE {
+            for i in KING..PIECE_NONE {
                 if orig_square_bb & self.board.pieces.piece_type[i] != 0 {
                     piece = i;
                     break 'pieces;
@@ -475,7 +475,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                   king_square,
                   king_square,
                   0,
-                  NO_PIECE,
+                  PIECE_NONE,
                   KING,
                   self.board.castling_rights,
                   self.board.enpassant_file,
@@ -552,7 +552,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         h ^= self.zobrist.pieces[us][played_piece][orig_square];
 
         // Remove the captured piece (if any).
-        if captured_piece < NO_PIECE {
+        if captured_piece < PIECE_NONE {
             let not_captured_bb = if move_type == MOVE_ENPASSANT {
                 let captured_pawn_square =
                     (dest_square as isize + PAWN_MOVE_SHIFTS[them][PAWN_PUSH]) as Square;
@@ -653,7 +653,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         self.board.pieces.color[us] &= !dest_square_bb;
 
         // Put back the captured piece (if any).
-        if captured_piece < NO_PIECE {
+        if captured_piece < PIECE_NONE {
             let captured_piece_bb = if move_type == MOVE_ENPASSANT {
                 gen_shift(dest_square_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH])
             } else {
@@ -1074,9 +1074,9 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         debug_assert!(square <= 63);
         let bb = 1 << square & self.board.occupied;
         if bb == 0 {
-            return NO_PIECE;
+            return PIECE_NONE;
         }
-        for i in (KING..NO_PIECE).rev() {
+        for i in (KING..PIECE_NONE).rev() {
             if bb & self.board.pieces.piece_type[i] != 0 {
                 return i;
             }

@@ -662,7 +662,7 @@ impl<'a, T, N> Search<'a, T, N>
                     } else {
                         0
                     }
-                } else if m.captured_piece() < NO_PIECE {
+                } else if m.captured_piece() < PIECE_NONE {
                     match self.position.evaluate_move(*m) {
                         see if see > 0 => MOVE_SCORE_MAX - 1,
                         see if see == 0 => MOVE_SCORE_MAX - 2,
@@ -724,7 +724,7 @@ impl<'a, T, N> Search<'a, T, N>
 
             // Third -- the losing captures.
             if let NodePhase::TriedKillerMoves = state.phase {
-                if m.captured_piece() < NO_PIECE {
+                if m.captured_piece() < PIECE_NONE {
                     if self.position.do_move(m) {
                         m.set_score(MOVE_SCORE_MAX);
                         return Some(m);
@@ -874,7 +874,7 @@ impl KillerTable {
     #[inline]
     pub fn register(&mut self, half_move: usize, m: Move) {
         debug_assert!(half_move < self.array.len());
-        if m.captured_piece() != NO_PIECE || m.move_type() == MOVE_PROMOTION {
+        if m.captured_piece() != PIECE_NONE || m.move_type() == MOVE_PROMOTION {
             // We do not want to waste our precious killer-slots on
             // captures and promotions.
             return;
@@ -1020,7 +1020,7 @@ mod tests {
         let mut i = 1;
         let mut previous_move_digest = 0;
         while let Some(m) = v.pop() {
-            if m.captured_piece() == NO_PIECE && p.do_move(m) {
+            if m.captured_piece() == PIECE_NONE && p.do_move(m) {
                 for _ in 0..i {
                     killers.register(0, m);
                 }

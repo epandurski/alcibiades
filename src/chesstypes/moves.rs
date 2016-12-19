@@ -140,15 +140,15 @@ impl Move {
                score: u32)
                -> Move {
         debug_assert!(move_type <= 0x11);
-        debug_assert!(played_piece < NO_PIECE);
+        debug_assert!(played_piece < PIECE_NONE);
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
-        debug_assert!(captured_piece != KING && captured_piece <= NO_PIECE);
+        debug_assert!(captured_piece != KING && captured_piece <= PIECE_NONE);
         debug_assert!(enpassant_file <= 8);
         debug_assert!(aux_data <= 0b11);
         debug_assert!(move_type == MOVE_PROMOTION || aux_data == 0);
         debug_assert!(orig_square != dest_square ||
-                      move_type == MOVE_NORMAL && captured_piece == NO_PIECE);
+                      move_type == MOVE_NORMAL && captured_piece == PIECE_NONE);
 
         Move(// The order of those operations could be important to
              // allow more optimizations.
@@ -175,7 +175,7 @@ impl Move {
     /// where any move is required but no is available.
     #[inline(always)]
     pub fn invalid() -> Move {
-        Move(((!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
+        Move(((!PIECE_NONE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
     }
 
     /// Decodes the promoted piece type from the raw value returned by
@@ -285,7 +285,7 @@ impl Move {
     pub fn is_pawn_advance_or_capure(&self) -> bool {
         // We use clever bit manipulations to avoid branches.
         const P: usize = (!PAWN & 0b111) << M_SHIFT_PIECE;
-        const C: usize = (!NO_PIECE & 0b111) << M_SHIFT_CAPTURED_PIECE;
+        const C: usize = (!PIECE_NONE & 0b111) << M_SHIFT_CAPTURED_PIECE;
         let v = self.0 as usize;
         (v & M_MASK_PIECE | C) ^ (v & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
     }
@@ -393,7 +393,7 @@ mod tests {
                               E2,
                               E4,
                               0,
-                              NO_PIECE,
+                              PIECE_NONE,
                               PAWN,
                               cr,
                               NO_ENPASSANT_FILE,
@@ -411,7 +411,7 @@ mod tests {
                            F3,
                            E4,
                            0,
-                           NO_PIECE,
+                           PIECE_NONE,
                            KING,
                            CastlingRights::new(0),
                            NO_ENPASSANT_FILE,
@@ -420,7 +420,7 @@ mod tests {
                            F2,
                            F1,
                            1,
-                           NO_PIECE,
+                           PIECE_NONE,
                            PAWN,
                            CastlingRights::new(0),
                            NO_ENPASSANT_FILE,
@@ -446,7 +446,7 @@ mod tests {
         assert!(n1 > m);
         assert!(n2 < m);
         assert_eq!(m.played_piece(), PAWN);
-        assert_eq!(m.captured_piece(), NO_PIECE);
+        assert_eq!(m.captured_piece(), PIECE_NONE);
         assert_eq!(m.orig_square(), E2);
         assert_eq!(m.dest_square(), E4);
         assert_eq!(m.enpassant_file(), 8);

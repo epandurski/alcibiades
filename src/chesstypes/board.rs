@@ -12,7 +12,7 @@ pub const WHITE: Color = 0;
 pub const BLACK: Color = 1;
 
 
-/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN` or `NO_PIECE`.
+/// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN` or `PIECE_NONE`.
 pub type PieceType = usize;
 
 pub const KING: PieceType = 0;
@@ -21,15 +21,7 @@ pub const ROOK: PieceType = 2;
 pub const BISHOP: PieceType = 3;
 pub const KNIGHT: PieceType = 4;
 pub const PAWN: PieceType = 5;
-pub const NO_PIECE: PieceType = 6;
-
-
-/// From 0 to 7 (0 is rank 1, 7 is rank 8).
-pub type Rank = usize;
-
-
-/// From 0 to 7 (0 is file A, 7 is file H).
-pub type File = usize;
+pub const PIECE_NONE: PieceType = 6;
 
 
 /// From 0 to 63 (0 is A1, 1 is B1, .. , 62 is G8, 63 is H8).
@@ -123,7 +115,7 @@ impl Board {
 
 /// Returns the square on given file and rank.
 #[inline]
-pub fn square(file: File, rank: Rank) -> Square {
+pub fn square(file: usize, rank: usize) -> Square {
     debug_assert!(file < 8);
     debug_assert!(rank < 8);
     rank * 8 + file
@@ -131,14 +123,14 @@ pub fn square(file: File, rank: Rank) -> Square {
 
 /// Returns the rank of a given square.
 #[inline(always)]
-pub fn rank(square: Square) -> Rank {
+pub fn rank(square: Square) -> usize {
     debug_assert!(square <= 63);
     square >> 3
 }
 
 /// Returns the file of a given square.
 #[inline(always)]
-pub fn file(square: Square) -> File {
+pub fn file(square: Square) -> usize {
     debug_assert!(square <= 63);
     square % 8
 }
