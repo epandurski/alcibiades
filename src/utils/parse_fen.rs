@@ -4,7 +4,7 @@ use regex::Regex;
 use chesstypes::*;
 use chesstypes::files::*;
 use chesstypes::ranks::*;
-use search::Board;
+use search::{NotationError, Board};
 
 
 /// Parses Forsyth–Edwards Notation (FEN).

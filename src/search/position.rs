@@ -4,7 +4,6 @@ use std::cmp::min;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
-use chesstypes::*;
 use search::*;
 use search::quiescence::*;
 use utils::{parse_fen, ZobristArrays};

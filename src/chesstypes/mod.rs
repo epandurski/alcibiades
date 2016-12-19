@@ -11,10 +11,6 @@ pub use self::board::*;
 pub use self::castling::*;
 
 
-/// Represents a notation error.
-pub struct NotationError;
-
-
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or
 /// `MOVE_NORMAL`.
 pub type MoveType = usize;

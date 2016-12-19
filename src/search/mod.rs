@@ -390,6 +390,10 @@ pub trait SearchExecutor: SetOption {
 }
 
 
+/// Represents a notation error.
+pub struct NotationError;
+
+
 /// Holds a chess position.
 #[derive(Clone)]
 pub struct Board {

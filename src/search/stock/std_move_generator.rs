@@ -1169,7 +1169,7 @@ mod tests {
     use chesstypes::*;
     use chesstypes::squares::*;
     use utils::MoveStack;
-    use search::{Board, MoveGenerator, Evaluator};
+    use search::{NotationError, Board, MoveGenerator, Evaluator};
     use search::stock::{StdMoveGenerator, RandomEvaluator};
 
     impl<E: Evaluator> StdMoveGenerator<E> {
