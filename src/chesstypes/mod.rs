@@ -1,5 +1,4 @@
-//! Defines basic types and constants like squares, pieces, castling
-//! rights.
+//! Defines how the chess board is represented in memory.
 
 pub mod squares;
 pub mod files;
@@ -205,6 +204,9 @@ impl fmt::Display for CastlingRights {
 
 
 /// Returns the square on given file and rank.
+///
+/// * `file` should be a number between 0 and 7 (0 is file A, 7 is file H).
+/// * `rank` should be a number between 0 and 7 (0 is rank 1, 7 is rank 8).
 #[inline]
 pub fn square(file: usize, rank: usize) -> Square {
     debug_assert!(file < 8);
@@ -213,6 +215,8 @@ pub fn square(file: usize, rank: usize) -> Square {
 }
 
 /// Returns the rank of a given square.
+///
+/// The returned number will be between 0 and 7 (0 is rank 1, 7 is rank 8).
 #[inline(always)]
 pub fn rank(square: Square) -> usize {
     debug_assert!(square <= 63);
@@ -220,6 +224,8 @@ pub fn rank(square: Square) -> usize {
 }
 
 /// Returns the file of a given square.
+///
+/// The returned number will be between 0 and 7 (0 is file A, 7 is file H).
 #[inline(always)]
 pub fn file(square: Square) -> usize {
     debug_assert!(square <= 63);
