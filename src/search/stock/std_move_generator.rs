@@ -3,8 +3,8 @@
 use std::mem::uninitialized;
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
-use chesstypes::*;
-use chesstypes::squares::*;
+use board::*;
+use board::squares::*;
 use search::{Board, Evaluator, Move, MoveDigest, AddMove};
 use search::quiescence::MoveGenerator;
 use utils::bitsets::*;
@@ -1167,8 +1167,8 @@ fn calc_pawn_dest_sets(us: Color,
 
 #[cfg(test)]
 mod tests {
-    use chesstypes::*;
-    use chesstypes::squares::*;
+    use board::*;
+    use board::squares::*;
     use utils::MoveStack;
     use search::{IllegalPosition, Board, Evaluator};
     use search::quiescence::MoveGenerator;

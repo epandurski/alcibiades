@@ -14,7 +14,7 @@
 use std::mem::uninitialized;
 use std::cmp::max;
 use uci::SetOption;
-use chesstypes::*;
+use board::*;
 use search::*;
 use utils::bitsets::*;
 use utils::BoardGeometry;

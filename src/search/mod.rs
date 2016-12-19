@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use uci::SetOption;
 use utils::parse_fen;
-use chesstypes::*;
+use board::*;
 
 pub use self::deepening::Deepening;
 pub use self::moves::{Move, MoveDigest, AddMove};

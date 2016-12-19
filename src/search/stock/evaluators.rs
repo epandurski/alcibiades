@@ -1,7 +1,7 @@
 //! Implementations of `Evaluator` trait.
 
 use std::hash::{Hasher, SipHasher};
-use chesstypes::*;
+use board::*;
 use uci::SetOption;
 use search::{Board, Value, Evaluator};
 use utils::bitsets::*;

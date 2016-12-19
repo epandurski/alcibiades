@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::time::SystemTime;
-use chesstypes::*;
+use board::*;
 use search::{SearchReport, Variation};
 
 

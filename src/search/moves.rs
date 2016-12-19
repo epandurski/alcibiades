@@ -1,7 +1,7 @@
 //! Defines data structures describing chess moves.
 
 use std::fmt;
-use chesstypes::*;
+use board::*;
 
 
 /// Encodes the minimum needed information that unambiguously
@@ -368,8 +368,8 @@ fn notation(square: Square) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chesstypes::*;
-    use chesstypes::squares::*;
+    use board::*;
+    use board::squares::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

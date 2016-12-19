@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
-use chesstypes::*;
+use board::*;
 use search::*;
 use utils::MoveStack;
 
@@ -982,7 +982,7 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
-    use chesstypes::*;
+    use board::*;
     use search::*;
     use search::stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, RandomEvaluator};
     use utils::MoveStack;

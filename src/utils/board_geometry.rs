@@ -1,7 +1,7 @@
 //! Implements `BoardGeometry`.
 
 use rand::{Rng, thread_rng};
-use chesstypes::*;
+use board::*;
 use super::bitsets::*;
 
 
@@ -598,8 +598,8 @@ const ROOK_MAGICS: [u64; 64] = [36028867955671040,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chesstypes::*;
-    use chesstypes::squares::*;
+    use board::*;
+    use board::squares::*;
 
     #[test]
     fn test_line_sets() {

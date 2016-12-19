@@ -1,9 +1,9 @@
 //! Implements `parse_fen` function.
 
 use regex::Regex;
-use chesstypes::*;
-use chesstypes::files::*;
-use chesstypes::ranks::*;
+use board::*;
+use board::files::*;
+use board::ranks::*;
 use search::{IllegalPosition, Board};
 
 
