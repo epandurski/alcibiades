@@ -2,6 +2,8 @@
 
 use regex::Regex;
 use chesstypes::*;
+use chesstypes::files::*;
+use chesstypes::ranks::*;
 
 
 /// Parses Forsyth–Edwards Notation (FEN).

@@ -192,6 +192,7 @@ impl MoveStack {
 mod tests {
     use super::*;
     use chesstypes::*;
+    use chesstypes::squares::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

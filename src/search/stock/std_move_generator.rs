@@ -4,6 +4,7 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use chesstypes::*;
+use chesstypes::squares::*;
 use search::{MoveGenerator, Evaluator};
 use utils::bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
@@ -1166,6 +1167,7 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use chesstypes::*;
+    use chesstypes::squares::*;
     use utils::MoveStack;
     use search::{MoveGenerator, Evaluator};
     use search::stock::{StdMoveGenerator, RandomEvaluator};

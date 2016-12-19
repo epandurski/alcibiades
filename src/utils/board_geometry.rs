@@ -599,6 +599,7 @@ const ROOK_MAGICS: [u64; 64] = [36028867955671040,
 mod tests {
     use super::*;
     use chesstypes::*;
+    use chesstypes::squares::*;
 
     #[test]
     fn test_line_sets() {
