@@ -10,28 +10,41 @@ use std::fmt;
 /// `WHITE` or `BLACK`.
 pub type Color = usize;
 
+/// `0`
 pub const WHITE: Color = 0;
+/// `1`
 pub const BLACK: Color = 1;
 
 
 /// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN` or `PIECE_NONE`.
 pub type PieceType = usize;
 
+/// `0`
 pub const KING: PieceType = 0;
+/// `1`
 pub const QUEEN: PieceType = 1;
+/// `2`
 pub const ROOK: PieceType = 2;
+/// `3`
 pub const BISHOP: PieceType = 3;
+/// `4`
 pub const KNIGHT: PieceType = 4;
+/// `5`
 pub const PAWN: PieceType = 5;
+/// `6`
 pub const PIECE_NONE: PieceType = 6;
 
 
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or `MOVE_NORMAL`.
 pub type MoveType = usize;
 
+/// `0`
 pub const MOVE_ENPASSANT: MoveType = 0;
+/// `1`
 pub const MOVE_PROMOTION: MoveType = 1;
+/// `2`
 pub const MOVE_CASTLING: MoveType = 2;
+/// `3`
 pub const MOVE_NORMAL: MoveType = 3;
 
 
@@ -95,7 +108,9 @@ impl fmt::Display for PiecesPlacement {
 /// `QUEENSIDE` or `KINGSIDE`.
 pub type CastlingSide = usize;
 
+/// `0`
 pub const QUEENSIDE: CastlingSide = 0;
+/// `1`
 pub const KINGSIDE: CastlingSide = 1;
 
 
