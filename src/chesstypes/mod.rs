@@ -1,9 +1,9 @@
 //! Defines basic types and constants like squares, pieces, moves,
 //! value.
 
-pub mod board;
-pub mod castling;
-pub mod moves;
+mod board;
+mod castling;
+mod moves;
 pub mod squares;
 pub mod files;
 pub mod ranks;
