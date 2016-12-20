@@ -15,8 +15,6 @@ use self::time_manager::*;
 
 const NAME: &'static str = "Alcibiades";
 const AUTHOR: &'static str = "Evgeni Pandurski";
-const VERSION: &'static str = "0.1";
-const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
 
 
 struct SearchStatus {
@@ -81,7 +79,7 @@ struct Engine<T: SearchExecutor<ReportData = Vec<Variation>>> {
 
 impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
     fn name() -> String {
-        format!("{} {}", NAME, VERSION)
+        NAME.to_string()
     }
 
     fn author() -> String {
@@ -112,6 +110,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
     }
 
     fn new(tt_size_mb: Option<usize>) -> Engine<T> {
+        const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
         let tt = Arc::new(T::HashTable::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
