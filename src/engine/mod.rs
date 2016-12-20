@@ -3,6 +3,7 @@
 pub mod time_manager;
 
 use std::collections::VecDeque;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
 use std::cmp::{min, max};
@@ -283,8 +284,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
 
 
 impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
-    /// A helper method. It it adds a progress report message to the
-    /// queue.
+    /// Adds a progress report message to the queue.
     fn queue_progress_report(&mut self) {
         let &SearchStatus { depth, searched_nodes, nps, .. } = &self.status;
         self.queue.push_back(EngineReply::Info(vec![
@@ -295,8 +295,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         self.silent_since = SystemTime::now();
     }
 
-    /// A helper method. It it adds a message containing the current
-    /// (multi)PV to the queue.
+    /// Adds a message containing the current (multi)PV to the queue.
     fn queue_pv(&mut self) {
         let &SearchStatus { depth, ref variations, searched_nodes, duration_millis, nps, .. } =
             &self.status;
@@ -325,13 +324,18 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         self.silent_since = SystemTime::now();
     }
 
-    /// A helper method. It it adds a message containing the current
-    /// best move to the queue.
+    /// Adds a message containing the current best move to the queue.
     fn queue_best_move(&mut self) {
-        let &SearchStatus { ref variations, .. } = &self.status;
+        let pv = extract_pv(self.tt.deref(), &self.position, 2);
+        let best_move = if let Some(m) = pv.moves.get(0) {
+            m.notation()
+        } else {
+            // If the PV is empty, pick the first legal move.
+            self.position.legal_moves().get(0).map_or("0000".to_string(), |m| m.notation())
+        };
         self.queue.push_back(EngineReply::BestMove {
-            best_move: variations[0].moves.get(0).map_or("0000".to_string(), |m| m.notation()),
-            ponder_move: variations[0].moves.get(1).map(|m| m.notation()),
+            best_move: best_move,
+            ponder_move: pv.moves.get(1).map(|m| m.notation()),
         });
         self.silent_since = SystemTime::now();
     }
