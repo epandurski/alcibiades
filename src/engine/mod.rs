@@ -109,13 +109,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
             searcher: S::new(tt),
             queue: VecDeque::new(),
             started_at: SystemTime::now(),
-            status: SearchStatus {
-                done: true,
-                depth: 0,
-                searched_nodes: 0,
-                duration_millis: 0,
-                nps: 0,
-            },
+            status: SearchStatus { done: true, ..Default::default() },
             silent_since: SystemTime::now(),
             is_pondering: false,
             play_when: PlayWhen::Never,
@@ -191,13 +185,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         // Start a new search.
         self.tt.new_search();
         self.started_at = SystemTime::now();
-        self.status = SearchStatus {
-            done: false,
-            depth: 0,
-            searched_nodes: 0,
-            duration_millis: 0,
-            ..self.status
-        };
+        self.status = SearchStatus { nps: self.status.nps, ..Default::default() };
         self.silent_since = SystemTime::now();
         self.is_pondering = ponder;
         self.play_when = if infinite {
@@ -388,4 +376,16 @@ struct SearchStatus {
 
     /// Average number of analyzed nodes per second.
     pub nps: u64,
+}
+
+impl Default for SearchStatus {
+    fn default() -> Self {
+        SearchStatus {
+            done: false,
+            depth: 0,
+            searched_nodes: 0,
+            duration_millis: 0,
+            nps: 0,
+        }
+    }
 }
