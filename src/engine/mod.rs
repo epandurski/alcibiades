@@ -389,7 +389,9 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         self.status.done = report.done;
 
         // Send the (multi)PV if available.
-        self.queue_variations(&report.data);
+        if !report.data.is_empty() {
+            self.queue_variations(&report.data);
+        }
 
         // Send a progress report periodically.
         if self.silent_since.elapsed().unwrap().as_secs() > 10 {
