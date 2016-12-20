@@ -265,7 +265,7 @@ pub trait UciEngine {
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
 
     /// Tells the engine to start thinking.
-    fn go(&mut self, params: GoParams);
+    fn go(&mut self, params: &GoParams);
 
     /// Forces the engine to stop thinking and reply with the best
     /// move it had found.
@@ -442,7 +442,7 @@ impl<E: UciEngine> Server<E> {
                         engine.ponder_hit();
                     }
                     UciCommand::Go(params) => {
-                        engine.go(params);
+                        engine.go(&params);
                     }
                     UciCommand::Quit => panic!("This should never happen!"),
                 }

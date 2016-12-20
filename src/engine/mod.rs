@@ -157,19 +157,20 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
         }
     }
 
-    fn go(&mut self, mut params: GoParams) {
+    fn go(&mut self, params: &GoParams) {
         self.terminate();
 
         // Validate `params.searchmoves`.
-        // 
+        //
         // TODO: What should we do with "mate"?
         let searchmoves = {
             let mut moves = vec![];
             let legal_moves = self.position.legal_moves();
             if !params.searchmoves.is_empty() {
-                params.searchmoves.sort();
+                let mut v = params.searchmoves.clone();
+                v.sort();
                 for m in legal_moves.iter() {
-                    if params.searchmoves.binary_search(&m.notation()).is_ok() {
+                    if v.binary_search(&m.notation()).is_ok() {
                         moves.push(*m);
                     }
                 }
@@ -268,7 +269,6 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
             InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
             InfoItem { info_type: "nps".to_string(), data: format!("{}", self.nps_stats.0) },
         ]));
-        self.silent_since = SystemTime::now();
     }
 
     fn queue_pv(&mut self, variations: &Vec<Variation>) {
@@ -295,9 +295,6 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
                 InfoItem { info_type: "pv".to_string(), data: pv },
             ]));
         }
-        if !variations.is_empty() {
-            self.silent_since = SystemTime::now();
-        }
     }
 
     fn queue_best_move(&mut self) {
@@ -312,7 +309,6 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
             best_move: best_move,
             ponder_move: pv.moves.get(1).map(|m| m.notation()),
         });
-        self.silent_since = SystemTime::now();
     }
 
     fn terminate(&mut self) {
@@ -325,11 +321,11 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
     fn wait_status_update(&mut self, duration: Duration) {
         self.searcher.wait_report(duration);
         while let Ok(r) = self.searcher.try_recv_report() {
-            self.process_report(r)
+            self.process_report(&r)
         }
     }
 
-    fn process_report(&mut self, report: SearchReport<Vec<Variation>>) {
+    fn process_report(&mut self, report: &SearchReport<Vec<Variation>>) {
         let duration_millis = {
             let d = self.started_at.elapsed().unwrap();
             1000 * d.as_secs() + (d.subsec_nanos() / 1_000_000) as u64
@@ -341,7 +337,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
             duration_millis: duration_millis,
         };
 
-        // Update `self.nps_stats` each 1000 milliseconds.
+        // Update `self.nps_stats` every 1000 milliseconds.
         let elapsed_millis = duration_millis - self.nps_stats.2;
         if elapsed_millis >= 1000 {
             let nodes = report.searched_nodes - self.nps_stats.1;
@@ -350,15 +346,19 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
 
         // Inform the time manager.
         if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-            tm.update_status(&report);
+            tm.update_status(report);
         }
 
-        // Show the primary variations provided with the report (if any).
-        self.queue_pv(&report.data);
+        // If primary variations are provided with the report, show them.
+        if !report.data.is_empty() {
+            self.queue_pv(&report.data);
+            self.silent_since = SystemTime::now();
+        }
 
         // If nothing has happened for a while, show progress info.
         if self.silent_since.elapsed().unwrap().as_secs() > 10 {
             self.queue_progress_info();
+            self.silent_since = SystemTime::now();
         }
     }
 }
