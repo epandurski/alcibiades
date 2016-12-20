@@ -19,26 +19,15 @@ const VERSION: &'static str = "0.1";
 const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
 
 
-/// Serves UCI commands until a "quit" command is received.
-///
-/// The current thread will block until the UCI session is closed.
-///
-/// Returns `Err` if the handshake was unsuccessful, or if an IO error
-/// occurred.
-pub fn run_server<S: SearchExecutor<ReportData = Vec<Variation>>>() -> io::Result<()> {
-    run_engine::<Engine<S>>()
-}
-
-
 struct SearchStatus {
     pub done: bool,
     pub depth: Depth,
     pub searched_nodes: u64,
 
-    /// The duration of the search in milliseconds.
+    // The duration of the search in milliseconds.
     pub duration_millis: u64,
 
-    /// Average number of analyzed nodes per second.
+    // Average number of analyzed nodes per second.
     pub nps: u64,
 }
 
@@ -55,9 +44,8 @@ impl Default for SearchStatus {
 }
 
 
-/// The condition for terminating the current search.
 enum PlayWhen {
-    TimeManagement(TimeManager), // Stop when the time manager says.
+    TimeManagement(TimeManager), // Stop when the time manager says so.
     MoveTime(u64), // Stop after the given number of milliseconds.
     Nodes(u64), // Stop when the given number of nodes has been searched.
     Depth(Depth), // Stop when the given search depth has been completed.
@@ -65,7 +53,6 @@ enum PlayWhen {
 }
 
 
-/// Implements the `UciEngine` trait.
 struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     tt: Arc<S::HashTable>,
     position: S::SearchNode,
@@ -78,7 +65,7 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     // The status of the current/last search.
     status: SearchStatus,
 
-    // Helps the engine decide when to send periodic progress reports.
+    // Helps the engine decide when to show periodic progress reports.
     silent_since: SystemTime,
 
     // Whether the engine is thinking in pondering mode at the moment.
@@ -92,7 +79,6 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     // algorithm when pondering is allowed.
     pondering_is_allowed: bool,
 }
-
 
 impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
     fn name() -> String {
@@ -257,17 +243,16 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         if self.queue.is_empty() {
             let done = self.status.done;
 
-            // Wait for `search_thread` to do some work, and hopefully
-            // update its status. (We must do this even when the
-            // search is done -- in that case the next line will just
-            // yield the CPU to another process.)
+            // Wait for the search thread to do some work, and
+            // hopefully update the status. (We must do this even when
+            // the search is done -- in that case the next line will
+            // just yield the CPU to another process.)
             self.wait_status_update(duration);
 
+            // See if we must play now.
             if !done {
                 let &SearchStatus { done, depth, searched_nodes, duration_millis, .. } =
                     &self.status;
-
-                // Check if we must play now.
                 if !self.is_pondering &&
                    match self.play_when {
                     PlayWhen::TimeManagement(ref tm) => done || tm.must_play(),
@@ -288,7 +273,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         self.terminate();
     }
 }
-
 
 impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
     fn queue_progress_report(&mut self) {
@@ -326,9 +310,9 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
                 InfoItem { info_type: "pv".to_string(), data: moves_string },
             ]));
         }
-
-        // TODO: do not do this if variations.is_empty()
-        self.silent_since = SystemTime::now();
+        if !variations.is_empty() {
+            self.silent_since = SystemTime::now();
+        }
     }
 
     fn queue_best_move(&mut self) {
@@ -336,7 +320,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         let best_move = if let Some(m) = pv.moves.get(0) {
             m.notation()
         } else {
-            // If the PV is empty, pick the first legal move.
+            // If there is no best move, pick the first legal move.
             self.position.legal_moves().get(0).map_or("0000".to_string(), |m| m.notation())
         };
         self.queue.push_back(EngineReply::BestMove {
@@ -376,14 +360,23 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
             tm.update_status(&report);
         }
 
-        // If available, send the PV.
-        if !report.data.is_empty() {
-            self.queue_pv(&report.data);
-        }
+        // Show the primary variations provided with the report (if any).
+        self.queue_pv(&report.data);
 
-        // If nothing has been sent for a while, send a progress report.
+        // If nothing has happened for a while, show a progress report.
         if self.silent_since.elapsed().unwrap().as_secs() > 10 {
             self.queue_progress_report();
         }
     }
+}
+
+
+/// Serves UCI commands until a "quit" command is received.
+///
+/// The current thread will block until the UCI session is closed.
+///
+/// Returns `Err` if the handshake was unsuccessful, or if an IO error
+/// occurred.
+pub fn run_server<S: SearchExecutor<ReportData = Vec<Variation>>>() -> io::Result<()> {
+    run_engine::<Engine<S>>()
 }
