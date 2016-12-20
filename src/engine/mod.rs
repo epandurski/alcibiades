@@ -26,9 +26,6 @@ struct SearchStatus {
 
     // The duration of the search in milliseconds.
     pub duration_millis: u64,
-
-    // Average number of analyzed nodes per second.
-    pub nps: u64,
 }
 
 impl Default for SearchStatus {
@@ -38,7 +35,6 @@ impl Default for SearchStatus {
             depth: 0,
             searched_nodes: 0,
             duration_millis: 0,
-            nps: 0,
         }
     }
 }
@@ -64,6 +60,9 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
 
     // The status of the current/last search.
     status: SearchStatus,
+
+    // Nodes per second statistics.
+    nps_stats: (u64, u64, u64),
 
     // Helps the engine decide when to show periodic progress reports.
     silent_since: SystemTime,
@@ -121,6 +120,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
             queue: VecDeque::new(),
             started_at: SystemTime::now(),
             status: SearchStatus { done: true, ..Default::default() },
+            nps_stats: (0, 0, 0),
             silent_since: SystemTime::now(),
             is_pondering: false,
             play_when: PlayWhen::Never,
@@ -196,7 +196,8 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         // Start a new search.
         self.tt.new_search();
         self.started_at = SystemTime::now();
-        self.status = SearchStatus { nps: self.status.nps, ..Default::default() };
+        self.status = Default::default();
+        self.nps_stats = (self.nps_stats.0, 0, 0);
         self.silent_since = SystemTime::now();
         self.is_pondering = ponder;
         self.play_when = if infinite {
@@ -276,18 +277,17 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
 
 impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
     fn queue_progress_report(&mut self) {
-        let SearchStatus { ref depth, ref searched_nodes, ref nps, .. } = self.status;
+        let SearchStatus { ref depth, ref searched_nodes, .. } = self.status;
         self.queue.push_back(EngineReply::Info(vec![
             InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
             InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
-            InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
+            InfoItem { info_type: "nps".to_string(), data: format!("{}", self.nps_stats.0) },
         ]));
         self.silent_since = SystemTime::now();
     }
 
     fn queue_pv(&mut self, variations: &Vec<Variation>) {
-        let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, ref nps, .. } =
-            self.status;
+        let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
         for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
             let bound_suffix = match bound {
                 BOUND_EXACT => "",
@@ -306,7 +306,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
                 InfoItem { info_type: "score".to_string(), data: format!("cp {}{}", value, bound_suffix) },
                 InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
                 InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
-                InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
+                InfoItem { info_type: "nps".to_string(), data: format!("{}", self.nps_stats.0) },
                 InfoItem { info_type: "pv".to_string(), data: moves_string },
             ]));
         }
@@ -345,15 +345,21 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
     }
 
     fn process_report(&mut self, report: SearchReport<Vec<Variation>>) {
-        // Update the search status.
-        let duration = self.started_at.elapsed().unwrap();
-        self.status.duration_millis = 1000 * duration.as_secs() +
-                                      (duration.subsec_nanos() / 1000000) as u64;
-        self.status.searched_nodes = report.searched_nodes;
-        self.status.nps = 1000 * (self.status.nps + self.status.searched_nodes) /
-                          (1000 + self.status.duration_millis);
-        self.status.depth = report.depth;
-        self.status.done = report.done;
+        let d = self.started_at.elapsed().unwrap();
+        let duration_millis = 1000 * d.as_secs() + (d.subsec_nanos() / 1_000_000) as u64;
+        self.status = SearchStatus {
+            done: report.done,
+            depth: report.depth,
+            searched_nodes: report.searched_nodes,
+            duration_millis: duration_millis,
+        };
+
+        // Update `self.nps_stats` each 1000 milliseconds.
+        let elapsed_millis = duration_millis - self.nps_stats.2;
+        if elapsed_millis >= 1000 {
+            let nodes = report.searched_nodes - self.nps_stats.1;
+            self.nps_stats = (1000 * nodes / elapsed_millis, report.searched_nodes, duration_millis)
+        }
 
         // Inform the time manager.
         if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
