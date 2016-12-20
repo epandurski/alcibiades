@@ -60,11 +60,6 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     // move it has found.
     play_when: PlayWhen,
 
-    // Tells the engine how many best lines of play to calculate and
-    // send to the GUI (the first move in each line will be
-    // different). This is the so called "MultiPV" mode.
-    variation_count: usize,
-
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
     // algorithm when pondering is allowed.
@@ -132,7 +127,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
             },
             searcher: S::new(tt),
             play_when: PlayWhen::Never,
-            variation_count: 1,
             pondering_is_allowed: false,
             is_pondering: false,
             silent_since: SystemTime::now(),
@@ -145,10 +139,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
             "Ponder" => {
                 // TODO: Can we remove this?
                 self.pondering_is_allowed = value == "true";
-            }
-            "MultiPV" => {
-                // TODO: Can we remove this?
-                self.variation_count = max(value.parse::<usize>().unwrap_or(0), 1);
             }
             "Hash" => {
                 // We do not support re-sizing of the transposition
