@@ -16,7 +16,8 @@ use search::stock::*;
 
 fn main() {
     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
-    exit(match run_server::<Deepening<StdSearchExecutor<StdHashTable, SearchNode>>>() {
+    type SearchExecutor = Deepening<StdSearchExecutor<StdHashTable, SearchNode>>;
+    exit(match run_server::<SearchExecutor>("Alcibiades 0.1", "Evgeni Pandurski") {
         Ok(_) => 0,
         Err(_) => 1,
     })

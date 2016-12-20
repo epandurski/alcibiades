@@ -2,6 +2,7 @@
 
 pub mod time_manager;
 
+use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -11,10 +12,6 @@ use std::io;
 use uci::*;
 use search::*;
 use self::time_manager::*;
-
-
-const NAME: &'static str = "Alcibiades";
-const AUTHOR: &'static str = "Evgeni Pandurski";
 
 
 struct SearchStatus {
@@ -79,11 +76,17 @@ struct Engine<T: SearchExecutor<ReportData = Vec<Variation>>> {
 
 impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
     fn name() -> String {
-        NAME.to_string()
+        ENGINE_IDENTITY.with(|e| unsafe {
+            let e = &*e.get();
+            e.name.clone()
+        })
     }
 
     fn author() -> String {
-        AUTHOR.to_string()
+        ENGINE_IDENTITY.with(|e| unsafe {
+            let e = &*e.get();
+            e.author.clone()
+        })
     }
 
     fn options() -> Vec<(String, OptionDescription)> {
@@ -369,6 +372,27 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run_server<T: SearchExecutor<ReportData = Vec<Variation>>>() -> io::Result<()> {
+pub fn run_server<T>(name: &str, author: &str) -> io::Result<()>
+    where T: SearchExecutor<ReportData = Vec<Variation>>
+{
+    ENGINE_IDENTITY.with(|e| unsafe {
+        let e = &mut *e.get();
+        e.name = name.to_string();
+        e.author = author.to_string();
+    });
     run_engine::<Engine<T>>()
+}
+
+
+// Since `run_server` blocks the current thread, it can safely pass
+// engine's name and author as thread-local statics. This time,
+// simplicity beats beauty.
+thread_local!(
+    static ENGINE_IDENTITY: UnsafeCell<EngineIdentity> =
+        UnsafeCell::new(EngineIdentity { name: String::new(), author: String::new()})
+);
+
+struct EngineIdentity {
+    name: String,
+    author: String,
 }
