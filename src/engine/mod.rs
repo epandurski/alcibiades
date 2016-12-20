@@ -345,8 +345,10 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
     }
 
     fn process_report(&mut self, report: SearchReport<Vec<Variation>>) {
-        let d = self.started_at.elapsed().unwrap();
-        let duration_millis = 1000 * d.as_secs() + (d.subsec_nanos() / 1_000_000) as u64;
+        let duration_millis = {
+            let d = self.started_at.elapsed().unwrap();
+            1000 * d.as_secs() + (d.subsec_nanos() / 1_000_000) as u64
+        };
         self.status = SearchStatus {
             done: report.done,
             depth: report.depth,
