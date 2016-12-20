@@ -13,6 +13,12 @@ use search::*;
 use self::time_manager::*;
 
 
+const NAME: &'static str = "Alcibiades";
+const AUTHOR: &'static str = "Evgeni Pandurski";
+const VERSION: &'static str = "0.1";
+const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
+
+
 /// Serves UCI commands until a "quit" command is received.
 ///
 /// The current thread will block until the UCI session is closed.
@@ -22,19 +28,6 @@ use self::time_manager::*;
 pub fn run_server<S: SearchExecutor<ReportData = Vec<Variation>>>() -> io::Result<()> {
     run_engine::<Engine<S>>()
 }
-
-
-/// The chess starting position in Forsyth–Edwards notation (FEN).
-const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
-
-/// The version of the program.
-const VERSION: &'static str = "0.1";
-
-/// The name of the program.
-const NAME: &'static str = "Alcibiades";
-
-/// The author of the program.
-const AUTHOR: &'static str = "Evgeni Pandurski";
 
 
 /// Represents a condition for terminating the search.
@@ -68,10 +61,10 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     // algorithm when pondering is allowed.
     pondering_is_allowed: bool,
 
-    // `true` if the engine is thinking in pondering mode at the moment.
+    // Whether the engine is thinking in pondering mode at the moment.
     is_pondering: bool,
 
-    // A queue for the messages send by the engine to the GUI.
+    // A queue for the messages send to the GUI.
     queue: VecDeque<EngineReply>,
 
     // Helps the engine decide when to send periodic progress reports.
@@ -266,7 +259,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
     }
 
     /// Adds a message containing the current (multi)PV to the queue.
-    fn queue_variations(&mut self, variations: &Vec<Variation>) {
+    fn queue_pv(&mut self, variations: &Vec<Variation>) {
         let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, ref nps, .. } =
             self.status;
         for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
@@ -310,8 +303,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         self.silent_since = SystemTime::now();
     }
 
-    /// Terminates the currently running search (if any), starts a new
-    /// search, updates the status.
     fn start(&mut self, mut searchmoves: Vec<String>) {
         // Validate `searchmoves`.
         let mut moves = vec![];
@@ -330,10 +321,8 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
             moves
         };
 
-        // Terminate the currently running search.
+        // Start a new search.
         self.terminate();
-
-        // Update the status.
         self.status = SearchStatus {
             done: false,
             depth: 0,
@@ -341,8 +330,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
             duration_millis: 0,
             ..self.status
         };
-
-        // Start a new search.
         self.searcher.start_search(SearchParams {
             search_id: 0,
             position: self.position.clone(),
@@ -353,8 +340,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         });
     }
 
-    /// Terminates the currently running search (if any), updates the
-    /// status.
     fn terminate(&mut self) {
         self.searcher.terminate_search();
         while !self.status.done {
@@ -362,8 +347,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         }
     }
 
-    /// Waits for a search status update, timing out after a specified
-    /// duration or earlier.
     fn wait_status_update(&mut self, duration: Duration) {
         self.searcher.wait_report(duration);
         while let Ok(r) = self.searcher.try_recv_report() {
@@ -371,14 +354,8 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         }
     }
 
-    /// A helper method. It updates the current status according to
-    /// the received report message.
     fn process_report(&mut self, report: SearchReport<Vec<Variation>>) {
-        // Register the search status with the time manager.
-        if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-            tm.update_status(&report);
-        }
-
+        // Update the search status.
         let duration = self.started_at.elapsed().unwrap();
         self.status.duration_millis = 1000 * duration.as_secs() +
                                       (duration.subsec_nanos() / 1000000) as u64;
@@ -388,12 +365,17 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         self.status.depth = report.depth;
         self.status.done = report.done;
 
-        // Send the (multi)PV if available.
-        if !report.data.is_empty() {
-            self.queue_variations(&report.data);
+        // Inform the time manager.
+        if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
+            tm.update_status(&report);
         }
 
-        // Send a progress report periodically.
+        // If available, send the PV.
+        if !report.data.is_empty() {
+            self.queue_pv(&report.data);
+        }
+
+        // If nothing has been sent for a while, send a progress report.
         if self.silent_since.elapsed().unwrap().as_secs() > 10 {
             self.queue_progress_report();
         }
