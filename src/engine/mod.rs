@@ -30,7 +30,32 @@ pub fn run_server<S: SearchExecutor<ReportData = Vec<Variation>>>() -> io::Resul
 }
 
 
-/// Represents a condition for terminating the search.
+struct SearchStatus {
+    pub done: bool,
+    pub depth: Depth,
+    pub searched_nodes: u64,
+
+    /// The duration of the search in milliseconds.
+    pub duration_millis: u64,
+
+    /// Average number of analyzed nodes per second.
+    pub nps: u64,
+}
+
+impl Default for SearchStatus {
+    fn default() -> Self {
+        SearchStatus {
+            done: false,
+            depth: 0,
+            searched_nodes: 0,
+            duration_millis: 0,
+            nps: 0,
+        }
+    }
+}
+
+
+/// The condition for terminating the current search.
 enum PlayWhen {
     TimeManagement(TimeManager), // Stop when the time manager says.
     MoveTime(u64), // Stop after the given number of milliseconds.
@@ -40,7 +65,7 @@ enum PlayWhen {
 }
 
 
-/// Implements `UciEngine` trait.
+/// Implements the `UciEngine` trait.
 struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     tt: Arc<S::HashTable>,
     position: S::SearchNode,
@@ -266,7 +291,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
 
 
 impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
-    /// Adds a progress report message to the queue.
     fn queue_progress_report(&mut self) {
         let SearchStatus { ref depth, ref searched_nodes, ref nps, .. } = self.status;
         self.queue.push_back(EngineReply::Info(vec![
@@ -277,7 +301,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         self.silent_since = SystemTime::now();
     }
 
-    /// Adds a message containing the current (multi)PV to the queue.
     fn queue_pv(&mut self, variations: &Vec<Variation>) {
         let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, ref nps, .. } =
             self.status;
@@ -303,10 +326,11 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
                 InfoItem { info_type: "pv".to_string(), data: moves_string },
             ]));
         }
+
+        // TODO: do not do this if variations.is_empty()
         self.silent_since = SystemTime::now();
     }
 
-    /// Adds a message containing the current best move to the queue.
     fn queue_best_move(&mut self) {
         let pv = extract_pv(self.tt.deref(), &self.position, 2);
         let best_move = if let Some(m) = pv.moves.get(0) {
@@ -360,32 +384,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
         // If nothing has been sent for a while, send a progress report.
         if self.silent_since.elapsed().unwrap().as_secs() > 10 {
             self.queue_progress_report();
-        }
-    }
-}
-
-
-/// Contains information about the current progress of a search.
-struct SearchStatus {
-    pub done: bool,
-    pub depth: Depth,
-    pub searched_nodes: u64,
-
-    /// The duration of the search in milliseconds.
-    pub duration_millis: u64,
-
-    /// Average number of analyzed nodes per second.
-    pub nps: u64,
-}
-
-impl Default for SearchStatus {
-    fn default() -> Self {
-        SearchStatus {
-            done: false,
-            depth: 0,
-            searched_nodes: 0,
-            duration_millis: 0,
-            nps: 0,
         }
     }
 }
