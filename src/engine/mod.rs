@@ -45,6 +45,7 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     tt: Arc<S::HashTable>,
     position: S::SearchNode,
     searcher: S,
+    queue: VecDeque<EngineReply>,
 
     // The starting time of the current/last search.
     started_at: SystemTime,
@@ -52,23 +53,19 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     // The status of the current/last search.
     status: SearchStatus,
 
-    // Tells the engine when it must stop thinking and play the best
-    // move it has found.
+    // Helps the engine decide when to send periodic progress reports.
+    silent_since: SystemTime,
+
+    // Whether the engine is thinking in pondering mode at the moment.
+    is_pondering: bool,
+
+    // Tells the engine when it must stop thinking and play the best move.
     play_when: PlayWhen,
 
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
     // algorithm when pondering is allowed.
     pondering_is_allowed: bool,
-
-    // Whether the engine is thinking in pondering mode at the moment.
-    is_pondering: bool,
-
-    // A queue for the messages send to the GUI.
-    queue: VecDeque<EngineReply>,
-
-    // Helps the engine decide when to send periodic progress reports.
-    silent_since: SystemTime,
 }
 
 
@@ -110,6 +107,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
             tt: tt.clone(),
             position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter()).ok().unwrap(),
             searcher: S::new(tt),
+            queue: VecDeque::new(),
             started_at: SystemTime::now(),
             status: SearchStatus {
                 done: true,
@@ -118,11 +116,10 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
                 duration_millis: 0,
                 nps: 0,
             },
+            silent_since: SystemTime::now(),
+            is_pondering: false,
             play_when: PlayWhen::Never,
             pondering_is_allowed: false,
-            is_pondering: false,
-            queue: VecDeque::new(),
-            silent_since: SystemTime::now(),
         }
     }
 
@@ -156,10 +153,10 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
     }
 
     fn go(&mut self, params: GoParams) {
-        // Note: We ignore the "mate" field.
-        //
+        self.terminate();
+
         // TODO: What should we do with "mate"?
-        let GoParams { searchmoves,
+        let GoParams { mut searchmoves,
                        ponder,
                        wtime,
                        btime,
@@ -172,8 +169,36 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
                        infinite,
                        .. } = params;
 
-        self.terminate();
+        // Validate `searchmoves`.
+        let searchmoves = {
+            let mut moves = vec![];
+            let legal_moves = self.position.legal_moves();
+            if !searchmoves.is_empty() {
+                searchmoves.sort();
+                for m in legal_moves.iter() {
+                    if searchmoves.binary_search(&m.notation()).is_ok() {
+                        moves.push(*m);
+                    }
+                }
+            };
+            if moves.is_empty() {
+                legal_moves
+            } else {
+                moves
+            }
+        };
+
+        // Start a new search.
         self.tt.new_search();
+        self.started_at = SystemTime::now();
+        self.status = SearchStatus {
+            done: false,
+            depth: 0,
+            searched_nodes: 0,
+            duration_millis: 0,
+            ..self.status
+        };
+        self.silent_since = SystemTime::now();
         self.is_pondering = ponder;
         self.play_when = if infinite {
             PlayWhen::Never
@@ -192,8 +217,14 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
                                                       binc,
                                                       movestogo))
         };
-        self.silent_since = SystemTime::now();
-        self.start(searchmoves);
+        self.searcher.start_search(SearchParams {
+            search_id: 0,
+            position: self.position.clone(),
+            depth: DEPTH_MAX,
+            lower_bound: VALUE_MIN,
+            upper_bound: VALUE_MAX,
+            searchmoves: searchmoves,
+        });
     }
 
     fn ponder_hit(&mut self) {
@@ -301,43 +332,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
             ponder_move: pv.moves.get(1).map(|m| m.notation()),
         });
         self.silent_since = SystemTime::now();
-    }
-
-    fn start(&mut self, mut searchmoves: Vec<String>) {
-        // Validate `searchmoves`.
-        let mut moves = vec![];
-        let legal_moves = self.position.legal_moves();
-        if !searchmoves.is_empty() {
-            searchmoves.sort();
-            for m in legal_moves.iter() {
-                if searchmoves.binary_search(&m.notation()).is_ok() {
-                    moves.push(*m);
-                }
-            }
-        };
-        let searchmoves = if moves.is_empty() {
-            legal_moves
-        } else {
-            moves
-        };
-
-        // Start a new search.
-        self.terminate();
-        self.status = SearchStatus {
-            done: false,
-            depth: 0,
-            searched_nodes: 0,
-            duration_millis: 0,
-            ..self.status
-        };
-        self.searcher.start_search(SearchParams {
-            search_id: 0,
-            position: self.position.clone(),
-            depth: DEPTH_MAX,
-            lower_bound: VALUE_MIN,
-            upper_bound: VALUE_MAX,
-            searchmoves: searchmoves,
-        });
     }
 
     fn terminate(&mut self) {
