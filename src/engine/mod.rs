@@ -6,7 +6,7 @@ use std::collections::VecDeque;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::{SystemTime, Duration};
-use std::cmp::{min, max};
+use std::cmp::min;
 use std::io;
 use uci::*;
 use search::*;
@@ -25,7 +25,7 @@ pub fn run_server<S: SearchExecutor<ReportData = Vec<Variation>>>() -> io::Resul
 
 
 /// The chess starting position in Forsyth–Edwards notation (FEN).
-const START_POSITION_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
+const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
 
 /// The version of the program.
 const VERSION: &'static str = "0.1";
@@ -51,10 +51,13 @@ enum PlayWhen {
 struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     tt: Arc<S::HashTable>,
     position: S::SearchNode,
-
-    // From `SearchThread`.
-    status: SearchStatus,
     searcher: S,
+
+    // The starting time of the current/last search.
+    started_at: SystemTime,
+
+    // The status of the current/last search.
+    status: SearchStatus,
 
     // Tells the engine when it must stop thinking and play the best
     // move it has found.
@@ -65,16 +68,14 @@ struct Engine<S: SearchExecutor<ReportData = Vec<Variation>>> {
     // algorithm when pondering is allowed.
     pondering_is_allowed: bool,
 
-    // `true` if the engine is thinking in pondering mode at the
-    // moment.
+    // `true` if the engine is thinking in pondering mode at the moment.
     is_pondering: bool,
-
-    // This helps the engine decide when to send periodic progress
-    // reports.
-    silent_since: SystemTime,
 
     // A queue for the messages send by the engine to the GUI.
     queue: VecDeque<EngineReply>,
+
+    // Helps the engine decide when to send periodic progress reports.
+    silent_since: SystemTime,
 }
 
 
@@ -114,23 +115,21 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
         let tt = Arc::new(S::HashTable::new(tt_size_mb));
         Engine {
             tt: tt.clone(),
-            position: S::SearchNode::from_history(START_POSITION_FEN, &mut vec![].into_iter())
-                          .ok()
-                          .unwrap(),
+            position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter()).ok().unwrap(),
+            searcher: S::new(tt),
+            started_at: SystemTime::now(),
             status: SearchStatus {
                 done: true,
                 depth: 0,
                 searched_nodes: 0,
-                started_at: SystemTime::now(),
                 duration_millis: 0,
                 nps: 0,
             },
-            searcher: S::new(tt),
             play_when: PlayWhen::Never,
             pondering_is_allowed: false,
             is_pondering: false,
-            silent_since: SystemTime::now(),
             queue: VecDeque::new(),
+            silent_since: SystemTime::now(),
         }
     }
 
@@ -257,7 +256,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<S> {
 impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
     /// Adds a progress report message to the queue.
     fn queue_progress_report(&mut self) {
-        let &SearchStatus { depth, searched_nodes, nps, .. } = &self.status;
+        let SearchStatus { ref depth, ref searched_nodes, ref nps, .. } = self.status;
         self.queue.push_back(EngineReply::Info(vec![
             InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
             InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
@@ -268,6 +267,8 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
 
     /// Adds a message containing the current (multi)PV to the queue.
     fn queue_variations(&mut self, variations: &Vec<Variation>) {
+        let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, ref nps, .. } =
+            self.status;
         for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
             let bound_suffix = match bound {
                 BOUND_EXACT => "",
@@ -281,12 +282,12 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
                 moves_string.push(' ');
             }
             self.queue.push_back(EngineReply::Info(vec![
-                InfoItem { info_type: "depth".to_string(), data: format!("{}", self.status.depth) },
+                InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
                 InfoItem { info_type: "multipv".to_string(), data: format!("{}", i + 1) },
                 InfoItem { info_type: "score".to_string(), data: format!("cp {}{}", value, bound_suffix) },
-                InfoItem { info_type: "time".to_string(), data: format!("{}", self.status.duration_millis) },
-                InfoItem { info_type: "nodes".to_string(), data: format!("{}", self.status.searched_nodes) },
-                InfoItem { info_type: "nps".to_string(), data: format!("{}", self.status.nps) },
+                InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
+                InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
+                InfoItem { info_type: "nps".to_string(), data: format!("{}", nps) },
                 InfoItem { info_type: "pv".to_string(), data: moves_string },
             ]));
         }
@@ -337,7 +338,6 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
             done: false,
             depth: 0,
             searched_nodes: 0,
-            started_at: SystemTime::now(),
             duration_millis: 0,
             ..self.status
         };
@@ -379,7 +379,7 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
             tm.update_status(&report);
         }
 
-        let duration = self.status.started_at.elapsed().unwrap();
+        let duration = self.started_at.elapsed().unwrap();
         self.status.duration_millis = 1000 * duration.as_secs() +
                                       (duration.subsec_nanos() / 1000000) as u64;
         self.status.searched_nodes = report.searched_nodes;
@@ -401,20 +401,12 @@ impl<S: SearchExecutor<ReportData = Vec<Variation>>> Engine<S> {
 
 /// Contains information about the current progress of a search.
 struct SearchStatus {
-    /// `true` if the search is done, `false` otherwise.
     pub done: bool,
-
-    /// The search depth completed so far.
     pub depth: Depth,
-
-    /// The starting time for the search.
-    pub started_at: SystemTime,
+    pub searched_nodes: u64,
 
     /// The duration of the search in milliseconds.
     pub duration_millis: u64,
-
-    /// The number of analyzed nodes.
-    pub searched_nodes: u64,
 
     /// Average number of analyzed nodes per second.
     pub nps: u64,
