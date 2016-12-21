@@ -231,10 +231,10 @@ pub trait SetOption {
 /// must not block the current thread.
 pub trait UciEngine {
     /// Returns the name of the engine.
-    fn name() -> String;
+    fn name() -> &'static str;
 
     /// Returns the author of the engine.
-    fn author() -> String;
+    fn author() -> &'static str;
 
     /// Returns a list of supported configuration options (name and
     /// description).

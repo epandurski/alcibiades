@@ -75,18 +75,12 @@ struct Engine<T: SearchExecutor<ReportData = Vec<Variation>>> {
 }
 
 impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
-    fn name() -> String {
-        ENGINE_IDENTITY.with(|e| unsafe {
-            let e = &*e.get();
-            e.name.clone()
-        })
+    fn name() -> &'static str {
+        ENGINE_IDENTITY.with(|e| unsafe { (&*e.get()).name })
     }
 
-    fn author() -> String {
-        ENGINE_IDENTITY.with(|e| unsafe {
-            let e = &*e.get();
-            e.author.clone()
-        })
+    fn author() -> &'static str {
+        ENGINE_IDENTITY.with(|e| unsafe { (&*e.get()).author })
     }
 
     fn options() -> Vec<(String, OptionDescription)> {
@@ -373,13 +367,13 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run_server<T>(name: &str, author: &str) -> io::Result<()>
+pub fn run_server<T>(name: &'static str, author: &'static str) -> io::Result<()>
     where T: SearchExecutor<ReportData = Vec<Variation>>
 {
     ENGINE_IDENTITY.with(|e| unsafe {
         let e = &mut *e.get();
-        e.name = name.to_string();
-        e.author = author.to_string();
+        e.name = name;
+        e.author = author;
     });
     run_engine::<Engine<T>>()
 }
@@ -390,10 +384,10 @@ pub fn run_server<T>(name: &str, author: &str) -> io::Result<()>
 // simplicity beats beauty.)
 thread_local!(
     static ENGINE_IDENTITY: UnsafeCell<EngineIdentity> =
-        UnsafeCell::new(EngineIdentity { name: String::new(), author: String::new()})
+        UnsafeCell::new(EngineIdentity { name: "", author: ""})
 );
 
 struct EngineIdentity {
-    name: String,
-    author: String,
+    name: &'static str,
+    author: &'static str,
 }
