@@ -115,15 +115,16 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
     fn new(tt_size_mb: Option<usize>) -> Engine<T> {
         const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
         let tt = Arc::new(T::HashTable::new(tt_size_mb));
+        let started_at = SystemTime::now();
         Engine {
             tt: tt.clone(),
             position: T::SearchNode::from_history(START_FEN, &mut vec![].into_iter()).ok().unwrap(),
             searcher: T::new(tt),
             queue: VecDeque::new(),
-            started_at: SystemTime::now(),
+            started_at: started_at,
             status: SearchStatus { done: true, ..Default::default() },
             nps_stats: (0, 0, 0),
-            silent_since: SystemTime::now(),
+            silent_since: started_at,
             is_pondering: false,
             play_when: PlayWhen::Never,
             pondering_is_allowed: false,
@@ -385,8 +386,8 @@ pub fn run_server<T>(name: &str, author: &str) -> io::Result<()>
 
 
 // Since `run_server` blocks the current thread, it can safely pass
-// engine's name and author as thread-local statics. This time,
-// simplicity beats beauty.
+// engine's name and author as thread-local statics. (This time,
+// simplicity beats beauty.)
 thread_local!(
     static ENGINE_IDENTITY: UnsafeCell<EngineIdentity> =
         UnsafeCell::new(EngineIdentity { name: String::new(), author: String::new()})
