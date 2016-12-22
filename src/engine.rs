@@ -1,6 +1,4 @@
-//! Facilities for implementing chess engines.
-
-pub mod time_manager;
+//! Implements a generic UCI chess engine.
 
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
@@ -10,8 +8,12 @@ use std::time::{SystemTime, Duration};
 use std::cmp::min;
 use std::io;
 use uci::*;
-use search::*;
-use self::time_manager::*;
+use value::*;
+use depth::*;
+use search_executor::*;
+use search_node::*;
+use hash_table::*;
+use time_manager::*;
 
 
 struct SearchStatus {
@@ -346,7 +348,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
             tm.update_status(report);
         }
 
-        // If primary variations are provided with the report, show them.
+        // If principal variations are provided with the report, show them.
         if !report.data.is_empty() {
             self.queue_pv(&report.data);
             self.silent_since = SystemTime::now();
@@ -367,7 +369,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run_server<T>(name: &'static str, author: &'static str) -> io::Result<()>
+pub fn run<T>(name: &'static str, author: &'static str) -> io::Result<()>
     where T: SearchExecutor<ReportData = Vec<Variation>>
 {
     ENGINE_IDENTITY.with(|e| unsafe {

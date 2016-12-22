@@ -1,4 +1,5 @@
-//! Implements `Deepening`.
+//! Implements iterative deepening, aspiration windows, multi-PV,
+//! "searchmoves".
 
 use std::cmp::{min, max};
 use std::time::Duration;
@@ -6,7 +7,13 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
-use search::*;
+use moves::*;
+use value::*;
+use evaluator::*;
+use depth::*;
+use hash_table::*;
+use search_node::*;
+use search_executor::*;
 
 
 /// Executes searches with iterative deepening, aspiration windows,

@@ -3,9 +3,12 @@
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use uci::{SetOption, OptionDescription};
+use value::*;
 use board::*;
-use search::*;
-use search::quiescence::*;
+use evaluator::*;
+use qsearch::*;
+use moves::*;
+use move_generator::MoveGenerator;
 use utils::MoveStack;
 
 
@@ -217,9 +220,10 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
 
 #[cfg(test)]
 mod tests {
-    use search::*;
-    use search::quiescence::MoveGenerator;
-    use search::stock::{MaterialEvaluator, StdMoveGenerator};
+    use board::*;
+    use value::*;
+    use move_generator::*;
+    use stock::{MaterialEvaluator, StdMoveGenerator};
     use utils::MoveStack;
 
     type Pos = StdMoveGenerator<MaterialEvaluator>;

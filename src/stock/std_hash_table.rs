@@ -4,7 +4,10 @@ use std::isize;
 use std::cell::{UnsafeCell, Cell};
 use std::cmp::min;
 use std::mem::{transmute, size_of};
-use search::*;
+use value::*;
+use depth::*;
+use moves::*;
+use hash_table::*;
 
 
 /// Implements the `HashTableEntry` trait.
@@ -326,7 +329,9 @@ mod tests {
     use super::*;
     use super::Record;
     use std;
-    use search::*;
+    use depth::*;
+    use hash_table::*;
+    use moves::*;
 
     #[test]
     fn test_cluster_size() {

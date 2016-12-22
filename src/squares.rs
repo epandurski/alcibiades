@@ -1,7 +1,6 @@
 //! Defines a constant for every square on the board.
 
-use super::*;
-
+use board::Square;
 
 pub const A1: Square = 0 + 0 * 8;
 pub const B1: Square = 1 + 0 * 8;
@@ -67,3 +66,14 @@ pub const E8: Square = 4 + 7 * 8;
 pub const F8: Square = 5 + 7 * 8;
 pub const G8: Square = 6 + 7 * 8;
 pub const H8: Square = 7 + 7 * 8;
+
+/// Returns the square on given file and rank.
+///
+/// * `file` should be a number between 0 and 7 (0 is file A, 7 is file H).
+/// * `rank` should be a number between 0 and 7 (0 is rank 1, 7 is rank 8).
+#[inline]
+pub fn square(file: usize, rank: usize) -> Square {
+    debug_assert!(file < 8);
+    debug_assert!(rank < 8);
+    rank * 8 + file
+}

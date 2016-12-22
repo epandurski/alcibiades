@@ -2,21 +2,16 @@
 
 use std::fmt;
 use board::*;
+use files::*;
+use ranks::*;
 
 
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or `MOVE_NORMAL`.
 pub type MoveType = usize;
 
-/// Represents en-passant capture move type.
 pub const MOVE_ENPASSANT: MoveType = 0;
-
-/// Represents pawn promotion move type.
 pub const MOVE_PROMOTION: MoveType = 1;
-
-/// Represents castling move type.
 pub const MOVE_CASTLING: MoveType = 2;
-
-/// Represents "normal move" move type.
 pub const MOVE_NORMAL: MoveType = 3;
 
 
@@ -386,7 +381,7 @@ fn notation(square: Square) -> &'static str {
 mod tests {
     use super::*;
     use board::*;
-    use board::squares::*;
+    use squares::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

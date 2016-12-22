@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::time::SystemTime;
 use board::*;
-use search::{SearchReport, Variation};
+use search_executor::*;
 
 
 /// Decides when the search must be terminated.

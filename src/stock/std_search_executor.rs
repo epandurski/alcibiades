@@ -10,8 +10,15 @@ use std::time::Duration;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
+use value::*;
+use depth::*;
 use board::*;
-use search::*;
+use search_executor::*;
+use search_node::*;
+use evaluator::*;
+use moves::*;
+use qsearch::*;
+use hash_table::*;
 use utils::MoveStack;
 
 
@@ -152,7 +159,7 @@ enum Command<N: SearchNode> {
 ///
 /// # Example:
 ///
-/// ```rust
+/// ```rust,ignore
 /// // Spawn a slave thread:
 /// let tt = Arc::new(tt);
 /// let (commands_tx, commands_rx) = channel();
@@ -982,9 +989,12 @@ impl Default for KillerPair {
 #[cfg(test)]
 mod tests {
     use super::{Search, KillerTable};
+    use value::*;
     use board::*;
-    use search::*;
-    use search::stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, RandomEvaluator};
+    use search_node::*;
+    use moves::*;
+    use hash_table::*;
+    use stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, RandomEvaluator};
     use utils::MoveStack;
 
     type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;

@@ -4,9 +4,12 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use board::*;
-use board::squares::*;
-use search::*;
-use search::quiescence::*;
+use squares::*;
+use files::*;
+use ranks::*;
+use evaluator::*;
+use moves::*;
+use move_generator::*;
 use utils::bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
 
@@ -1168,15 +1171,15 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use board::*;
-    use board::squares::*;
+    use squares::*;
     use utils::MoveStack;
-    use search::{IllegalPosition, Board, Evaluator};
-    use search::quiescence::MoveGenerator;
-    use search::stock::{StdMoveGenerator, RandomEvaluator};
+    use move_generator::*;
+    use evaluator::*;
+    use stock::{StdMoveGenerator, RandomEvaluator};
 
     impl<E: Evaluator> StdMoveGenerator<E> {
-        fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalPosition> {
-            StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(IllegalPosition)
+        fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalBoard> {
+            StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(IllegalBoard)
         }
     }
 
@@ -1593,7 +1596,7 @@ mod tests {
     #[test]
     fn test_try_move_digest() {
         use std::mem::transmute;
-        use search::Evaluator;
+        use evaluator::*;
         fn try_all<E: Evaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
             let mut i = 0u16;
             loop {

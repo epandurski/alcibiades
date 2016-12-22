@@ -1,37 +1,26 @@
 //! Defines how the chess board is represented in memory.
 
-pub mod squares;
-pub mod files;
-pub mod ranks;
-
 use std::fmt;
+use squares::square;
+use notation::parse_fen;
 
 
 /// `WHITE` or `BLACK`.
 pub type Color = usize;
 
-/// `0`
 pub const WHITE: Color = 0;
-/// `1`
 pub const BLACK: Color = 1;
 
 
 /// `KING`, `QUEEN`, `ROOK`, `BISHOP`, `KINGHT`, `PAWN` or `PIECE_NONE`.
 pub type PieceType = usize;
 
-/// `0`
 pub const KING: PieceType = 0;
-/// `1`
 pub const QUEEN: PieceType = 1;
-/// `2`
 pub const ROOK: PieceType = 2;
-/// `3`
 pub const BISHOP: PieceType = 3;
-/// `4`
 pub const KNIGHT: PieceType = 4;
-/// `5`
 pub const PAWN: PieceType = 5;
-/// `6`
 pub const PIECE_NONE: PieceType = 6;
 
 
@@ -95,9 +84,7 @@ impl fmt::Display for PiecesPlacement {
 /// `QUEENSIDE` or `KINGSIDE`.
 pub type CastlingSide = usize;
 
-/// `0`
 pub const QUEENSIDE: CastlingSide = 0;
-/// `1`
 pub const KINGSIDE: CastlingSide = 1;
 
 
@@ -209,31 +196,37 @@ impl fmt::Display for CastlingRights {
 }
 
 
-/// Returns the square on given file and rank.
-///
-/// * `file` should be a number between 0 and 7 (0 is file A, 7 is file H).
-/// * `rank` should be a number between 0 and 7 (0 is rank 1, 7 is rank 8).
-#[inline]
-pub fn square(file: usize, rank: usize) -> Square {
-    debug_assert!(file < 8);
-    debug_assert!(rank < 8);
-    rank * 8 + file
+/// Represents an illegal position error.
+pub struct IllegalBoard;
+
+
+/// Holds a chess position.
+#[derive(Clone)]
+pub struct Board {
+    /// The placement of the pieces on the board.
+    pub pieces: PiecesPlacement,
+
+    /// The side to move.
+    pub to_move: Color,
+
+    /// The castling rights for both players.
+    pub castling_rights: CastlingRights,
+
+    /// If the previous move was a double pawn push, contains pushed
+    /// pawn's file (a value between 0 and 7). Otherwise contains `8`.
+    pub enpassant_file: usize,
+
+    /// The set of all occupied squares on the board.
+    ///
+    /// Always equals `self.pieces.color[WHITE] |
+    /// self.pieces.color[BLACK]`. Deserves a field on its own because
+    /// it is very frequently needed.
+    pub occupied: Bitboard,
 }
 
-/// Returns the rank of a given square.
-///
-/// The returned number will be between 0 and 7 (0 is rank 1, 7 is rank 8).
-#[inline(always)]
-pub fn rank(square: Square) -> usize {
-    debug_assert!(square <= 63);
-    square >> 3
-}
-
-/// Returns the file of a given square.
-///
-/// The returned number will be between 0 and 7 (0 is file A, 7 is file H).
-#[inline(always)]
-pub fn file(square: Square) -> usize {
-    debug_assert!(square <= 63);
-    square % 8
+impl Board {
+    /// Creates a new instance from Forsyth–Edwards Notation (FEN).
+    pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
+        parse_fen(fen).map(|x| x.0)
+    }
 }

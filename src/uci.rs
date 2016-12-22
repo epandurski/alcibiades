@@ -16,7 +16,7 @@
 //! with the GUI all by itself.
 //!
 //! # Example:
-//! ```rust
+//! ```rust,ignore
 //! use std::process::exit;
 //! use uci::run_engine;
 //!
