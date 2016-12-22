@@ -7,16 +7,9 @@ use board::*;
 /// `MOVE_ENPASSANT`, `MOVE_PROMOTION`, `MOVE_CASTLING`, or `MOVE_NORMAL`.
 pub type MoveType = usize;
 
-/// Represents en-passant capture move type.
 pub const MOVE_ENPASSANT: MoveType = 0;
-
-/// Represents pawn promotion move type.
 pub const MOVE_PROMOTION: MoveType = 1;
-
-/// Represents castling move type.
 pub const MOVE_CASTLING: MoveType = 2;
-
-/// Represents "normal move" move type.
 pub const MOVE_NORMAL: MoveType = 3;
 
 
@@ -374,8 +367,8 @@ const M_MASK_SCORE: u64 = (::std::u32::MAX as u64) << M_SHIFT_SCORE;
 fn notation(square: Square) -> &'static str {
     lazy_static! {
         static ref NOTATION: Vec<String> = (0..64).map(|i| format!("{}{}",
-            ["a", "b", "c", "d", "e", "f", "g", "h"][file(i)],
-            ["1", "2", "3", "4", "5", "6", "7", "8"][rank(i)])
+            ["a", "b", "c", "d", "e", "f", "g", "h"][Board::file(i)],
+            ["1", "2", "3", "4", "5", "6", "7", "8"][Board::rank(i)])
         ).collect();
     }
     NOTATION[square].as_str()
@@ -386,7 +379,7 @@ fn notation(square: Square) -> &'static str {
 mod tests {
     use super::*;
     use board::*;
-    use board::squares::*;
+    use squares::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

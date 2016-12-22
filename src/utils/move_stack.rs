@@ -1,7 +1,7 @@
 //! Implements `MoveStack`.
 
 use std::slice;
-use search::{Move, MoveDigest, AddMove};
+use moves::{Move, MoveDigest, AddMove};
 
 
 /// Stores a list of moves for each position in a given line of play.
@@ -192,8 +192,8 @@ impl MoveStack {
 mod tests {
     use super::*;
     use board::*;
-    use board::squares::*;
-    use search::*;
+    use squares::*;
+    use moves::*;
     const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]

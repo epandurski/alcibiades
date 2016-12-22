@@ -1,7 +1,6 @@
 //! Defines a constant for every square on the board.
 
-use super::*;
-
+use board::Square;
 
 pub const A1: Square = 0 + 0 * 8;
 pub const B1: Square = 1 + 0 * 8;

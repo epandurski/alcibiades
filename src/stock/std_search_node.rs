@@ -4,9 +4,14 @@ use std::cmp::min;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
-use search::*;
-use search::quiescence::*;
-use utils::{parse_fen, ZobristArrays};
+use board::{Board, IllegalBoard};
+use value::*;
+use qsearch::{Qsearch, QsearchParams, QsearchResult};
+use moves::{Move, MoveDigest, AddMove};
+use move_generator::MoveGenerator;
+use search_node::SearchNode;
+use notation::parse_fen;
+use utils::ZobristArrays;
 
 
 /// Contains information about a position.
@@ -57,7 +62,7 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
 
     type QsearchResult = T::QsearchResult;
 
-    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, IllegalPosition> {
+    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, IllegalBoard> {
         let mut p: StdSearchNode<T> = try!(StdSearchNode::from_fen(fen));
         let mut move_list = Vec::new();
         'played_moves: for played_move in moves {
@@ -71,7 +76,7 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
                     break;
                 }
             }
-            return Err(IllegalPosition);
+            return Err(IllegalBoard);
         }
         p.declare_as_root();
         Ok(p)
@@ -290,9 +295,9 @@ impl<T: Qsearch + 'static> SetOption for StdSearchNode<T> {
 
 impl<T: Qsearch + 'static> StdSearchNode<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
-    pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalPosition> {
+    pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalBoard> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
-        let g = try!(T::MoveGenerator::from_board(board).ok_or(IllegalPosition));
+        let g = try!(T::MoveGenerator::from_board(board).ok_or(IllegalBoard));
         Ok(StdSearchNode {
             zobrist: ZobristArrays::get(),
             board_hash: g.hash(),
@@ -423,8 +428,11 @@ fn set_non_repeated_values<T>(slice: &mut [T], value: T) -> Vec<T>
 #[cfg(test)]
 mod tests {
     use utils::MoveStack;
-    use search::*;
-    use search::stock::{StdSearchNode, StdQsearch, StdMoveGenerator, MaterialEvaluator};
+    use value::*;
+    use search_node::*;
+    use evaluator::*;
+    use qsearch::*;
+    use stock::{StdSearchNode, StdQsearch, StdMoveGenerator, MaterialEvaluator};
 
     type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<MaterialEvaluator>>>;
 

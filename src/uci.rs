@@ -14,19 +14,6 @@
 //! only requires the programmer to define a type that implements the
 //! `UciEngine` trait. Then `run_engine` will handle the communication
 //! with the GUI all by itself.
-//!
-//! # Example:
-//! ```rust
-//! use std::process::exit;
-//! use uci::run_engine;
-//!
-//! fn main() {
-//!     exit(match run_engine::<MyEngine>() {
-//!         Ok(_) => 0,
-//!         Err(_) => 1,
-//!     })
-//! }
-//! ```
 
 use std::default::Default;
 use std::time::Duration;

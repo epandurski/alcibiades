@@ -1,23 +1,14 @@
 #[macro_use]
-extern crate lazy_static;
-extern crate regex;
-extern crate rand;
-
-pub mod board;
-pub mod uci;
-pub mod utils;
-pub mod search;
-pub mod engine;
+extern crate alcibiades;
 
 use std::process::exit;
-use engine::run_server;
-use search::Deepening;
-use search::stock::*;
+pub use alcibiades::*;
+pub use alcibiades::stock::*;
 
 fn main() {
     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
     type SearchExecutor = Deepening<StdSearchExecutor<StdHashTable, SearchNode>>;
-    exit(match run_server::<SearchExecutor>("Alcibiades 0.1", "Evgeni Pandurski") {
+    exit(match engine::run::<SearchExecutor>("Alcibiades 0.1", "Evgeni Pandurski") {
         Ok(_) => 0,
         Err(_) => 1,
     })

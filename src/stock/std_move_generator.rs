@@ -4,9 +4,10 @@ use std::mem::uninitialized;
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use board::*;
-use board::squares::*;
-use search::*;
-use search::quiescence::*;
+use squares::*;
+use moves::*;
+use evaluator::Evaluator;
+use move_generator::MoveGenerator;
 use utils::bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
 
@@ -594,7 +595,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             self.board.enpassant_file = if played_piece == PAWN &&
                                            dest_square as isize - orig_square as isize ==
                                            PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
-                let file = file(dest_square);
+                let file = Board::file(dest_square);
                 h ^= *self.zobrist.enpassant_file.get_unchecked(file);
                 file
             } else {
@@ -1056,7 +1057,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     /// destination squares of the capturing pawn.
     fn enpassant_special_check_is_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
-        if rank(king_square) == rank(orig_square) {
+        if Board::rank(king_square) == Board::rank(orig_square) {
             let pawn1_bb = 1 << orig_square;
             let pawn2_bb = gen_shift(1 << dest_square,
                                      -PAWN_MOVE_SHIFTS[self.board.to_move][PAWN_PUSH]);
@@ -1168,15 +1169,15 @@ fn calc_pawn_dest_sets(us: Color,
 #[cfg(test)]
 mod tests {
     use board::*;
-    use board::squares::*;
+    use squares::*;
     use utils::MoveStack;
-    use search::{IllegalPosition, Board, Evaluator};
-    use search::quiescence::MoveGenerator;
-    use search::stock::{StdMoveGenerator, RandomEvaluator};
+    use move_generator::*;
+    use evaluator::*;
+    use stock::{StdMoveGenerator, RandomEvaluator};
 
     impl<E: Evaluator> StdMoveGenerator<E> {
-        fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalPosition> {
-            StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(IllegalPosition)
+        fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalBoard> {
+            StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(IllegalBoard)
         }
     }
 
@@ -1593,7 +1594,7 @@ mod tests {
     #[test]
     fn test_try_move_digest() {
         use std::mem::transmute;
-        use search::Evaluator;
+        use evaluator::*;
         fn try_all<E: Evaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
             let mut i = 0u16;
             loop {

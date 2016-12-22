@@ -3,7 +3,7 @@
 //! **Note:** "LS1B" means "least significant `1` bit".
 
 use std::num::Wrapping;
-use board::*;
+use board::{Square, Bitboard};
 
 
 /// Empty set of squares.
@@ -218,6 +218,7 @@ pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
 ///
 /// # Examples:
 /// ```
+/// # use alcibiades::utils::bitsets::*;
 /// assert_eq!(bitscan_forward(0b100100), 2);
 /// ```
 #[inline(always)]
@@ -235,6 +236,7 @@ pub fn bitscan_forward(b: Bitboard) -> Square {
 /// 
 /// # Examples:
 /// ```
+/// # use alcibiades::utils::bitsets::*;
 /// let mut x = 0b100100;
 /// assert_eq!(bitscan_forward_and_reset(&mut x), 2);
 /// assert_eq!(x, 0b100000);
@@ -265,6 +267,7 @@ pub fn bitscan_1bit(b: Bitboard) -> Square {
 ///
 /// # Examples:
 /// ```
+/// # use alcibiades::utils::bitsets::*;
 /// assert_eq!(pop_count(0b100101), 3);
 /// ```
 #[inline(always)]
