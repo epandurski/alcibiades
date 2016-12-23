@@ -6,8 +6,8 @@ use std::cmp::min;
 use std::mem::{transmute, size_of};
 use value::*;
 use depth::*;
-use moves::*;
 use hash_table::*;
+use moves::MoveDigest;
 
 
 /// Implements the `HashTableEntry` trait.

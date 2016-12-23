@@ -4,11 +4,11 @@ use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use uci::SetOption;
-use moves::*;
+use moves::Move;
 use value::*;
 use depth::*;
 use hash_table::*;
-use search_node::*;
+use search_node::SearchNode;
 
 
 /// Parameters describing a search.

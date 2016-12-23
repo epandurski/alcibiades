@@ -7,14 +7,14 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
-use moves::*;
+use moves::Move;
 use value::*;
-use evaluator::*;
 use depth::*;
 use hash_table::*;
-use search_node::*;
-use search_executor::*;
-use pv::*;
+use evaluator::Evaluator;
+use search_node::SearchNode;
+use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use pv::{Variation, extract_pv};
 
 
 /// Executes searches with iterative deepening, aspiration windows,

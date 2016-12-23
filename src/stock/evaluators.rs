@@ -2,9 +2,9 @@
 
 use std::hash::{Hasher, SipHasher};
 use uci::SetOption;
-use value::*;
 use board::*;
-use evaluator::*;
+use value::*;
+use evaluator::Evaluator;
 use utils::bitsets::*;
 
 

@@ -4,12 +4,12 @@ use std::cmp::min;
 use std::cell::UnsafeCell;
 use std::hash::{Hasher, SipHasher};
 use uci::{SetOption, OptionDescription};
-use board::*;
+use board::{Board, IllegalBoard};
 use value::*;
-use qsearch::*;
-use moves::*;
-use move_generator::*;
-use search_node::*;
+use qsearch::{Qsearch, QsearchParams, QsearchResult};
+use moves::{Move, MoveDigest, AddMove};
+use move_generator::MoveGenerator;
+use search_node::SearchNode;
 use notation::parse_fen;
 use utils::ZobristArrays;
 

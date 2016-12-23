@@ -6,7 +6,7 @@ use uci::SetOption;
 use board::*;
 use moves::*;
 use value::*;
-use evaluator::*;
+use evaluator::Evaluator;
 use utils::bitsets::*;
 use utils::BoardGeometry;
 

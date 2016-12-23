@@ -3,7 +3,7 @@
 use uci::SetOption;
 use value::*;
 use depth::*;
-use move_generator::*;
+use move_generator::MoveGenerator;
 
 
 /// Parameters describing a quiescence search.

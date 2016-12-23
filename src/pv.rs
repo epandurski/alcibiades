@@ -1,11 +1,11 @@
 //! Implements the extraction of the principal variation from the
 //! transposition table.
 
-use moves::*;
+use moves::Move;
 use value::*;
 use depth::*;
 use hash_table::*;
-use search_node::*;
+use search_node::SearchNode;
 
 
 /// A sequence of moves from some starting position, together with the

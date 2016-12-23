@@ -13,12 +13,12 @@ use uci::{SetOption, OptionDescription};
 use value::*;
 use depth::*;
 use board::*;
-use search_executor::*;
-use search_node::*;
-use evaluator::*;
 use moves::*;
-use qsearch::*;
 use hash_table::*;
+use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use search_node::SearchNode;
+use evaluator::Evaluator;
+use qsearch::QsearchResult;
 use utils::MoveStack;
 
 

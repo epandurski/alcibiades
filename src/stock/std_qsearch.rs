@@ -3,11 +3,11 @@
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 use uci::{SetOption, OptionDescription};
-use value::*;
 use board::*;
-use evaluator::*;
-use qsearch::*;
+use value::*;
 use moves::*;
+use evaluator::Evaluator;
+use qsearch::{Qsearch, QsearchParams, QsearchResult};
 use move_generator::MoveGenerator;
 use utils::MoveStack;
 

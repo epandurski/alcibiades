@@ -10,11 +10,11 @@ use std::io;
 use uci::*;
 use value::*;
 use depth::*;
-use search_executor::*;
-use search_node::*;
 use hash_table::*;
-use pv::*;
-use time_manager::*;
+use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use search_node::SearchNode;
+use pv::{Variation, extract_pv};
+use time_manager::TimeManager;
 
 
 struct SearchStatus {

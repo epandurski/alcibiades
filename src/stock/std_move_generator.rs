@@ -5,9 +5,9 @@ use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use board::*;
 use squares::*;
-use evaluator::*;
 use moves::*;
-use move_generator::*;
+use evaluator::Evaluator;
+use move_generator::MoveGenerator;
 use utils::bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
 

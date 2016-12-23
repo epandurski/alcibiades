@@ -1,11 +1,11 @@
 //! Defines the `SearchNode` trait.
 
 use uci::SetOption;
-use board::*;
-use moves::*;
+use board::{Board, IllegalBoard};
+use moves::{Move, MoveDigest, AddMove};
 use value::*;
-use evaluator::*;
-use qsearch::*;
+use evaluator::Evaluator;
+use qsearch::QsearchResult;
 
 
 /// A trait for chess positions -- a convenient interface for the

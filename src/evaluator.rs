@@ -1,8 +1,8 @@
 //! Defines the `Evaluator` trait.
 
 use uci::SetOption;
-use board::*;
-use moves::*;
+use board::Board;
+use moves::Move;
 use value::*;
 
 

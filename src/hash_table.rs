@@ -1,6 +1,6 @@
 //! Defines types and traits related to transposition tables.
 
-use moves::*;
+use moves::MoveDigest;
 use value::*;
 use depth::*;
 
