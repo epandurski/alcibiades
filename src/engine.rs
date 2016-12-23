@@ -1,5 +1,6 @@
 //! Implements a generic UCI chess engine.
 
+use std::cmp::max;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::ops::Deref;
@@ -272,23 +273,37 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
     }
 
     fn queue_pv(&mut self, variations: &Vec<Variation>) {
-        let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
-        for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
-            let bound_suffix = match bound {
-                BOUND_EXACT => "",
+        fn suffix(bound: BoundType) -> &'static str {
+            match bound {
                 BOUND_UPPER => " upperbound",
                 BOUND_LOWER => " lowerbound",
+                BOUND_EXACT => "",
                 _ => panic!("unexpected bound type"),
+            }
+        }
+
+        let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
+        for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
+            let score = match value {
+                v if bound & BOUND_UPPER != 0 && VALUE_MIN < v && v < VALUE_EVAL_MIN => {
+                    format!("mate {}", (VALUE_MIN - v - 1) / 2)
+                }
+                v if bound & BOUND_LOWER != 0 && VALUE_EVAL_MAX < v && v < VALUE_MAX => {
+                    format!("mate {}", (VALUE_MAX - v + 1) / 2)
+                }
+                v if v <= -9999 => format!("cp -9999{}", suffix(bound | BOUND_LOWER)),
+                v if v >= 9999 => format!("cp 9999{}", suffix(bound | BOUND_UPPER)),
+                v => format!("cp {}{}", v, suffix(bound)),
             };
             let mut pv = String::new();
-            for m in moves {
+            for m in moves.iter().take(max(0, *depth) as usize) {
                 pv.push_str(&m.notation());
                 pv.push(' ');
             }
             self.queue.push_back(EngineReply::Info(vec![
                 InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
                 InfoItem { info_type: "multipv".to_string(), data: format!("{}", i + 1) },
-                InfoItem { info_type: "score".to_string(), data: format!("cp {}{}", value, bound_suffix) },
+                InfoItem { info_type: "score".to_string(), data: score },
                 InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
                 InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
                 InfoItem { info_type: "nps".to_string(), data: format!("{}", self.nps_stats.0) },
@@ -298,7 +313,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
     }
 
     fn queue_best_move(&mut self) {
-        let pv = extract_pv(self.tt.deref(), &self.position, 2);
+        let pv = extract_pv(self.tt.deref(), &self.position);
         let best_move = if let Some(m) = pv.moves.get(0) {
             m.notation()
         } else {
