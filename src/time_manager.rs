@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::time::SystemTime;
 use board::*;
 use search_executor::*;
+use pv::*;
 
 
 /// Decides when the search must be terminated.

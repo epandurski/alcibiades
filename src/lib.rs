@@ -21,6 +21,7 @@ mod hash_table;
 mod move_generator;
 mod qsearch;
 mod time_manager;
+mod pv;
 mod uci;
 
 pub use board::*;
@@ -35,4 +36,5 @@ pub use move_generator::*;
 pub use qsearch::*;
 pub use time_manager::*;
 pub use notation::parse_fen;
+pub use pv::*;
 pub use uci::{SetOption, OptionDescription};

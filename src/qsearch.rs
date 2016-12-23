@@ -1,4 +1,4 @@
-//! Facilities for implementing quiescence searching.
+//! Defines the `Qsearch` trait.
 
 use uci::SetOption;
 use value::*;

@@ -1,4 +1,4 @@
-//! Defines the `Depth` type and its limits.
+//! Defines the `Depth` type and its related constants.
 
 
 /// Search depth in half-moves.

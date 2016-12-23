@@ -14,6 +14,7 @@ use depth::*;
 use hash_table::*;
 use search_node::*;
 use search_executor::*;
+use pv::*;
 
 
 /// Executes searches with iterative deepening, aspiration windows,
