@@ -166,7 +166,7 @@ impl<T: SearchExecutor> Deepening<T> {
             // Multi-PV with aspiration.
             for m in moves.iter().take(self.multipv.variation_count) {
                 assert!(self.params.position.do_move(*m));
-                let mut v = extract_pv(self.tt.deref(), &self.params.position, self.depth);
+                let mut v = extract_pv(self.tt.deref(), &self.params.position);
                 self.params.position.undo_move();
                 v.moves.insert(0, *m);
                 v.value = -v.value;
@@ -180,7 +180,7 @@ impl<T: SearchExecutor> Deepening<T> {
         } else if self.multipv.variation_count != 0 {
             // Aspiration only.
             debug_assert_eq!(self.multipv.variation_count, 1);
-            variations.push(extract_pv(self.tt.deref(), &self.params.position, self.depth + 1));
+            variations.push(extract_pv(self.tt.deref(), &self.params.position));
         }
         variations
     }
