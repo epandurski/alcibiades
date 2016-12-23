@@ -1,7 +1,6 @@
 //! Defines how the chess board is represented in memory.
 
 use std::fmt;
-use squares::square;
 use notation::parse_fen;
 
 
@@ -58,7 +57,7 @@ impl fmt::Display for PiecesPlacement {
         for rank in (0..8).rev() {
             s.push('\n');
             for file in 0..8 {
-                let square = square(file, rank);
+                let square = Board::square(file, rank);
                 let bb = 1 << square;
                 let piece = match bb {
                     x if x & self.piece_type[KING] != 0 => 'k',
@@ -159,16 +158,12 @@ impl CastlingRights {
         // origin and destination squares should be AND-ed with the
         // castling rights value, to derive the updated castling
         // rights.
-        const CASTLING_RELATION: [usize; 64] = [
-            !WQ, !0, !0, !0, !W, !0, !0, !WK,
-            !0,  !0, !0, !0, !0, !0, !0, !0,
-            !0,  !0, !0, !0, !0, !0, !0, !0,
-            !0,  !0, !0, !0, !0, !0, !0, !0,
-            !0,  !0, !0, !0, !0, !0, !0, !0,
-            !0,  !0, !0, !0, !0, !0, !0, !0,
-            !0,  !0, !0, !0, !0, !0, !0, !0,
-            !BQ, !0, !0, !0, !B, !0, !0, !BK
-        ];
+        const CASTLING_RELATION: [usize; 64] = [!WQ, !0, !0, !0, !W, !0, !0, !WK, !0, !0, !0, !0,
+                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
+                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
+                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
+                                                !0, !0, !0, !0, !0, !0, !0, !0, !BQ, !0, !0, !0,
+                                                !B, !0, !0, !BK];
         self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }
 
@@ -228,5 +223,34 @@ impl Board {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<Board, IllegalBoard> {
         parse_fen(fen).map(|x| x.0)
+    }
+
+    /// Returns the square on given file and rank.
+    ///
+    /// * `file` should be a number between 0 and 7 (0 is file A, 7 is file H).
+    /// * `rank` should be a number between 0 and 7 (0 is rank 1, 7 is rank 8).
+    #[inline]
+    pub fn square(file: usize, rank: usize) -> Square {
+        debug_assert!(file < 8);
+        debug_assert!(rank < 8);
+        rank * 8 + file
+    }
+
+    /// Returns the file of a given square.
+    ///
+    /// The returned number will be between 0 and 7 (0 is file A, 7 is file H).
+    #[inline(always)]
+    pub fn file(square: Square) -> usize {
+        debug_assert!(square <= 63);
+        square % 8
+    }
+
+    /// Returns the rank of a given square.
+    ///
+    /// The returned number will be between 0 and 7 (0 is rank 1, 7 is rank 8).
+    #[inline(always)]
+    pub fn rank(square: Square) -> usize {
+        debug_assert!(square <= 63);
+        square >> 3
     }
 }

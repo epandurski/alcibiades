@@ -5,8 +5,6 @@ use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use board::*;
 use squares::*;
-use files::*;
-use ranks::*;
 use evaluator::*;
 use moves::*;
 use move_generator::*;
@@ -597,7 +595,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             self.board.enpassant_file = if played_piece == PAWN &&
                                            dest_square as isize - orig_square as isize ==
                                            PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
-                let file = file(dest_square);
+                let file = Board::file(dest_square);
                 h ^= *self.zobrist.enpassant_file.get_unchecked(file);
                 file
             } else {
@@ -1059,7 +1057,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     /// destination squares of the capturing pawn.
     fn enpassant_special_check_is_ok(&self, orig_square: Square, dest_square: Square) -> bool {
         let king_square = self.king_square();
-        if rank(king_square) == rank(orig_square) {
+        if Board::rank(king_square) == Board::rank(orig_square) {
             let pawn1_bb = 1 << orig_square;
             let pawn2_bb = gen_shift(1 << dest_square,
                                      -PAWN_MOVE_SHIFTS[self.board.to_move][PAWN_PUSH]);

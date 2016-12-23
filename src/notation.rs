@@ -4,7 +4,6 @@ use regex::Regex;
 use board::*;
 use files::*;
 use ranks::*;
-use squares::*;
 
 
 /// Parses Forsyth–Edwards Notation (FEN).
@@ -58,8 +57,8 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), IllegalBoard> {
         let castling_rights = try!(parse_fen_castling_rights(fileds[2]));
         let enpassant_file = if let Some(x) = try!(parse_fen_enpassant_square(fileds[3])) {
             match to_move {
-                WHITE if rank(x) == RANK_6 => file(x),
-                BLACK if rank(x) == RANK_3 => file(x),
+                WHITE if Board::rank(x) == RANK_6 => Board::file(x),
+                BLACK if Board::rank(x) == RANK_3 => Board::file(x),
                 _ => return Err(IllegalBoard),
             }
         } else {
@@ -92,7 +91,7 @@ pub fn parse_square(s: &str) -> Result<Square, IllegalBoard> {
         let mut chars = s.chars();
         let file = (chars.next().unwrap().to_digit(18).unwrap() - 10) as usize;
         let rank = (chars.next().unwrap().to_digit(9).unwrap() - 1) as usize;
-        Ok(square(file, rank))
+        Ok(Board::square(file, rank))
     } else {
         Err(IllegalBoard)
     }
@@ -141,7 +140,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, IllegalBoard> {
                 if file > 7 {
                     return Err(IllegalBoard);
                 }
-                let mask = 1 << square(file, rank);
+                let mask = 1 << Board::square(file, rank);
                 pieces.piece_type[piece_type] |= mask;
                 pieces.color[color] |= mask;
                 file += 1;
