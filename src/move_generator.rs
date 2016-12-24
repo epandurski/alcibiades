@@ -188,8 +188,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
             // from other pieces. We will consider adding new
             // attackers/defenders every time a piece from the `may_xray`
             // set makes a capture.
-            let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] |
-                           piece_type[QUEEN];
+            let may_xray = piece_type[PAWN] | straight_sliders | diag_sliders;
 
             // These variables will be updated on each capture:
             let mut us = self.board().to_move;
@@ -230,11 +229,11 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                     break;
                 }
 
-                // Register that `orig_square_bb` is now vacant.
+                // Register that capturing piece's origin square is now vacant.
                 attackers_and_defenders &= !orig_square_bb;
 
                 // Consider adding new attackers/defenders, now that
-                // `orig_square_bb` is vacant.
+                // capturing piece's origin square is vacant.
                 if orig_square_bb & may_xray != 0 {
                     let behind = self.board().occupied &
                                  *behind_blocker.get_unchecked(bitscan_forward(orig_square_bb));
