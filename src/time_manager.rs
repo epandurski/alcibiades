@@ -13,7 +13,7 @@ pub trait TimeManager: SetOption {
     /// with which the remaining time will be incremented on each move
     /// (for black and white). `movestogo` specifies the number of
     /// moves to the next time control.
-    fn new(to_move: Color,
+    fn new(board: &Board,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,

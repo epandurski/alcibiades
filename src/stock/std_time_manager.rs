@@ -27,7 +27,7 @@ impl TimeManager for StdTimeManager {
     /// be incremented on each move (for black and white). `movestogo`
     /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
-    fn new(to_move: Color,
+    fn new(board: &Board,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,
@@ -36,7 +36,7 @@ impl TimeManager for StdTimeManager {
            -> StdTimeManager {
         // TODO: We ignore "PONDER".
 
-        let (time, inc) = if to_move == WHITE {
+        let (time, inc) = if board.to_move == WHITE {
             (wtime_millis, winc_millis.unwrap_or(0))
         } else {
             (btime_millis, binc_millis.unwrap_or(0))
