@@ -376,7 +376,7 @@ impl<S, T> Engine<S, T>
 
         // Inform the time manager.
         if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-            tm.update_status(report);
+            tm.update(report);
         }
 
         // If principal variations are provided with the report, show them.

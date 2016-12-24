@@ -22,8 +22,8 @@ pub trait TimeManager {
            movestogo: Option<u64>)
            -> Self;
 
-    /// Registers the current search status with the time manager.
-    fn update_status(&mut self, report: &SearchReport<Vec<Variation>>);
+    /// Registers a new search report with the time manager.
+    fn update(&mut self, report: &SearchReport<Vec<Variation>>);
 
     /// Decides if the search must be terminated.
     fn must_play(&self) -> bool;
