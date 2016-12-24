@@ -14,8 +14,8 @@ use depth::*;
 use hash_table::*;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
-use pv::{Variation, extract_pv};
 use time_manager::TimeManager;
+use pv::{Variation, extract_pv};
 
 
 struct SearchStatus {
@@ -41,8 +41,8 @@ impl Default for SearchStatus {
 }
 
 
-enum PlayWhen {
-    TimeManagement(TimeManager), // Stop when the time manager says so.
+enum PlayWhen<T: TimeManager> {
+    TimeManagement(T), // Stop when the time manager says so.
     MoveTime(u64), // Stop after the given number of milliseconds.
     Nodes(u64), // Stop when the given number of nodes has been searched.
     Depth(Depth), // Stop when the given search depth has been completed.
@@ -51,10 +51,13 @@ enum PlayWhen {
 }
 
 
-struct Engine<T: SearchExecutor<ReportData = Vec<Variation>>> {
-    tt: Arc<T::HashTable>,
-    position: T::SearchNode,
-    searcher: T,
+struct Engine<S, T>
+    where S: SearchExecutor<ReportData = Vec<Variation>>,
+          T: TimeManager
+{
+    tt: Arc<S::HashTable>,
+    position: S::SearchNode,
+    searcher: S,
     queue: VecDeque<EngineReply>,
 
     // The starting time of the current/last search.
@@ -73,7 +76,7 @@ struct Engine<T: SearchExecutor<ReportData = Vec<Variation>>> {
     is_pondering: bool,
 
     // Tells the engine when it must stop thinking and play the best move.
-    play_when: PlayWhen,
+    play_when: PlayWhen<T>,
 
     // Tells the engine if it will be allowed to ponder. This option
     // is needed because the engine might change its time management
@@ -81,7 +84,10 @@ struct Engine<T: SearchExecutor<ReportData = Vec<Variation>>> {
     pondering_is_allowed: bool,
 }
 
-impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
+impl<S, T> UciEngine for Engine<S, T>
+    where S: SearchExecutor<ReportData = Vec<Variation>>,
+          T: TimeManager
+{
     fn name() -> &'static str {
         ENGINE_IDENTITY.with(|e| unsafe { (&*e.get()).name })
     }
@@ -97,7 +103,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
             ("Clear Hash".to_string(), OptionDescription::Button),
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
         ];
-        options.extend(T::options());
+        options.extend(S::options());
 
         // Remove duplicated options.
         options.sort_by(|a, b| a.0.cmp(&b.0));
@@ -113,14 +119,14 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
         options_dedup
     }
 
-    fn new(tt_size_mb: Option<usize>) -> Engine<T> {
+    fn new(tt_size_mb: Option<usize>) -> Engine<S, T> {
         const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
-        let tt = Arc::new(T::HashTable::new(tt_size_mb));
+        let tt = Arc::new(S::HashTable::new(tt_size_mb));
         let started_at = SystemTime::now();
         Engine {
             tt: tt.clone(),
-            position: T::SearchNode::from_history(START_FEN, &mut vec![].into_iter()).ok().unwrap(),
-            searcher: T::new(tt),
+            position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter()).ok().unwrap(),
+            searcher: S::new(tt),
             queue: VecDeque::new(),
             started_at: started_at,
             status: SearchStatus { done: true, ..Default::default() },
@@ -148,7 +154,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
             }
             _ => (),
         }
-        T::set_option(name, value);
+        S::set_option(name, value);
     }
 
     fn new_game(&mut self) {
@@ -156,7 +162,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
     }
 
     fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
-        if let Ok(p) = T::SearchNode::from_history(fen, moves) {
+        if let Ok(p) = S::SearchNode::from_history(fen, moves) {
             self.position = p;
         }
     }
@@ -266,7 +272,10 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
     }
 }
 
-impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
+impl<S, T> Engine<S, T>
+    where S: SearchExecutor<ReportData = Vec<Variation>>,
+          T: TimeManager
+{
     fn queue_progress_info(&mut self) {
         let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
         self.queue.push_back(EngineReply::Info(vec![
@@ -391,15 +400,16 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
 ///
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
-pub fn run<T>(name: &'static str, author: &'static str) -> io::Result<()>
-    where T: SearchExecutor<ReportData = Vec<Variation>>
+pub fn run<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
+    where S: SearchExecutor<ReportData = Vec<Variation>>,
+          T: TimeManager
 {
     ENGINE_IDENTITY.with(|e| unsafe {
         let e = &mut *e.get();
         e.name = name;
         e.author = author;
     });
-    run_engine::<Engine<T>>()
+    run_engine::<Engine<S, T>>()
 }
 
 
