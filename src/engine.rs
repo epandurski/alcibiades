@@ -21,6 +21,7 @@ use time_manager::TimeManager;
 struct SearchStatus {
     pub done: bool,
     pub depth: Depth,
+    pub value: Value,
     pub searched_nodes: u64,
 
     // The duration of the search in milliseconds.
@@ -32,6 +33,7 @@ impl Default for SearchStatus {
         SearchStatus {
             done: false,
             depth: 0,
+            value: VALUE_UNKNOWN,
             searched_nodes: 0,
             duration_millis: 0,
         }
@@ -44,6 +46,7 @@ enum PlayWhen {
     MoveTime(u64), // Stop after the given number of milliseconds.
     Nodes(u64), // Stop when the given number of nodes has been searched.
     Depth(Depth), // Stop when the given search depth has been completed.
+    Mate(i16), // Stop when a mate in the given number of moves is found.
     Never, // An infinite search.
 }
 
@@ -162,8 +165,6 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
         self.terminate();
 
         // Validate `params.searchmoves`.
-        //
-        // TODO: What should we do with "mate"?
         let searchmoves = {
             let mut moves = vec![];
             let legal_moves = self.position.legal_moves();
@@ -198,6 +199,8 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
             PlayWhen::Nodes(params.nodes.unwrap())
         } else if params.depth.is_some() {
             PlayWhen::Depth(min(params.depth.unwrap(), DEPTH_MAX as u64) as Depth)
+        } else if params.mate.is_some() {
+            PlayWhen::Mate(min(params.mate.unwrap(), (DEPTH_MAX + 1) as u64 / 2) as i16)
         } else {
             PlayWhen::TimeManagement(TimeManager::new(self.position.board().to_move,
                                                       self.pondering_is_allowed,
@@ -247,6 +250,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
                 PlayWhen::MoveTime(t) => self.status.done || self.status.duration_millis >= t,
                 PlayWhen::Nodes(n) => self.status.done || self.status.searched_nodes >= n,
                 PlayWhen::Depth(d) => self.status.done || self.status.depth >= d,
+                PlayWhen::Mate(m) => self.status.done || self.status.value > VALUE_MAX - 2 * m,
                 PlayWhen::Never => false,
             } {
                 self.stop();
@@ -348,6 +352,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> Engine<T> {
         self.status = SearchStatus {
             done: report.done,
             depth: report.depth,
+            value: report.value,
             searched_nodes: report.searched_nodes,
             duration_millis: duration_millis,
         };
