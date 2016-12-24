@@ -181,7 +181,6 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                                                           .get_unchecked(exchange_square);
             let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
             let color: &[Bitboard; 2] = &self.board().pieces.color;
-            let occupied = self.board().occupied;
             let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
             let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
 
@@ -189,8 +188,11 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
             // from other pieces. We will consider adding new
             // attackers/defenders every time a piece from the `may_xray`
             // set makes a capture.
-            let may_xray = piece_type[PAWN] | piece_type[BISHOP] | piece_type[ROOK] |
-                           piece_type[QUEEN];
+            //
+            // TODO: This is probably not necessary if `bitscan_1bit`
+            // is translated to 1 instruction. Otherwise, it probably
+            // saves few CPU cycles.
+            let may_xray = piece_type[PAWN] | straight_sliders | diag_sliders;
 
             // These variables will be updated on each capture:
             let mut us = self.board().to_move;
@@ -231,25 +233,29 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                     break;
                 }
 
-                // Register that `orig_square_bb` is now vacant.
+                // Register that capturing piece's origin square is now vacant.
                 attackers_and_defenders &= !orig_square_bb;
 
                 // Consider adding new attackers/defenders, now that
-                // `orig_square_bb` is vacant.
+                // capturing piece's origin square is vacant.
                 if orig_square_bb & may_xray != 0 {
-                    attackers_and_defenders |= {
-                        let behind = occupied &
-                                     *behind_blocker.get_unchecked(bitscan_forward(orig_square_bb));
-                        match behind & straight_sliders &
-                              geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
-                            0 => {
-                                // Not a straight slider -- possibly a diagonal slider.
-                                behind & diag_sliders &
-                                geometry.attacks_from_unsafe(BISHOP, exchange_square, behind)
-                            }
-                            x => x,
-                        }
-                    };
+                    let behind = self.board().occupied &
+                                 *behind_blocker.get_unchecked(bitscan_1bit(orig_square_bb));
+                    if behind & (straight_sliders | diag_sliders) != 0 {
+                        attackers_and_defenders |=
+                            match behind & straight_sliders &
+                                  geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
+                                0 => {
+                                    // Not a straight slider, possibly a diagonal slider.
+                                    behind & diag_sliders &
+                                    geometry.attacks_from_unsafe(BISHOP, exchange_square, behind)
+                                }
+                                bb => {
+                                    // A straight slider.
+                                    bb
+                                }
+                            };
+                    }
                 }
 
                 // Change the side to move.
