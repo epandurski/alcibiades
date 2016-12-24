@@ -181,7 +181,6 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                                                           .get_unchecked(exchange_square);
             let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
             let color: &[Bitboard; 2] = &self.board().pieces.color;
-            let occupied = self.board().occupied;
             let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
             let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
 
@@ -238,7 +237,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 // `orig_square_bb` is vacant.
                 if orig_square_bb & may_xray != 0 {
                     attackers_and_defenders |= {
-                        let behind = occupied &
+                        let behind = self.board().occupied &
                                      *behind_blocker.get_unchecked(bitscan_forward(orig_square_bb));
                         match behind & straight_sliders &
                               geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
