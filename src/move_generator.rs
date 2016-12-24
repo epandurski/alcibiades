@@ -236,19 +236,23 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 // Consider adding new attackers/defenders, now that
                 // `orig_square_bb` is vacant.
                 if orig_square_bb & may_xray != 0 {
-                    attackers_and_defenders |= {
-                        let behind = self.board().occupied &
-                                     *behind_blocker.get_unchecked(bitscan_forward(orig_square_bb));
-                        match behind & straight_sliders &
-                              geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
-                            0 => {
-                                // Not a straight slider -- possibly a diagonal slider.
-                                behind & diag_sliders &
-                                geometry.attacks_from_unsafe(BISHOP, exchange_square, behind)
-                            }
-                            x => x,
-                        }
-                    };
+                    let behind = self.board().occupied &
+                                 *behind_blocker.get_unchecked(bitscan_forward(orig_square_bb));
+                    if behind & (straight_sliders | diag_sliders) != 0 {
+                        attackers_and_defenders |=
+                            match behind & straight_sliders &
+                                  geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
+                                0 => {
+                                    // Not a straight slider, possibly a diagonal slider.
+                                    behind & diag_sliders &
+                                    geometry.attacks_from_unsafe(BISHOP, exchange_square, behind)
+                                }
+                                bb => {
+                                    // A straight slider.
+                                    bb
+                                }
+                            };
+                    }
                 }
 
                 // Change the side to move.
