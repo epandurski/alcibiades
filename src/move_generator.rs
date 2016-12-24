@@ -188,6 +188,10 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
             // from other pieces. We will consider adding new
             // attackers/defenders every time a piece from the `may_xray`
             // set makes a capture.
+            //
+            // TODO: This is probably not necessary if `bitscan_1bit`
+            // is translated to 1 instruction. Otherwise, it probably
+            // saves few CPU cycles.
             let may_xray = piece_type[PAWN] | straight_sliders | diag_sliders;
 
             // These variables will be updated on each capture:
