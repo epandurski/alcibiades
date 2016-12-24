@@ -28,6 +28,7 @@ impl TimeManager for StdTimeManager {
     /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
     fn new(board: &Board,
+           halfmove_clock: u8,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,

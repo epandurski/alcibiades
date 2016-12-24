@@ -13,6 +13,9 @@ pub trait TimeManager: SetOption {
     ///
     /// * `board` gives the current position.
     ///
+    /// * `halfmove_clock` specifies the number of half-moves since
+    ///   the last piece capture or pawn advance.
+    ///
     /// * `wtime_millis` and `btime_millis` specify the remaining time
     ///   in milliseconds for white and black.
     ///
@@ -23,6 +26,7 @@ pub trait TimeManager: SetOption {
     /// * `movestogo` specifies the number of moves to the next time
     ///   control.
     fn new(board: &Board,
+           halfmove_clock: u8,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,

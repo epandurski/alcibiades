@@ -202,6 +202,7 @@ impl<S, T> UciEngine for Engine<S, T>
             PlayWhen::Mate(min(params.mate.unwrap(), (DEPTH_MAX + 1) as u64 / 2) as i16)
         } else {
             PlayWhen::TimeManagement(TimeManager::new(self.position.board(),
+                                                      self.position.halfmove_clock(),
                                                       params.wtime,
                                                       params.btime,
                                                       params.winc,
