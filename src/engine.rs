@@ -185,6 +185,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
         };
 
         // Start a new search.
+        let depth = params.depth.map_or(DEPTH_MAX, |x| min(x, DEPTH_MAX as u64) as Depth);
         self.tt.new_search();
         self.started_at = SystemTime::now();
         self.status = Default::default();
@@ -198,7 +199,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
         } else if params.nodes.is_some() {
             PlayWhen::Nodes(params.nodes.unwrap())
         } else if params.depth.is_some() {
-            PlayWhen::Depth(min(params.depth.unwrap(), DEPTH_MAX as u64) as Depth)
+            PlayWhen::Depth(depth)
         } else if params.mate.is_some() {
             PlayWhen::Mate(min(params.mate.unwrap(), (DEPTH_MAX + 1) as u64 / 2) as i16)
         } else {
@@ -213,7 +214,7 @@ impl<T: SearchExecutor<ReportData = Vec<Variation>>> UciEngine for Engine<T> {
         self.searcher.start_search(SearchParams {
             search_id: 0,
             position: self.position.clone(),
-            depth: DEPTH_MAX,
+            depth: depth,
             lower_bound: VALUE_MIN,
             upper_bound: VALUE_MAX,
             searchmoves: searchmoves,
