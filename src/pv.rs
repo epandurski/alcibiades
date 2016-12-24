@@ -67,11 +67,9 @@ pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N) -> Variatio
             // PV. There are 3 conditions for this:
             //
             // 1) The depth limit has not been reached yet.
-            // 2) The value is either exact or a lower bound. This
-            //    ensures that the move is either best move or a
-            //    refutation move.
+            // 2) The move is either best move or a refutation move.
             // 3) The value has not diverged from the root value.
-            if depth > 0 && bound & BOUND_LOWER != 0 &&
+            if depth > 0 && e.bound() & BOUND_LOWER != 0 &&
                match root_value {
                 v if v < VALUE_EVAL_MIN => v as isize == value as isize + moves.len() as isize,
                 v if v > VALUE_EVAL_MAX => v as isize == value as isize - moves.len() as isize,
@@ -81,7 +79,9 @@ pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N) -> Variatio
                 if let Some(m) = p.try_move_digest(e.move_digest()) {
                     if p.do_move(m) {
                         moves.push(m);
-                        if bound == BOUND_EXACT {
+
+                        // Note: we stop expanding the PV on refutation moves.
+                        if e.bound() == BOUND_EXACT {
                             our_turn = !our_turn;
                             continue 'move_extraction;
                         }
