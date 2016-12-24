@@ -1,20 +1,19 @@
+use uci::SetOption;
 use board::*;
 use search_executor::*;
 use pv::*;
 
 
-pub trait TimeManager {
+pub trait TimeManager: SetOption {
     /// Creates a new instance.
     ///
-    /// `position` gives the current position. `pondering_is_allowed`
-    /// tells if the engine is allowed to use opponent's time for
-    /// thinking. `wtime_millis`, `btime_millis`, `winc_millis`, and
-    /// `binc_millis` specify the remaining time in milliseconds, and
-    /// the number of milliseconds with which the remaining time will
-    /// be incremented on each move (for black and white). `movestogo`
-    /// specifies the number of moves to the next time control.
+    /// `position` gives the current position. `wtime_millis`,
+    /// `btime_millis`, `winc_millis`, and `binc_millis` specify the
+    /// remaining time in milliseconds, and the number of milliseconds
+    /// with which the remaining time will be incremented on each move
+    /// (for black and white). `movestogo` specifies the number of
+    /// moves to the next time control.
     fn new(to_move: Color,
-           pondering_is_allowed: bool,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,

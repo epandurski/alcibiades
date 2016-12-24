@@ -77,11 +77,6 @@ struct Engine<S, T>
 
     // Tells the engine when it must stop thinking and play the best move.
     play_when: PlayWhen<T>,
-
-    // Tells the engine if it will be allowed to ponder. This option
-    // is needed because the engine might change its time management
-    // algorithm when pondering is allowed.
-    pondering_is_allowed: bool,
 }
 
 impl<S, T> UciEngine for Engine<S, T>
@@ -104,6 +99,7 @@ impl<S, T> UciEngine for Engine<S, T>
             ("Ponder".to_string(), OptionDescription::Check { default: false }),
         ];
         options.extend(S::options());
+        options.extend(T::options());
 
         // Remove duplicated options.
         options.sort_by(|a, b| a.0.cmp(&b.0));
@@ -134,16 +130,11 @@ impl<S, T> UciEngine for Engine<S, T>
             silent_since: started_at,
             is_pondering: false,
             play_when: PlayWhen::Never,
-            pondering_is_allowed: false,
         }
     }
 
     fn set_option(&mut self, name: &str, value: &str) {
         match name {
-            "Ponder" => {
-                // TODO: Can we remove this?
-                self.pondering_is_allowed = value == "true";
-            }
             "Hash" => {
                 // We do not support re-sizing of the transposition
                 // table once the engine has been started.
@@ -155,6 +146,7 @@ impl<S, T> UciEngine for Engine<S, T>
             _ => (),
         }
         S::set_option(name, value);
+        T::set_option(name, value);
     }
 
     fn new_game(&mut self) {
@@ -210,7 +202,6 @@ impl<S, T> UciEngine for Engine<S, T>
             PlayWhen::Mate(min(params.mate.unwrap(), (DEPTH_MAX + 1) as u64 / 2) as i16)
         } else {
             PlayWhen::TimeManagement(TimeManager::new(self.position.board().to_move,
-                                                      self.pondering_is_allowed,
                                                       params.wtime,
                                                       params.btime,
                                                       params.winc,

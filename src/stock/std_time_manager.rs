@@ -1,9 +1,11 @@
+use std::sync::RwLock;
 use std::cmp::min;
 use std::time::SystemTime;
 use board::*;
 use search_executor::*;
 use pv::*;
 use time_manager::TimeManager;
+use uci::{SetOption, OptionDescription};
 
 
 /// Decides when the search must be terminated.
@@ -12,6 +14,7 @@ pub struct StdTimeManager {
     move_time_millis: u64, // move time in milliseconds
     must_play: bool,
 }
+
 
 impl TimeManager for StdTimeManager {
     /// Creates a new instance.
@@ -25,14 +28,13 @@ impl TimeManager for StdTimeManager {
     /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
     fn new(to_move: Color,
-               pondering_is_allowed: bool,
-               wtime_millis: Option<u64>,
-               btime_millis: Option<u64>,
-               winc_millis: Option<u64>,
-               binc_millis: Option<u64>,
-               movestogo: Option<u64>)
-               -> StdTimeManager {
-        // TODO: We ignore "pondering_is_allowed".
+           wtime_millis: Option<u64>,
+           btime_millis: Option<u64>,
+           winc_millis: Option<u64>,
+           binc_millis: Option<u64>,
+           movestogo: Option<u64>)
+           -> StdTimeManager {
+        // TODO: We ignore "PONDER".
 
         let (time, inc) = if to_move == WHITE {
             (wtime_millis, winc_millis.unwrap_or(0))
@@ -63,4 +65,26 @@ impl TimeManager for StdTimeManager {
     fn must_play(&self) -> bool {
         self.must_play
     }
+}
+
+
+impl SetOption for StdTimeManager {
+    fn options() -> Vec<(String, OptionDescription)> {
+        vec![("Ponder".to_string(), OptionDescription::Check { default: false })]
+    }
+
+    fn set_option(name: &str, value: &str) {
+        if name == "Ponder" {
+            match value {
+                "true" => *PONDER.write().unwrap() = true,
+                "false" => *PONDER.write().unwrap() = false,
+                _ => (),
+            }
+        }
+    }
+}
+
+
+lazy_static! {
+    static ref PONDER: RwLock<bool> = RwLock::new(false);
 }
