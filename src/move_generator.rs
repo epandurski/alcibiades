@@ -236,7 +236,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 // capturing piece's origin square is vacant.
                 if orig_square_bb & may_xray != 0 {
                     let behind = self.board().occupied &
-                                 *behind_blocker.get_unchecked(bitscan_forward(orig_square_bb));
+                                 *behind_blocker.get_unchecked(bitscan_1bit(orig_square_bb));
                     if behind & (straight_sliders | diag_sliders) != 0 {
                         attackers_and_defenders |=
                             match behind & straight_sliders &
