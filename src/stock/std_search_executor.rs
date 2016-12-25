@@ -791,8 +791,13 @@ impl<'a, T, N> Search<'a, T, N>
     /// opportunity for the search to be terminated.
     #[inline]
     fn report_progress(&mut self, new_nodes: u64) -> Result<(), TerminatedSearch> {
+        let node_count_report_interval = if cfg!(debug_assertions) {
+            NODE_COUNT_REPORT_INTERVAL / 100
+        } else {
+            NODE_COUNT_REPORT_INTERVAL
+        };
         self.unreported_nodes += new_nodes;
-        if self.unreported_nodes >= NODE_COUNT_REPORT_INTERVAL {
+        if self.unreported_nodes >= node_count_report_interval {
             self.reported_nodes += self.unreported_nodes;
             self.unreported_nodes = 0;
             if (*self.report_function)(self.reported_nodes) {
@@ -820,7 +825,7 @@ const MOVE_SCORE_MAX: u32 = ::std::u32::MAX;
 ///
 /// If this value is too small the engine may become slow, if this
 /// value is too big the engine may become unresponsive.
-const NODE_COUNT_REPORT_INTERVAL: u64 = 10000;
+const NODE_COUNT_REPORT_INTERVAL: u64 = 15000;
 
 
 /// The number of half-moves with which the search depth will be
