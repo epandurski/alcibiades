@@ -16,7 +16,9 @@ pub struct StdTimeManager {
 }
 
 
-impl TimeManager for StdTimeManager {
+impl<S> TimeManager<S> for StdTimeManager
+    where S: SearchExecutor<ReportData = Vec<Variation>>
+{
     /// Creates a new instance.
     ///
     /// `position` gives the current position. `pondering_is_allowed`

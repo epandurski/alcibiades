@@ -1,6 +1,7 @@
 //! Implements a generic UCI chess engine.
 
 use std::cmp::max;
+use std::marker::PhantomData;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::ops::Deref;
@@ -41,19 +42,22 @@ impl Default for SearchStatus {
 }
 
 
-enum PlayWhen<T: TimeManager> {
+enum PlayWhen<S, T>
+    where S: SearchExecutor<ReportData = Vec<Variation>>,
+          T: TimeManager<S>
+{
     TimeManagement(T), // Stop when the time manager says so.
     MoveTime(u64), // Stop after the given number of milliseconds.
     Nodes(u64), // Stop when the given number of nodes has been searched.
     Depth(Depth), // Stop when the given search depth has been completed.
     Mate(i16), // Stop when a mate in the given number of moves is found.
-    Never, // An infinite search.
+    Never(PhantomData<S>), // An infinite search.
 }
 
 
 struct Engine<S, T>
     where S: SearchExecutor<ReportData = Vec<Variation>>,
-          T: TimeManager
+          T: TimeManager<S>
 {
     tt: Arc<S::HashTable>,
     position: S::SearchNode,
@@ -76,12 +80,12 @@ struct Engine<S, T>
     is_pondering: bool,
 
     // Tells the engine when it must stop thinking and play the best move.
-    play_when: PlayWhen<T>,
+    play_when: PlayWhen<S, T>,
 }
 
 impl<S, T> UciEngine for Engine<S, T>
     where S: SearchExecutor<ReportData = Vec<Variation>>,
-          T: TimeManager
+          T: TimeManager<S>
 {
     fn name() -> &'static str {
         ENGINE_IDENTITY.with(|e| unsafe { (&*e.get()).name })
@@ -129,7 +133,7 @@ impl<S, T> UciEngine for Engine<S, T>
             nps_stats: (0, 0, 0),
             silent_since: started_at,
             is_pondering: false,
-            play_when: PlayWhen::Never,
+            play_when: PlayWhen::Never(PhantomData),
         }
     }
 
@@ -191,7 +195,7 @@ impl<S, T> UciEngine for Engine<S, T>
         self.silent_since = self.started_at;
         self.is_pondering = params.ponder;
         self.play_when = if params.infinite {
-            PlayWhen::Never
+            PlayWhen::Never(PhantomData)
         } else if params.movetime.is_some() {
             PlayWhen::MoveTime(params.movetime.unwrap())
         } else if params.nodes.is_some() {
@@ -250,7 +254,7 @@ impl<S, T> UciEngine for Engine<S, T>
                 PlayWhen::Nodes(n) => self.status.done || self.status.searched_nodes >= n,
                 PlayWhen::Depth(d) => self.status.done || self.status.depth >= d,
                 PlayWhen::Mate(m) => self.status.done || self.status.value > VALUE_MAX - 2 * m,
-                PlayWhen::Never => false,
+                PlayWhen::Never(_) => false,
             } {
                 self.stop();
             }
@@ -266,7 +270,7 @@ impl<S, T> UciEngine for Engine<S, T>
 
 impl<S, T> Engine<S, T>
     where S: SearchExecutor<ReportData = Vec<Variation>>,
-          T: TimeManager
+          T: TimeManager<S>
 {
     fn queue_progress_info(&mut self) {
         let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
@@ -394,7 +398,7 @@ impl<S, T> Engine<S, T>
 /// occurred.
 pub fn run<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
     where S: SearchExecutor<ReportData = Vec<Variation>>,
-          T: TimeManager
+          T: TimeManager<S>
 {
     ENGINE_IDENTITY.with(|e| unsafe {
         let e = &mut *e.get();

@@ -8,7 +8,9 @@ use pv::*;
 
 /// A trait for deciding when the search must be terminated and the
 /// best move played.
-pub trait TimeManager: SetOption {
+pub trait TimeManager<S>: SetOption
+    where S: SearchExecutor<ReportData = Vec<Variation>>
+{
     /// Creates a new instance.
     ///
     /// * `board` gives the current position.
