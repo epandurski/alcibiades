@@ -247,7 +247,9 @@ impl<S, T> UciEngine for Engine<S, T>
             // See if we must stop thinking and play.
             if is_thinking && !self.is_pondering &&
                match self.play_when {
-                PlayWhen::TimeManagement(ref tm) => self.status.done || tm.must_play(),
+                PlayWhen::TimeManagement(ref tm) => {
+                    self.status.done || tm.must_play(&self.searcher)
+                }
                 PlayWhen::MoveTime(t) => self.status.done || self.status.duration_millis >= t,
                 PlayWhen::Nodes(n) => self.status.done || self.status.searched_nodes >= n,
                 PlayWhen::Depth(d) => self.status.done || self.status.depth >= d,

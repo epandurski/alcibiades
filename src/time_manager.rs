@@ -12,12 +12,17 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
     ///
     /// * `position` gives the current position.
     ///
-    /// * `wtime_millis` and `btime_millis` specify the remaining time
-    ///   in milliseconds for white and black.
+    /// * `wtime_millis` specify the remaining time in milliseconds
+    ///   for white.
     ///
-    /// * `winc_millis` and `binc_millis` specify the number of
-    ///   milliseconds with which the remaining time will be
-    ///   incremented on each move for white and black.
+    /// * `btime_millis` specify the remaining time in milliseconds
+    ///   for black.
+    ///
+    /// * `winc_millis` specify the number of milliseconds with which
+    ///   white's remaining time is incremented on each move.
+    ///
+    /// * `binc_millis` specify the number of milliseconds with which
+    ///   black's remaining time is incremented on each move.
     ///
     /// * `movestogo` specifies the number of moves to the next time
     ///   control.
@@ -34,5 +39,5 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
 
     /// Decides whether the search must be terminated and the best
     /// move played.
-    fn must_play(&self) -> bool;
+    fn must_play(&self, search: &T) -> bool;
 }

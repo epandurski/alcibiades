@@ -64,8 +64,8 @@ impl<S> TimeManager<S> for StdTimeManager
     }
 
     /// Decides if the search must be terminated.
-    #[inline]
-    fn must_play(&self) -> bool {
+    #[allow(unused_variables)]
+    fn must_play(&self, search: &S) -> bool {
         self.must_play
     }
 }
