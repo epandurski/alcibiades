@@ -10,10 +10,7 @@ use pv::*;
 pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption {
     /// Creates a new instance.
     ///
-    /// * `board` gives the current position.
-    ///
-    /// * `halfmove_clock` specifies the number of half-moves since
-    ///   the last piece capture or pawn advance.
+    /// * `position` gives the current position.
     ///
     /// * `wtime_millis` and `btime_millis` specify the remaining time
     ///   in milliseconds for white and black.
@@ -24,8 +21,7 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
     ///
     /// * `movestogo` specifies the number of moves to the next time
     ///   control.
-    fn new(searcher: &T,
-           position: &T::SearchNode,
+    fn new(position: &T::SearchNode,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,
