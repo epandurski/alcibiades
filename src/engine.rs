@@ -204,13 +204,13 @@ impl<S, T> UciEngine for Engine<S, T>
         } else if params.mate.is_some() {
             PlayWhen::Mate(min(params.mate.unwrap(), (DEPTH_MAX + 1) as u64 / 2) as i16)
         } else {
-            PlayWhen::TimeManagement(TimeManager::new(&self.searcher,
-                                                      &self.position,
-                                                      params.wtime,
-                                                      params.btime,
-                                                      params.winc,
-                                                      params.binc,
-                                                      params.movestogo))
+            PlayWhen::TimeManagement(T::new(&self.searcher,
+                                            &self.position,
+                                            params.wtime,
+                                            params.btime,
+                                            params.winc,
+                                            params.binc,
+                                            params.movestogo))
         };
         self.searcher.start_search(SearchParams {
             search_id: 0,

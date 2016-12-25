@@ -7,9 +7,7 @@ use pv::*;
 
 /// A trait for deciding when the search must be terminated and the
 /// best move played.
-pub trait TimeManager<S>: SetOption
-    where S: SearchExecutor<ReportData = Vec<Variation>>
-{
+pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption {
     /// Creates a new instance.
     ///
     /// * `board` gives the current position.
@@ -26,8 +24,8 @@ pub trait TimeManager<S>: SetOption
     ///
     /// * `movestogo` specifies the number of moves to the next time
     ///   control.
-    fn new(searcher: &S,
-           position: &S::SearchNode,
+    fn new(searcher: &T,
+           position: &T::SearchNode,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,
