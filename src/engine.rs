@@ -392,10 +392,11 @@ impl<S, T> Engine<S, T>
 
 /// Serves UCI commands until a "quit" command is received.
 ///
-/// The current thread will block until the UCI session is closed.
+/// Returns `Error` if the handshake is unsuccessful, or an IO error
+/// has occurred.
 ///
-/// Returns `Err` if the handshake was unsuccessful, or if an IO error
-/// occurred.
+/// **Important note:** The current thread blocks until the UCI
+/// session is closed.
 pub fn run<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
     where S: SearchExecutor<ReportData = Vec<Variation>>,
           T: TimeManager<S>
