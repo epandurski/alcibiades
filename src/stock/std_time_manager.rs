@@ -30,7 +30,8 @@ impl<S> TimeManager<S> for StdTimeManager
     /// be incremented on each move (for black and white). `movestogo`
     /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
-    fn new(position: &S::SearchNode,
+    fn new(searcher: &S,
+           position: &S::SearchNode,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,

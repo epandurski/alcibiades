@@ -26,7 +26,8 @@ pub trait TimeManager<S>: SetOption
     ///
     /// * `movestogo` specifies the number of moves to the next time
     ///   control.
-    fn new(position: &S::SearchNode,
+    fn new(searcher: &S,
+           position: &S::SearchNode,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,
