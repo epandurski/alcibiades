@@ -1,13 +1,11 @@
 //! Implements a generic UCI chess engine.
 
-use std::cmp::max;
 use std::marker::PhantomData;
-use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, Duration};
-use std::cmp::min;
+use std::cmp::{min, max};
 use std::io;
 use uci::*;
 use value::*;
@@ -88,11 +86,11 @@ impl<S, T> UciEngine for Engine<S, T>
           T: TimeManager<S>
 {
     fn name() -> &'static str {
-        ENGINE_IDENTITY.with(|e| unsafe { (&*e.get()).name })
+        ENGINE.lock().unwrap().as_ref().unwrap().name
     }
 
     fn author() -> &'static str {
-        ENGINE_IDENTITY.with(|e| unsafe { (&*e.get()).author })
+        ENGINE.lock().unwrap().as_ref().unwrap().author
     }
 
     fn options() -> Vec<(String, OptionDescription)> {
@@ -402,24 +400,29 @@ pub fn run<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
     where S: SearchExecutor<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
-    ENGINE_IDENTITY.with(|e| unsafe {
-        let e = &mut *e.get();
-        e.name = name;
-        e.author = author;
-    });
-    run_engine::<Engine<S, T>>()
+    // Obtain the lock.
+    {
+        let mut engine = ENGINE.lock().unwrap();
+        assert!(engine.is_none(), "two engines can not run in parallel");
+        *engine = Some(EngineIdentity {
+            name: name,
+            author: author,
+        });
+    }
+
+    // Run the engine.
+    let result = run_engine::<Engine<S, T>>();
+
+    // Release the lock.
+    *ENGINE.lock().unwrap() = None;
+    result
 }
-
-
-// Since `run_server` blocks the current thread, it can safely pass
-// engine's name and author as thread-local statics. (This time,
-// simplicity beats beauty.)
-thread_local!(
-    static ENGINE_IDENTITY: UnsafeCell<EngineIdentity> =
-        UnsafeCell::new(EngineIdentity { name: "", author: ""})
-);
 
 struct EngineIdentity {
     name: &'static str,
     author: &'static str,
+}
+
+lazy_static! {
+    static ref ENGINE: Mutex<Option<EngineIdentity>> = Mutex::new(None);
 }
