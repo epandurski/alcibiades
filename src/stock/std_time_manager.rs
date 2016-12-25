@@ -20,15 +20,6 @@ pub struct StdTimeManager {
 impl<S> TimeManager<S> for StdTimeManager
     where S: SearchExecutor<ReportData = Vec<Variation>>
 {
-    /// Creates a new instance.
-    ///
-    /// `position` gives the current position. `pondering_is_allowed`
-    /// tells if the engine is allowed to use opponent's time for
-    /// thinking. `wtime_millis`, `btime_millis`, `winc_millis`, and
-    /// `binc_millis` specify the remaining time in milliseconds, and
-    /// the number of milliseconds with which the remaining time will
-    /// be incremented on each move (for black and white). `movestogo`
-    /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
     fn new(position: &S::SearchNode,
            wtime_millis: Option<u64>,
@@ -54,7 +45,6 @@ impl<S> TimeManager<S> for StdTimeManager
         }
     }
 
-    /// Registers the current search status with the time manager.
     #[allow(unused_variables)]
     fn update(&mut self, report: &SearchReport<Vec<Variation>>) {
         // TODO: Implement smarter time management.
@@ -63,7 +53,6 @@ impl<S> TimeManager<S> for StdTimeManager
         self.must_play = duration_millis >= self.move_time_millis;
     }
 
-    /// Decides if the search must be terminated.
     #[allow(unused_variables)]
     fn must_play(&self, search: &S) -> bool {
         self.must_play
