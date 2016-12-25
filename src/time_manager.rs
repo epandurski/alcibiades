@@ -5,6 +5,27 @@ use search_executor::*;
 use pv::*;
 
 
+/// Describes the remaining time on the clocks.
+pub struct RemainingTime {
+    /// The remaining time in milliseconds for white.
+    pub white_millis: u64,
+
+    /// The remaining time in milliseconds for black.
+    pub black_millis: u64,
+
+    /// The number of milliseconds with which white's remaining time
+    /// is incremented on each move.
+    pub winc_millis: u64,
+
+    /// The number of milliseconds with which black's remaining time
+    /// is incremented on each move.
+    pub binc_millis: u64,
+
+    /// The number of moves to the next time control.
+    pub movestogo: Option<u64>,
+}
+
+
 /// A trait for deciding when the search must be terminated and the
 /// best move played.
 pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption {
@@ -12,27 +33,8 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
     ///
     /// * `position` gives the current position.
     ///
-    /// * `wtime_millis` specify the remaining time in milliseconds
-    ///   for white.
-    ///
-    /// * `btime_millis` specify the remaining time in milliseconds
-    ///   for black.
-    ///
-    /// * `winc_millis` specify the number of milliseconds with which
-    ///   white's remaining time is incremented on each move.
-    ///
-    /// * `binc_millis` specify the number of milliseconds with which
-    ///   black's remaining time is incremented on each move.
-    ///
-    /// * `movestogo` specifies the number of moves to the next time
-    ///   control.
-    fn new(position: &T::SearchNode,
-           wtime_millis: Option<u64>,
-           btime_millis: Option<u64>,
-           winc_millis: Option<u64>,
-           binc_millis: Option<u64>,
-           movestogo: Option<u64>)
-           -> Self;
+    /// * `time` gives the remaining time on the clocks.
+    fn new(position: &T::SearchNode, time: RemainingTime) -> Self;
 
     /// Registers a new search report with the time manager.
     fn update(&mut self, report: &SearchReport<Vec<Variation>>);

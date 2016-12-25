@@ -5,7 +5,7 @@ use board::*;
 use search_executor::*;
 use pv::*;
 use search_node::SearchNode;
-use time_manager::TimeManager;
+use time_manager::{TimeManager, RemainingTime};
 use uci::{SetOption, OptionDescription};
 
 
@@ -21,26 +21,19 @@ impl<S> TimeManager<S> for StdTimeManager
     where S: SearchExecutor<ReportData = Vec<Variation>>
 {
     #[allow(unused_variables)]
-    fn new(position: &S::SearchNode,
-           wtime_millis: Option<u64>,
-           btime_millis: Option<u64>,
-           winc_millis: Option<u64>,
-           binc_millis: Option<u64>,
-           movestogo: Option<u64>)
-           -> StdTimeManager {
+    fn new(position: &S::SearchNode, time: RemainingTime) -> StdTimeManager {
         // TODO: We ignore "PONDER".
 
-        let (time, inc) = if position.board().to_move == WHITE {
-            (wtime_millis, winc_millis.unwrap_or(0))
+        let (t, inc) = if position.board().to_move == WHITE {
+            (time.white_millis, time.winc_millis)
         } else {
-            (btime_millis, binc_millis.unwrap_or(0))
+            (time.black_millis, time.binc_millis)
         };
-        let time = time.unwrap_or(0);
-        let movestogo = movestogo.unwrap_or(40);
-        let movetime = (time + inc * movestogo) / movestogo;
+        let movestogo = time.movestogo.unwrap_or(40);
+        let movetime = (t + inc * movestogo) / movestogo;
         StdTimeManager {
             started_at: SystemTime::now(),
-            move_time_millis: min(movetime, time / 2),
+            move_time_millis: min(movetime, t / 2),
             must_play: false,
         }
     }

@@ -15,7 +15,7 @@ use depth::*;
 use hash_table::*;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
-use time_manager::TimeManager;
+use time_manager::{TimeManager, RemainingTime};
 use pv::{Variation, extract_pv};
 
 
@@ -205,11 +205,13 @@ impl<S, T> UciEngine for Engine<S, T>
             PlayWhen::Mate(min(params.mate.unwrap(), (DEPTH_MAX + 1) as u64 / 2) as i16)
         } else {
             PlayWhen::TimeManagement(T::new(&self.position,
-                                            params.wtime,
-                                            params.btime,
-                                            params.winc,
-                                            params.binc,
-                                            params.movestogo))
+                                            RemainingTime {
+                                                white_millis: params.wtime.unwrap_or(300_000),
+                                                black_millis: params.btime.unwrap_or(300_000),
+                                                winc_millis: params.winc.unwrap_or(0),
+                                                binc_millis: params.binc.unwrap_or(0),
+                                                movestogo: params.movestogo,
+                                            }))
         };
         self.searcher.start_search(SearchParams {
             search_id: 0,
