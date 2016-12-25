@@ -64,12 +64,11 @@ pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N) -> Variatio
             }
 
             // Consider adding current entry's hash move to the
-            // PV. There are 3 conditions for this:
+            // PV. There are 2 conditions for this:
             //
             // 1) The depth limit has not been reached yet.
-            // 2) The move is either best move or a refutation move.
-            // 3) The value has not diverged from the root value.
-            if depth > 0 && e.bound() & BOUND_LOWER != 0 &&
+            // 2) The value has not diverged from the root value.
+            if depth > 0 &&
                match root_value {
                 v if v < VALUE_EVAL_MIN => v as isize == value as isize + moves.len() as isize,
                 v if v > VALUE_EVAL_MAX => v as isize == value as isize - moves.len() as isize,
