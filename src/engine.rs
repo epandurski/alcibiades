@@ -100,7 +100,6 @@ impl<S, T> UciEngine for Engine<S, T>
         let mut options = vec![
             ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 64 * 1024, default: 16 }),
             ("Clear Hash".to_string(), OptionDescription::Button),
-            ("Ponder".to_string(), OptionDescription::Check { default: false }),
         ];
         options.extend(S::options());
         options.extend(T::options());
