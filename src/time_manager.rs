@@ -1,7 +1,6 @@
 //! Defines the `TimeManager` trait.
 
 use uci::SetOption;
-use board::*;
 use search_executor::*;
 use pv::*;
 
@@ -27,8 +26,7 @@ pub trait TimeManager<S>: SetOption
     ///
     /// * `movestogo` specifies the number of moves to the next time
     ///   control.
-    fn new(board: &Board,
-           halfmove_clock: u8,
+    fn new(position: &S::SearchNode,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,

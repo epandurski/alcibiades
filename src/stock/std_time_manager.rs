@@ -4,6 +4,7 @@ use std::time::SystemTime;
 use board::*;
 use search_executor::*;
 use pv::*;
+use search_node::SearchNode;
 use time_manager::TimeManager;
 use uci::{SetOption, OptionDescription};
 
@@ -29,8 +30,7 @@ impl<S> TimeManager<S> for StdTimeManager
     /// be incremented on each move (for black and white). `movestogo`
     /// specifies the number of moves to the next time control.
     #[allow(unused_variables)]
-    fn new(board: &Board,
-           halfmove_clock: u8,
+    fn new(position: &S::SearchNode,
            wtime_millis: Option<u64>,
            btime_millis: Option<u64>,
            winc_millis: Option<u64>,
@@ -39,7 +39,7 @@ impl<S> TimeManager<S> for StdTimeManager
            -> StdTimeManager {
         // TODO: We ignore "PONDER".
 
-        let (time, inc) = if board.to_move == WHITE {
+        let (time, inc) = if position.board().to_move == WHITE {
             (wtime_millis, winc_millis.unwrap_or(0))
         } else {
             (btime_millis, binc_millis.unwrap_or(0))
