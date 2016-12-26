@@ -20,8 +20,8 @@ pub struct StdMoveGenerator<T: Evaluator> {
     board: Board,
     evaluator: T,
 
-    /// Lazily calculated bitboard of all checkers --
-    /// `BB_UNIVERSAL_SET` if not calculated yet.
+    /// Lazily calculated bitboard of all checkers -- `BB_ALL` if not
+    /// calculated yet.
     checkers: Cell<Bitboard>,
 }
 
@@ -35,7 +35,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             zobrist: ZobristArrays::get(),
             board: board,
             evaluator: unsafe { uninitialized() },
-            checkers: Cell::new(BB_UNIVERSAL_SET),
+            checkers: Cell::new(BB_ALL),
         };
         if g.is_legal() {
             g.evaluator = T::new(g.board());
@@ -90,7 +90,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
     #[inline]
     fn checkers(&self) -> Bitboard {
-        if self.checkers.get() == BB_UNIVERSAL_SET {
+        if self.checkers.get() == BB_ALL {
             self.checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
         }
         self.checkers.get()
@@ -121,7 +121,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             0 =>
                 // Not in check -- every move destination may be
                 // considered "covering".
-                BB_UNIVERSAL_SET,
+                BB_ALL,
             x if x == checkers =>
                 // Single check -- calculate the check covering
                 // destination subset (the squares between the king
@@ -374,7 +374,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         if piece != KING {
             // Verify if the king is in check.
             pseudo_legal_dests &= match lsb(checkers) {
-                0 => BB_UNIVERSAL_SET,
+                0 => BB_ALL,
                 x if x == checkers => {
                     x |
                     unsafe {
@@ -608,7 +608,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
         // Update the auxiliary fields.
         self.board.occupied = self.board.pieces.color[WHITE] | self.board.pieces.color[BLACK];
-        self.checkers.set(BB_UNIVERSAL_SET);
+        self.checkers.set(BB_ALL);
 
         // Tell the evaluator that a move was played.
         self.evaluator.done_move(&self.board, m);
@@ -683,7 +683,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
         // Update the auxiliary fields.
         self.board.occupied = self.board.pieces.color[WHITE] | self.board.pieces.color[BLACK];
-        self.checkers.set(BB_UNIVERSAL_SET);
+        self.checkers.set(BB_ALL);
 
         // Tell the evaluator that a move was taken back.
         self.evaluator.undone_move(&self.board, m);
@@ -740,9 +740,9 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             if acc & x == 0 {
                 acc | x
             } else {
-                BB_UNIVERSAL_SET
+                BB_ALL
             }
-        });  // `occupied` becomes `BB_UNIVERSAL_SET` if `self.pieces.piece_type` is messed up.
+        });  // `occupied` becomes `BB_ALL` if `self.pieces.piece_type` is messed up.
 
         let them = 1 ^ us;
         let o_us = self.board.pieces.color[us];
@@ -751,10 +751,10 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         let their_king_bb = self.board.pieces.piece_type[KING] & o_them;
         let pawns = self.board.pieces.piece_type[PAWN];
 
-        occupied != BB_UNIVERSAL_SET && occupied == o_us | o_them && o_us & o_them == 0 &&
+        occupied != BB_ALL && occupied == o_us | o_them && o_us & o_them == 0 &&
         pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
-        pop_count(pawns & o_us) <= 8 &&
-        pop_count(pawns & o_them) <= 8 && pop_count(o_us) <= 16 &&
+        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
+        pop_count(o_us) <= 16 &&
         pop_count(o_them) <= 16 && self.attacks_to(us, bsf(their_king_bb)) == 0 &&
         pawns & BB_PAWN_PROMOTION_RANKS == 0 &&
         (!self.board.castling_rights.can_castle(WHITE, QUEENSIDE) ||
@@ -795,7 +795,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         }) &&
         {
             assert_eq!(self.board.occupied, occupied);
-            assert!(self.checkers.get() == BB_UNIVERSAL_SET ||
+            assert!(self.checkers.get() == BB_ALL ||
                     self.checkers.get() == self.attacks_to(them, bsf(our_king_bb)));
             true
         }
@@ -981,7 +981,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     #[inline]
     fn king_square_and_checkers(&self) -> (Square, Bitboard) {
         let king_square = self.king_square();
-        if self.checkers.get() == BB_UNIVERSAL_SET {
+        if self.checkers.get() == BB_ALL {
             self.checkers.set(self.attacks_to(1 ^ self.board.to_move, king_square));
         }
         (king_square, self.checkers.get())
@@ -1142,14 +1142,11 @@ fn calc_pawn_dest_sets(us: Color,
     debug_assert!(occupied_by_us & occupied_by_them == 0);
     debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) & !occupied_by_them ==
                   0);
-    const NOT_CAPTURING: [Bitboard; 4] = [BB_UNIVERSAL_SET, // push
-                                          BB_UNIVERSAL_SET, // double push
-                                          0, // west capture
-                                          0]; // east capture
-    const PROPER_ORIGIN: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
-                                          BB_RANK_2 | BB_RANK_7,
-                                          !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
-                                          !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
+    const NOT_CAPTURING: [Bitboard; 4] = [BB_ALL, BB_ALL, 0, 0];
+    const PROPER_ORIGIN: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8), // push
+                                          BB_RANK_2 | BB_RANK_7, // double push
+                                          !(BB_FILE_A | BB_RANK_1 | BB_RANK_8), // west capture
+                                          !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)]; // east capture
     let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
     let capture_targets = occupied_by_them | enpassant_bb;
     for i in 0..4 {

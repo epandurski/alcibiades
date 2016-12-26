@@ -6,10 +6,10 @@ use board::{Square, Bitboard};
 
 
 /// Empty set of squares.
-pub const BB_EMPTY_SET: Bitboard = 0;
+pub const BB_NONE: Bitboard = 0;
 
 /// The set of all 64 squares on the board.
-pub const BB_UNIVERSAL_SET: Bitboard = 0xffffffffffffffff;
+pub const BB_ALL: Bitboard = 0xffffffffffffffff;
 
 /// The squares on rank 1.
 pub const BB_RANK_1: Bitboard = 0b11111111;
