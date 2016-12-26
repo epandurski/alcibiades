@@ -119,8 +119,8 @@ impl BoardGeometry {
         // Fill `bg.squares_behind_blocker`.
         for a in 0..64 {
             for b in 0..64 {
-                let queen_attacks_from_a = calc_rook_attacks(a, 1 << a | 1 << b) |
-                                           calc_bishop_attacks(a, 1 << a | 1 << b);
+                let queen_attacks_from_a = bb_rook_attacks(a, 1 << a | 1 << b) |
+                                           bb_bishop_attacks(a, 1 << a | 1 << b);
                 bg.squares_behind_blocker[a][b] = bg.squares_at_line[a][b] & !(1 << a) &
                                                   !queen_attacks_from_a;
             }
@@ -384,9 +384,9 @@ unsafe fn init_slider_map(piece: PieceType,
 
     for (sq, entry) in piece_map.iter_mut().enumerate() {
         let attacks: fn(Square, Bitboard) -> Bitboard = if piece == BISHOP {
-            calc_bishop_attacks
+            bb_bishop_attacks
         } else {
-            calc_rook_attacks
+            bb_rook_attacks
         };
         let edges = ((BB_RANK_1 | BB_RANK_8) & !bb_rank(sq)) |
                     ((BB_FILE_A | BB_FILE_H) & !bb_file(sq));
@@ -600,7 +600,7 @@ mod tests {
     use super::*;
     use board::*;
     use squares::*;
-    use utils::bitsets::{calc_bishop_attacks, calc_rook_attacks, pop_count};
+    use utils::bitsets::{bb_bishop_attacks, bb_rook_attacks, pop_count};
 
     #[test]
     fn test_board_geometry() {
@@ -651,8 +651,8 @@ mod tests {
             assert_eq!(king_attacks, g.attacks_from(KING, square, 0));
             assert_eq!(kinght_attacks, g.attacks_from(KNIGHT, square, 0));
             assert_eq!(bishop_attacks | rook_attacks, queen_attacks);
-            assert_eq!(bishop_attacks, calc_bishop_attacks(square, occupied));
-            assert_eq!(rook_attacks, calc_rook_attacks(square, occupied));
+            assert_eq!(bishop_attacks, bb_bishop_attacks(square, occupied));
+            assert_eq!(rook_attacks, bb_rook_attacks(square, occupied));
         }
     }
 }

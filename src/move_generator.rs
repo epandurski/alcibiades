@@ -229,7 +229,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 // Consider adding new attackers/defenders, now that
                 // capturing piece's origin square is vacant.
                 let behind = self.board().occupied &
-                             *behind_blocker.get_unchecked(bitscan_1bit(orig_square_bb));
+                             *behind_blocker.get_unchecked(bsf(orig_square_bb));
                 if behind & (straight_sliders | diag_sliders) != 0 {
                     attackers_and_defenders |=
                         match behind & straight_sliders &
@@ -258,7 +258,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                         if bb != 0 {
                             depth += 1;
                             piece = p;
-                            orig_square_bb = ls1b(bb);
+                            orig_square_bb = lsb(bb);
                             continue 'exchange;
                         }
                     }

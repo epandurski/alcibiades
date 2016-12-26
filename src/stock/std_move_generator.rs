@@ -51,7 +51,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             for piece in 0..6 {
                 let mut bb = self.board.pieces.color[color] & self.board.pieces.piece_type[piece];
                 while bb != 0 {
-                    let square = bitscan_forward_and_reset(&mut bb);
+                    let square = bsf_reset(&mut bb);
                     hash ^= self.zobrist.pieces[color][piece][square];
                 }
             }
@@ -117,7 +117,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         let (king_square, checkers) = self.king_square_and_checkers();
         let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
         let legal_dests = !occupied_by_us &
-                          match ls1b(checkers) {
+                          match lsb(checkers) {
             0 =>
                 // Not in check -- every move destination may be
                 // considered "covering".
@@ -133,7 +133,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                     *self.geometry
                          .squares_between_including
                          .get_unchecked(king_square)
-                         .get_unchecked(bitscan_1bit(x))
+                         .get_unchecked(bsf(x))
                 },
             _ =>
                 // Double check -- no covering moves.
@@ -147,7 +147,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             for piece in QUEEN..PAWN {
                 let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
                 while bb != 0 {
-                    let orig_square = bitscan_forward_and_reset(&mut bb);
+                    let orig_square = bsf_reset(&mut bb);
                     let piece_legal_dests = if 1 << orig_square & pinned == 0 {
                         legal_dests
                     } else {
@@ -182,7 +182,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 // the set of legal destination for each pinned pawn
                 // to the squares on the line of the pin.
                 while pinned_pawns != 0 {
-                    let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
+                    let pawn_square = bsf_reset(&mut pinned_pawns);
                     let pawn_legal_dests = pawn_legal_dests &
                                            self.geometry.squares_at_line[king_square][pawn_square];
                     self.add_pawn_moves(1 << pawn_square, pawn_legal_dests, false, moves);
@@ -232,8 +232,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
         // Generate queen, rook, bishop, and knight moves.
         if generate_checks {
-            let their_king_square = bitscan_1bit(self.board.pieces.piece_type[KING] &
-                                                 occupied_by_them);
+            let their_king_square = bsf(self.board.pieces.piece_type[KING] & occupied_by_them);
             unsafe {
                 pawn_dests = occupied_by_them | enpassant_bb | BB_PAWN_PROMOTION_RANKS |
                              *self.geometry
@@ -243,7 +242,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 for piece in QUEEN..PAWN {
                     let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
                     while bb != 0 {
-                        let orig_square = bitscan_forward_and_reset(&mut bb);
+                        let orig_square = bsf_reset(&mut bb);
                         let checking_squares = !occupied_by_us &
                                                self.geometry
                                                    .attacks_from_unsafe(piece,
@@ -262,7 +261,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             for piece in QUEEN..PAWN {
                 let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
                 while bb != 0 {
-                    let orig_square = bitscan_forward_and_reset(&mut bb);
+                    let orig_square = bsf_reset(&mut bb);
                     let mut dests = occupied_by_them;
                     if 1 << orig_square & pinned != 0 {
                         dests &= self.geometry.squares_at_line[king_square][orig_square];
@@ -281,7 +280,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 self.add_pawn_moves(free_pawns, pawn_dests, true, moves);
             }
             while pinned_pawns != 0 {
-                let pawn_square = bitscan_forward_and_reset(&mut pinned_pawns);
+                let pawn_square = bsf_reset(&mut pinned_pawns);
                 let pawn_dests = pawn_dests &
                                  self.geometry.squares_at_line[king_square][pawn_square];
                 self.add_pawn_moves(1 << pawn_square, pawn_dests, true, moves);
@@ -374,7 +373,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
         if piece != KING {
             // Verify if the king is in check.
-            pseudo_legal_dests &= match ls1b(checkers) {
+            pseudo_legal_dests &= match lsb(checkers) {
                 0 => BB_UNIVERSAL_SET,
                 x if x == checkers => {
                     x |
@@ -382,7 +381,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                         *self.geometry
                              .squares_between_including
                              .get_unchecked(king_square)
-                             .get_unchecked(bitscan_1bit(x))
+                             .get_unchecked(bsf(x))
                     }
                 }
                 _ => {
@@ -756,8 +755,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
         pop_count(pawns & o_us) <= 8 &&
         pop_count(pawns & o_them) <= 8 && pop_count(o_us) <= 16 &&
-        pop_count(o_them) <= 16 &&
-        self.attacks_to(us, bitscan_forward(their_king_bb)) == 0 &&
+        pop_count(o_them) <= 16 && self.attacks_to(us, bsf(their_king_bb)) == 0 &&
         pawns & BB_PAWN_PROMOTION_RANKS == 0 &&
         (!self.board.castling_rights.can_castle(WHITE, QUEENSIDE) ||
          (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[WHITE] & 1 << A1 != 0) &&
@@ -776,7 +774,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
             let dest_square_bb = gen_shift(enpassant_bb, shifts[PAWN_PUSH]);
             let orig_square_bb = gen_shift(enpassant_bb, -shifts[PAWN_PUSH]);
-            let our_king_square = bitscan_forward(our_king_bb);
+            let our_king_square = bsf(our_king_bb);
             (dest_square_bb & pawns & o_them != 0) && (enpassant_bb & !occupied != 0) &&
             (orig_square_bb & !occupied != 0) &&
             {
@@ -798,7 +796,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         {
             assert_eq!(self.board.occupied, occupied);
             assert!(self.checkers.get() == BB_UNIVERSAL_SET ||
-                    self.checkers.get() == self.attacks_to(them, bitscan_1bit(our_king_bb)));
+                    self.checkers.get() == self.attacks_to(them, bsf(our_king_bb)));
             true
         }
     }
@@ -823,7 +821,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
                 .attacks_from_unsafe(piece, orig_square, self.board.occupied)
         };
         while piece_legal_dests != 0 {
-            let dest_square = bitscan_forward_and_reset(&mut piece_legal_dests);
+            let dest_square = bsf_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
             moves.add_move(Move::new(MOVE_NORMAL,
                                      orig_square,
@@ -871,7 +869,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             // (en-passant capture, pawn promotion, normal move), and
             // push the move to `moves`.
             while pawn_legal_dests != 0 {
-                let dest_square = bitscan_forward_and_reset(&mut pawn_legal_dests);
+                let dest_square = bsf_reset(&mut pawn_legal_dests);
                 let orig_square = (dest_square as isize - shifts[i]) as Square;
                 let captured_piece = self.get_piece_type_at(dest_square);
                 match 1 << dest_square {
@@ -958,9 +956,9 @@ impl<T: Evaluator> StdMoveGenerator<T> {
                                                                 .squares_between_including
                                                                 .get_unchecked(king_square);
                 while pinners != 0 {
-                    let pinner_square = bitscan_forward_and_reset(&mut pinners);
+                    let pinner_square = bsf_reset(&mut pinners);
                     let bb = defenders & *between_our_king_and.get_unchecked(pinner_square);
-                    if ls1b(bb) == bb {
+                    if lsb(bb) == bb {
                         pinned |= bb;
                     }
                 }
@@ -973,8 +971,8 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     /// side to move occupies.
     #[inline(always)]
     fn king_square(&self) -> Square {
-        bitscan_1bit(self.board.pieces.piece_type[KING] &
-                     unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) })
+        bsf(self.board.pieces.piece_type[KING] &
+            unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) })
     }
 
     /// A helper method. It returns the square that the king of the
