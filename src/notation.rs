@@ -211,7 +211,7 @@ fn parse_fen_enpassant_square(s: &str) -> Result<Option<Square>, IllegalBoard> {
 
 #[cfg(test)]
 mod tests {
-    use notation::*;
+    use super::*;
 
     #[test]
     fn test_parse_fen() {
@@ -233,5 +233,9 @@ mod tests {
         assert!(parse_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b kq - 0 1").is_ok());
         assert!(parse_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
         assert!(parse_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1").is_ok());
+        assert!(parse_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
+        assert!(parse_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
+        assert!(parse_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_ok());
+        assert!(parse_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
     }
 }

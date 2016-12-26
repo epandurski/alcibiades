@@ -262,7 +262,7 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
-    use board::*;
+    use super::*;
     use squares::*;
 
     #[test]

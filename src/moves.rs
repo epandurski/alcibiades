@@ -376,7 +376,7 @@ fn notation(square: Square) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use moves::*;
+    use super::*;
     use board::*;
     use squares::*;
 

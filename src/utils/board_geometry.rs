@@ -600,12 +600,15 @@ mod tests {
     use super::*;
     use board::*;
     use squares::*;
+    use utils::bitsets::{calc_bishop_attacks, calc_rook_attacks, pop_count};
 
     #[test]
-    fn test_line_sets() {
+    fn test_board_geometry() {
         let g = BoardGeometry::new();
+        assert_eq!(g.squares_at_line[B1][C3], 0);
         assert_eq!(g.squares_at_line[B1][G1], 0b11111111);
         assert_eq!(g.squares_at_line[G8][B8], 0b11111111 << 56);
+        assert_eq!(g.squares_between_including[B1][C3], 0);
         assert_eq!(g.squares_between_including[B1][G1], 0b01111110);
         assert_eq!(g.squares_between_including[G8][B8], 0b01111110 << 56);
         assert_eq!(g.squares_behind_blocker[B1][G1], 1 << H1);
@@ -622,14 +625,34 @@ mod tests {
 
     #[test]
     fn test_attacks_from() {
+        use rand::{Rng, thread_rng};
+        let mut rng = thread_rng();
         let g = BoardGeometry::new();
         for piece in KING..PAWN {
             for square in 0..64 {
-                assert_eq!(g.attacks_from(piece, square, 0),
-                           g.attacks_from(piece, square, 1 << square));
-                assert_eq!(g.attacks_from(piece, square, 1 << D4),
-                           g.attacks_from(piece, square, 1 << D4 | 1 << square));
+                let occupied = rng.gen::<u64>();
+                assert_eq!(g.attacks_from(piece, square, occupied & !(1 << square)),
+                           g.attacks_from(piece, square, occupied | (1 << square)));
             }
+        }
+        for square in 0..64 {
+            let occupied = rng.gen::<u64>();
+            let bishop_attacks = g.attacks_from(BISHOP, square, occupied);
+            let rook_attacks = g.attacks_from(ROOK, square, occupied);
+            let queen_attacks = g.attacks_from(QUEEN, square, occupied);
+            let king_attacks = g.attacks_from(KING, square, occupied);
+            let kinght_attacks = g.attacks_from(KNIGHT, square, occupied);
+            assert!(pop_count(king_attacks) >= 3);
+            assert!(pop_count(king_attacks) <= 8);
+            assert!(pop_count(kinght_attacks) >= 2);
+            assert!(pop_count(kinght_attacks) <= 8);
+            assert_eq!(kinght_attacks & queen_attacks, 0);
+            assert_eq!(king_attacks & queen_attacks, king_attacks);
+            assert_eq!(king_attacks, g.attacks_from(KING, square, 0));
+            assert_eq!(kinght_attacks, g.attacks_from(KNIGHT, square, 0));
+            assert_eq!(bishop_attacks | rook_attacks, queen_attacks);
+            assert_eq!(bishop_attacks, calc_bishop_attacks(square, occupied));
+            assert_eq!(rook_attacks, calc_rook_attacks(square, occupied));
         }
     }
 }

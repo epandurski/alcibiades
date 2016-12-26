@@ -194,34 +194,51 @@ mod tests {
     use board::*;
     use squares::*;
     use moves::*;
-    const NO_ENPASSANT_FILE: usize = 8;
 
     #[test]
     fn test_move_stack() {
-        let m = Move::new(MOVE_NORMAL,
-                          E2,
-                          E4,
-                          0,
-                          PIECE_NONE,
-                          PAWN,
-                          CastlingRights::new(0),
-                          NO_ENPASSANT_FILE,
-                          0);
+        let cr = CastlingRights::new(0);
+        let m = Move::new(MOVE_NORMAL, E2, E4, 0, PIECE_NONE, PAWN, cr, 8, 0);
         let mut s = MoveStack::new();
+        assert_eq!(s.ply(), 0);
         assert!(s.remove_best().is_none());
         s.save();
+        assert_eq!(s.ply(), 1);
         s.push(m);
         assert_eq!(s.remove_best().unwrap(), m);
         assert!(s.remove_best().is_none());
         s.restore();
         assert!(s.remove_best().is_none());
+        assert_eq!(s.len(), 0);
+        assert!(s.pop().is_none());
+        assert!(s.remove(m.digest()).is_none());
         s.push(m);
         s.push(m);
+        assert_eq!(s.len(), 2);
+        assert_eq!(s.pop().unwrap(), m);
+        assert_eq!(s.len(), 1);
+        s.push(m);
+        assert_eq!(s.remove(m.digest()).unwrap(), m);
+        assert_eq!(s.len(), 1);
+        s.push(m);
+        assert_eq!(s.iter().count(), 2);
         s.save();
         s.push(m);
         s.restore();
         assert_eq!(s.remove_best().unwrap(), m);
         assert_eq!(s.remove_best().unwrap(), m);
         assert!(s.remove_best().is_none());
+        assert_eq!(s.ply(), 0);
+        s.push(m);
+        s.clear();
+        assert_eq!(s.ply(), 0);
+        assert_eq!(s.len(), 0);
+        s.save();
+        s.save();
+        s.push(m);
+        assert_eq!(s.ply(), 2);
+        s.clear_all();
+        assert_eq!(s.ply(), 0);
+        assert_eq!(s.len(), 0);
     }
 }

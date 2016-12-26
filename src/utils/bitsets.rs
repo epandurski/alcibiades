@@ -378,7 +378,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ls1b_functions() {
+    fn test_ls1b() {
         assert_eq!(ls1b(0x100100), 0x100);
         assert_eq!(ls1b(0x8000000000000000), 0x8000000000000000);
         assert_eq!(ls1b(0xf800000000000000), 0x0800000000000000);
