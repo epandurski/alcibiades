@@ -223,71 +223,65 @@ mod tests {
     use board::*;
     use value::*;
     use move_generator::*;
-    use stock::{MaterialEvaluator, StdMoveGenerator};
+    use stock::{SimpleEvaluator, StdMoveGenerator};
     use utils::MoveStack;
 
-    type Pos = StdMoveGenerator<MaterialEvaluator>;
+    type Pos = StdMoveGenerator<SimpleEvaluator>;
 
     #[test]
     fn test_qsearch() {
         use super::qsearch;
+        let d = 32;
         let mut s = MoveStack::new();
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+        assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   225);
+        assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) > 225 - d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+        assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   -100);
+        assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -100 + d);
 
         let mut p = Pos::from_board(Board::from_fen("r1bqkbnr/pppp2pp/2n2p2/4p3/2N1P2B/3P1N2/PPP\
                                                      2PPP/R2QKB1R w - - 5 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+        assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
         let mut p = Pos::from_board(Board::from_fen("r1bqkbnr/pppp2pp/2n2p2/4N3/4P2B/3P1N2/PPP2P\
                                                      PP/R2QKB1R b - - 5 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   -100);
+        assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -100 + d);
 
         let mut p = Pos::from_board(Board::from_fen("rn2kbnr/ppppqppp/8/4p3/2N1P1b1/3P1N2/PPP2PP\
                                                      P/R1BKQB1R w - - 5 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert_eq!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0),
-                   0);
+        assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1")
                                         .ok()
                                         .unwrap())
                         .unwrap();
-        assert!(qsearch(&mut p, -10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000);
+        assert!(qsearch(&mut p, -10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000 + d);
     }
 }

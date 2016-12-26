@@ -432,9 +432,9 @@ mod tests {
     use search_node::*;
     use evaluator::*;
     use qsearch::*;
-    use stock::{StdSearchNode, StdQsearch, StdMoveGenerator, MaterialEvaluator};
+    use stock::{StdSearchNode, StdQsearch, StdMoveGenerator, SimpleEvaluator};
 
-    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<MaterialEvaluator>>>;
+    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 
     #[test]
     fn test_fen_parsing() {

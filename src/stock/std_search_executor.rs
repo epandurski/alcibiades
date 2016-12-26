@@ -999,10 +999,10 @@ mod tests {
     use search_node::*;
     use moves::*;
     use hash_table::*;
-    use stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, RandomEvaluator};
+    use stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, SimpleEvaluator};
     use utils::MoveStack;
 
-    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
+    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 
     #[test]
     fn test_search() {

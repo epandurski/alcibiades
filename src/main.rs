@@ -6,7 +6,7 @@ pub use alcibiades::*;
 pub use alcibiades::stock::*;
 
 fn main() {
-    type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<RandomEvaluator>>>;
+    type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
     type SearchExecutor = Deepening<StdSearchExecutor<StdHashTable, SearchNode>>;
     exit(match engine::run::<SearchExecutor, StdTimeManager>("Alcibiades 0.2",
                                                              "Evgeni Pandurski") {
