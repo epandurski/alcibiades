@@ -461,6 +461,52 @@ unsafe fn init_slider_map(piece: PieceType,
 }
 
 
+/// A helper function. It returns the set of squares that are attacked
+/// by a rook from a given square.
+fn bb_rook_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+    bb_line_attacks(bb_file(from_square), from_square, occupied) |
+    bb_line_attacks(bb_rank(from_square), from_square, occupied)
+}
+
+
+/// A helper function. It returns the set of squares that are attacked
+/// by a bishop from a given square.
+fn bb_bishop_attacks(from_square: Square, occupied: Bitboard) -> Bitboard {
+    bb_line_attacks(bb_diag(from_square), from_square, occupied) |
+    bb_line_attacks(bb_anti_diag(from_square), from_square, occupied)
+}
+
+
+/// A helper function for `bb_rook_attacks` and `bb_bishop_attacks`.
+///
+/// This function calculates the set of squares, lying on a single
+/// straight line (a file, rank, diagonal, or anti-diagonal), that a
+/// piece can attack from a given square and given board occupancy. To
+/// accomplish this it uses some insanely beautiful bit manipulations
+/// that are almost indistinguishable from magic.
+fn bb_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> Bitboard {
+    let from_square_bb = 1u64 << from_square;
+    debug_assert!(from_square_bb & line != 0);
+    let potential_blockers = occupied & line;
+    let forward = potential_blockers.wrapping_sub(from_square_bb.wrapping_mul(2));
+    let rev = reverse(reverse(potential_blockers)
+                          .wrapping_sub(reverse(from_square_bb).wrapping_mul(2)));
+    (forward ^ rev) & line
+}
+
+
+/// A helper function for `bb_line_attacks`. It reverses the order of
+/// the bits in a 64-bit number.
+fn reverse(mut v: u64) -> u64 {
+    v = ((v >> 1) & 0x5555555555555555) | ((v & 0x5555555555555555) << 1);
+    v = ((v >> 2) & 0x3333333333333333) | ((v & 0x3333333333333333) << 2);
+    v = ((v >> 4) & 0x0F0F0F0F0F0F0F0F) | ((v & 0x0F0F0F0F0F0F0F0F) << 4);
+    v = ((v >> 8) & 0x00FF00FF00FF00FF) | ((v & 0x00FF00FF00FF00FF) << 8);
+    v = ((v >> 16) & 0x0000FFFF0000FFFF) | ((v & 0x0000FFFF0000FFFF) << 16);
+    ((v >> 32) & 0x00000000FFFFFFFF) | ((v & 0x00000000FFFFFFFF) << 32)
+}
+
+
 /// Pre-calculated bishop magic constants.
 const BISHOP_MAGICS: [u64; 64] = [306397059236266368,
                                   6638343277122827280,
@@ -598,9 +644,10 @@ const ROOK_MAGICS: [u64; 64] = [36028867955671040,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::{bb_bishop_attacks, bb_rook_attacks};
     use board::*;
     use squares::*;
-    use utils::bitsets::{bb_bishop_attacks, bb_rook_attacks, pop_count};
+    use utils::bitsets::pop_count;
 
     #[test]
     fn test_board_geometry() {
