@@ -45,13 +45,10 @@ pub const BB_FILE_G: Bitboard = BB_FILE_F << 1;
 /// The squares on file H.
 pub const BB_FILE_H: Bitboard = BB_FILE_G << 1;
 
-/// The squares on rank 1 and rank 8.
-pub const BB_PAWN_PROMOTION_RANKS: Bitboard = BB_RANK_1 | BB_RANK_8;
-
 /// The squares on the main diagonal (A1-H8).
 pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
 
-/// The squares on the main anti-diagonal (A8-H1).
+/// The squares on the main anti-diagonal (H1-A8).
 pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
 
 

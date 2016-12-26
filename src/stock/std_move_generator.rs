@@ -742,7 +742,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             } else {
                 BB_UNIVERSAL_SET
             }
-        });  // `occupied` becomes `UNIVERSAL_SET` if `self.pieces.piece_type` is messed up.
+        });  // `occupied` becomes `BB_UNIVERSAL_SET` if `self.pieces.piece_type` is messed up.
 
         let them = 1 ^ us;
         let o_us = self.board.pieces.color[us];
@@ -1107,6 +1107,9 @@ const PAWN_EAST_CAPTURE: usize = 3;
 /// be: `gen_shift(1 << E2, PAWN_MOVE_SHIFTS[WHITE][PAWN_PUSH])`
 static PAWN_MOVE_SHIFTS: [[isize; 4]; 2] = [[8, 16, 7, 9], [-8, -16, -9, -7]];
 
+
+/// The squares on rank 1 and rank 8.
+const BB_PAWN_PROMOTION_RANKS: Bitboard = BB_RANK_1 | BB_RANK_8;
 
 /// The origin and destination squares of the castling rook.
 const CASTLING_ROOK_MOVEMENT: [[(Square, Square); 2]; 2] = [[(A1, D1), (H1, F1)],
