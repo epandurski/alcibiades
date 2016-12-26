@@ -243,9 +243,9 @@ pub fn bitscan_forward(b: Bitboard) -> Square {
 #[inline(always)]
 pub fn bitscan_forward_and_reset(b: &mut Bitboard) -> Square {
     debug_assert!(*b != 0);
-    let ls1b_position = b.trailing_zeros() as Square;
-    *b ^= 1 << ls1b_position;
-    ls1b_position
+    let x = ls1b(*b);
+    *b ^= x;
+    bitscan_1bit(x)
 }
 
 
