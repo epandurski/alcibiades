@@ -437,152 +437,39 @@ mod tests {
     type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 
     #[test]
-    fn test_fen_parsing() {
-        assert!(Pos::from_fen("nbqkbnr/pppppppp/8/8\
-                                                                            /4P3/8/PPPP1PPP/RNBQ\
-                                                                            KBNR b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr1/pppppppp/8\
-                                                                            /8/4P3/8/PPPP1PPP/RN\
-                                                                            BQKBNR b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPPP1PPP/RNB\
-                                                                            QKBN b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPPP1PPP/RNB\
-                                                                            QKBNR/ b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPPP1PPP/RNB\
-                                                                            QKBNRR b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPP01PPP/RNB\
-                                                                            QKBNR b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPP91PPP/RNB\
-                                                                            QKBNR b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPP*1PPP/RNB\
-                                                                            QKBNR b KQkq e3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPPP1PPP/RNB\
-                                                                            QKBNR b KQkq e3 * 1")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPPP1PPP/RNB\
-                                                                            QKBNR b KQkq e3 0 *")
-                    .is_err());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPPP1PPP/RNB\
-                                                                            QKBNR b - e3 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("rnbqkbnr/pppppppp/8/\
-                                                                            8/4P3/8/PPPP1PPP/RNB\
-                                                                            QKBNR b KQkq e3 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("8/8/8/8/8/8/8/8 w - \
-                                                                            - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("8/8/8/8/8/8/8/7K w \
-                                                                            - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/8/8/8/8/8/8/7K w \
-                                                                            - - 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("k7/8/8/8/8/8/8/6KK \
-                                                                            w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/pppppppp/p7/8/8/8\
-                                                                            /8/7K w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/8/8/8/8/7P/PPPPPP\
-                                                                            PP/7K w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/pppppppp/8/8/8/8/\
-                                                                            PPPPPPPP/7K w - - 0 \
-                                                                            1")
-                    .is_ok());
-        assert!(Pos::from_fen("k7/1P6/8/8/8/8/8/7K \
-                                                                            w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/1B6/8/8/8/8/8/7K \
-                                                                            w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/1N6/8/8/8/8/8/7K \
-                                                                            w - - 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("k3P3/8/8/8/8/8/8/7K \
-                                                                            w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k3p3/8/8/8/8/8/8/7K \
-                                                                            w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/8/8/8/8/8/8/pP5K \
-                                                                            w - - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3\
-                                                                            K2R w KQkq - 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3\
-                                                                            K2B w KQkq - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3\
-                                                                            K3 w KQkq - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3\
-                                                                            K3 w KQkq - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3\
-                                                                            K3 w Qkq - 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3\
-                                                                            K3 w Qkq - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3\
-                                                                            K3 w Qk - 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3\
-                                                                            K3 w Q - 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("k7/8/8/8/7P/8/8/7K \
-                                                                            w - h3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/8/8/8/7P/8/8/7K \
-                                                                            b - h3 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("k7/8/8/7P/8/8/8/7K \
-                                                                            b - h4 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/8/8/8/7P/7P/8/7K \
-                                                                            b - h3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/8/8/8/7P/8/7P/7K \
-                                                                            b - h3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("k7/8/8/8/6P1/7P/8/7K \
-                                                                            b - h3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/7K \
-                                                                            b - h3 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/6RK \
-                                                                            b - h3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("8/8/8/6k1/3P4/8/8/2B\
-                                                                            4K b - d3 0 1")
-                    .is_ok());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/4B3/8/7\
-                                                                            K b - h3 0 1")
-                    .is_err());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/7K \
-                                                                            b - h3 0 0")
-                    .is_err());
+    fn test_is_legal() {
+        assert!(Pos::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
+        assert!(Pos::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Pos::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Pos::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
+        assert!(Pos::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Pos::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1").is_err());
+        assert!(Pos::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1").is_ok());
+        assert!(Pos::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Pos::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Pos::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(Pos::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Pos::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(Pos::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
+        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").is_ok());
+        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1").is_err());
+        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
+        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
+        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_ok());
+        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_err());
+        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1").is_err());
+        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1").is_ok());
+        assert!(Pos::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
+        assert!(Pos::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Pos::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
+        assert!(Pos::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
+        assert!(Pos::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
+        assert!(Pos::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1").is_err());
+        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_err());
+        assert!(Pos::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
+        assert!(Pos::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
+        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
     }
 
     #[test]
