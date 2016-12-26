@@ -2,7 +2,6 @@
 //!
 //! **Note:** "LS1B" means "least significant `1` bit".
 
-use std::num::Wrapping;
 use board::{Square, Bitboard};
 
 
@@ -64,7 +63,7 @@ pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
 /// ```
 #[inline(always)]
 pub fn ls1b(x: Bitboard) -> Bitboard {
-    x & (Wrapping(0) - Wrapping(x)).0
+    x & x.wrapping_neg()
 }
 
 
@@ -90,7 +89,7 @@ pub fn ls1b(x: Bitboard) -> Bitboard {
 /// ```
 #[inline(always)]
 pub fn reset_ls1b(x: &mut Bitboard) {
-    *x &= (Wrapping(*x) - Wrapping(1)).0;
+    *x &= x.wrapping_sub(1);
 }
 
 
@@ -116,7 +115,7 @@ pub fn reset_ls1b(x: &mut Bitboard) {
 /// ```
 #[inline(always)]
 pub fn above_ls1b_mask(x: Bitboard) -> Bitboard {
-    x ^ (Wrapping(0) - Wrapping(x)).0
+    x ^ x.wrapping_neg()
 }
 
 
@@ -142,7 +141,7 @@ pub fn above_ls1b_mask(x: Bitboard) -> Bitboard {
 /// ```
 #[inline(always)]
 pub fn below_ls1b_mask_including(x: Bitboard) -> Bitboard {
-    x ^ (Wrapping(x) - Wrapping(1)).0
+    x ^ x.wrapping_sub(1)
 }
 
 
@@ -168,7 +167,7 @@ pub fn below_ls1b_mask_including(x: Bitboard) -> Bitboard {
 /// ```
 #[inline(always)]
 pub fn above_ls1b_mask_including(x: Bitboard) -> Bitboard {
-    x | (Wrapping(0) - Wrapping(x)).0
+    x | x.wrapping_neg()
 }
 
 
@@ -193,7 +192,7 @@ pub fn above_ls1b_mask_including(x: Bitboard) -> Bitboard {
 /// ```
 #[inline(always)]
 pub fn below_ls1b_mask(x: Bitboard) -> Bitboard {
-    !x & (Wrapping(x) - Wrapping(1)).0
+    !x & x.wrapping_sub(1)
 }
 
 
@@ -277,12 +276,14 @@ pub fn pop_count(b: Bitboard) -> usize {
 
 
 /// Returns the set of squares on the same rank as `square`.
+#[inline(always)]
 pub fn bb_rank(square: Square) -> Bitboard {
-    BB_RANK_1 << (8 * (square / 8))
+    BB_RANK_1 << ((square >> 3) << 3)
 }
 
 
 /// Returns the set of squares on the same file as `square`.
+#[inline(always)]
 pub fn bb_file(square: Square) -> Bitboard {
     BB_FILE_A << (square % 8)
 }
@@ -292,12 +293,13 @@ pub fn bb_file(square: Square) -> Bitboard {
 ///
 /// Diagonals go from white's queen-side to black's king-side (A1-H8
 /// for example).
+#[inline]
 pub fn bb_diag(square: Square) -> Bitboard {
-    let diag_index = ((square / 8).wrapping_sub(square % 8)) & 15;
+    let diag_index = ((square >> 3).wrapping_sub(square % 8)) & 15;
     if diag_index <= 7 {
-        BB_MAIN_DIAG << (8 * diag_index)
+        BB_MAIN_DIAG << (diag_index << 3)
     } else {
-        BB_MAIN_DIAG >> (8 * (16 - diag_index))
+        BB_MAIN_DIAG >> ((16 - diag_index) << 3)
     }
 }
 
@@ -306,12 +308,13 @@ pub fn bb_diag(square: Square) -> Bitboard {
 ///
 /// Anti-diagonals go from white's king-side to black's queen-side
 /// (H1-A8 for example).
+#[inline]
 pub fn bb_anti_diag(square: Square) -> Bitboard {
-    let diag_index = ((square / 8) + (square % 8)) ^ 7;
+    let diag_index = ((square >> 3) + (square % 8)) ^ 7;
     if diag_index <= 7 {
-        BB_MAIN_ANTI_DIAG >> (8 * diag_index)
+        BB_MAIN_ANTI_DIAG >> (diag_index << 3)
     } else {
-        BB_MAIN_ANTI_DIAG << (8 * (16 - diag_index))
+        BB_MAIN_ANTI_DIAG << ((16 - diag_index) << 3)
     }
 }
 
