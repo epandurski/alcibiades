@@ -79,7 +79,7 @@ pub fn extract_pv<T: HashTable, N: SearchNode>(tt: &T, position: &N) -> Variatio
                     if p.do_move(m) {
                         moves.push(m);
 
-                        // Note: we stop expanding the PV on refutation moves.
+                        // Note: we continue expanding the PV only on best moves.
                         if e.bound() == BOUND_EXACT {
                             our_turn = !our_turn;
                             continue 'move_extraction;
