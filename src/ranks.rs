@@ -1,4 +1,4 @@
-//! Defines a constant for every rank on the board.
+//! Defines a constant for each rank on the board.
 
 pub const RANK_1: usize = 0;
 pub const RANK_2: usize = 1;

@@ -8,7 +8,7 @@ use squares::*;
 use moves::*;
 use evaluator::Evaluator;
 use move_generator::MoveGenerator;
-use utils::bitsets::*;
+use bitsets::*;
 use utils::{BoardGeometry, ZobristArrays};
 
 

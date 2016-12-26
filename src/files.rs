@@ -1,4 +1,4 @@
-//! Defines a constant for every file on the board.
+//! Defines a constant for each file on the board.
 
 pub const FILE_A: usize = 0;
 pub const FILE_B: usize = 1;

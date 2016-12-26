@@ -1,4 +1,4 @@
-//! Functions and constants for working with bit-sets.
+//! Defines constants and functions for working with bitboards.
 //!
 //! **Note:** "LSB" means "least significant `1` bit".
 
@@ -46,10 +46,10 @@ pub const BB_FILE_G: Bitboard = BB_FILE_F << 1;
 pub const BB_FILE_H: Bitboard = BB_FILE_G << 1;
 
 /// The squares on the main diagonal (A1-H8).
-pub const BB_MAIN_DIAG: u64 = 0x8040201008040201;
+pub const BB_MAIN_DIAG: Bitboard = 0x8040201008040201;
 
 /// The squares on the main anti-diagonal (H1-A8).
-pub const BB_MAIN_ANTI_DIAG: u64 = 0x0102040810204080;
+pub const BB_MAIN_ANTI_DIAG: Bitboard = 0x0102040810204080;
 
 
 /// Returns the LSB of a value.

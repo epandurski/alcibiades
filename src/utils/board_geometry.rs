@@ -2,7 +2,7 @@
 
 use rand::{Rng, thread_rng};
 use board::*;
-use super::bitsets::*;
+use bitsets::*;
 
 
 /// Tables and methods useful for move generation and position
@@ -647,7 +647,7 @@ mod tests {
     use super::{bb_bishop_attacks, bb_rook_attacks};
     use board::*;
     use squares::*;
-    use utils::bitsets::pop_count;
+    use bitsets::pop_count;
 
     #[test]
     fn test_board_geometry() {

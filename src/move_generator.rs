@@ -7,7 +7,7 @@ use board::*;
 use moves::*;
 use value::*;
 use evaluator::Evaluator;
-use utils::bitsets::*;
+use bitsets::*;
 use utils::BoardGeometry;
 
 

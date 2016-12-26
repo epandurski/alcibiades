@@ -5,7 +5,7 @@ use uci::SetOption;
 use board::*;
 use value::*;
 use evaluator::Evaluator;
-use utils::bitsets::*;
+use bitsets::*;
 
 
 /// A simple evaluator that adds a random number to the available

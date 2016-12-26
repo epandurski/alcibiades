@@ -9,6 +9,7 @@ pub mod stock;
 pub mod squares;
 pub mod files;
 pub mod ranks;
+pub mod bitsets;
 mod board;
 mod notation;
 mod moves;

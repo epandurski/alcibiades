@@ -1,4 +1,4 @@
-//! Defines a constant for every square on the board.
+//! Defines a constant for each square on the board.
 
 use board::Square;
 
