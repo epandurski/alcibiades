@@ -45,7 +45,6 @@ impl MoveDigest {
     /// in places where any move is required but no is available.
     #[inline(always)]
     pub fn invalid() -> MoveDigest {
-        debug_assert!(MOVE_NORMAL != 0);
         MoveDigest(0)
     }
 
@@ -377,90 +376,22 @@ fn notation(square: Square) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use moves::*;
     use board::*;
     use squares::*;
-    const NO_ENPASSANT_FILE: usize = 8;
-
-    #[test]
-    fn test_castling_rights() {
-        let mut c = CastlingRights::new(0b1110);
-        assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
-        assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
-        assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
-        assert_eq!(c.can_castle(BLACK, KINGSIDE), true);
-        c.update(H8, H7);
-        assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
-        assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
-        assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
-        assert_eq!(c.can_castle(BLACK, KINGSIDE), false);
-        assert_eq!(c.value(), 0b0110);
-        let granted = c.grant(BLACK, KINGSIDE);
-        assert_eq!(granted, true);
-        let granted = c.grant(BLACK, KINGSIDE);
-        assert_eq!(granted, false);
-        assert_eq!(c.value(), 0b1110);
-    }
 
     #[test]
     fn test_move() {
         let cr = CastlingRights::new(0b1011);
-        let mut m = Move::new(MOVE_NORMAL,
-                              E2,
-                              E4,
-                              0,
-                              PIECE_NONE,
-                              PAWN,
-                              cr,
-                              NO_ENPASSANT_FILE,
-                              0);
-        let n1 = Move::new(MOVE_NORMAL,
-                           F3,
-                           E4,
-                           0,
-                           KNIGHT,
-                           PAWN,
-                           CastlingRights::new(0),
-                           NO_ENPASSANT_FILE,
-                           ::std::u32::MAX);
-        let n2 = Move::new(MOVE_NORMAL,
-                           F3,
-                           E4,
-                           0,
-                           PIECE_NONE,
-                           KING,
-                           CastlingRights::new(0),
-                           NO_ENPASSANT_FILE,
-                           0);
-        let n3 = Move::new(MOVE_PROMOTION,
-                           F2,
-                           F1,
-                           1,
-                           PIECE_NONE,
-                           PAWN,
-                           CastlingRights::new(0),
-                           NO_ENPASSANT_FILE,
-                           0);
-        let n4 = Move::new(MOVE_NORMAL,
-                           F2,
-                           E3,
-                           0,
-                           KNIGHT,
-                           BISHOP,
-                           CastlingRights::new(0),
-                           NO_ENPASSANT_FILE,
-                           ::std::u32::MAX);
-        let n5 = Move::new(MOVE_NORMAL,
-                           F2,
-                           E3,
-                           0,
-                           KNIGHT,
-                           PAWN,
-                           CastlingRights::new(0),
-                           NO_ENPASSANT_FILE,
-                           ::std::u32::MAX);
-        assert!(n1 > m);
-        assert!(n2 < m);
+        let mut m = Move::new(MOVE_NORMAL, E2, E4, 0, PIECE_NONE, PAWN, cr, 8, 0);
+        let m1 = Move::new(MOVE_NORMAL, F3, E4, 0, KNIGHT, PAWN, cr, 8, ::std::u32::MAX);
+        let m2 = Move::new(MOVE_NORMAL, F3, E4, 0, PIECE_NONE, KING, cr, 8, 0);
+        let m3 = Move::new(MOVE_PROMOTION, F2, F1, 1, PIECE_NONE, PAWN, cr, 8, 0);
+        let m4 = Move::new(MOVE_NORMAL, F2, E3, 0, KNIGHT, BISHOP, cr, 8, 0);
+        let m5 = Move::new(MOVE_NORMAL, F2, F2, 0, PIECE_NONE, KING, cr, 8, 0);
+        assert!(m1 > m);
+        assert!(m2 < m);
+        assert_eq!(m.move_type(), MOVE_NORMAL);
         assert_eq!(m.played_piece(), PAWN);
         assert_eq!(m.captured_piece(), PIECE_NONE);
         assert_eq!(m.orig_square(), E2);
@@ -468,21 +399,34 @@ mod tests {
         assert_eq!(m.enpassant_file(), 8);
         assert_eq!(m.aux_data(), 0);
         assert_eq!(m.castling_rights().value(), 0b1011);
-        let m2 = m;
-        assert_eq!(m, m2);
+        assert_eq!(m.notation(), "e2e4");
+        assert!(!m.is_null());
+        assert_eq!(m3.aux_data(), 1);
+        assert_eq!(Move::piece_from_aux_data(0), QUEEN);
+        assert_eq!(Move::piece_from_aux_data(1), ROOK);
+        assert_eq!(Move::piece_from_aux_data(2), BISHOP);
+        assert_eq!(Move::piece_from_aux_data(3), KNIGHT);
+        let m_copy = m;
+        assert_eq!(m, m_copy);
+        assert_eq!(m.score(), 0);
         m.set_score(::std::u32::MAX);
         assert_eq!(m.score(), ::std::u32::MAX);
-        m.set_score(3);
-        assert_eq!(m.score(), 3);
-        assert!(m > m2);
+        assert!(m > m_copy);
         m.set_score(0);
         assert_eq!(m.score(), 0);
-        assert_eq!(n3.aux_data(), 1);
         assert!(m.is_pawn_advance_or_capure());
-        assert!(!n2.is_pawn_advance_or_capure());
-        assert!(n4.is_pawn_advance_or_capure());
-        assert!(n5.is_pawn_advance_or_capure());
+        assert!(m1.is_pawn_advance_or_capure());
+        assert!(!m2.is_pawn_advance_or_capure());
+        assert!(m3.is_pawn_advance_or_capure());
+        assert!(m4.is_pawn_advance_or_capure());
+        assert!(!m5.is_pawn_advance_or_capure());
+        assert!(m5.is_null());
+        assert!(MOVE_NORMAL != 0);
         assert!(!Move::invalid().is_null());
         assert_eq!(Move::invalid().digest(), MoveDigest::invalid());
+        assert_eq!(m.digest().move_type(), m.move_type());
+        assert_eq!(m.digest().orig_square(), m.orig_square());
+        assert_eq!(m.digest().dest_square(), m.dest_square());
+        assert_eq!(m.digest().aux_data(), m.aux_data());
     }
 }

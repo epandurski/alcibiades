@@ -158,12 +158,16 @@ impl CastlingRights {
         // origin and destination squares should be AND-ed with the
         // castling rights value, to derive the updated castling
         // rights.
-        const CASTLING_RELATION: [usize; 64] = [!WQ, !0, !0, !0, !W, !0, !0, !WK, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
-                                                !0, !0, !0, !0, !0, !0, !0, !0, !BQ, !0, !0, !0,
-                                                !B, !0, !0, !BK];
+        const CASTLING_RELATION: [usize; 64] = [
+            !WQ, !0, !0, !0, !W, !0, !0, !WK,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !0,  !0, !0, !0, !0, !0, !0, !0,
+            !BQ, !0, !0, !0, !B, !0, !0, !BK
+        ];
         self.0 &= CASTLING_RELATION[orig_square] & CASTLING_RELATION[dest_square];
     }
 
@@ -252,5 +256,30 @@ impl Board {
     pub fn rank(square: Square) -> usize {
         debug_assert!(square <= 63);
         square >> 3
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use board::*;
+    use squares::*;
+
+    #[test]
+    fn test_castling_rights() {
+        let mut c = CastlingRights::new(0b1110);
+        assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
+        assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
+        assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
+        assert_eq!(c.can_castle(BLACK, KINGSIDE), true);
+        c.update(H8, H7);
+        assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
+        assert_eq!(c.can_castle(WHITE, KINGSIDE), true);
+        assert_eq!(c.can_castle(BLACK, QUEENSIDE), true);
+        assert_eq!(c.can_castle(BLACK, KINGSIDE), false);
+        assert_eq!(c.value(), 0b0110);
+        assert_eq!(c.grant(BLACK, KINGSIDE), true);
+        assert_eq!(c.grant(BLACK, KINGSIDE), false);
+        assert_eq!(c.value(), 0b1110);
     }
 }
