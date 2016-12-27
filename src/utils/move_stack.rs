@@ -4,6 +4,29 @@ use moves::{Move, MoveDigest, AddMove};
 
 
 /// Stores a list of moves for each position in a given line of play.
+///
+/// # Examples:
+///
+/// ```rust
+/// # use alcibiades::Move;
+/// # use alcibiades::utils::MoveStack;
+/// let mut s = MoveStack::new();
+/// assert_eq!(s.ply(), 0);
+/// assert_eq!(s.list().len(), 0);
+/// s.push(Move::invalid());
+/// s.push(Move::invalid());
+/// assert_eq!(s.list().len(), 2);
+/// let first_move = s.pull_best();
+/// assert_eq!(s.list().len(), 1);
+/// s.save();
+/// assert_eq!(s.ply(), 1);
+/// assert_eq!(s.list().len(), 0);
+/// s.restore();
+/// assert_eq!(s.ply(), 0);
+/// assert_eq!(s.list().len(), 1);
+/// let second_move = s.pull_best();
+/// assert_eq!(s.list().len(), 0);
+/// ```
 pub struct MoveStack {
     moves: Vec<Move>,
     savepoints: Vec<usize>,
@@ -214,6 +237,13 @@ mod tests {
     use squares::*;
     use moves::*;
 
+    #[should_panic]
+    #[test]
+    fn test_move_stack_pull_panic() {
+        let mut s = MoveStack::new();
+        s.pull(0);
+    }
+
     #[test]
     fn test_move_stack() {
         let cr = CastlingRights::new(0);
@@ -224,7 +254,7 @@ mod tests {
         s.save();
         assert_eq!(s.ply(), 1);
         s.push(m);
-        assert_eq!(s.pull_best().unwrap(), m);
+        assert_eq!(s.pull(0), m);
         assert!(s.pull_best().is_none());
         s.restore();
         assert!(s.pull_best().is_none());
