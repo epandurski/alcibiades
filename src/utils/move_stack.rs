@@ -1,6 +1,5 @@
 //! Implements `MoveStack`.
 
-use std::slice;
 use moves::{Move, MoveDigest, AddMove};
 
 
@@ -80,13 +79,6 @@ impl MoveStack {
         self.first_move_index = 0;
     }
 
-    /// Returns the number of moves in the current move list.
-    #[inline]
-    pub fn len(&self) -> usize {
-        debug_assert!(self.moves.len() >= self.first_move_index);
-        self.moves.len() - self.first_move_index
-    }
-
     /// Appends a move to the end of the current move list.
     #[inline]
     pub fn push(&mut self, m: Move) {
@@ -126,7 +118,7 @@ impl MoveStack {
 
         let m;
         'moves: loop {
-            for curr in self.iter_mut() {
+            for curr in self.list_mut().iter_mut() {
                 if curr.digest() == move_digest {
                     m = *curr;
                     *curr = last_move;
@@ -173,17 +165,18 @@ impl MoveStack {
         None
     }
 
-    /// Returns an iterator over each move in the current move list.
+    /// Returns the current move list as a slice.
     #[inline]
-    pub fn iter(&self) -> slice::Iter<Move> {
-        self.moves[self.first_move_index..].iter()
+    pub fn list(&self) -> &[Move] {
+        debug_assert!(self.moves.len() >= self.first_move_index);
+        &self.moves[self.first_move_index..]
     }
 
-    /// Returns an iterator that allows modifying each move in the
-    /// current move list.
+    /// Returns the current move list as a mutable slice.
     #[inline]
-    pub fn iter_mut(&mut self) -> slice::IterMut<Move> {
-        self.moves[self.first_move_index..].iter_mut()
+    pub fn list_mut(&mut self) -> &mut [Move] {
+        debug_assert!(self.moves.len() >= self.first_move_index);
+        &mut self.moves[self.first_move_index..]
     }
 }
 
@@ -209,19 +202,19 @@ mod tests {
         assert!(s.remove_best().is_none());
         s.restore();
         assert!(s.remove_best().is_none());
-        assert_eq!(s.len(), 0);
+        assert_eq!(s.list().len(), 0);
         assert!(s.pop().is_none());
         assert!(s.remove(m.digest()).is_none());
         s.push(m);
         s.push(m);
-        assert_eq!(s.len(), 2);
+        assert_eq!(s.list().len(), 2);
         assert_eq!(s.pop().unwrap(), m);
-        assert_eq!(s.len(), 1);
+        assert_eq!(s.list().len(), 1);
         s.push(m);
         assert_eq!(s.remove(m.digest()).unwrap(), m);
-        assert_eq!(s.len(), 1);
+        assert_eq!(s.list().len(), 1);
         s.push(m);
-        assert_eq!(s.iter().count(), 2);
+        assert_eq!(s.list().iter().count(), 2);
         s.save();
         s.push(m);
         s.restore();
@@ -232,13 +225,13 @@ mod tests {
         s.push(m);
         s.clear();
         assert_eq!(s.ply(), 0);
-        assert_eq!(s.len(), 0);
+        assert_eq!(s.list().len(), 0);
         s.save();
         s.save();
         s.push(m);
         assert_eq!(s.ply(), 2);
         s.clear_all();
         assert_eq!(s.ply(), 0);
-        assert_eq!(s.len(), 0);
+        assert_eq!(s.list().len(), 0);
     }
 }

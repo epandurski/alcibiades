@@ -532,7 +532,7 @@ mod tests {
                     .unwrap();
         let mut v = MoveStack::new();
         p.generate_moves(&mut v);
-        assert_eq!(v.len(), 5);
+        assert_eq!(v.list().len(), 5);
     }
 
     #[test]

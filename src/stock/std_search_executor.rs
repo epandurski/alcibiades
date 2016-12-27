@@ -666,7 +666,7 @@ impl<'a, T, N> Search<'a, T, N>
 
             // Set move scores to captures and pawn promotions to
             // queen according to their static exchange evaluation.
-            for m in self.moves.iter_mut() {
+            for m in self.moves.list_mut().iter_mut() {
                 let move_score = if m.move_type() == MOVE_PROMOTION {
                     if m.aux_data() == 0 {
                         MOVE_SCORE_MAX - 1
