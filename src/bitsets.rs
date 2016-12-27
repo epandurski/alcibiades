@@ -244,8 +244,8 @@ pub fn below_lsb(x: Bitboard) -> Bitboard {
 
 /// Shifts a value with a signed number.
 ///
-/// Returns `x << s` if `s` is positive, and `x >> s` if `s` is
-/// negative.
+/// Returns `x << s` if `s` is positive, `x >> s` if `s` is
+/// negative, `x` if `s` is zero.
 ///
 /// # Examples:
 ///
@@ -253,6 +253,7 @@ pub fn below_lsb(x: Bitboard) -> Bitboard {
 /// # use alcibiades::bitsets::*;
 /// assert_eq!(gen_shift(0b101, 1), 0b1010);
 /// assert_eq!(gen_shift(0b101, -1), 0b10);
+/// assert_eq!(gen_shift(0b101, 0), 0b101);
 /// ```
 #[inline(always)]
 pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
@@ -266,7 +267,7 @@ pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
 
 /// Returns the binary position of the LSB (bit-scan-forward).
 ///
-/// If `*x` is `0` this function returns `64`.
+/// If `x` is `0` this function returns `64`.
 ///
 /// # Examples:
 ///
