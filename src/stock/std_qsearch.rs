@@ -131,7 +131,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
 
     // Consider the generated moves one by one. See if any of them
     // can raise the lower bound.
-    'trymoves: while let Some(m) = move_stack.remove_best() {
+    'trymoves: while let Some(m) = move_stack.pull_best() {
         let move_type = m.move_type();
         let dest_square_bb = 1 << m.dest_square();
         let captured_piece = m.captured_piece();

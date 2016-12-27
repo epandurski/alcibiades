@@ -86,8 +86,9 @@ impl MoveStack {
         self.moves.push(m);
     }
 
-    /// Removes the last move from the current move list and returns
-    /// it, or `None` if empty.
+    /// Removes the last move from the current move list and returns it.
+    ///
+    /// If the current move list is empty, `None` is returned.
     #[inline]
     pub fn pop(&mut self) -> Option<Move> {
         debug_assert!(self.moves.len() >= self.first_move_index);
@@ -98,14 +99,37 @@ impl MoveStack {
         }
     }
 
-    /// Removes a specific move from the current move list and returns
-    /// it.
+    /// Removes the move at given index from the current move list and
+    /// returns it.
+    ///
+    /// Move's slot is taken by the last move in the current list, and
+    /// the last slot is discarded.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no move at the given index.
+    #[inline]
+    pub fn pull(&mut self, index: usize) -> Move {
+        let last_move = *self.moves.last().unwrap();
+        let m;
+        {
+            let requested_slot = &mut self.moves[self.first_move_index + index];
+            m = *requested_slot;
+            *requested_slot = last_move;
+        }
+        self.moves.pop();
+        m
+    }
+
+    /// Removes a specific move from the current move list and returns it.
     ///
     /// This method tries to find a move `m` for which `m.digest() ==
-    /// move_digest`. Then it removes it from the current move list,
-    /// and returns it. If such move is not found, `None` is returned.
+    /// move_digest`. If such move is found, `Some(m)` is returned,
+    /// move's slot is taken by the last move in the current list, and
+    /// the last slot is discarded. If no such move is found, `None`
+    /// is returned.
     #[inline]
-    pub fn remove(&mut self, move_digest: MoveDigest) -> Option<Move> {
+    pub fn pull_move(&mut self, move_digest: MoveDigest) -> Option<Move> {
         debug_assert!(self.moves.len() >= self.first_move_index);
 
         // The last move in `self.moves` will take the place of the
@@ -135,9 +159,11 @@ impl MoveStack {
     /// Removes the move with the highest value from the current move
     /// list and returns it.
     ///
-    /// Returns `None` if the current move list is empty.
+    /// Best move's slot is taken by the last move in the current
+    /// list, and the last slot is discarded. `None` is returned if
+    /// the current move list is empty.
     #[inline]
-    pub fn remove_best(&mut self) -> Option<Move> {
+    pub fn pull_best(&mut self) -> Option<Move> {
         debug_assert!(self.moves.len() >= self.first_move_index);
         let moves = &mut self.moves;
         if moves.len() > self.first_move_index {
@@ -194,33 +220,33 @@ mod tests {
         let m = Move::new(MOVE_NORMAL, E2, E4, 0, PIECE_NONE, PAWN, cr, 8, 0);
         let mut s = MoveStack::new();
         assert_eq!(s.ply(), 0);
-        assert!(s.remove_best().is_none());
+        assert!(s.pull_best().is_none());
         s.save();
         assert_eq!(s.ply(), 1);
         s.push(m);
-        assert_eq!(s.remove_best().unwrap(), m);
-        assert!(s.remove_best().is_none());
+        assert_eq!(s.pull_best().unwrap(), m);
+        assert!(s.pull_best().is_none());
         s.restore();
-        assert!(s.remove_best().is_none());
+        assert!(s.pull_best().is_none());
         assert_eq!(s.list().len(), 0);
         assert!(s.pop().is_none());
-        assert!(s.remove(m.digest()).is_none());
+        assert!(s.pull_move(m.digest()).is_none());
         s.push(m);
         s.push(m);
         assert_eq!(s.list().len(), 2);
         assert_eq!(s.pop().unwrap(), m);
         assert_eq!(s.list().len(), 1);
         s.push(m);
-        assert_eq!(s.remove(m.digest()).unwrap(), m);
+        assert_eq!(s.pull_move(m.digest()).unwrap(), m);
         assert_eq!(s.list().len(), 1);
         s.push(m);
         assert_eq!(s.list().iter().count(), 2);
         s.save();
         s.push(m);
         s.restore();
-        assert_eq!(s.remove_best().unwrap(), m);
-        assert_eq!(s.remove_best().unwrap(), m);
-        assert!(s.remove_best().is_none());
+        assert_eq!(s.pull_best().unwrap(), m);
+        assert_eq!(s.pull_best().unwrap(), m);
+        assert!(s.pull_best().is_none());
         assert_eq!(s.ply(), 0);
         s.push(m);
         s.clear();

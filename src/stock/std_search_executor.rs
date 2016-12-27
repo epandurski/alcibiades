@@ -661,7 +661,7 @@ impl<'a, T, N> Search<'a, T, N>
 
             // Remove the already tried hash move from the list.
             if state.hash_move_digest != MoveDigest::invalid() {
-                self.moves.remove(state.hash_move_digest);
+                self.moves.pull_move(state.hash_move_digest);
             }
 
             // Set move scores to captures and pawn promotions to
@@ -695,7 +695,7 @@ impl<'a, T, N> Search<'a, T, N>
             // important.
             self.moves.pop()
         } else {
-            self.moves.remove_best()
+            self.moves.pull_best()
         } {
             // First -- the winning and even captures and promotions
             // to queen.
@@ -723,7 +723,7 @@ impl<'a, T, N> Search<'a, T, N>
                     k1
                 };
                 if killer != MoveDigest::invalid() {
-                    if let Some(mut m) = self.moves.remove(killer) {
+                    if let Some(mut m) = self.moves.pull_move(killer) {
                         if self.position.do_move(m) {
                             m.set_score(MOVE_SCORE_MAX);
                             return Some(m);
