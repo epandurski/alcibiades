@@ -58,8 +58,13 @@ pub const BB_MAIN_ANTI_DIAG: Bitboard = 0x0102040810204080;
 ///
 /// If `x` is `0` this function returns `0`.
 ///
-/// # Examples
+/// # Examples:
 ///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// assert_eq!(lsb(0b10100), 0b100);
+/// assert_eq!(lsb(0), 0);
+/// ```
 /// ```text
 /// 
 ///        x         &        -x         =      lsb(x)
@@ -82,10 +87,20 @@ pub fn lsb(x: Bitboard) -> Bitboard {
 ///
 /// The way to calculate this is: `x_with_reset_lsb = x & (x - 1);`.
 ///
-/// If `x` is `0` this function does nothing.
+/// If `*x` is `0` this function does nothing.
 ///
 /// # Examples:
 ///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// let mut x = 0b100100;
+/// reset_lsb(&mut x);
+/// assert_eq!(x, 0b100000);
+/// reset_lsb(&mut x);
+/// assert_eq!(x, 0);
+/// reset_lsb(&mut x);
+/// assert_eq!(x, 0);
+/// ```
 /// ```text
 /// 
 ///       x          &      (x - 1)      =  x_with_reset_lsb(x)
@@ -112,6 +127,11 @@ pub fn reset_lsb(x: &mut Bitboard) {
 /// 
 /// # Examples:
 ///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// assert_eq!(above_lsb(0b10100), !0b111);
+/// assert_eq!(above_lsb(0), 0);
+/// ```
 /// ```text
 /// 
 ///       x          ^        -x         =  above_lsb(x)
@@ -139,6 +159,11 @@ pub fn above_lsb(x: Bitboard) -> Bitboard {
 /// 
 /// # Examples:
 ///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// assert_eq!(below_lsb_including(0b10100), 0b111);
+/// assert_eq!(below_lsb_including(0), !0);
+/// ```
 /// ```text
 ///       x          ^      (x - 1)      =  below_lsb_including(x)
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
@@ -164,6 +189,12 @@ pub fn below_lsb_including(x: Bitboard) -> Bitboard {
 /// If `x` is `0` this function returns `0`.
 /// 
 /// # Examples:
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// assert_eq!(above_lsb_including(0b10100), !0b11);
+/// assert_eq!(above_lsb_including(0), 0);
+/// ```
 /// ```text
 ///       x          |        -x         =  above_lsb_including(x)
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
@@ -189,6 +220,11 @@ pub fn above_lsb_including(x: Bitboard) -> Bitboard {
 /// 
 /// # Examples:
 ///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// assert_eq!(below_lsb(0b10100), 0b11);
+/// assert_eq!(below_lsb(0), !0);
+/// ```
 /// ```text
 ///      !x          &      (x - 1)      =  below_lsb(x)
 /// 1 1 1 1 1 1 1 1     . . . . . . . .     . . . . . . . .
@@ -210,6 +246,14 @@ pub fn below_lsb(x: Bitboard) -> Bitboard {
 ///
 /// Returns `x << s` if `s` is positive, and `x >> s` if `s` is
 /// negative.
+///
+/// # Examples:
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// assert_eq!(gen_shift(0b101, 1), 0b1010);
+/// assert_eq!(gen_shift(0b101, -1), 0b10);
+/// ```
 #[inline(always)]
 pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
     if s > 0 {
@@ -222,40 +266,43 @@ pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
 
 /// Returns the binary position of the LSB (bit-scan-forward).
 ///
-/// `b` must not be zero, otherwise this function will panic or return
-/// garbage.
+/// If `*x` is `0` this function returns `64`.
 ///
 /// # Examples:
-/// ```
-/// # use alcibiades::utils::bitsets::*;
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
 /// assert_eq!(bsf(0b100100), 2);
+/// assert_eq!(bsf(0), 64);
 /// ```
 #[inline(always)]
-pub fn bsf(b: Bitboard) -> Square {
-    debug_assert!(b != 0);
-    b.trailing_zeros() as Square
+pub fn bsf(x: Bitboard) -> Square {
+    x.trailing_zeros() as Square
 }
 
 
 /// Returns the binary position of the LSB (bit-scan-forward), and
 /// resets the LSB to zero.
 ///
-/// `b` must not be zero, otherwise this function will panic or return
-/// garbage.
+/// If `*x` is `0` this function returns `64`.
 /// 
 /// # Examples:
-/// ```
-/// # use alcibiades::utils::bitsets::*;
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
 /// let mut x = 0b100100;
 /// assert_eq!(bsf_reset(&mut x), 2);
 /// assert_eq!(x, 0b100000);
+/// assert_eq!(bsf_reset(&mut x), 5);
+/// assert_eq!(x, 0);
+/// assert_eq!(bsf_reset(&mut x), 64);
+/// assert_eq!(x, 0);
 /// ```
 #[inline(always)]
-pub fn bsf_reset(b: &mut Bitboard) -> Square {
-    debug_assert!(*b != 0);
-    let x = lsb(*b);
-    *b ^= x;
-    bsf(x)
+pub fn bsf_reset(x: &mut Bitboard) -> Square {
+    let a = lsb(*x);
+    *x ^= a;
+    bsf(a)
 }
 
 
@@ -263,9 +310,11 @@ pub fn bsf_reset(b: &mut Bitboard) -> Square {
 /// value.
 ///
 /// # Examples:
-/// ```
-/// # use alcibiades::utils::bitsets::*;
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
 /// assert_eq!(pop_count(0b100101), 3);
+/// assert_eq!(pop_count(0), 0);
 /// ```
 #[inline(always)]
 pub fn pop_count(b: Bitboard) -> usize {
@@ -274,6 +323,14 @@ pub fn pop_count(b: Bitboard) -> usize {
 
 
 /// Returns the set of squares on the same rank as the given square.
+///
+/// # Examples:
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// # use alcibiades::squares::*;
+/// assert_eq!(bb_rank(E4), BB_RANK_4);
+/// ```
 #[inline(always)]
 pub fn bb_rank(square: Square) -> Bitboard {
     BB_RANK_1 << ((square >> 3) << 3)
@@ -281,6 +338,14 @@ pub fn bb_rank(square: Square) -> Bitboard {
 
 
 /// Returns the set of squares on the same file as the given square.
+///
+/// # Examples:
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// # use alcibiades::squares::*;
+/// assert_eq!(bb_file(E4), BB_FILE_E);
+/// ```
 #[inline(always)]
 pub fn bb_file(square: Square) -> Bitboard {
     BB_FILE_A << (square % 8)
@@ -291,6 +356,14 @@ pub fn bb_file(square: Square) -> Bitboard {
 ///
 /// Diagonals go from white's queen-side to black's king-side (A1-H8
 /// for example).
+///
+/// # Examples:
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// # use alcibiades::squares::*;
+/// assert_eq!(bb_diag(D4), BB_MAIN_DIAG);
+/// ```
 #[inline]
 pub fn bb_diag(square: Square) -> Bitboard {
     let diag_index = ((square >> 3).wrapping_sub(square % 8)) & 15;
@@ -306,6 +379,14 @@ pub fn bb_diag(square: Square) -> Bitboard {
 ///
 /// Anti-diagonals go from white's king-side to black's queen-side
 /// (H1-A8 for example).
+///
+/// # Examples:
+///
+/// ```rust
+/// # use alcibiades::bitsets::*;
+/// # use alcibiades::squares::*;
+/// assert_eq!(bb_anti_diag(E4), BB_MAIN_ANTI_DIAG);
+/// ```
 #[inline]
 pub fn bb_anti_diag(square: Square) -> Bitboard {
     let diag_index = ((square >> 3) + (square % 8)) ^ 7;
