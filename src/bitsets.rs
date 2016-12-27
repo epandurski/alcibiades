@@ -1,5 +1,9 @@
 //! Defines constants and functions for working with bitboards.
 //!
+//! `u64` bit-sets called *bitboards* can be used to represent a set
+//! of squares on the chessboard. This module defines utility
+//! functions and constants for working with `u64` bit-sets.
+//!
 //! **Note:** "LSB" means "least significant `1` bit".
 
 use board::{Square, Bitboard};
