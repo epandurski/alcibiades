@@ -1,4 +1,4 @@
-//! Implements a generic UCI chess engine.
+//! Implements a generic chess engine.
 
 use std::marker::PhantomData;
 use std::collections::VecDeque;

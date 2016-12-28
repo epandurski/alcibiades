@@ -1,9 +1,8 @@
-#[macro_use]
 extern crate alcibiades;
 
 use std::process::exit;
-pub use alcibiades::*;
-pub use alcibiades::stock::*;
+use alcibiades::*;
+use alcibiades::stock::*;
 
 fn main() {
     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
