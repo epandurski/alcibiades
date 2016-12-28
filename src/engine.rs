@@ -2,7 +2,6 @@
 
 use std::marker::PhantomData;
 use std::collections::VecDeque;
-use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, Duration};
 use std::cmp::{min, max};
@@ -14,7 +13,6 @@ use hash_table::*;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
-use pv::{Variation, extract_pv};
 
 
 struct SearchStatus {
@@ -323,7 +321,7 @@ impl<S, T> Engine<S, T>
     }
 
     fn queue_best_move(&mut self) {
-        let pv = extract_pv(self.tt.deref(), &self.position);
+        let pv = self.tt.extract_pv(&self.position);
         let best_move = if let Some(m) = pv.moves.get(0) {
             m.notation()
         } else {

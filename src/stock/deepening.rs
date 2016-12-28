@@ -5,7 +5,6 @@ use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::TryRecvError;
-use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
@@ -14,7 +13,6 @@ use hash_table::*;
 use evaluator::Evaluator;
 use search_node::SearchNode;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
-use pv::{Variation, extract_pv};
 
 
 /// Executes searches with iterative deepening, aspiration windows,
@@ -166,7 +164,7 @@ impl<T: SearchExecutor> Deepening<T> {
             // Multi-PV with aspiration.
             for m in moves.iter().take(self.multipv.variation_count) {
                 assert!(self.params.position.do_move(*m));
-                let mut v = extract_pv(self.tt.deref(), &self.params.position);
+                let mut v = self.tt.extract_pv(&self.params.position);
                 self.params.position.undo_move();
                 v.moves.insert(0, *m);
                 v.value = -v.value;
@@ -180,7 +178,7 @@ impl<T: SearchExecutor> Deepening<T> {
         } else if self.multipv.variation_count != 0 {
             // Aspiration only.
             debug_assert_eq!(self.multipv.variation_count, 1);
-            variations.push(extract_pv(self.tt.deref(), &self.params.position));
+            variations.push(self.tt.extract_pv(&self.params.position));
         }
         variations
     }

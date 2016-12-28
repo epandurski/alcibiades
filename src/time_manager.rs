@@ -1,8 +1,8 @@
 //! Defines the `TimeManager` trait.
 
 use uci::SetOption;
+use hash_table::Variation;
 use search_executor::*;
-use pv::*;
 
 
 /// Describes the remaining time on the clocks.

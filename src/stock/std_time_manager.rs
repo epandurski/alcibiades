@@ -3,7 +3,7 @@ use std::cmp::min;
 use std::time::SystemTime;
 use board::*;
 use search_executor::*;
-use pv::*;
+use hash_table::Variation;
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
 use uci::{SetOption, OptionDescription};
