@@ -236,24 +236,28 @@ mod tests {
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/6k1/6P1/8/5bK1 b - - 0 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) > 225 - d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/5pkp/6P1/5P1P/6K1 b - - 0 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/5pkp/6P1/5PKP/8 b - - 0 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -100 + d);
 
@@ -261,6 +265,7 @@ mod tests {
                                                      2PPP/R2QKB1R w - - 5 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
@@ -268,6 +273,7 @@ mod tests {
                                                      PP/R2QKB1R b - - 5 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -100 + d);
 
@@ -275,12 +281,14 @@ mod tests {
                                                      P/R1BKQB1R w - - 5 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -1000, 1000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0).abs() <= d);
 
         let mut p = Pos::from_board(Board::from_fen("8/8/8/8/8/7k/7q/7K w - - 0 1")
                                         .ok()
                                         .unwrap())
+                        .ok()
                         .unwrap();
         assert!(qsearch(&mut p, -10000, 10000, VALUE_UNKNOWN, 0, 0, &mut s, &mut 0) <= -10000 + d);
     }

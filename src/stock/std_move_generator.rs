@@ -29,7 +29,7 @@ pub struct StdMoveGenerator<T: Evaluator> {
 impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     type Evaluator = T;
 
-    fn from_board(board: Board) -> Option<StdMoveGenerator<T>> {
+    fn from_board(board: Board) -> Result<Self, IllegalBoard> {
         let mut g = StdMoveGenerator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
@@ -39,9 +39,9 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         };
         if g.is_legal() {
             g.evaluator = T::new(g.board());
-            Some(g)
+            Ok(g)
         } else {
-            None
+            Err(IllegalBoard)
         }
     }
 
@@ -1175,7 +1175,7 @@ mod tests {
 
     impl<E: Evaluator> StdMoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalBoard> {
-            StdMoveGenerator::from_board(try!(Board::from_fen(fen))).ok_or(IllegalBoard)
+            StdMoveGenerator::from_board(try!(Board::from_fen(fen)))
         }
     }
 

@@ -296,7 +296,7 @@ impl<T: Qsearch + 'static> StdSearchNode<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalBoard> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
-        let g = try!(T::MoveGenerator::from_board(board).ok_or(IllegalBoard));
+        let g = try!(T::MoveGenerator::from_board(board));
         Ok(StdSearchNode {
             zobrist: ZobristArrays::get(),
             board_hash: g.hash(),

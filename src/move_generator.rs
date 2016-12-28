@@ -36,8 +36,8 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// Creates a new instance, consuming the supplied `Board`
     /// instance.
     ///
-    /// Returns `None` if the position is illegal.
-    fn from_board(board: Board) -> Option<Self>;
+    /// Returns `Err(IllegalBoard)` if the position is illegal.
+    fn from_board(board: Board) -> Result<Self, IllegalBoard>;
 
     /// Returns the Zobrist hash value for the underlying `Board`
     /// instance.
