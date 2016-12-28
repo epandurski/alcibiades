@@ -230,7 +230,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 // capturing piece's origin square is vacant.
                 let behind = self.board().occupied &
                              *behind_blocker.get_unchecked(bsf(orig_square_bb));
-                if behind & (straight_sliders | diag_sliders) != 0 {
+                if behind & (straight_sliders | diag_sliders) != 0 && piece != KING {
                     attackers_and_defenders |=
                         match behind & straight_sliders &
                               geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
