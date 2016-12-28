@@ -71,8 +71,6 @@ pub trait HashTable: Sync + Send {
     /// Removes all entries in the table.
     fn clear(&self);
 
-
-
     /// Extracts the principal variation for a given position.
     ///
     /// The principal variation (PV) is the sequence of moves that the
