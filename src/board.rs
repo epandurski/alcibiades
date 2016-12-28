@@ -1,7 +1,7 @@
 //! Defines how the chess board is represented in memory.
 
 use std::fmt;
-use notation::parse_fen;
+use utils::parse_fen;
 
 
 /// `WHITE` or `BLACK`.

@@ -10,8 +10,7 @@ use qsearch::{Qsearch, QsearchParams, QsearchResult};
 use moves::{Move, MoveDigest, AddMove};
 use move_generator::MoveGenerator;
 use search_node::SearchNode;
-use notation::parse_fen;
-use utils::ZobristArrays;
+use utils::{ZobristArrays, parse_fen};
 
 
 /// Contains information about a position.
