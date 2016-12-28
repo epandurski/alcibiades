@@ -485,8 +485,8 @@ impl<'a, T, N> Search<'a, T, N>
                   -> Result<Option<Value>, TerminatedSearch> {
         // Probe the transposition table.
         let hash = self.position.hash();
-        let (entry, eval_value) = if let Some(e) = self.tt.probe(hash) {
-            match e.eval_value() {
+        let (entry, static_eval) = if let Some(e) = self.tt.probe(hash) {
+            match e.static_eval() {
                 VALUE_UNKNOWN => {
                     (e,
                      self.position
@@ -499,12 +499,12 @@ impl<'a, T, N> Search<'a, T, N>
             let v = self.position
                         .evaluator()
                         .evaluate(self.position.board());
-            (T::Entry::with_eval_value(0, BOUND_NONE, 0, MoveDigest::invalid(), v), v)
+            (T::Entry::with_static_eval(0, BOUND_NONE, 0, MoveDigest::invalid(), v), v)
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
             hash_move_digest: entry.move_digest(),
-            eval_value: eval_value,
+            static_eval: static_eval,
             is_check: unsafe { mem::uninitialized() }, // We will initialize this soon!
             killer: None,
         });
@@ -522,7 +522,7 @@ impl<'a, T, N> Search<'a, T, N>
 
         // On leaf nodes, do quiescence search.
         if depth == 0 {
-            let result = self.position.evaluate_quiescence(alpha, beta, eval_value);
+            let result = self.position.evaluate_quiescence(alpha, beta, static_eval);
             try!(self.report_progress(result.searched_nodes()));
             let bound = if result.value() >= beta {
                 BOUND_LOWER
@@ -532,11 +532,11 @@ impl<'a, T, N> Search<'a, T, N>
                 BOUND_EXACT
             };
             self.tt.store(hash,
-                          T::Entry::with_eval_value(result.value(),
-                                                    bound,
-                                                    0,
-                                                    MoveDigest::invalid(),
-                                                    eval_value));
+                          T::Entry::with_static_eval(result.value(),
+                                                     bound,
+                                                     0,
+                                                     MoveDigest::invalid(),
+                                                     static_eval));
             return Ok(Some(result.value()));
         }
 
@@ -555,7 +555,7 @@ impl<'a, T, N> Search<'a, T, N>
         // of the sub-tree search is still high enough to cause a beta
         // cutoff. Nodes are saved by reducing the depth of the
         // sub-tree under the null move.
-        if !last_move.is_null() && eval_value >= beta &&
+        if !last_move.is_null() && static_eval >= beta &&
            {
             let p = &self.position;
             !p.evaluator().is_zugzwangy(p.board())
@@ -586,11 +586,11 @@ impl<'a, T, N> Search<'a, T, N>
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
                     self.tt.store(hash,
-                                  T::Entry::with_eval_value(beta,
-                                                            BOUND_LOWER,
-                                                            depth,
-                                                            MoveDigest::invalid(),
-                                                            eval_value));
+                                  T::Entry::with_static_eval(beta,
+                                                             BOUND_LOWER,
+                                                             depth,
+                                                             MoveDigest::invalid(),
+                                                             static_eval));
                     return Ok(Some(beta));
                 }
             }
@@ -777,11 +777,11 @@ impl<'a, T, N> Search<'a, T, N>
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: Depth, best_move: Move) {
         self.tt.store(self.position.hash(),
-                      T::Entry::with_eval_value(value,
-                                                bound,
-                                                depth,
-                                                best_move.digest(),
-                                                self.state_stack.last().unwrap().eval_value));
+                      T::Entry::with_static_eval(value,
+                                                 bound,
+                                                 depth,
+                                                 best_move.digest(),
+                                                 self.state_stack.last().unwrap().static_eval));
     }
 
     /// A helper method for `run`. It reports search progress.
@@ -861,7 +861,7 @@ enum NodePhase {
 struct NodeState {
     phase: NodePhase,
     hash_move_digest: MoveDigest,
-    eval_value: Value,
+    static_eval: Value,
     is_check: bool,
     killer: Option<MoveDigest>,
 }

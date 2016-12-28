@@ -162,8 +162,8 @@ pub trait HashTableEntry: Copy {
     /// * `depth` -- The depth of search. Must be between `DEPTH_MIN`
     ///   and `DEPTH_MAX`.
     ///
-    /// * `move_digest` -- Best or refutation move digest, or `0` if
-    ///   no move is available.
+    /// * `move_digest` -- Best or refutation move digest, or
+    ///   `MoveDigest::invalid()` if no move is available.
     fn new(value: Value, bound: BoundType, depth: Depth, move_digest: MoveDigest) -> Self;
 
     /// Creates a new instance.
@@ -171,17 +171,17 @@ pub trait HashTableEntry: Copy {
     /// The only difference between this function and `new` is that
     /// this function requires one additional parameter:
     ///
-    /// * `eval_value` -- Position's static evaluation, or
+    /// * `static_eval` -- Position's static evaluation, or
     ///   `VALUE_UNKNOWN`.
     ///
-    /// **Important note:** `eval_value` will be ignored if there is
+    /// **Important note:** `static_eval` will be ignored if there is
     /// no field allotted for it in the underlying memory structure.
-    fn with_eval_value(value: Value,
-                       bound: BoundType,
-                       depth: Depth,
-                       move_digest: MoveDigest,
-                       eval_value: Value)
-                       -> Self;
+    fn with_static_eval(value: Value,
+                        bound: BoundType,
+                        depth: Depth,
+                        move_digest: MoveDigest,
+                        static_eval: Value)
+                        -> Self;
 
     /// Returns the value assigned to the position.
     fn value(&self) -> Value;
@@ -192,12 +192,12 @@ pub trait HashTableEntry: Copy {
     /// Returns the search depth for the assigned value.
     fn depth(&self) -> Depth;
 
-    /// Returns best or refutation move digest, or `0` if no move is
-    /// available.
+    /// Returns best or refutation move digest, or
+    /// `MoveDigest::invalid()` if no move is available.
     fn move_digest(&self) -> MoveDigest;
 
     /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
-    fn eval_value(&self) -> Value;
+    fn static_eval(&self) -> Value;
 }
 
 

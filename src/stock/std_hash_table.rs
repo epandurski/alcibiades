@@ -23,7 +23,7 @@ pub struct StdHashTableEntry {
 
     depth: Depth,
     move_digest: MoveDigest,
-    eval_value: Value,
+    static_eval: Value,
 }
 
 impl HashTableEntry for StdHashTableEntry {
@@ -33,16 +33,16 @@ impl HashTableEntry for StdHashTableEntry {
            depth: Depth,
            move_digest: MoveDigest)
            -> StdHashTableEntry {
-        Self::with_eval_value(value, bound, depth, move_digest, VALUE_UNKNOWN)
+        Self::with_static_eval(value, bound, depth, move_digest, VALUE_UNKNOWN)
     }
 
     #[inline(always)]
-    fn with_eval_value(value: Value,
-                       bound: BoundType,
-                       depth: Depth,
-                       move_digest: MoveDigest,
-                       eval_value: Value)
-                       -> StdHashTableEntry {
+    fn with_static_eval(value: Value,
+                        bound: BoundType,
+                        depth: Depth,
+                        move_digest: MoveDigest,
+                        static_eval: Value)
+                        -> StdHashTableEntry {
         debug_assert!(value != VALUE_UNKNOWN);
         debug_assert!(bound <= 0b11);
         debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
@@ -51,7 +51,7 @@ impl HashTableEntry for StdHashTableEntry {
             gen_bound: bound,
             depth: depth,
             move_digest: move_digest,
-            eval_value: eval_value,
+            static_eval: static_eval,
         }
     }
 
@@ -75,10 +75,10 @@ impl HashTableEntry for StdHashTableEntry {
         self.move_digest
     }
 
-    /// Returns the `eval_value` passed to the constructor.
+    /// Returns the `static_eval` passed to the constructor.
     #[inline(always)]
-    fn eval_value(&self) -> Value {
-        self.eval_value
+    fn static_eval(&self) -> Value {
+        self.static_eval
     }
 }
 
@@ -352,7 +352,8 @@ mod tests {
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), MoveDigest::invalid());
         for i in 2..50 {
-            tt.store(i, StdHashTableEntry::new(i as i16, 0, i as Depth, MoveDigest::invalid()));
+            tt.store(i,
+                     StdHashTableEntry::new(i as i16, 0, i as Depth, MoveDigest::invalid()));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);
