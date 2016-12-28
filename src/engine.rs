@@ -397,7 +397,7 @@ impl<S, T> Engine<S, T>
 ///
 /// **Important note:** The current thread blocks until the UCI
 /// session is closed.
-pub fn run<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
+pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
     where S: SearchExecutor<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
