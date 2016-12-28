@@ -158,7 +158,7 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
-                           static_evaluation: Value)
+                           static_eval: Value)
                            -> Self::QsearchResult {
         debug_assert!(lower_bound < upper_bound);
         if self.repeated_or_rule50 {
@@ -169,7 +169,7 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
                 depth: 0,
                 lower_bound: lower_bound,
                 upper_bound: upper_bound,
-                static_evaluation: static_evaluation,
+                static_eval: static_eval,
             })
         }
     }

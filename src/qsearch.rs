@@ -48,7 +48,7 @@ pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
     ///
     /// Saves the re-calculation if position's static evaluation is
     /// already available.
-    pub static_evaluation: Value,
+    pub static_eval: Value,
 }
 
 

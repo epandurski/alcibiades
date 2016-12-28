@@ -93,8 +93,8 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// exact evaluation is outside of this interval, this method may
     /// return a value that is closer to the the interval bounds than
     /// the exact evaluation, but always staying on the correct side
-    /// of the interval. `static_evaluation` should be position's
-    /// static evaluation, or `VALUE_UNKNOWN`.
+    /// of the interval. `static_eval` should be position's static
+    /// evaluation, or `VALUE_UNKNOWN`.
     ///
     /// **Important note:** This method will return a reliable result
     /// even when the side to move is in check. Repeated and rule-50
@@ -102,7 +102,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     fn evaluate_quiescence(&self,
                            lower_bound: Value,
                            upper_bound: Value,
-                           static_evaluation: Value)
+                           static_eval: Value)
                            -> Self::QsearchResult;
 
     /// Returns the likely evaluation change (material) to be lost or

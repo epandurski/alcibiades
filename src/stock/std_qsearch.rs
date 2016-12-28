@@ -63,7 +63,7 @@ impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
             qsearch(params.position,
                     params.lower_bound,
                     params.upper_bound,
-                    params.static_evaluation,
+                    params.static_eval,
                     0,
                     -params.depth,
                     &mut *s.get(),
