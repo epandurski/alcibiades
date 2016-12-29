@@ -1510,4 +1510,46 @@ mod tests {
         b.generate_all(&mut s);
         try_all(&b, &s);
     }
+
+    #[test]
+    fn perft() {
+        use utils::perft;
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        let mut b = P::from_fen(fen).ok().unwrap();
+        assert_eq!(perft(&mut b, 0), 1);
+        assert_eq!(perft(&mut b, 1), 20);
+        assert_eq!(perft(&mut b, 2), 400);
+        assert_eq!(perft(&mut b, 3), 8_902);
+
+        let fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+        let mut b = P::from_fen(fen).ok().unwrap();
+        assert_eq!(perft(&mut b, 1), 48);
+        assert_eq!(perft(&mut b, 2), 2_039);
+        assert_eq!(perft(&mut b, 3), 97_862);
+
+        let fen = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1";
+        let mut b = P::from_fen(fen).ok().unwrap();
+        assert_eq!(perft(&mut b, 1), 14);
+        assert_eq!(perft(&mut b, 2), 191);
+        assert_eq!(perft(&mut b, 3), 2_812);
+        assert_eq!(perft(&mut b, 4), 43_238);
+
+        let fen = "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1";
+        let mut b = P::from_fen(fen).ok().unwrap();
+        assert_eq!(perft(&mut b, 1), 6);
+        assert_eq!(perft(&mut b, 2), 264);
+        assert_eq!(perft(&mut b, 3), 9467);
+
+        let fen = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8";
+        let mut b = P::from_fen(fen).ok().unwrap();
+        assert_eq!(perft(&mut b, 1), 44);
+        assert_eq!(perft(&mut b, 2), 1_486);
+        assert_eq!(perft(&mut b, 3), 62_379);
+
+        let fen = "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10";
+        let mut b = P::from_fen(fen).ok().unwrap();
+        assert_eq!(perft(&mut b, 1), 46);
+        assert_eq!(perft(&mut b, 2), 2_079);
+        assert_eq!(perft(&mut b, 3), 89_890);
+    }
 }
