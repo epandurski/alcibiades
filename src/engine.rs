@@ -1,11 +1,11 @@
 //! Implements a generic chess engine.
 
+use std::process;
 use std::marker::PhantomData;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, Duration};
 use std::cmp::{min, max};
-use std::io;
 use uci::*;
 use value::*;
 use depth::*;
@@ -388,14 +388,9 @@ impl<S, T> Engine<S, T>
 }
 
 
-/// Serves UCI commands until a "quit" command is received.
-///
-/// Returns `Error` if the handshake is unsuccessful, or an IO error
-/// has occurred.
-///
-/// **Important note:** The current thread blocks until the UCI
-/// session is closed.
-pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
+/// Serves UCI commands until a "quit" command is received, or an IO
+/// error has occurred.
+pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
     where S: SearchExecutor<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
@@ -414,7 +409,11 @@ pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> io::Result<()>
 
     // Release the lock.
     *ENGINE.lock().unwrap() = None;
-    result
+
+    process::exit(match result {
+        Ok(_) => 0,
+        Err(_) => 1,
+    });
 }
 
 struct EngineIdentity {
