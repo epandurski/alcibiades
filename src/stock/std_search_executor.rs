@@ -159,7 +159,7 @@ enum Command<N: SearchNode> {
 ///
 /// # Example:
 ///
-/// ```rust,ignore
+/// ```text
 /// // Spawn a slave thread:
 /// let tt = Arc::new(tt);
 /// let (commands_tx, commands_rx) = channel();
@@ -990,6 +990,16 @@ impl Default for KillerPair {
 }
 
 
+/// A helper function. It checks if the two supplied lists of moves
+/// contain the same moves, possibly in different order.
+fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
+    let mut list1 = list1.clone();
+    let mut list2 = list2.clone();
+    list1.sort();
+    list2.sort();
+    list1 == list2
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -1002,36 +1012,30 @@ mod tests {
     use stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, SimpleEvaluator};
     use utils::MoveStack;
 
-    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
+    type P = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 
     #[test]
-    fn test_search() {
-        let p = Pos::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b \
-                                                                    - - 0 1",
-                                  &mut vec![].into_iter())
+    fn search() {
+        let p = P::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1",
+                                &mut vec![].into_iter())
                     .ok()
                     .unwrap();
         let tt = StdHashTable::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
-        let value = search.run(VALUE_MIN, VALUE_MAX, 1, Move::invalid())
-                          .ok()
-                          .unwrap();
+        let value = search.run(VALUE_MIN, VALUE_MAX, 1, Move::invalid()).ok().unwrap();
         assert!(value < -300);
         search.reset();
-        let value = search.run(VALUE_MIN, VALUE_MAX, 8, Move::invalid())
-                          .ok()
-                          .unwrap();
+        let value = search.run(VALUE_MIN, VALUE_MAX, 8, Move::invalid()).ok().unwrap();
         assert!(value > VALUE_EVAL_MAX);
     }
 
     #[test]
-    fn test_killers() {
+    fn killers() {
         let mut killers = KillerTable::new();
-        let mut p = Pos::from_history("5r2/8/8/4q1p1/3P4/k3P1P1/\
-                                                                        P2b1R1B/K4R2 w - - 0 1",
-                                      &mut vec![].into_iter())
+        let mut p = P::from_history("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1",
+                                    &mut vec![].into_iter())
                         .ok()
                         .unwrap();
         let mut v = MoveStack::new();
@@ -1053,15 +1057,4 @@ mod tests {
         }
         assert!(killers.get(1) == (MoveDigest::invalid(), MoveDigest::invalid()));
     }
-}
-
-
-/// A helper function. It checks if the two supplied lists of moves
-/// contain the same moves, possibly in different order.
-fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
-    let mut list1 = list1.clone();
-    let mut list2 = list2.clone();
-    list1.sort();
-    list2.sort();
-    list1 == list2
 }
