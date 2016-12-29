@@ -8,11 +8,11 @@
 //! # Why a framework?
 //!
 //! There is lots of knowledge out there about how to write a chess
-//! engine, and there is a lot of place for innovation also. Writing a
+//! engine, and there is a lot of room for innovation also. Writing a
 //! chess engine is fun, but even for the simplest engine there is a
 //! lot of complex (and boring) things that have to be implemented
-//! correctly: the UCI protocol communication, the rules, the static
-//! exchange evaluator, and many more. Thousands of programmers had
+//! first: the UCI protocol communication, the rules, the static
+//! exchange evaluator, and many more. Thousands of programmers have
 //! been re-implementing those things over and over again.
 //!
 //! So, if you want to write your own chess engine, you face an
@@ -38,17 +38,16 @@
 //! }
 //! ```
 //!
-//! This engine is all assembled from the "in stock" implementations
-//! of the different framework traits.
+//! This engine is assembled from the "in stock" implementations of
+//! the different framework traits.
 //!
 //! In reality, you will probably want to write your own
-//! implementations of at least some of the framework traits. While
-//! doing so, you are not limited to implementing only the methods
-//! required by the traits. You can add your own methods and use
-//! Rust's incredible capabilities for generic programming to call
-//! them. For example you may write your own static position evaluator
-//! which have a `consult_endgame_table()` method. Then you will be
-//! able to write a search algorithm that makes use of this method.
+//! implementations of some of the framework traits. Thanks to Rust's
+//! incredible generic programming capabilities, you are not limited
+//! to implementing only the methods required by the traits. For
+//! example you may write your own static position evaluator which
+//! have a `consult_endgame_table` method. Then you will be able to
+//! write a search algorithm that uses this method.
 //!
 //! # Speed and safety
 //!
