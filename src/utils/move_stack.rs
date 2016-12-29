@@ -189,24 +189,22 @@ impl MoveStack {
     pub fn pull_best(&mut self) -> Option<Move> {
         debug_assert!(self.moves.len() >= self.first_move_index);
         let moves = &mut self.moves;
-        if moves.len() > self.first_move_index {
-            let last = moves.len() - 1;
+        let n = moves.len();
+        if n > self.first_move_index {
+            let last = n - 1;
             unsafe {
                 let mut best_move = *moves.get_unchecked(last);
-                let mut curr = last;
-                loop {
-                    if *moves.get_unchecked(curr) > best_move {
-                        // Swap the new best move candidate (`curr`)
-                        // with the previous candidate (`last`).
-                        *moves.get_unchecked_mut(last) = *moves.get_unchecked_mut(curr);
-                        *moves.get_unchecked_mut(curr) = best_move;
-                        best_move = *moves.get_unchecked(last);
+                let mut best = last;
+                let mut i = last;
+                while i > self.first_move_index {
+                    i -= 1;
+                    let m = *moves.get_unchecked(i);
+                    if m > best_move {
+                        best_move = m;
+                        best = i;
                     }
-                    if curr == self.first_move_index {
-                        break;
-                    }
-                    curr -= 1;
                 }
+                *moves.get_unchecked_mut(best) = *moves.get_unchecked(last);
                 moves.pop();
                 return Some(best_move);
             }
