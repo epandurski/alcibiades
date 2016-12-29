@@ -408,7 +408,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_lsb() {
+    fn bitsets() {
         assert_eq!(lsb(0x100100), 0x100);
         assert_eq!(lsb(0x8000000000000000), 0x8000000000000000);
         assert_eq!(lsb(0xf800000000000000), 0x0800000000000000);
@@ -433,16 +433,11 @@ mod tests {
         assert_eq!(pop_count(0), 0);
         assert_eq!(pop_count(0b1001101), 4);
         assert_eq!(pop_count(0xffffffffffffffff), 64);
-    }
-
-    #[test]
-    fn test_bitscan() {
         assert_eq!(bsf(0b1001101), 0);
         assert_eq!(bsf(0b1001000), 3);
         assert_eq!(bsf(0xf000000000000000), 60);
-        let mut b = 0b1100100;
-        assert_eq!(bsf_reset(&mut b), 2);
-        assert_eq!(b, 0b1100000);
+        x = 0b1100100;
+        assert_eq!(bsf_reset(&mut x), 2);
+        assert_eq!(x, 0b1100000);
     }
-
 }

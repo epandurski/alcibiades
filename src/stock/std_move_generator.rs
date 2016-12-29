@@ -1178,34 +1178,11 @@ mod tests {
             StdMoveGenerator::from_board(try!(Board::from_fen(fen)))
         }
     }
+    type P = StdMoveGenerator<SimpleEvaluator>;
 
     #[test]
-    fn test_attacks_from() {
-        use utils::BoardGeometry;
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k7/8/8/8/3P4/8/8/7K w - - 0 1")
-                    .ok()
-                    .unwrap();
-        let g = BoardGeometry::get();
-        assert_eq!(g.attacks_from(BISHOP,
-                                  A1,
-                                  b.board.pieces.color[WHITE] | b.board.pieces.color[BLACK]),
-                   1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(g.attacks_from(BISHOP,
-                                  A1,
-                                  b.board.pieces.color[WHITE] | b.board.pieces.color[BLACK]),
-                   1 << B2 | 1 << C3 | 1 << D4);
-        assert_eq!(g.attacks_from(KNIGHT,
-                                  A1,
-                                  b.board.pieces.color[WHITE] | b.board.pieces.color[BLACK]),
-                   1 << B3 | 1 << C2);
-    }
-
-    #[test]
-    fn test_attacks_to() {
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q \
-                                                                w - - 0 1")
-                    .ok()
-                    .unwrap();
+    fn attacks_to() {
+        let b = P::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q w - - 0 1").ok().unwrap();
         assert_eq!(b.attacks_to(WHITE, E4),
                    1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
         assert_eq!(b.attacks_to(BLACK, E4),
@@ -1222,7 +1199,7 @@ mod tests {
     }
 
     #[test]
-    fn test_piece_type_constants_constraints() {
+    fn piece_type_constants() {
         assert_eq!(KING, 0);
         assert_eq!(QUEEN, 1);
         assert_eq!(ROOK, 2);
@@ -1232,16 +1209,13 @@ mod tests {
     }
 
     #[test]
-    fn test_pawn_dest_sets() {
-        let mut stack = MoveStack::new();
+    fn pawn_dest_sets() {
+        let mut s = MoveStack::new();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w \
-                                                                - h6 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
+        let b = P::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w - h6 0 1").ok().unwrap();
+        b.generate_all(&mut s);
         let mut pawn_dests = 0u64;
-        while let Some(m) = stack.pop() {
+        while let Some(m) = s.pop() {
             if m.played_piece() == PAWN {
                 pawn_dests |= 1 << m.dest_square();
             }
@@ -1249,13 +1223,10 @@ mod tests {
         assert_eq!(pawn_dests,
                    1 << H3 | 1 << H4 | 1 << G6 | 1 << E8 | 1 << H5 | 1 << G7 | 1 << H6 | 1 << D8);
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b \
-                                                                - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
+        let b = P::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
         let mut pawn_dests = 0u64;
-        while let Some(m) = stack.pop() {
+        while let Some(m) = s.pop() {
             if m.played_piece() == PAWN {
                 pawn_dests |= 1 << m.dest_square();
             }
@@ -1264,188 +1235,107 @@ mod tests {
     }
 
     #[test]
-    fn test_move_generation_1() {
-        let mut stack = MoveStack::new();
+    fn move_generation() {
+        let mut s = MoveStack::new();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 \
-                                                                w - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 5);
-        stack.clear_all();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 5);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 \
-                                                                w - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 7);
-        stack.clear_all();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 w - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 7);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w \
-                                                                - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 8);
-        stack.clear_all();
+        let b = P::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 8);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w \
-                                                                - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 22);
-        stack.clear_all();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 22);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w \
-                                                                - c6 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 23);
-        stack.clear_all();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - c6 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 23);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k \
-                                                                b - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 25);
-        stack.clear_all();
+        let b = P::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k b - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 25);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 \
-                                                                b - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 5);
-        stack.clear_all();
-    }
+        let b = P::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 b - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 5);
+        s.clear_all();
 
-    #[test]
-    fn test_move_generation_2() {
-        let mut stack = MoveStack::new();
+        assert!(P::from_fen("8/8/7k/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
+        assert!(P::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
+        assert!(P::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 0 1").is_ok());
 
-        assert!(StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/7k/8/4pP2/8/3B4/7K b - f3 0 \
-                                                                1")
-                    .is_err());
-        assert!(StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1")
-                    .is_err());
-        assert!(StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 \
-                                                                0 1")
-                    .is_ok());
+        let b = P::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 6);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 6);
-        stack.clear_all();
+        let b = P::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 7);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 \
-                                                                1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 7);
-        stack.clear_all();
+        let b = P::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 5);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 5);
-        stack.clear_all();
-    }
+        let b = P::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 6);
+        s.clear_all();
 
-    #[test]
-    fn test_move_generation_3() {
-        let mut stack = MoveStack::new();
+        let b = P::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 7);
+        s.clear();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 6);
-        stack.clear_all();
-    }
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 5);
+        s.clear_all();
 
-    #[test]
-    fn test_move_generation_4() {
-        let mut stack = MoveStack::new();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 6);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.ply(), 0);
-        assert_eq!(stack.list().len(), 7);
-        stack.clear();
-        assert_eq!(stack.list().len(), 0);
-        assert_eq!(stack.ply(), 0);
-    }
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 7);
+        s.clear_all();
 
-    #[test]
-    fn test_move_generation_5() {
-        let mut stack = MoveStack::new();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 5);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 \
-                                                                1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 5);
-        stack.clear_all();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 6);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 \
-                                                                1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 6);
-        stack.clear_all();
+        let b = P::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 5);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - \
-                                                                0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 7);
-        stack.clear_all();
-
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - \
-                                                                0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 5);
-        stack.clear_all();
-
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - \
-                                                                0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 6);
-        stack.clear_all();
-
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 \
-                                                                1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 5);
-        stack.clear_all();
-
-        let mut b = StdMoveGenerator::<SimpleEvaluator>::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ \
-                                                                    - 0 1")
-                        .ok()
-                        .unwrap();
-        b.generate_all(&mut stack);
+        let mut b = P::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
         let mut count = 0;
-        while let Some(m) = stack.pop() {
+        while let Some(m) = s.pop() {
             if b.do_move(m).is_some() {
                 count += 1;
                 b.undo_move(m);
@@ -1453,144 +1343,114 @@ mod tests {
         }
         assert_eq!(count, 19 + 4);
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 \
-                                                                1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 5);
-        stack.clear_all();
+        let b = P::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 5);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 5);
-        stack.clear_all();
+        let b = P::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 5);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 \
-                                                                1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        assert_eq!(stack.list().len(), 19 + 7);
-        stack.clear_all();
+        let b = P::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        assert_eq!(s.list().len(), 19 + 7);
+        s.clear_all();
     }
 
     #[test]
-    fn test_do_undo_move() {
-        let mut stack = MoveStack::new();
+    fn do_undo_move() {
+        let mut s = MoveStack::new();
 
-        let mut b = StdMoveGenerator::<SimpleEvaluator>::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2\
-                                                                    R w kKQ f6 0 1")
-                        .ok()
-                        .unwrap();
-        b.generate_all(&mut stack);
-        let count = stack.list().len();
-        while let Some(m) = stack.pop() {
+        let mut b = P::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        let count = s.list().len();
+        while let Some(m) = s.pop() {
             if let Some(h) = b.do_move(m) {
                 assert!(h != 0);
                 b.undo_move(m);
-                let mut other_stack = MoveStack::new();
-                b.generate_all(&mut other_stack);
-                assert_eq!(count, other_stack.list().len());
+                let mut s2 = MoveStack::new();
+                b.generate_all(&mut s2);
+                assert_eq!(count, s2.list().len());
             }
         }
-        assert_eq!(stack.list().len(), 0);
-        let mut b = StdMoveGenerator::<SimpleEvaluator>::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R \
-                                                                    b kKQ - 0 1")
-                        .ok()
-                        .unwrap();
-        b.generate_all(&mut stack);
-        let count = stack.list().len();
-        while let Some(m) = stack.pop() {
-            if b.do_move(m).is_some() {
+        assert_eq!(s.list().len(), 0);
+
+        let mut b = P::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        let count = s.list().len();
+        while let Some(m) = s.pop() {
+            if let Some(h) = b.do_move(m) {
+                assert!(h != 0);
                 b.undo_move(m);
-                let mut other_stack = MoveStack::new();
-                b.generate_all(&mut other_stack);
-                assert_eq!(count, other_stack.list().len());
+                let mut s2 = MoveStack::new();
+                b.generate_all(&mut s2);
+                assert_eq!(count, s2.list().len());
             }
         }
+        assert_eq!(s.list().len(), 0);
     }
 
     #[test]
-    fn test_find_pinned() {
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/\
-                                                                6b1 w - - 0 1")
-                    .ok()
-                    .unwrap();
+    fn find_pinned() {
+        let b = P::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/6b1 w - - 0 1").ok().unwrap();
         assert_eq!(b.find_pinned(b.king_square()), 1 << F2 | 1 << D6 | 1 << G4);
     }
 
     #[test]
-    fn test_generate_only_captures() {
-        let mut stack = MoveStack::new();
+    fn generate_forcing() {
+        let mut s = MoveStack::new();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 \
-                                                                1")
-                    .ok()
-                    .unwrap();
-        b.generate_forcing(false, &mut stack);
-        assert_eq!(stack.list().len(), 4);
-        stack.clear_all();
+        let b = P::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1").ok().unwrap();
+        b.generate_forcing(false, &mut s);
+        assert_eq!(s.list().len(), 4);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_forcing(false, &mut stack);
-        assert_eq!(stack.list().len(), 8);
-        stack.clear_all();
+        let b = P::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1").ok().unwrap();
+        b.generate_forcing(false, &mut s);
+        assert_eq!(s.list().len(), 8);
+        s.clear_all();
 
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_forcing(false, &mut stack);
-        assert_eq!(stack.list().len(), 7);
-        stack.clear_all();
+        let b = P::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1").ok().unwrap();
+        b.generate_forcing(false, &mut s);
+        assert_eq!(s.list().len(), 7);
+        s.clear_all();
     }
 
     #[test]
-    fn test_null_move() {
-        let mut stack = MoveStack::new();
+    fn null_move() {
+        let mut s = MoveStack::new();
 
-        let mut b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K \
-                                                                    g6 0 1")
-                        .ok()
-                        .unwrap();
-        b.generate_all(&mut stack);
-        let count = stack.list().len();
-        stack.clear_all();
+        let mut b = P::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
+        b.generate_all(&mut s);
+        let count = s.list().len();
+        s.clear_all();
         let m = b.null_move();
         assert!(b.do_move(m).is_some());
         b.undo_move(m);
-        b.generate_all(&mut stack);
-        assert_eq!(count, stack.list().len());
-        stack.clear_all();
+        b.generate_all(&mut s);
+        assert_eq!(count, s.list().len());
+        s.clear_all();
 
-        let mut b = StdMoveGenerator::<SimpleEvaluator>::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 \
-                                                                    1")
-                        .ok()
-                        .unwrap();
+        let mut b = P::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
         let m = b.null_move();
         assert!(b.do_move(m).is_none());
     }
 
     #[test]
-    fn test_move_into_check_bug() {
-        let mut stack = MoveStack::new();
-
-        let mut b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rnbq1bn1/pppP3k/8/3P2B1/2B5/5\
-                                                                    N2/PPPN1PP1/2K4R b - - 0 1")
-                        .ok()
-                        .unwrap();
-        b.generate_all(&mut stack);
-        let m = stack.pop().unwrap();
+    fn move_into_check_bug() {
+        let mut s = MoveStack::new();
+        let fen = "rnbq1bn1/pppP3k/8/3P2B1/2B5/5N2/PPPN1PP1/2K4R b - - 0 1";
+        let mut b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        let m = s.pop().unwrap();
         b.do_move(m);
         assert!(b.is_legal());
     }
 
     #[test]
-    fn test_try_move_digest() {
+    fn try_move_digest() {
         use std::mem::transmute;
         use evaluator::*;
         fn try_all<E: Evaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
@@ -1606,59 +1466,48 @@ mod tests {
                 }
             }
         }
+        let mut s = MoveStack::new();
 
-        let mut stack = MoveStack::new();
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP\
-                                                                1PPPBP/RNBQK2R b KQkq c3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        try_all(&b, &stack);
+        s.clear_all();
+        let fen = "rnbqk2r/p1p1pppp/8/8/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQkq c3 0 1";
+        let b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        try_all(&b, &s);
 
-        stack.clear_all();
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/p\
-                                                                P1PPPBP/RNB1K2R b KQkq - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        try_all(&b, &stack);
+        s.clear_all();
+        let fen = "rnbqk2r/p1p1pppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 1";
+        let b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        try_all(&b, &s);
 
-        stack.clear_all();
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/\
-                                                                pP1PPPBP/RNB1K2R b KQkq - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        try_all(&b, &stack);
+        s.clear_all();
+        let fen = "rnbqk2r/p1p1pppp/3N4/8/Q1Pp4/6P1/pP1PPPBP/RNB1K2R b KQkq - 0 1";
+        let b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        try_all(&b, &s);
 
-        stack.clear_all();
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/p\
-                                                                P1PPPBP/RNBQK2R b KQ c3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        try_all(&b, &stack);
+        s.clear_all();
+        let fen = "rnbq3r/p1p1pppp/8/3k4/2Pp4/5NP1/pP1PPPBP/RNBQK2R b KQ c3 0 1";
+        let b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        try_all(&b, &s);
 
-        stack.clear_all();
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/p\
-                                                                P1PPPBP/RNB1K2R b KQkq - 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        try_all(&b, &stack);
+        s.clear_all();
+        let fen = "rn1qk2r/p1pbpppp/8/8/Q1Pp4/5NP1/pP1PPPBP/RNB1K2R b KQkq - 0 1";
+        let b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        try_all(&b, &s);
 
-        stack.clear_all();
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        try_all(&b, &stack);
+        s.clear_all();
+        let fen = "8/8/8/8/4RpPk/8/8/7K b - g3 0 1";
+        let b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        try_all(&b, &s);
 
-        stack.clear_all();
-        let b = StdMoveGenerator::<SimpleEvaluator>::from_fen("8/8/8/8/5pPk/8/8/7K b - g3 0 1")
-                    .ok()
-                    .unwrap();
-        b.generate_all(&mut stack);
-        try_all(&b, &stack);
+        s.clear_all();
+        let fen = "8/8/8/8/5pPk/8/8/7K b - g3 0 1";
+        let b = P::from_fen(fen).ok().unwrap();
+        b.generate_all(&mut s);
+        try_all(&b, &s);
     }
 }

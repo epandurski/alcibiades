@@ -650,7 +650,7 @@ mod tests {
     use bitsets::pop_count;
 
     #[test]
-    fn test_board_geometry() {
+    fn board_geometry() {
         let g = BoardGeometry::new();
         assert_eq!(g.squares_at_line[B1][C3], 0);
         assert_eq!(g.squares_at_line[B1][G1], 0b11111111);
@@ -671,7 +671,7 @@ mod tests {
     }
 
     #[test]
-    fn test_attacks_from() {
+    fn attacks_from() {
         use rand::{Rng, thread_rng};
         let mut rng = thread_rng();
         let g = BoardGeometry::new();

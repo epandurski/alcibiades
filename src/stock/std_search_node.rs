@@ -432,61 +432,55 @@ mod tests {
     use evaluator::*;
     use qsearch::*;
     use stock::{StdSearchNode, StdQsearch, StdMoveGenerator, SimpleEvaluator};
-
-    type Pos = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
+    type P = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 
     #[test]
-    fn test_is_legal() {
-        assert!(Pos::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
-        assert!(Pos::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Pos::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
-        assert!(Pos::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
-        assert!(Pos::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Pos::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1").is_err());
-        assert!(Pos::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1").is_ok());
-        assert!(Pos::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Pos::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Pos::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
-        assert!(Pos::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Pos::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
-        assert!(Pos::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").is_ok());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1").is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
-        assert!(Pos::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_ok());
-        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_err());
-        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1").is_err());
-        assert!(Pos::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1").is_ok());
-        assert!(Pos::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
-        assert!(Pos::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
-        assert!(Pos::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
-        assert!(Pos::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
-        assert!(Pos::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
-        assert!(Pos::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1").is_err());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_err());
-        assert!(Pos::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
-        assert!(Pos::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
+    fn is_legal() {
+        assert!(P::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err());
+        assert!(P::from_fen("8/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(P::from_fen("k7/8/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(P::from_fen("k7/8/8/8/8/8/8/6KK w - - 0 1").is_err());
+        assert!(P::from_fen("k7/pppppppp/p7/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(P::from_fen("k7/8/8/8/8/7P/PPPPPPPP/7K w - - 0 1").is_err());
+        assert!(P::from_fen("k7/pppppppp/8/8/8/8/PPPPPPPP/7K w - - 0 1").is_ok());
+        assert!(P::from_fen("k7/1P6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(P::from_fen("k7/1B6/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(P::from_fen("k7/1N6/8/8/8/8/8/7K w - - 0 1").is_ok());
+        assert!(P::from_fen("k3P3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(P::from_fen("k3p3/8/8/8/8/8/8/7K w - - 0 1").is_err());
+        assert!(P::from_fen("k7/8/8/8/8/8/8/pP5K w - - 0 1").is_err());
+        assert!(P::from_fen("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1").is_ok());
+        assert!(P::from_fen("r3k2r/8/8/8/8/8/8/R3K2B w KQkq - 0 1").is_err());
+        assert!(P::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
+        assert!(P::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1").is_err());
+        assert!(P::from_fen("r3k2r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_ok());
+        assert!(P::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qkq - 0 1").is_err());
+        assert!(P::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Qk - 0 1").is_err());
+        assert!(P::from_fen("r2k3r/8/8/8/8/8/8/R3K3 w Q - 0 1").is_ok());
+        assert!(P::from_fen("k7/8/8/8/7P/8/8/7K w - h3 0 1").is_err());
+        assert!(P::from_fen("k7/8/8/8/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(P::from_fen("k7/8/8/7P/8/8/8/7K b - h4 0 1").is_err());
+        assert!(P::from_fen("k7/8/8/8/7P/7P/8/7K b - h3 0 1").is_err());
+        assert!(P::from_fen("k7/8/8/8/7P/8/7P/7K b - h3 0 1").is_err());
+        assert!(P::from_fen("k7/8/8/8/6P1/7P/8/7K b - h3 0 1").is_err());
+        assert!(P::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 1").is_ok());
+        assert!(P::from_fen("8/8/8/6k1/7P/8/8/6RK b - h3 0 1").is_err());
+        assert!(P::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
+        assert!(P::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
+        assert!(P::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
     }
 
     #[test]
-    fn test_evaluate_static() {
-        let p = Pos::from_fen("krq5/p7/8/8/8/8/8/\
-                                                                            KRQ5 w - - 0 1")
-                    .ok()
-                    .unwrap();
+    fn evaluate_static() {
+        let p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1").ok().unwrap();
         assert!(p.evaluator().evaluate(p.board()) < -20);
     }
 
     #[test]
-    fn test_evaluate_move() {
-        let p = Pos::from_fen("8/4P1kP/8/8/8/7p/8/7K \
-                                                                            w - - 0 1")
-                    .ok()
-                    .unwrap();
+    fn evaluate_move() {
         let mut s = MoveStack::new();
+
+        let p = P::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1").ok().unwrap();
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "e7e8q" {
@@ -502,14 +496,11 @@ mod tests {
                 assert_eq!(p.evaluate_move(m), 0);
             }
             if m.notation() == "h1g2" {
-                assert_eq!(p.evaluate_move(m), -10000);
+                assert!(p.evaluate_move(m) < -5000);
             }
         }
-        assert_eq!(p.evaluate_move(p.null_move()), 0);
-        let p = Pos::from_fen("6k1/1P6/8/4b3/8/8/8/1\
-                                                                            R3K2 w - - 0 1")
-                    .ok()
-                    .unwrap();
+
+        let p = P::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1").ok().unwrap();
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "b7b8q" {
@@ -519,93 +510,10 @@ mod tests {
                 assert!(p.evaluate_move(m) > 0);
             }
         }
-    }
 
-    #[test]
-    fn test_create_repeated() {
-        let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4"];
-        let p = Pos::from_history("8/8/8/8/6k1/6P1/8/6K1 \
-                                                                           b - - 0 1",
-                                  &mut moves.into_iter())
-                    .ok()
-                    .unwrap();
-        let mut v = MoveStack::new();
-        p.generate_moves(&mut v);
-        assert_eq!(v.list().len(), 5);
-    }
-
-    #[test]
-    fn test_set_non_repeated_values() {
-        use super::set_non_repeated_values;
-        let mut v = vec![0, 1, 2, 7, 9, 0, 0, 1, 2];
-        let dups = set_non_repeated_values(&mut v, 0);
-        assert_eq!(v, vec![0, 1, 2, 0, 0, 0, 0, 1, 2]);
-        assert_eq!(dups, vec![1, 2]);
-    }
-
-    #[test]
-    fn test_evaluate_quiescence() {
-        let p = Pos::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).searched_nodes(),
-                   1);
-    }
-
-    #[test]
-    fn is_repeated() {
-        let mut p = Pos::from_fen("8/5p1b/5Pp1/6P1/6\
-                                                                                p1/3p1pPk/3PpP2/4\
-                                                                                B2K w - - 0 1")
-                        .ok()
-                        .unwrap();
-        let mut v = MoveStack::new();
-        let mut count = 0;
-        for _ in 0..100 {
-            p.generate_moves(&mut v);
-            while let Some(m) = v.pop() {
-                if p.do_move(m) {
-                    count += 1;
-                    v.clear_all();
-                    break;
-                }
-            }
-        }
-        assert_eq!(count, 4);
-    }
-
-    #[test]
-    fn is_checkmate() {
-        let p = Pos::from_fen("8/8/8/8/8/7K/8/5R1k \
-                                                                            b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert!(p.is_checkmate());
-
-        let p = Pos::from_fen("8/8/8/8/8/7K/6p1/5R1k \
-                                                                            b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert!(!p.is_checkmate());
-
-        let p = Pos::from_fen("8/8/8/8/8/7K/8/5N1k \
-                                                                            b - - 0 1")
-                    .ok()
-                    .unwrap();
-        assert!(!p.is_checkmate());
-    }
-
-    #[test]
-    fn test_static_exchange_evaluation() {
-        let mut v = MoveStack::new();
-
-        let p = Pos::from_fen("5r2/8/8/4q1p1/3P4/k3P\
-                                                                            1P1/P2b1R1B/K4R2 w - \
-                                                                            - 0 1")
-                    .ok()
-                    .unwrap();
-        p.generate_moves(&mut v);
-        while let Some(m) = v.pop() {
+        let p = P::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1").ok().unwrap();
+        p.generate_moves(&mut s);
+        while let Some(m) = s.pop() {
             if m.notation() == "f2f4" {
                 assert!(p.evaluate_move(m) <= -400);
             }
@@ -623,13 +531,9 @@ mod tests {
             }
         }
 
-        let p = Pos::from_fen("5r2/8/8/4q1p1/3P4/k3P\
-                                                                            1P1/P2b1R1B/K4R2 b - \
-                                                                            - 0 1")
-                    .ok()
-                    .unwrap();
-        p.generate_moves(&mut v);
-        while let Some(m) = v.pop() {
+        let p = P::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 b - - 0 1").ok().unwrap();
+        p.generate_moves(&mut s);
+        while let Some(m) = s.pop() {
             if m.notation() == "e5e3" {
                 assert_eq!(p.evaluate_move(m), 100);
             }
@@ -641,11 +545,9 @@ mod tests {
             }
         }
 
-        let p = Pos::from_fen("8/8/8/8/8/8/2pkpKp1/8 b - - 0 1")
-                    .ok()
-                    .unwrap();
-        p.generate_moves(&mut v);
-        while let Some(m) = v.pop() {
+        let p = P::from_fen("8/8/8/8/8/8/2pkpKp1/8 b - - 0 1").ok().unwrap();
+        p.generate_moves(&mut s);
+        while let Some(m) = s.pop() {
             if m.notation() == "c2c1r" {
                 assert_eq!(p.evaluate_move(m), 400);
             }
@@ -665,34 +567,83 @@ mod tests {
                 assert_eq!(p.evaluate_move(m), -100);
             }
         }
+        assert_eq!(p.evaluate_move(p.null_move()), 0);
     }
 
     #[test]
-    fn test_repeated_boards_hash() {
-        let p1 = Pos::from_fen("8/8/8/8/8/7k/8/7K w \
-                                                                             - - 0 1")
-                     .ok()
-                     .unwrap();
+    fn repeated_root_position() {
+        let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4", "f1g1"];
+        let p = P::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
+                    .ok()
+                    .unwrap();
+        let mut v = MoveStack::new();
+        p.generate_moves(&mut v);
+        assert!(v.list().len() != 0);
+    }
+
+    #[test]
+    fn set_non_repeated_values() {
+        use super::set_non_repeated_values;
+        let mut v = vec![0, 1, 2, 7, 9, 0, 0, 1, 2];
+        let dups = set_non_repeated_values(&mut v, 0);
+        assert_eq!(v, vec![0, 1, 2, 0, 0, 0, 0, 1, 2]);
+        assert_eq!(dups, vec![1, 2]);
+    }
+
+    #[test]
+    fn evaluate_quiescence() {
+        let p = P::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
+        assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).searched_nodes(),
+                   1);
+    }
+
+    #[test]
+    fn is_repeated() {
+        let mut p = P::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2K w - - 0 1").ok().unwrap();
+        let mut v = MoveStack::new();
+        let mut count = 0;
+        for _ in 0..100 {
+            p.generate_moves(&mut v);
+            while let Some(m) = v.pop() {
+                if p.do_move(m) {
+                    count += 1;
+                    v.clear_all();
+                    break;
+                }
+            }
+        }
+        assert_eq!(count, 4);
+    }
+
+    #[test]
+    fn is_checkmate() {
+        let p = P::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1").ok().unwrap();
+        assert!(p.is_checkmate());
+
+        let p = P::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1").ok().unwrap();
+        assert!(!p.is_checkmate());
+
+        let p = P::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1").ok().unwrap();
+        assert!(!p.is_checkmate());
+    }
+
+    #[test]
+    fn repeated_boards_hash() {
+        let p1 = P::from_fen("8/8/8/8/8/7k/8/7K w - - 0 1").ok().unwrap();
         let moves: Vec<&str> = vec![];
-        let p2 = Pos::from_history("8/8/8/8/8/7k/8/7K w \
-                                                                            - - 0 1",
-                                   &mut moves.into_iter())
+        let p2 = P::from_history("8/8/8/8/8/7k/8/7K w - - 0 1", &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
-        let p2 = Pos::from_history("8/8/8/8/8/5k2/8/5K2 \
-                                                                            w - - 0 1",
-                                   &mut moves.into_iter())
+        let p2 = P::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
-        let p3 = Pos::from_history("8/8/8/8/8/5k2/8/5K2 \
-                                                                            w - - 0 1",
-                                   &mut moves.into_iter())
+        let p3 = P::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
                      .ok()
                      .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);

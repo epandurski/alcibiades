@@ -334,13 +334,13 @@ mod tests {
     use moves::*;
 
     #[test]
-    fn test_cluster_size() {
+    fn cluster_size() {
         assert_eq!(std::mem::size_of::<[Record; 4]>(), 64);
         assert_eq!(std::mem::size_of::<Record>(), 16);
     }
 
     #[test]
-    fn test_store_and_probe() {
+    fn store_and_probe() {
         let tt = StdHashTable::new(None);
         assert!(tt.probe(1).is_none());
         let data = StdHashTableEntry::new(0, 0, 50, MoveDigest::invalid());
@@ -351,9 +351,9 @@ mod tests {
         tt.store(1, StdHashTableEntry::new(0, 0, 50, MoveDigest::invalid()));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), MoveDigest::invalid());
+        let digest = MoveDigest::invalid();
         for i in 2..50 {
-            tt.store(i,
-                     StdHashTableEntry::new(i as i16, 0, i as Depth, MoveDigest::invalid()));
+            tt.store(i, StdHashTableEntry::new(i as i16, 0, i as Depth, digest));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);
@@ -368,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new_search() {
+    fn new_search() {
         let tt = StdHashTable::new(None);
         assert_eq!(tt.generation.get(), 0 << 2);
         tt.new_search();

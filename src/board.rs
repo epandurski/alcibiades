@@ -266,7 +266,7 @@ mod tests {
     use squares::*;
 
     #[test]
-    fn test_castling_rights() {
+    fn castling_rights() {
         let mut c = CastlingRights::new(0b1110);
         assert_eq!(c.can_castle(WHITE, QUEENSIDE), false);
         assert_eq!(c.can_castle(WHITE, KINGSIDE), true);

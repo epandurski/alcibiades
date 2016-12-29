@@ -381,7 +381,7 @@ mod tests {
     use squares::*;
 
     #[test]
-    fn test_move() {
+    fn moves() {
         let cr = CastlingRights::new(0b1011);
         let mut m = Move::new(MOVE_NORMAL, E2, E4, 0, PIECE_NONE, PAWN, cr, 8, 0);
         let m1 = Move::new(MOVE_NORMAL, F3, E4, 0, KNIGHT, PAWN, cr, 8, ::std::u32::MAX);

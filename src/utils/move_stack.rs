@@ -239,13 +239,13 @@ mod tests {
 
     #[should_panic]
     #[test]
-    fn test_move_stack_pull_panic() {
+    fn move_stack_pull_panic() {
         let mut s = MoveStack::new();
         s.pull(0);
     }
 
     #[test]
-    fn test_move_stack() {
+    fn move_stack() {
         let cr = CastlingRights::new(0);
         let m = Move::new(MOVE_NORMAL, E2, E4, 0, PIECE_NONE, PAWN, cr, 8, 0);
         let mut s = MoveStack::new();

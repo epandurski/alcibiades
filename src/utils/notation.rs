@@ -214,7 +214,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_fen() {
+    fn parse_fen_string() {
         assert!(parse_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").is_ok());
         assert!(parse_fen("rnbqkbnr/pppppppp/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").is_err());
         assert!(parse_fen("nbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").is_err());

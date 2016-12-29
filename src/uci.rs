@@ -612,7 +612,7 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_parse_go_params() {
+    fn parse_go_params() {
         use super::{parse_go_params, UciCommand};
         let params = [" wtime22000  ",
                       " wtime    22000  ",
@@ -688,7 +688,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_setoption_params() {
+    fn parse_setoption_params() {
         use super::{parse_setoption_params, UciCommand};
         let params = ["name   xxx  value   yyy  ",
                       "name xxx value yyy",
@@ -724,7 +724,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_position_params() {
+    fn parse_position_params() {
         use super::{parse_position_params, UciCommand};
         let params = ["startpos  ",
                       "startpos ",
@@ -786,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_uci_command() {
+    fn parse_uci_command() {
         use super::{parse_uci_command, UciCommand};
         assert!(match parse_uci_command("isready").ok().unwrap() {
             UciCommand::IsReady => true,
