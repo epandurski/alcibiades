@@ -388,8 +388,37 @@ impl<S, T> Engine<S, T>
 }
 
 
-/// Serves UCI commands until a "quit" command is received, or an IO
-/// error has occurred.
+/// Runs a UCI protocol server.
+///
+/// "Universal Chess Interface" (UCI) is an open protocol for chess
+/// engines to communicate with other programs including Graphical
+/// User Interfaces (GUI). The protocol is independent of the
+/// operating system. For "Windows", the engine is a normal "exe"
+/// file, either a console or "real" windows application. All
+/// communication is done via standard input and output with text
+/// commands.
+///
+/// # Parameters:
+///
+/// * `name` gives the name of the engine.
+///
+/// * `author` gives the name of the author.
+///
+/// # Type parameters:
+///
+/// * `S` should implement game tree searching with iterative
+///   deepening. If principal variations are included in the progress
+///   reports from the search, they will be forwarded to the GUI.
+///
+///   **Note:** Normally, principal variations (PV) should be sent
+///   only when a new search depth is reached, and possibly when a new
+///   best move is found. Therefore, the majority of the progress
+///   reports will carry an empty `Vec<Variation>` instance. In
+///   multi-PV mode the first slot of the vector is for the best
+///   variation, the second slot is for the second-best variation, and
+///   so forth.
+///
+/// * `T` is responsible for managing engine's thinking time.
 pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
     where S: SearchExecutor<ReportData = Vec<Variation>>,
           T: TimeManager<S>
