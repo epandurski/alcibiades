@@ -394,7 +394,7 @@ pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
     where S: SearchExecutor<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
-    // Obtain the lock.
+    // Set engine's identity.
     {
         let mut engine = ENGINE.lock().unwrap();
         assert!(engine.is_none(), "two engines can not run in parallel");
@@ -405,12 +405,7 @@ pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
     }
 
     // Run the engine.
-    let result = run_engine::<Engine<S, T>>();
-
-    // Release the lock.
-    *ENGINE.lock().unwrap() = None;
-
-    process::exit(match result {
+    process::exit(match run_engine::<Engine<S, T>>() {
         Ok(_) => 0,
         Err(_) => 1,
     });
