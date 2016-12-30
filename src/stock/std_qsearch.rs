@@ -19,7 +19,7 @@ pub struct StdQsearchResult {
 }
 
 impl QsearchResult for StdQsearchResult {
-    #[inline(always)]
+    #[inline]
     fn new(value: Value, searched_nodes: u64) -> Self {
         debug_assert!(VALUE_EVAL_MIN <= value && value <= VALUE_EVAL_MAX);
         StdQsearchResult {
@@ -28,12 +28,12 @@ impl QsearchResult for StdQsearchResult {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn value(&self) -> Value {
         self.value
     }
 
-    #[inline(always)]
+    #[inline]
     fn searched_nodes(&self) -> u64 {
         self.searched_nodes
     }

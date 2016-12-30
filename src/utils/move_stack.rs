@@ -36,7 +36,7 @@ pub struct MoveStack {
 
 impl AddMove for MoveStack {
     /// Appends a move to the end of the current move list.
-    #[inline(always)]
+    #[inline]
     fn add_move(&mut self, m: Move) {
         self.push(m);
     }

@@ -451,7 +451,7 @@ impl<'a, T, N> Search<'a, T, N>
     }
 
     /// Returns the number of searched positions.
-    #[inline(always)]
+    #[inline]
     pub fn node_count(&self) -> u64 {
         self.reported_nodes + self.unreported_nodes
     }

@@ -81,7 +81,7 @@ pub const BB_MAIN_ANTI_DIAG: Bitboard = 0x0102040810204080;
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// ```
-#[inline(always)]
+#[inline]
 pub fn lsb(x: Bitboard) -> Bitboard {
     x & x.wrapping_neg()
 }
@@ -117,7 +117,7 @@ pub fn lsb(x: Bitboard) -> Bitboard {
 /// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
 /// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
 /// ```
-#[inline(always)]
+#[inline]
 pub fn reset_lsb(x: &mut Bitboard) {
     *x &= x.wrapping_sub(1);
 }
@@ -148,7 +148,7 @@ pub fn reset_lsb(x: &mut Bitboard) {
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// ```
-#[inline(always)]
+#[inline]
 pub fn above_lsb(x: Bitboard) -> Bitboard {
     x ^ x.wrapping_neg()
 }
@@ -179,7 +179,7 @@ pub fn above_lsb(x: Bitboard) -> Bitboard {
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// ```
-#[inline(always)]
+#[inline]
 pub fn below_lsb_including(x: Bitboard) -> Bitboard {
     x ^ x.wrapping_sub(1)
 }
@@ -210,7 +210,7 @@ pub fn below_lsb_including(x: Bitboard) -> Bitboard {
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// ```
-#[inline(always)]
+#[inline]
 pub fn above_lsb_including(x: Bitboard) -> Bitboard {
     x | x.wrapping_neg()
 }
@@ -240,7 +240,7 @@ pub fn above_lsb_including(x: Bitboard) -> Bitboard {
 /// 1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// 1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// ```
-#[inline(always)]
+#[inline]
 pub fn below_lsb(x: Bitboard) -> Bitboard {
     !x & x.wrapping_sub(1)
 }
@@ -259,7 +259,7 @@ pub fn below_lsb(x: Bitboard) -> Bitboard {
 /// assert_eq!(gen_shift(0b101, -1), 0b10);
 /// assert_eq!(gen_shift(0b101, 0), 0b101);
 /// ```
-#[inline(always)]
+#[inline]
 pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
     if s > 0 {
         x << s
@@ -280,7 +280,7 @@ pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
 /// assert_eq!(bsf(0b100100), 2);
 /// assert_eq!(bsf(0), 64);
 /// ```
-#[inline(always)]
+#[inline]
 pub fn bsf(x: Bitboard) -> Square {
     x.trailing_zeros() as Square
 }
@@ -303,7 +303,7 @@ pub fn bsf(x: Bitboard) -> Square {
 /// assert_eq!(bsf_reset(&mut x), 64);
 /// assert_eq!(x, 0);
 /// ```
-#[inline(always)]
+#[inline]
 pub fn bsf_reset(x: &mut Bitboard) -> Square {
     let a = lsb(*x);
     *x ^= a;
@@ -321,7 +321,7 @@ pub fn bsf_reset(x: &mut Bitboard) -> Square {
 /// assert_eq!(pop_count(0b100101), 3);
 /// assert_eq!(pop_count(0), 0);
 /// ```
-#[inline(always)]
+#[inline]
 pub fn pop_count(b: Bitboard) -> usize {
     b.count_ones() as usize
 }
@@ -336,7 +336,7 @@ pub fn pop_count(b: Bitboard) -> usize {
 /// # use alcibiades::squares::*;
 /// assert_eq!(bb_rank(E4), BB_RANK_4);
 /// ```
-#[inline(always)]
+#[inline]
 pub fn bb_rank(square: Square) -> Bitboard {
     BB_RANK_1 << ((square >> 3) << 3)
 }
@@ -351,7 +351,7 @@ pub fn bb_rank(square: Square) -> Bitboard {
 /// # use alcibiades::squares::*;
 /// assert_eq!(bb_file(E4), BB_FILE_E);
 /// ```
-#[inline(always)]
+#[inline]
 pub fn bb_file(square: Square) -> Bitboard {
     BB_FILE_A << (square % 8)
 }

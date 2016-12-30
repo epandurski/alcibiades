@@ -114,13 +114,13 @@ impl CastlingRights {
     ///
     /// The least significant 4 bits of `value` are used as a raw
     /// value for the new instance.
-    #[inline(always)]
+    #[inline]
     pub fn new(value: usize) -> CastlingRights {
         CastlingRights(value & 0b1111)
     }
 
     /// Returns the contained raw value (between 0 and 15).
-    #[inline(always)]
+    #[inline]
     pub fn value(&self) -> usize {
         self.0
     }
@@ -143,7 +143,7 @@ impl CastlingRights {
     /// Updates the castling rights after played move.
     ///
     /// `orig_square` and `dest_square` describe the played move.
-    #[inline(always)]
+    #[inline]
     pub fn update(&mut self, orig_square: Square, dest_square: Square) {
         debug_assert!(orig_square <= 63);
         debug_assert!(dest_square <= 63);
@@ -173,7 +173,7 @@ impl CastlingRights {
 
     /// Returns if a given player has the rights to castle on a given
     /// side.
-    #[inline(always)]
+    #[inline]
     pub fn can_castle(&self, player: Color, side: CastlingSide) -> bool {
         debug_assert!(player <= 1);
         debug_assert!(side <= 1);
@@ -237,13 +237,13 @@ impl Board {
     pub fn square(file: usize, rank: usize) -> Square {
         debug_assert!(file < 8);
         debug_assert!(rank < 8);
-        rank * 8 + file
+        (rank << 3) + file
     }
 
     /// Returns the file of a given square.
     ///
     /// The returned number will be between 0 and 7 (0 is file A, 7 is file H).
-    #[inline(always)]
+    #[inline]
     pub fn file(square: Square) -> usize {
         debug_assert!(square <= 63);
         square % 8
@@ -252,7 +252,7 @@ impl Board {
     /// Returns the rank of a given square.
     ///
     /// The returned number will be between 0 and 7 (0 is rank 1, 7 is rank 8).
-    #[inline(always)]
+    #[inline]
     pub fn rank(square: Square) -> usize {
         debug_assert!(square <= 63);
         square >> 3

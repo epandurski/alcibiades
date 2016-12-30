@@ -43,25 +43,25 @@ impl MoveDigest {
     ///
     /// The returned instance contains `0`. This is sometimes useful
     /// in places where any move is required but no is available.
-    #[inline(always)]
+    #[inline]
     pub fn invalid() -> MoveDigest {
         MoveDigest(0)
     }
 
     /// Returns the move type.
-    #[inline(always)]
+    #[inline]
     pub fn move_type(&self) -> MoveType {
         ((self.0 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
     }
 
     /// Returns the origin square of the played piece.
-    #[inline(always)]
+    #[inline]
     pub fn orig_square(&self) -> Square {
         ((self.0 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
     }
 
     /// Returns the destination square for the played piece.
-    #[inline(always)]
+    #[inline]
     pub fn dest_square(&self) -> Square {
         ((self.0 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
     }
@@ -72,7 +72,7 @@ impl MoveDigest {
     /// When the move type is pawn promotion, "aux data" encodes the
     /// promoted piece type. For all other move types "aux data" is
     /// zero.
-    #[inline(always)]
+    #[inline]
     pub fn aux_data(&self) -> usize {
         ((self.0 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
     }
@@ -187,7 +187,7 @@ impl Move {
     /// move digest equals `MoveDigest::invalid()`. This is sometimes
     /// useful in places where any move is required but no is
     /// available.
-    #[inline(always)]
+    #[inline]
     pub fn invalid() -> Move {
         Move(((!PIECE_NONE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
     }
@@ -197,27 +197,27 @@ impl Move {
     ///
     /// The interpretation of the raw value is: `0` -- queen, `1` --
     /// rook, `2` -- bishop, `3` -- knight.
-    #[inline(always)]
+    #[inline]
     pub fn piece_from_aux_data(pp_code: usize) -> PieceType {
         debug_assert!(pp_code <= 3);
         QUEEN + pp_code
     }
 
     /// Assigns a new score for the move.
-    #[inline(always)]
+    #[inline]
     pub fn set_score(&mut self, score: u32) {
         self.0 &= !M_MASK_SCORE;
         self.0 |= (score as u64) << M_SHIFT_SCORE;
     }
 
     /// Returns the assigned move score.
-    #[inline(always)]
+    #[inline]
     pub fn score(&self) -> u32 {
         (self.0 >> M_SHIFT_SCORE) as u32
     }
 
     /// Returns the move type.
-    #[inline(always)]
+    #[inline]
     pub fn move_type(&self) -> MoveType {
         (self.0 as usize & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE
     }
@@ -225,39 +225,39 @@ impl Move {
     /// Returns the played piece type.
     ///
     /// Castling is considered as king's move.
-    #[inline(always)]
+    #[inline]
     pub fn played_piece(&self) -> PieceType {
         (self.0 as usize & M_MASK_PIECE) >> M_SHIFT_PIECE
     }
 
     /// Returns the origin square of the played piece.
-    #[inline(always)]
+    #[inline]
     pub fn orig_square(&self) -> Square {
         (self.0 as usize & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE
     }
 
     /// Returns the destination square for the played piece.
-    #[inline(always)]
+    #[inline]
     pub fn dest_square(&self) -> Square {
         (self.0 as usize & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE
     }
 
     /// Returns the captured piece type.
-    #[inline(always)]
+    #[inline]
     pub fn captured_piece(&self) -> PieceType {
         (!(self.0 as usize) & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE
     }
 
     /// If the *previous move* was a double pawn push, returns pushed
     /// pawn's file (a value between 0 and 7). Otherwise returns `8`.
-    #[inline(always)]
+    #[inline]
     pub fn enpassant_file(&self) -> usize {
         (self.0 as usize & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
     }
 
     /// Returns the castling rights as they were before the move was
     /// played.
-    #[inline(always)]
+    #[inline]
     pub fn castling_rights(&self) -> CastlingRights {
         CastlingRights::new(self.0 as usize >> M_SHIFT_CASTLING_RIGHTS)
     }
@@ -268,13 +268,13 @@ impl Move {
     /// When the move type is pawn promotion, "aux data" encodes the
     /// promoted piece type. For all other move types "aux data" is
     /// zero.
-    #[inline(always)]
+    #[inline]
     pub fn aux_data(&self) -> usize {
         (self.0 as usize & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
     }
 
     /// Returns the least significant 16 bits of the raw move value.
-    #[inline(always)]
+    #[inline]
     pub fn digest(&self) -> MoveDigest {
         MoveDigest(self.0 as u16)
     }
@@ -332,7 +332,7 @@ pub trait AddMove {
 }
 
 impl AddMove for Vec<Move> {
-    #[inline(always)]
+    #[inline]
     fn add_move(&mut self, m: Move) {
         self.push(m);
     }

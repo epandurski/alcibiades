@@ -27,7 +27,7 @@ pub struct StdHashTableEntry {
 }
 
 impl HashTableEntry for StdHashTableEntry {
-    #[inline(always)]
+    #[inline]
     fn new(value: Value,
            bound: BoundType,
            depth: Depth,
@@ -36,7 +36,7 @@ impl HashTableEntry for StdHashTableEntry {
         Self::with_static_eval(value, bound, depth, move_digest, VALUE_UNKNOWN)
     }
 
-    #[inline(always)]
+    #[inline]
     fn with_static_eval(value: Value,
                         bound: BoundType,
                         depth: Depth,
@@ -55,28 +55,28 @@ impl HashTableEntry for StdHashTableEntry {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn value(&self) -> Value {
         self.value
     }
 
-    #[inline(always)]
+    #[inline]
     fn bound(&self) -> BoundType {
         self.gen_bound & 0b11
     }
 
-    #[inline(always)]
+    #[inline]
     fn depth(&self) -> Depth {
         self.depth
     }
 
-    #[inline(always)]
+    #[inline]
     fn move_digest(&self) -> MoveDigest {
         self.move_digest
     }
 
     /// Returns the `static_eval` passed to the constructor.
-    #[inline(always)]
+    #[inline]
     fn static_eval(&self) -> Value {
         self.static_eval
     }
@@ -84,7 +84,7 @@ impl HashTableEntry for StdHashTableEntry {
 
 impl StdHashTableEntry {
     /// Returns the contained data as one `u64` value.
-    #[inline(always)]
+    #[inline]
     fn as_u64(&self) -> u64 {
         unsafe { transmute(*self) }
     }
@@ -305,7 +305,7 @@ impl Default for Record {
 }
 
 impl Record {
-    #[inline(always)]
+    #[inline]
     fn generation(&self) -> u8 {
         self.data.gen_bound & 0b11111100
     }

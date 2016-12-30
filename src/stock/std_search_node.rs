@@ -124,22 +124,22 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn board(&self) -> &Board {
         self.position().board()
     }
 
-    #[inline(always)]
+    #[inline]
     fn halfmove_clock(&self) -> u8 {
         self.state().halfmove_clock
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_check(&self) -> bool {
         self.position().checkers() != 0
     }
 
-    #[inline(always)]
+    #[inline]
     fn evaluator(&self) -> &Self::Evaluator {
         self.position().evaluator()
     }
@@ -173,7 +173,7 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn evaluate_move(&self, m: Move) -> Value {
         self.position().evaluate_move(m)
     }
@@ -194,7 +194,7 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn null_move(&self) -> Move {
         self.position().null_move()
     }
@@ -381,17 +381,17 @@ impl<T: Qsearch + 'static> StdSearchNode<T> {
         })
     }
 
-    #[inline(always)]
+    #[inline]
     fn state(&self) -> &PositionInfo {
         self.state_stack.last().unwrap()
     }
 
-    #[inline(always)]
+    #[inline]
     fn position(&self) -> &T::MoveGenerator {
         unsafe { &*self.position.get() }
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn position_mut(&self) -> &mut T::MoveGenerator {
         &mut *self.position.get()
     }

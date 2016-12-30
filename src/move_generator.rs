@@ -55,7 +55,6 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     fn hash(&self) -> u64;
 
     /// Returns a reference to the underlying `Board` instance.
-    #[inline(always)]
     fn board(&self) -> &Board;
 
     /// Returns a bitboard with all pieces of color `us` that attack
