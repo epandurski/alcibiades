@@ -27,17 +27,23 @@ use move_generator::MoveGenerator;
 /// the performance of different move generators or the same generator
 /// on different machines.
 pub fn perft<T: MoveGenerator>(position: &mut T, depth: Depth) -> u64 {
-    if depth <= 0 {
-        return 1;
-    }
-    let mut nodes = 0;
-    let mut s = MoveStack::new();
-    position.generate_all(&mut s);
-    while let Some(m) = s.pop() {
-        if position.do_move(m).is_some() {
-            nodes += perft(position, depth - 1);
-            position.undo_move(m);
+    fn pft<T: MoveGenerator>(s: &mut MoveStack, p: &mut T, d: Depth) -> u64 {
+        if d <= 0 {
+            return 1;
         }
+        let mut nodes = 0;
+        s.save();
+        p.generate_all(s);
+        while let Some(m) = s.pop() {
+            if p.do_move(m).is_some() {
+                nodes += pft(s, p, d - 1);
+                p.undo_move(m);
+            }
+        }
+        s.restore();
+        nodes
     }
-    nodes
+
+    let mut s = MoveStack::new();
+    pft(&mut s, position, depth)
 }
