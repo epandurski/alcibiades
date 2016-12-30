@@ -1,6 +1,6 @@
 # alcibiades
 
-A Rust framework for writing chess engines.
+A framework for writing chess engines in Rust.
 
 ## Why chess engines?
 
@@ -50,7 +50,3 @@ methods required by the traits. For example you may write your own
 static position evaluator which have a `consult_endgame_table`
 method. Then you will be able to write a search algorithm that uses
 this method.
-
-## Speed and safety
-
-This crate tries to be fast *and* memory-safe.
