@@ -56,7 +56,7 @@ pub struct StdSearchNode<T: Qsearch> {
 }
 
 
-impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
+impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     type Evaluator = <<T as Qsearch>::MoveGenerator as MoveGenerator>::Evaluator;
 
     type QsearchResult = T::QsearchResult;
@@ -266,7 +266,7 @@ impl<T: Qsearch + 'static> SearchNode for StdSearchNode<T> {
 }
 
 
-impl<T: Qsearch + 'static> Clone for StdSearchNode<T> {
+impl<T: Qsearch> Clone for StdSearchNode<T> {
     fn clone(&self) -> Self {
         StdSearchNode {
             zobrist: self.zobrist,
@@ -281,7 +281,7 @@ impl<T: Qsearch + 'static> Clone for StdSearchNode<T> {
 }
 
 
-impl<T: Qsearch + 'static> SetOption for StdSearchNode<T> {
+impl<T: Qsearch> SetOption for StdSearchNode<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
@@ -292,7 +292,7 @@ impl<T: Qsearch + 'static> SetOption for StdSearchNode<T> {
 }
 
 
-impl<T: Qsearch + 'static> StdSearchNode<T> {
+impl<T: Qsearch> StdSearchNode<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalBoard> {
         let (board, halfmove_clock, _) = try!(parse_fen(fen));
