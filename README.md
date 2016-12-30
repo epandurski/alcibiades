@@ -26,7 +26,7 @@ situation stifles innovation.
 
 ## Usage
 
-Here is how simple it is to create a chess engine using this crate:
+Here is how simple it is to create a chess engine using the framework:
 
 ```rust,no_run
 extern crate alcibiades;

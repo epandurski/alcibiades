@@ -24,8 +24,7 @@
 //!
 //! # Usage
 //!
-//! Here is how simple it is to create a chess engine using this the
-//! framework:
+//! Here is how simple it is to create a chess engine using this crate:
 //!
 //! ```rust,no_run
 //! extern crate alcibiades;
