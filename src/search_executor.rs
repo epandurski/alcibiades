@@ -101,8 +101,8 @@ pub struct SearchReport<T> {
 
     /// Auxiliary data.
     ///
-    /// For example, this may contain the principal variation(s)
-    /// calculated do far.
+    /// For example, this may contain calculated principal
+    /// variation(s).
     pub data: T,
 }
 
