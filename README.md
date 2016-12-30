@@ -44,7 +44,7 @@ This engine is assembled from the "in stock" implementations of the
 different framework traits.
 
 In reality, you will probably want to write your own implementations
-of some of the framework traits. Thanks to Rust's incredible generic
+for some of the framework traits. Thanks to Rust's incredible generic
 programming capabilities, you are not limited to implementing only the
 methods required by the traits. For example you may write your own
 static position evaluator which have a `consult_endgame_table`
