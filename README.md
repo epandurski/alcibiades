@@ -47,6 +47,6 @@ In reality, you will probably want to write your own implementations
 for some of the framework traits. Thanks to Rust's incredible generic
 programming capabilities, you are not limited to implementing only the
 methods required by the traits. For example you may write your own
-static position evaluator which have a `consult_endgame_table`
+static position evaluator which has a `consult_endgame_table`
 method. Then you will be able to write a search algorithm that uses
 this method.
