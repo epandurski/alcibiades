@@ -255,7 +255,7 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     }
 
     #[inline]
-    fn undo_move(&mut self) {
+    fn undo_last_move(&mut self) {
         debug_assert!(self.state_stack.len() > 1);
         unsafe {
             self.position_mut().undo_move(self.state().last_move);

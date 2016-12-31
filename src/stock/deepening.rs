@@ -165,7 +165,7 @@ impl<T: SearchExecutor> Deepening<T> {
             for m in moves.iter().take(self.multipv.variation_count) {
                 assert!(self.params.position.do_move(*m));
                 let mut v = self.tt.extract_pv(&self.params.position);
-                self.params.position.undo_move();
+                self.params.position.undo_last_move();
                 v.moves.insert(0, *m);
                 v.value = -v.value;
                 v.bound = match v.bound {
@@ -280,7 +280,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
             };
             if done && !self.search_is_terminated {
                 self.previously_searched_nodes = report.searched_nodes;
-                self.params.position.undo_move();
+                self.params.position.undo_last_move();
                 self.change_current_move(-value);
                 if self.search_current_move() {
                     report.done = false;

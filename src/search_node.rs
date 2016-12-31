@@ -171,7 +171,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     fn do_move(&mut self, m: Move) -> bool;
 
     /// Takes back the last played move.
-    fn undo_move(&mut self);
+    fn undo_last_move(&mut self);
 
     /// Returns all legal moves in the position.
     ///
@@ -188,7 +188,7 @@ pub trait SearchNode: Send + Clone + SetOption {
         for m in v.iter() {
             if position.do_move(*m) {
                 legal_moves.push(*m);
-                position.undo_move();
+                position.undo_last_move();
             }
         }
         legal_moves

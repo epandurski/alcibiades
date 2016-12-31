@@ -579,7 +579,7 @@ impl<'a, T, N> Search<'a, T, N>
             let m = self.position.null_move();
             if self.position.do_move(m) {
                 let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1), m));
-                self.position.undo_move();
+                self.position.undo_last_move();
                 if value >= beta {
                     // The result we are about to return is more or
                     // less a lie (because of the depth reduction),
@@ -769,7 +769,7 @@ impl<'a, T, N> Search<'a, T, N>
     /// by `do_move`.
     #[inline]
     fn undo_move(&mut self) {
-        self.position.undo_move();
+        self.position.undo_last_move();
     }
 
     /// A helper method for `run`. It stores the updated node
@@ -1048,7 +1048,7 @@ mod tests {
                     killers.register(0, m);
                 }
                 i += 1;
-                p.undo_move();
+                p.undo_last_move();
                 let (killer1, killer2) = killers.get(0);
                 assert!(killer1 == m.digest());
                 assert!(killer2 == previous_move_digest);
