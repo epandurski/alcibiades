@@ -36,7 +36,7 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
     /// * `time` gives the remaining time on the clocks.
     fn new(position: &T::SearchNode, time: RemainingTime) -> Self;
 
-    /// Registers a new search report with the time manager.
+    /// Registers a new search progress report with the time manager.
     fn update(&mut self, report: &SearchReport<Vec<Variation>>);
 
     /// Decides whether the search must be terminated and the best
