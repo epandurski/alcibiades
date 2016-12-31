@@ -2,7 +2,8 @@
 
 use std::cmp::min;
 use std::cell::UnsafeCell;
-use std::hash::{Hasher, SipHasher};
+use std::hash::Hasher;
+use std::collections::hash_map::DefaultHasher;
 use uci::{SetOption, OptionDescription};
 use board::{Board, IllegalBoard};
 use value::*;
@@ -337,7 +338,7 @@ impl<T: Qsearch> StdSearchNode<T> {
         self.repeated_boards_hash = if repeated_boards.is_empty() {
             0
         } else {
-            let mut hasher = SipHasher::new();
+            let mut hasher = DefaultHasher::new();
             for x in repeated_boards {
                 hasher.write_u64(x);
             }

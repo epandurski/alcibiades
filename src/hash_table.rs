@@ -63,7 +63,7 @@ pub trait HashTable: Sync + Send {
     /// After being stored, the data can be retrieved by `probe`. This
     /// is not guaranteed though, because the entry might have been
     /// overwritten in the meantime.
-    fn store(&self, key: u64, mut data: Self::Entry);
+    fn store(&self, key: u64, data: Self::Entry);
 
     /// Probes for data by key.
     fn probe(&self, key: u64) -> Option<Self::Entry>;

@@ -227,12 +227,12 @@ impl BoardGeometry {
     pub fn get() -> &'static BoardGeometry {
         use std::sync::{Once, ONCE_INIT};
         static INIT_GEOMETRY: Once = ONCE_INIT;
-        static mut geometry: Option<BoardGeometry> = None;
+        static mut GEOMETRY: Option<BoardGeometry> = None;
         unsafe {
             INIT_GEOMETRY.call_once(|| {
-                geometry = Some(BoardGeometry::new());
+                GEOMETRY = Some(BoardGeometry::new());
             });
-            geometry.as_ref().unwrap()
+            GEOMETRY.as_ref().unwrap()
         }
     }
 

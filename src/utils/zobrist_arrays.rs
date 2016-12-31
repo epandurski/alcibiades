@@ -86,12 +86,12 @@ impl ZobristArrays {
     pub fn get() -> &'static ZobristArrays {
         use std::sync::{Once, ONCE_INIT};
         static INIT_ARRAYS: Once = ONCE_INIT;
-        static mut arrays: Option<ZobristArrays> = None;
+        static mut ARRAYS: Option<ZobristArrays> = None;
         unsafe {
             INIT_ARRAYS.call_once(|| {
-                arrays = Some(ZobristArrays::new());
+                ARRAYS = Some(ZobristArrays::new());
             });
-            arrays.as_ref().unwrap()
+            ARRAYS.as_ref().unwrap()
         }
     }
 }

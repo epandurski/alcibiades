@@ -1,6 +1,7 @@
 //! Implements the `Evaluator` trait.
 
-use std::hash::{Hasher, SipHasher};
+use std::hash::Hasher;
+use std::collections::hash_map::DefaultHasher;
 use uci::SetOption;
 use board::*;
 use value::*;
@@ -33,7 +34,7 @@ impl Evaluator for SimpleEvaluator {
                       (pop_count(piece_type[piece] & color[us]) as i16 -
                        pop_count(piece_type[piece] & color[them]) as i16);
         }
-        let mut hasher = SipHasher::new();
+        let mut hasher = DefaultHasher::new();
         hasher.write_u64(board.occupied);
         result + (hasher.finish() >> 59) as i16
     }
