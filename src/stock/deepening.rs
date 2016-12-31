@@ -22,7 +22,7 @@ use search_executor::{SearchParams, SearchReport, SearchExecutor};
 /// executed with a depth of one ply, then the depth is incremented
 /// and another search is executed. This process is repeated until the
 /// search is terminated or the requested search depth is reached. In
-/// case of an unfinished search, the engine can always fall back to
+/// case of a terminated search, the engine can always fall back to
 /// the move selected in the last iteration of the search.
 ///
 /// *Aspiration windows* are a way to reduce the search space in the

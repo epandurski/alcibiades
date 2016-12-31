@@ -117,6 +117,25 @@ pub struct SearchReport<T> {
 /// tree-like data-structure by some algorithm. To implement your own
 /// search algorithm, you must define a type that implements the
 /// `SearchExecutor` trait.
+///
+/// There are two types of searches that should be distinguished:
+///
+/// * **Depth-first search.**
+///
+///   Starts at the root and explores as far as possible along each
+///   branch before backtracking.
+///
+/// * **Iterative deepening search.**
+///
+///   A depth-first search is executed with a depth of one ply, then
+///   the depth is incremented and another search is executed. This
+///   process is repeated until the search is terminated or the
+///   requested search depth is reached. In case of a terminated
+///   search, the engine can always fall back to the move selected in
+///   the last iteration of the search.
+///
+///   You can use `stock::Deepening` to turn a depth-first searcher
+///   into a deepening searcher.
 /// 
 /// Here is what the engine does on each move:
 ///
