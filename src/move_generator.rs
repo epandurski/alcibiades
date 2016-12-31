@@ -91,6 +91,9 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     ///   destination square is not under attack unnecessary, thus
     ///   saving time.
     ///
+    /// The initial move score for the generated moves is
+    /// *unspecified*.
+    ///
     /// **Note:** A pseudo-legal move is a move that is otherwise
     /// legal, except it might leave the king in check.
     fn generate_all<T: AddMove>(&self, moves: &mut T);
