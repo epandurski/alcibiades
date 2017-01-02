@@ -2,6 +2,12 @@
 name = "alcibiades"
 version = "0.2.0"
 authors = ["Evgeni Pandurski <epandurski@gmail.com>"]
+description = "A framework for writing chess engines in Rust"
+repository = "https://github.com/epandurski/alcibiades"
+homepage = "https://github.com/epandurski/alcibiades"
+readme = "README.md"
+license = "MIT"
+keywords = ["chess", "framework"]
 
 [[bin]]
 name = "alcibiades-engine"
@@ -10,11 +16,3 @@ name = "alcibiades-engine"
 lazy_static = "0.2.1"
 regex = "0.1.71"
 rand = "0.3.14"
-
-[profile.test]
-opt-level = 0
-debug = true
-rpath = false
-lto = false
-debug-assertions = true
-codegen-units = 1
