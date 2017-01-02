@@ -26,21 +26,6 @@ situation stifles innovation.
 
 ## Usage
 
-This crate is [on crates.io](https://crates.io/crates/alcibiades) and
-can be used by adding `alcibiades` to your dependencies in your
-project's `Cargo.toml`.
-
-```toml
-[dependencies]
-alcibiades = "0.2"
-```
-
-and this to your crate root:
-
-```rust
-extern crate alcibiades;
-```
-
 Here is how simple it is to create a chess engine using the framework:
 
 ```rust,no_run
@@ -66,5 +51,5 @@ static position evaluator which has a `consult_endgame_table`
 method. Then you will be able to write a search algorithm that uses
 this method.
 
-Also, the framework has an extensive
+Last but not least, the framework has an extensive
 [documentation](https://epandurski.github.io/alcibiades).
