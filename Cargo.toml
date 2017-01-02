@@ -1,6 +1,6 @@
 [package]
 name = "alcibiades"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Evgeni Pandurski <epandurski@gmail.com>"]
 description = "A framework for writing chess engines in Rust"
 repository = "https://github.com/epandurski/alcibiades"
@@ -8,9 +8,6 @@ homepage = "https://github.com/epandurski/alcibiades"
 readme = "README.md"
 license = "MIT"
 keywords = ["chess", "framework"]
-
-[[bin]]
-name = "alcibiades-engine"
 
 [dependencies]
 lazy_static = "0.2.1"
