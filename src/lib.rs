@@ -24,6 +24,21 @@
 //!
 //! # Usage
 //!
+//! This crate is [on crates.io](https://crates.io/crates/alcibiades)
+//! and can be used by adding `alcibiades` to your dependencies in
+//! your project's `Cargo.toml`.
+//!
+//! ```toml
+//! [dependencies]
+//! alcibiades = "0.2"
+//! ```
+//!
+//! and this to your crate root:
+//!
+//! ```rust
+//! extern crate alcibiades;
+//! ```
+//!
 //! Here is how simple it is to create a chess engine using this crate:
 //!
 //! ```rust,no_run

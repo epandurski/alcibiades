@@ -4,6 +4,7 @@ version = "0.2.1"
 authors = ["Evgeni Pandurski <epandurski@gmail.com>"]
 description = "A framework for writing chess engines in Rust"
 repository = "https://github.com/epandurski/alcibiades"
+documentation = "https://epandurski.github.io/alcibiades"
 homepage = "https://github.com/epandurski/alcibiades"
 readme = "README.md"
 license = "MIT"
