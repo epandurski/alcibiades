@@ -1,6 +1,6 @@
 [package]
 name = "alcibiades"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Evgeni Pandurski <epandurski@gmail.com>"]
 description = "A framework for writing chess engines in Rust"
 repository = "https://github.com/epandurski/alcibiades"
@@ -11,6 +11,6 @@ license = "MIT"
 keywords = ["chess", "framework"]
 
 [dependencies]
-lazy_static = "0.2.2"
+lazy_static = "0.2.1"
 regex = "0.1.71"
 rand = "0.3.14"
