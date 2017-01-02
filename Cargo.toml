@@ -11,6 +11,6 @@ license = "MIT"
 keywords = ["chess", "framework"]
 
 [dependencies]
-lazy_static = "0.2.1"
+lazy_static = "0.2.2"
 regex = "0.1.71"
 rand = "0.3.14"
