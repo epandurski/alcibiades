@@ -174,22 +174,30 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
         debug_assert!(m.captured_piece() <= PIECE_NONE);
         const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
-        // This is the square on which all the action takes place.
-        let exchange_square = m.dest_square();
-
         unsafe {
+            let mut piece = m.played_piece();
+            let captured_piece = m.captured_piece();
+
+            // Try not to waste CPU cycles when the played piece is
+            // less valuable than the captured piece.
+            if piece > captured_piece {
+                return *PIECE_VALUES.get_unchecked(captured_piece);
+            }
+
+            // This is the square on which all the action takes place.
+            let exchange_square = m.dest_square();
+
+            let color: &[Bitboard; 2] = &self.board().pieces.color;
+            let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
+            let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
+            let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
             let geometry = BoardGeometry::get();
             let behind_blocker: &[Bitboard; 64] = geometry.squares_behind_blocker
                                                           .get_unchecked(exchange_square);
-            let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
-            let color: &[Bitboard; 2] = &self.board().pieces.color;
-            let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
-            let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
 
-            // These variables will be updated on each capture:
+            // These variables (along with `piece`) will be updated on each capture:
             let mut us = self.board().to_move;
             let mut depth = 0;
-            let mut piece;
             let mut orig_square_bb = 1 << m.orig_square();
             let mut attackers_and_defenders = self.attacks_to(WHITE, exchange_square) |
                                               self.attacks_to(BLACK, exchange_square);
@@ -200,10 +208,9 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
             let mut gain: [Value; 34] = uninitialized();
             gain[0] = if m.move_type() == MOVE_PROMOTION {
                 piece = Move::piece_from_aux_data(m.aux_data());
-                PIECE_VALUES[m.captured_piece()] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
+                PIECE_VALUES[captured_piece] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
             } else {
-                piece = m.played_piece();
-                *PIECE_VALUES.get_unchecked(m.captured_piece())
+                *PIECE_VALUES.get_unchecked(captured_piece)
             };
 
             // Examine the possible exchanges, fill the `gain` array.
