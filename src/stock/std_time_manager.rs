@@ -1,7 +1,7 @@
 use std::sync::RwLock;
-use std::cmp::min;
 use std::time::SystemTime;
 use board::*;
+use depth::*;
 use search_executor::*;
 use hash_table::Variation;
 use search_node::SearchNode;
@@ -12,7 +12,10 @@ use uci::{SetOption, OptionDescription};
 /// Decides when the search must be terminated.
 pub struct StdTimeManager {
     started_at: SystemTime,
-    move_time_millis: u64, // move time in milliseconds
+    depth: Depth,
+    extrapolation_points: Vec<(f64, f64)>,
+    hard_limit: f64,
+    allotted_time: f64,
     must_play: bool,
 }
 
@@ -22,33 +25,85 @@ impl<S> TimeManager<S> for StdTimeManager
 {
     #[allow(unused_variables)]
     fn new(position: &S::SearchNode, time: RemainingTime) -> StdTimeManager {
-        // TODO: We ignore "PONDER".
-
         let (t, inc) = if position.board().to_move == WHITE {
-            (time.white_millis, time.winc_millis)
+            (time.white_millis as f64, time.winc_millis as f64)
         } else {
-            (time.black_millis, time.binc_millis)
+            (time.black_millis as f64, time.binc_millis as f64)
         };
-        let movestogo = time.movestogo.unwrap_or(40);
-        let movetime = (t + inc * movestogo) / movestogo;
+        let n = time.movestogo.unwrap_or(40) as f64; // TODO: assert that n >= 1.0
+
+        // Calculate an approximation for the total time we have till
+        // the next time control or the end of the game.
+        let time_heap = t + inc * (n - 1.0);
+
+        // Set a hard limit for the time we will spend on this
+        // move. Thinking longer that that would be reckless.
+        let hard_limit = (t / n.sqrt() + inc).min(t - 1000.0);
+
         StdTimeManager {
             started_at: SystemTime::now(),
-            move_time_millis: min(movetime, t / 2),
+            depth: DEPTH_MIN - 1,
+            extrapolation_points: Vec::with_capacity(32),
+            hard_limit: if position.legal_moves().len() > 1 {
+                hard_limit
+            } else {
+                // When there is only one legal move, the engine is
+                // allowed to think a fraction of a second in order to
+                // find a good ponder move.
+                hard_limit.min(500.0)
+            },
+            allotted_time: if *PONDER.read().unwrap() {
+                // Statistically, the move we ponder will be played in
+                // 50% of the cases. Therefore, in principal we can
+                // add half of opponent's thinking time to our time
+                // heap. But because we can not know how opponent's
+                // time will be spend, we simply increase our time
+                // heap by 50%.
+                1.5 * time_heap / n
+            } else {
+                time_heap / n
+            },
             must_play: false,
         }
     }
 
     #[allow(unused_variables)]
     fn update(&mut self, report: &SearchReport<Vec<Variation>>) {
-        // TODO: Implement smarter time management.
-        let duration = self.started_at.elapsed().unwrap();
-        let duration_millis = 1000 * duration.as_secs() + duration.subsec_nanos() as u64 / 1000000;
-        self.must_play = duration_millis >= self.move_time_millis;
+        const M: usize = 5;
+
+        let &SearchReport { ref depth, ref searched_nodes, .. } = report;
+        if *depth > self.depth {
+            self.depth = *depth;
+            if *searched_nodes > 100 {
+                let t = elapsed_millis(&self.started_at);
+                let depth = *depth as f64;
+                let searched_nodes = *searched_nodes as f64;
+                self.extrapolation_points.push((depth, searched_nodes.ln()));
+                let expected_duration = match self.extrapolation_points.len() {
+                    n if n >= M => {
+                        let last_m = &self.extrapolation_points[n - M..];
+                        let factor = extrapolate(last_m, depth + 1.0).exp() / searched_nodes;
+                        if n == M {
+                            // Update `BRANCHING_FACTOR`. This is the
+                            // average factor calculated for the last
+                            // few moves.
+                            let mut bf = BRANCHING_FACTOR.write().unwrap();
+                            *bf = (*bf * 2.0 + factor) / 3.0;
+                        }
+                        factor * t
+                    }
+                    _ => *BRANCHING_FACTOR.read().unwrap() * t,
+                };
+                self.must_play = expected_duration > self.hard_limit ||
+                                 expected_duration > self.allotted_time &&
+                                 expected_duration - self.allotted_time > self.allotted_time - t;
+            }
+        }
     }
 
     #[allow(unused_variables)]
     fn must_play(&self, search: &S) -> bool {
-        self.must_play
+        self.must_play || elapsed_millis(&self.started_at) > self.hard_limit
     }
 }
 
@@ -72,4 +127,41 @@ impl SetOption for StdTimeManager {
 
 lazy_static! {
     static ref PONDER: RwLock<bool> = RwLock::new(false);
+    static ref BRANCHING_FACTOR: RwLock<f64> = RwLock::new(2.0);
+}
+
+
+/// A helper function. It calculates the elapsed milliseconds since a
+/// given time.
+fn elapsed_millis(since: &SystemTime) -> f64 {
+    let d = since.elapsed().unwrap();
+    (1000 * d.as_secs()) as f64 + (d.subsec_nanos() / 1_000_000) as f64
+}
+
+
+/// A helper function. It linearly extrapolates the value y(x) using
+/// the (x, y) values in `points` as reference.
+fn extrapolate(points: &[(f64, f64)], x: f64) -> f64 {
+    debug_assert!(points.len() > 1);
+    let sum_x = points.iter().fold(0.0, |acc, &p| acc + p.0);
+    let sum_y = points.iter().fold(0.0, |acc, &p| acc + p.1);
+    let sum_xx = points.iter().fold(0.0, |acc, &p| acc + p.0 * p.0);
+    let sum_xy = points.iter().fold(0.0, |acc, &p| acc + p.0 * p.1);
+    let n = points.len() as f64;
+    let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
+    let intercept = (sum_y - slope * sum_x) / n;
+    slope * x + intercept
+}
+
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn linear_regression() {
+        use super::extrapolate;
+        let points = vec![(21.0, 1.0), (22.0, 2.0), (23.0, 3.0), (24.0, 4.0)];
+        let x = 25.0;
+        let y = extrapolate(&points, x);
+        assert!(4.99 < y && y < 5.01);
+    }
 }
