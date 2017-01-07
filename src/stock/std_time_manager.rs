@@ -61,11 +61,11 @@ impl<S> TimeManager<S> for StdTimeManager
             },
             allotted_time: if *PONDER.read().unwrap() {
                 // Statistically, the move we ponder will be played in
-                // 50% of the cases. Therefore, in principal we can
+                // 50% of the cases. Therefore, in principal we should
                 // add half of opponent's thinking time to our time
-                // heap. But because we can not know how opponent's
-                // time will be spend, we simply increase our time
-                // heap by 50%.
+                // heap. In reality we do not know how opponent's time
+                // will be spend, so we speculatively increase our
+                // time heap by 50%.
                 1.5 * time_heap / n
             } else {
                 time_heap / n
@@ -76,8 +76,6 @@ impl<S> TimeManager<S> for StdTimeManager
 
     #[allow(unused_variables)]
     fn update(&mut self, report: &SearchReport<Vec<Variation>>) {
-        const M: usize = 5;
-
         let &SearchReport { ref depth, ref searched_nodes, .. } = report;
         if *depth > self.depth {
             self.depth = *depth;
@@ -85,22 +83,34 @@ impl<S> TimeManager<S> for StdTimeManager
                 let t = elapsed_millis(&self.started_at);
                 let depth = *depth as f64;
                 let searched_nodes = *searched_nodes as f64;
+
+                // We maintain a list of data points so as to be able
+                // to intelligently guess how much time it will take
+                // for the next search depth to complete. (We apply
+                // exponential regression over the last `M` points in
+                // the list.)
+                const M: usize = 5;
                 self.extrapolation_points.push((depth, searched_nodes.ln()));
                 let expected_duration = match self.extrapolation_points.len() {
                     n if n >= M => {
                         let last_m = &self.extrapolation_points[n - M..];
                         let factor = extrapolate(last_m, depth + 1.0).exp() / searched_nodes;
+
+                        // Update `BRANCHING_FACTOR`. This is an
+                        // average branching factor calculated over
+                        // the last few moves.
                         if n == M {
-                            // Update `BRANCHING_FACTOR`. This is the
-                            // average factor calculated for the last
-                            // few moves.
                             let mut bf = BRANCHING_FACTOR.write().unwrap();
                             *bf = (*bf * 2.0 + factor) / 3.0;
                         }
+
                         factor * t
                     }
                     _ => *BRANCHING_FACTOR.read().unwrap() * t,
                 };
+
+                // We try to stay as close as possible to the allotted
+                // time, without crossing the hard limit.
                 self.must_play = expected_duration > self.hard_limit ||
                                  expected_duration > self.allotted_time &&
                                  expected_duration - self.allotted_time > self.allotted_time - t;
