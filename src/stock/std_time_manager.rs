@@ -1,3 +1,5 @@
+//! Implements `StdTimeManager`.
+
 use std::sync::RwLock;
 use std::time::SystemTime;
 use board::*;
@@ -9,7 +11,7 @@ use time_manager::{TimeManager, RemainingTime};
 use uci::{SetOption, OptionDescription};
 
 
-/// Decides when the search must be terminated.
+/// Implements the `TimeManager` trait.
 pub struct StdTimeManager {
     started_at: SystemTime,
     depth: Depth,
@@ -23,7 +25,6 @@ pub struct StdTimeManager {
 impl<S> TimeManager<S> for StdTimeManager
     where S: SearchExecutor<ReportData = Vec<Variation>>
 {
-    #[allow(unused_variables)]
     fn new(position: &S::SearchNode, time: RemainingTime) -> StdTimeManager {
         // Get our remaining time and increment (in milliseconds).
         let (t, inc) = if position.board().to_move == WHITE {
@@ -59,7 +60,7 @@ impl<S> TimeManager<S> for StdTimeManager
                 // find a good ponder move.
                 hard_limit.min(500.0)
             },
-            allotted_time: if *PONDER.read().unwrap() {
+            allotted_time: if *PONDERING_IS_ALLOWED.read().unwrap() {
                 // Statistically, the move we ponder will be played in
                 // 50% of the cases. Therefore, in principal we should
                 // add half of opponent's thinking time to our time
@@ -74,47 +75,48 @@ impl<S> TimeManager<S> for StdTimeManager
         }
     }
 
-    #[allow(unused_variables)]
     fn update(&mut self, report: &SearchReport<Vec<Variation>>) {
         let &SearchReport { ref depth, ref searched_nodes, .. } = report;
         if *depth > self.depth {
             self.depth = *depth;
-            if *searched_nodes > 100 {
-                let t = elapsed_millis(&self.started_at);
-                let depth = *depth as f64;
-                let searched_nodes = *searched_nodes as f64;
-
-                // We maintain a list of data points so as to be able
-                // to intelligently guess how much time it will take
-                // for the next search depth to complete. (We apply
-                // exponential regression over the last `M` points in
-                // the list.)
-                const M: usize = 5;
-                self.extrapolation_points.push((depth, searched_nodes.ln()));
-                let expected_duration = match self.extrapolation_points.len() {
-                    n if n >= M => {
-                        let last_m = &self.extrapolation_points[n - M..];
-                        let factor = extrapolate(last_m, depth + 1.0).exp() / searched_nodes;
-
-                        // Update `BRANCHING_FACTOR`. This is an
-                        // average branching factor calculated over
-                        // the last few moves.
-                        if n == M {
-                            let mut bf = BRANCHING_FACTOR.write().unwrap();
-                            *bf = (*bf * 2.0 + factor) / 3.0;
-                        }
-
-                        factor * t
-                    }
-                    _ => *BRANCHING_FACTOR.read().unwrap() * t,
-                };
-
-                // We try to stay as close as possible to the allotted
-                // time, without crossing the hard limit.
-                self.must_play = expected_duration > self.hard_limit ||
-                                 expected_duration > self.allotted_time &&
-                                 expected_duration - self.allotted_time > self.allotted_time - t;
+            if *searched_nodes < 100 {
+                // We ignore the first few completed depths, because
+                // they are calculated almost instantaneously.
+                return;
             }
+            let t = elapsed_millis(&self.started_at);
+            let depth = *depth as f64;
+            let searched_nodes = *searched_nodes as f64;
+
+            // We maintain a list of data points so as to be able to
+            // intelligently guess how much time it will take for the
+            // next search depth to complete. (We apply an exponential
+            // regression over the last `M` points in the list.)
+            const M: usize = 5;
+            self.extrapolation_points.push((depth, searched_nodes.ln()));
+            let expected_duration = match self.extrapolation_points.len() {
+                n if n >= M => {
+                    let last_m = &self.extrapolation_points[n - M..];
+                    let factor = extrapolate(last_m, depth + 1.0).exp() / searched_nodes;
+
+                    // Update `BRANCHING_FACTOR`. This is an average
+                    // branching factor calculated over the last few
+                    // moves.
+                    if n == M {
+                        let mut bf = BRANCHING_FACTOR.write().unwrap();
+                        *bf = (*bf * 2.0 + factor) / 3.0;
+                    }
+
+                    factor * t
+                }
+                _ => *BRANCHING_FACTOR.read().unwrap() * t,
+            };
+
+            // We try to stay as close as possible to the allotted
+            // time, without crossing the hard limit.
+            self.must_play = expected_duration > self.hard_limit ||
+                             expected_duration > self.allotted_time &&
+                             expected_duration - self.allotted_time > self.allotted_time - t;
         }
     }
 
@@ -133,8 +135,8 @@ impl SetOption for StdTimeManager {
     fn set_option(name: &str, value: &str) {
         if name == "Ponder" {
             match value {
-                "true" => *PONDER.write().unwrap() = true,
-                "false" => *PONDER.write().unwrap() = false,
+                "true" => *PONDERING_IS_ALLOWED.write().unwrap() = true,
+                "false" => *PONDERING_IS_ALLOWED.write().unwrap() = false,
                 _ => (),
             }
         }
@@ -143,7 +145,7 @@ impl SetOption for StdTimeManager {
 
 
 lazy_static! {
-    static ref PONDER: RwLock<bool> = RwLock::new(false);
+    static ref PONDERING_IS_ALLOWED: RwLock<bool> = RwLock::new(false);
     static ref BRANCHING_FACTOR: RwLock<f64> = RwLock::new(2.0);
 }
 
@@ -157,7 +159,7 @@ fn elapsed_millis(since: &SystemTime) -> f64 {
 
 
 /// A helper function. It linearly extrapolates the value y(x) using
-/// the (x, y) values in `points` as reference.
+/// the (x, y) values in `points` as a reference.
 fn extrapolate(points: &[(f64, f64)], x: f64) -> f64 {
     debug_assert!(points.len() > 1);
     let sum_x = points.iter().fold(0.0, |acc, &p| acc + p.0);
