@@ -273,7 +273,7 @@ impl<S, T> Engine<S, T>
     fn queue_progress_info(&mut self) {
         let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
         self.queue.push_back(EngineReply::Info(vec![
-            InfoItem { info_type: "depth".to_string(), data: format!("{}", max(0, *depth)) },
+            InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
             InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
             InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
             InfoItem { info_type: "nps".to_string(), data: format!("{}", self.nps_stats.0) },
@@ -309,7 +309,7 @@ impl<S, T> Engine<S, T>
                 pv.push(' ');
             }
             self.queue.push_back(EngineReply::Info(vec![
-                InfoItem { info_type: "depth".to_string(), data: format!("{}", max(0, *depth)) },
+                InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
                 InfoItem { info_type: "multipv".to_string(), data: format!("{}", i + 1) },
                 InfoItem { info_type: "score".to_string(), data: score },
                 InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
@@ -349,6 +349,9 @@ impl<S, T> Engine<S, T>
     }
 
     fn process_report(&mut self, report: &SearchReport<Vec<Variation>>) {
+        assert!(!self.status.done);
+        assert!(report.depth >= self.status.depth);
+        assert!(report.searched_nodes >= self.status.searched_nodes);
         let duration_millis = {
             let d = self.started_at.elapsed().unwrap();
             1000 * d.as_secs() + (d.subsec_nanos() / 1_000_000) as u64
