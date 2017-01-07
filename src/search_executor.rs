@@ -30,7 +30,7 @@ pub struct SearchParams<T: SearchNode> {
 
     /// The requested search depth.
     ///
-    /// Should be between `DEPTH_MIN` and `DEPTH_MAX`.
+    /// Should be between `0` and `DEPTH_MAX`.
     pub depth: Depth,
 
     /// The lower bound for the search.
@@ -75,10 +75,11 @@ pub struct SearchReport<T> {
 
     /// The search depth completed so far.
     ///
-    /// Should be no lesser than the value sent in the previous
-    /// report, and no greater than the requested search depth. If the
-    /// search has not been forcefully terminated, the last reported
-    /// `depth` should be the requested search depth.
+    /// Should be no lesser than `0`. Also, no lesser than the value
+    /// sent in the previous report, and no greater than the requested
+    /// search depth. If the search has not been forcefully
+    /// terminated, the last reported `depth` should be the requested
+    /// search depth.
     ///
     /// **Note:** Depth-first searches should send `0` in all reports
     /// except the last one.

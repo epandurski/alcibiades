@@ -13,19 +13,19 @@
 ///    number as their remaining search depth. This number is
 ///    decremented when a move is tried, and the search routine is
 ///    called recursively. When the remaining depth becomes zero (or
-///    less), a leaf node has been reached and an evaluation is
-///    assigned to it. Sometimes depth reductions are applied for less
-///    interesting moves. This means that the remaining search depth
-///    is decreased by more than one. Thus, if such reductions are
-///    applied near leaf nodes, the remaining search depth may become
-///    negative.
+///    less), a leaf node has been reached and a quiescence search is
+///    performed to obtain reliable evaluation. Sometimes depth
+///    reductions are applied for less interesting moves. This means
+///    that the remaining search depth is decreased by more than
+///    one. Thus, if such reductions are applied near leaf nodes, the
+///    remaining search depth may become negative.
 ///
 /// *  **Completed search depth.**
 ///
 ///    The completed search depth tells the depth in half-moves to
 ///    which a position has been analyzed. Negative values are
-///    possible, meaning that a search with a negative remaining
-///    search depth has been executed for the position.
+///    possible, meaning that a quiescence search with a negative
+///    remaining search depth has been executed for the position.
 ///
 /// # Limits:
 ///
