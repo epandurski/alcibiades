@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::sync::RwLock;
 use std::time::SystemTime;
 use board::*;
@@ -25,12 +26,16 @@ impl<S> TimeManager<S> for StdTimeManager
 {
     #[allow(unused_variables)]
     fn new(position: &S::SearchNode, time: RemainingTime) -> StdTimeManager {
+        // Get our remaining time and increment (in milliseconds).
         let (t, inc) = if position.board().to_move == WHITE {
             (time.white_millis as f64, time.winc_millis as f64)
         } else {
             (time.black_millis as f64, time.binc_millis as f64)
         };
-        let n = time.movestogo.unwrap_or(40) as f64; // TODO: assert that n >= 1.0
+
+        // Get the number of moves till the next time control, or
+        // guess the number of moves till the end of the game.
+        let n = max(1, time.movestogo.unwrap_or(40)) as f64;
 
         // Calculate an approximation for the total time we have till
         // the next time control or the end of the game.
