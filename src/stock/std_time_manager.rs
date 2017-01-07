@@ -4,6 +4,7 @@ use std::sync::RwLock;
 use std::time::SystemTime;
 use board::*;
 use depth::*;
+use value::*;
 use search_executor::*;
 use hash_table::Variation;
 use search_node::SearchNode;
@@ -15,6 +16,7 @@ use uci::{SetOption, OptionDescription};
 pub struct StdTimeManager {
     started_at: SystemTime,
     depth: Depth,
+    value: Value,
     extrapolation_points: Vec<(f64, f64)>,
     hard_limit: f64,
     allotted_time: f64,
@@ -33,15 +35,15 @@ impl<S> TimeManager<S> for StdTimeManager
             (time.black_millis as f64, time.binc_millis as f64)
         };
 
-        // Get the number of moves till the next time control, or
-        // guess the number of moves till the end of the game.
+        // Get the number of moves until the next time control, or if
+        // not available, guess the number of moves to the end of the
+        // game.
         let n = match time.movestogo.unwrap_or(0) {
             0 => 40,
             n => n,
         } as f64;
 
-        // Calculate an approximation for the total time we have till
-        // the next time control or the end of the game.
+        // Calculate the total time we have.
         let time_heap = t + inc * (n - 1.0);
 
         // Set a hard limit for the time we will spend on this
@@ -51,13 +53,14 @@ impl<S> TimeManager<S> for StdTimeManager
         StdTimeManager {
             started_at: SystemTime::now(),
             depth: 0,
+            value: VALUE_UNKNOWN,
             extrapolation_points: Vec::with_capacity(32),
             hard_limit: if position.legal_moves().len() > 1 {
                 hard_limit
             } else {
                 // When there is only one legal move, the engine is
-                // allowed to think a fraction of a second in order to
-                // find a good ponder move.
+                // allowed to think just a fraction of a second in
+                // order to find a good ponder move.
                 hard_limit.min(500.0)
             },
             allotted_time: if *PONDERING_IS_ALLOWED.read().unwrap() {
@@ -76,13 +79,11 @@ impl<S> TimeManager<S> for StdTimeManager
     }
 
     fn update(&mut self, report: &SearchReport<Vec<Variation>>) {
-        let &SearchReport { ref depth, ref searched_nodes, .. } = report;
+        let &SearchReport { ref depth, ref value, ref searched_nodes, .. } = report;
         if *depth > self.depth {
             self.depth = *depth;
             if *searched_nodes < 100 {
-                // We ignore the first few completed depths, because
-                // they are calculated almost instantaneously.
-                return;
+                return; // We ignore the first few depths.
             }
             let t = elapsed_millis(&self.started_at);
             let depth = *depth as f64;
@@ -111,6 +112,16 @@ impl<S> TimeManager<S> for StdTimeManager
                 }
                 _ => *BRANCHING_FACTOR.read().unwrap() * t,
             };
+
+            // We may need to revise the allotted time if position's
+            // evaluation has changed a lot with the newly completed
+            // depth.
+            if (expected_duration > self.allotted_time) &&
+               (self.value != VALUE_UNKNOWN && *value != VALUE_UNKNOWN) &&
+               (self.value as isize - *value as isize).abs() >= 25 {
+                self.allotted_time = expected_duration;
+            }
+            self.value = *value;
 
             // We try to stay as close as possible to the allotted
             // time, without crossing the hard limit.
