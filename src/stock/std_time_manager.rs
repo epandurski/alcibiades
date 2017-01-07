@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::sync::RwLock;
 use std::time::SystemTime;
 use board::*;
@@ -35,7 +34,10 @@ impl<S> TimeManager<S> for StdTimeManager
 
         // Get the number of moves till the next time control, or
         // guess the number of moves till the end of the game.
-        let n = max(1, time.movestogo.unwrap_or(40)) as f64;
+        let n = match time.movestogo.unwrap_or(0) {
+            0 => 40,
+            n => n,
+        } as f64;
 
         // Calculate an approximation for the total time we have till
         // the next time control or the end of the game.
@@ -47,7 +49,7 @@ impl<S> TimeManager<S> for StdTimeManager
 
         StdTimeManager {
             started_at: SystemTime::now(),
-            depth: DEPTH_MIN - 1,
+            depth: 0,
             extrapolation_points: Vec::with_capacity(32),
             hard_limit: if position.legal_moves().len() > 1 {
                 hard_limit
