@@ -78,9 +78,9 @@ pub struct SearchReport<T> {
     ///
     /// Should be no lesser than `0`. Also, no lesser than the value
     /// sent in the previous report, and no greater than the requested
-    /// search depth. If the search has not been forcefully
-    /// terminated, the last reported `depth` should be the requested
-    /// search depth.
+    /// search depth. If the search has not been forcefully stopped,
+    /// the last reported `depth` should be the requested search
+    /// depth.
     ///
     /// **Note:** Depth-first searches should send `0` in all reports
     /// except the last one.
@@ -89,8 +89,8 @@ pub struct SearchReport<T> {
     /// The evaluation of the root position so far, or `VALUE_UNKNOWN`
     /// if not available.
     ///
-    /// If the search has not been forcefully terminated, the last
-    /// report should contain the calculated final evaluation.
+    /// If the search has not been forcefully stopped, the last report
+    /// should contain the calculated final evaluation.
     ///
     /// **Note:** Depth-first searches should send `VALUE_UNKNOWN` in
     /// all reports except the last one.
