@@ -19,6 +19,7 @@ use search_executor::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
 use evaluator::Evaluator;
 use qsearch::QsearchResult;
+use time_manager::RemainingTime;
 use utils::MoveStack;
 
 
@@ -81,7 +82,7 @@ impl<T, N> SearchExecutor for StdSearchExecutor<T, N>
         }
     }
 
-    fn start_search(&mut self, params: SearchParams<N>) {
+    fn start_search(&mut self, params: SearchParams<N>, _: Option<&RemainingTime>) {
         assert!(params.depth >= 0, "depth must be at least 0.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);

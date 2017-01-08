@@ -9,6 +9,7 @@ use value::*;
 use depth::*;
 use hash_table::*;
 use search_node::SearchNode;
+use time_manager::RemainingTime;
 
 
 /// Parameters describing a search.
@@ -164,6 +165,13 @@ pub trait SearchExecutor: SetOption {
 
     /// Starts a new search.
     ///
+    /// * `params` describes the new search.
+    ///
+    /// * `time` gives the remaining time on the clocks, which is
+    ///   useful when the search executor wants to implement its own
+    ///   time management logic. `None` indicates that there are no
+    ///   time restrictions.
+    ///
     /// After calling `start_search`, `wait_report` and
     /// `try_recv_report` will be called periodically until the
     /// returned report indicates that the search is done. A new
@@ -174,7 +182,9 @@ pub trait SearchExecutor: SetOption {
     /// executing search must continuously update the transposition
     /// table so that, at each moment, it contains the results of the
     /// work done so far.
-    fn start_search(&mut self, params: SearchParams<Self::SearchNode>);
+    fn start_search(&mut self,
+                    params: SearchParams<Self::SearchNode>,
+                    time: Option<&RemainingTime>);
 
     /// Attempts to return a search progress report without blocking.
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError>;

@@ -22,6 +22,8 @@ pub struct RemainingTime {
     pub binc_millis: u64,
 
     /// The number of moves to the next time control.
+    ///
+    /// Can not be zero.
     pub movestogo: Option<u64>,
 }
 
@@ -34,7 +36,7 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
     /// * `position` gives the current position.
     ///
     /// * `time` gives the remaining time on the clocks.
-    fn new(position: &T::SearchNode, time: RemainingTime) -> Self;
+    fn new(position: &T::SearchNode, time: &RemainingTime) -> Self;
 
     /// Registers a new search progress report with the time manager.
     fn update(&mut self, report: &SearchReport<Vec<Variation>>);

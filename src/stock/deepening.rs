@@ -13,6 +13,7 @@ use hash_table::*;
 use evaluator::Evaluator;
 use search_node::SearchNode;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use time_manager::RemainingTime;
 
 
 /// Executes searches with iterative deepening, aspiration windows,
@@ -83,7 +84,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>, _: Option<&RemainingTime>) {
         assert!(params.depth > 0, "For deepening, depth must be at least 1.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
@@ -152,10 +153,11 @@ impl<T: SearchExecutor> SetOption for Deepening<T> {
 impl<T: SearchExecutor> Deepening<T> {
     fn search_next_depth(&mut self) {
         self.multipv.start_search(SearchParams {
-            search_id: 0,
-            depth: self.depth + 1,
-            ..self.params.clone()
-        });
+                                      search_id: 0,
+                                      depth: self.depth + 1,
+                                      ..self.params.clone()
+                                  },
+                                  None);
     }
 
     fn extract_variations(&mut self, moves: Vec<Move>) -> Vec<Variation> {
@@ -236,7 +238,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>, _: Option<&RemainingTime>) {
         debug_assert!(params.depth > 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
@@ -251,7 +253,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
             // Aspiration only.
             debug_assert!(self.variation_count <= 1);
             self.searcher.lmr_mode = false;
-            self.searcher.start_search(params);
+            self.searcher.start_search(params, None);
         } else {
             // Multi-PV with aspiration.
             debug_assert!(self.variation_count >= 1);
@@ -335,13 +337,14 @@ impl<T: SearchExecutor> Multipv<T> {
                             .do_move(self.params.searchmoves[self.current_move_index]));
                 self.previously_searched_nodes += 1;
                 self.searcher.start_search(SearchParams {
-                    search_id: 0,
-                    depth: self.params.depth - 1,
-                    lower_bound: -self.params.upper_bound,
-                    upper_bound: -max(alpha, self.params.lower_bound),
-                    searchmoves: self.params.position.legal_moves(),
-                    ..self.params.clone()
-                });
+                                               search_id: 0,
+                                               depth: self.params.depth - 1,
+                                               lower_bound: -self.params.upper_bound,
+                                               upper_bound: -max(alpha, self.params.lower_bound),
+                                               searchmoves: self.params.position.legal_moves(),
+                                               ..self.params.clone()
+                                           },
+                                           None);
                 return true;
             }
         }
@@ -428,7 +431,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>, _: Option<&RemainingTime>) {
         debug_assert!(params.depth >= 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
@@ -496,12 +499,13 @@ impl<T: SearchExecutor> Aspiration<T> {
             self.params.depth
         };
         self.searcher.start_search(SearchParams {
-            search_id: 0,
-            depth: depth,
-            lower_bound: self.alpha,
-            upper_bound: self.beta,
-            ..self.params.clone()
-        });
+                                       search_id: 0,
+                                       depth: depth,
+                                       lower_bound: self.alpha,
+                                       upper_bound: self.beta,
+                                       ..self.params.clone()
+                                   },
+                                   None);
     }
 
     fn calc_initial_aspiration_window(&mut self) {

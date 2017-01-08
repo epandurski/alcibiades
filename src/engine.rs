@@ -183,6 +183,16 @@ impl<S, T> UciEngine for Engine<S, T>
 
         // Start a new search.
         let depth = params.depth.map_or(DEPTH_MAX, |x| min(x, DEPTH_MAX as u64) as Depth);
+        let remaining_time = RemainingTime {
+            white_millis: params.wtime.unwrap_or(300_000),
+            black_millis: params.btime.unwrap_or(300_000),
+            winc_millis: params.winc.unwrap_or(0),
+            binc_millis: params.binc.unwrap_or(0),
+            movestogo: match params.movestogo {
+                Some(0) => None, // Zero moves to go is a nonsense.
+                x => x,
+            },
+        };
         self.tt.new_search();
         self.started_at = SystemTime::now();
         self.status = Default::default();
@@ -200,23 +210,21 @@ impl<S, T> UciEngine for Engine<S, T>
         } else if params.mate.is_some() {
             PlayWhen::Mate(min(params.mate.unwrap(), (DEPTH_MAX + 1) as u64 / 2) as i16)
         } else {
-            PlayWhen::TimeManagement(T::new(&self.position,
-                                            RemainingTime {
-                                                white_millis: params.wtime.unwrap_or(300_000),
-                                                black_millis: params.btime.unwrap_or(300_000),
-                                                winc_millis: params.winc.unwrap_or(0),
-                                                binc_millis: params.binc.unwrap_or(0),
-                                                movestogo: params.movestogo,
-                                            }))
+            PlayWhen::TimeManagement(T::new(&self.position, &remaining_time))
         };
         self.searcher.start_search(SearchParams {
-            search_id: 0,
-            position: self.position.clone(),
-            depth: depth,
-            lower_bound: VALUE_MIN,
-            upper_bound: VALUE_MAX,
-            searchmoves: searchmoves,
-        });
+                                       search_id: 0,
+                                       position: self.position.clone(),
+                                       depth: depth,
+                                       lower_bound: VALUE_MIN,
+                                       upper_bound: VALUE_MAX,
+                                       searchmoves: searchmoves,
+                                   },
+                                   if let PlayWhen::TimeManagement(_) = self.play_when {
+                                       Some(&remaining_time)
+                                   } else {
+                                       None
+                                   });
     }
 
     fn ponder_hit(&mut self) {

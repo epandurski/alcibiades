@@ -27,7 +27,7 @@ pub struct StdTimeManager {
 impl<S> TimeManager<S> for StdTimeManager
     where S: SearchExecutor<ReportData = Vec<Variation>>
 {
-    fn new(position: &S::SearchNode, time: RemainingTime) -> StdTimeManager {
+    fn new(position: &S::SearchNode, time: &RemainingTime) -> StdTimeManager {
         // Get our remaining time and increment (in milliseconds).
         let (t, inc) = if position.board().to_move == WHITE {
             (time.white_millis as f64, time.winc_millis as f64)
@@ -38,10 +38,8 @@ impl<S> TimeManager<S> for StdTimeManager
         // Get the number of moves until the next time control, or if
         // not available, guess the number of moves to the end of the
         // game.
-        let n = match time.movestogo.unwrap_or(0) {
-            0 => 40,
-            n => n,
-        } as f64;
+        let n = time.movestogo.unwrap_or(40) as f64;
+        debug_assert!(n >= 1.0);
 
         // Calculate the total time we have.
         let time_heap = t + inc * (n - 1.0);
@@ -131,8 +129,7 @@ impl<S> TimeManager<S> for StdTimeManager
         }
     }
 
-    #[allow(unused_variables)]
-    fn must_play(&self, search: &S) -> bool {
+    fn must_play(&self, _: &S) -> bool {
         self.must_play || elapsed_millis(&self.started_at) > self.hard_limit
     }
 }
