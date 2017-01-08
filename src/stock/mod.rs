@@ -1,6 +1,7 @@
 //! Implementations of various traits.
 
 mod std_hash_table;
+mod dummy_hash_table;
 mod std_search_executor;
 mod std_search_node;
 mod std_qsearch;
@@ -11,6 +12,7 @@ mod simple_evaluator;
 mod deepening;
 
 pub use self::std_hash_table::*;
+pub use self::dummy_hash_table::*;
 pub use self::std_search_executor::*;
 pub use self::std_search_node::*;
 pub use self::std_qsearch::*;

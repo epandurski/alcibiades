@@ -47,8 +47,10 @@ use time_manager::RemainingTime;
 ///
 /// If `T` is a depth-first searcher, instantiate `Deepening<T>` to
 /// turn it into a deepening searcher with aspiration windows,
-/// multi-PV, and "searchmoves" support. (`T` do not need to support
-/// "searchmoves".)
+/// multi-PV, and "searchmoves" support.
+///
+/// **Important note:** `Deepening` requires a proper transposition
+/// table to do its work. It can not work with `DummyHashTable`.
 pub struct Deepening<T: SearchExecutor> {
     tt: Arc<T::HashTable>,
     params: SearchParams<T::SearchNode>,

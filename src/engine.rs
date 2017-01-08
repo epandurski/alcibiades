@@ -10,6 +10,7 @@ use uci::*;
 use value::*;
 use depth::*;
 use hash_table::*;
+use moves::Move;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
@@ -65,6 +66,9 @@ struct Engine<S, T>
 
     // The status of the current/last search.
     status: SearchStatus,
+
+    // The current best line of play.
+    best_line: Vec<Move>,
 
     // Nodes per second statistics.
     nps_stats: (u64, u64, u64),
@@ -125,6 +129,7 @@ impl<S, T> UciEngine for Engine<S, T>
             queue: VecDeque::new(),
             started_at: started_at,
             status: SearchStatus { done: true, ..Default::default() },
+            best_line: vec![],
             nps_stats: (0, 0, 0),
             silent_since: started_at,
             is_pondering: false,
@@ -196,6 +201,7 @@ impl<S, T> UciEngine for Engine<S, T>
         self.tt.new_search();
         self.started_at = SystemTime::now();
         self.status = Default::default();
+        self.best_line = vec![];
         self.nps_stats = (self.nps_stats.0, 0, 0);
         self.silent_since = self.started_at;
         self.is_pondering = params.ponder;
@@ -329,16 +335,22 @@ impl<S, T> Engine<S, T>
     }
 
     fn queue_best_move(&mut self) {
-        let pv = self.tt.extract_pv(&self.position);
-        let best_move = if let Some(m) = pv.moves.get(0) {
+        let mut best_line = &self.tt.extract_pv(&self.position).moves;
+        if best_line.is_empty() {
+            // We prefer to get the best line of play directly from
+            // the transposition table, but if for some reason it is
+            // empty, we fall back to using the stored one.
+            best_line = &self.best_line;
+        };
+        let best_move = if let Some(m) = best_line.get(0) {
             m.notation()
         } else {
-            // If there is no best move, pick the first legal move.
+            // If we still do not have a best move, we pick the first legal one.
             self.position.legal_moves().get(0).map_or("0000".to_string(), |m| m.notation())
         };
         self.queue.push_back(EngineReply::BestMove {
             best_move: best_move,
-            ponder_move: pv.moves.get(1).map(|m| m.notation()),
+            ponder_move: best_line.get(1).map(|m| m.notation()),
         });
     }
 
@@ -386,6 +398,7 @@ impl<S, T> Engine<S, T>
 
         // If principal variations are provided with the report, show them.
         if !report.data.is_empty() {
+            self.best_line = report.data[0].moves.clone();
             self.queue_pv(&report.data);
             self.silent_since = SystemTime::now();
         }
@@ -420,7 +433,7 @@ impl<S, T> Engine<S, T>
 /// * `S` should implement game tree searching (presumably with
 ///   iterative deepening). If principal variations are included in
 ///   the progress reports from the search, they will be forwarded to
-///   the GUI.
+///   the GUI, and eventually used to determine the best move.
 ///
 ///   **Note:** Normally, principal variations (PV) should be sent
 ///   only when a new search depth is reached, and possibly when a new
