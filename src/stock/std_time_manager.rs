@@ -98,7 +98,7 @@ impl<S> TimeManager<S> for StdTimeManager
             let expected_duration = match self.extrapolation_points.len() {
                 n if n >= M => {
                     let last_m = &self.extrapolation_points[n - M..];
-                    let factor = extrapolate(last_m, depth + 1.0).exp() / searched_nodes;
+                    let factor = (extrapolate(last_m, depth + 1.0).exp() / searched_nodes).max(1.0);
 
                     // Update `BRANCHING_FACTOR`. This is an average
                     // branching factor calculated over the last few
