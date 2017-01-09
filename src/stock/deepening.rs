@@ -104,6 +104,9 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
         let SearchReport { searched_nodes, depth, value, data, done, .. } =
             try!(self.multipv.try_recv_report());
+        if value != VALUE_UNKNOWN {
+            self.value = value;
+        }
         if !data.is_empty() {
             debug_assert!(contains_same_moves(&self.params.searchmoves, &data));
             self.params.searchmoves = data.clone();
@@ -119,11 +122,9 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth + 1);
             report.depth = depth;
-            report.value = value;
             report.data.extend(self.extract_variations(data));
             self.previously_searched_nodes = report.searched_nodes;
             self.depth = depth;
-            self.value = value;
             if depth < self.params.depth {
                 self.search_next_depth();
                 report.done = false;
@@ -396,6 +397,9 @@ struct Aspiration<T: SearchExecutor> {
     // The real work will be handed over to `searcher`.
     searcher: T,
 
+    // The value for the root position so far.
+    value: Value,
+
     // The lower bound of the aspiration window.
     alpha: Value,
 
@@ -426,6 +430,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
             previously_searched_nodes: 0,
             lmr_mode: false,
             searcher: T::new(tt),
+            value: VALUE_UNKNOWN,
             alpha: VALUE_MIN,
             beta: VALUE_MAX,
             delta: 0,
@@ -443,6 +448,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
+        self.value = VALUE_UNKNOWN;
         self.calc_initial_aspiration_window();
         self.start_aspirated_search();
     }
@@ -454,19 +460,20 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
             depth: 0,
-            value: VALUE_UNKNOWN,
+            value: self.value,
             data: vec![],
             done: done,
         };
         if done && !self.search_is_terminated {
             self.previously_searched_nodes = report.searched_nodes;
+            self.value = value;
             if self.widen_aspiration_window(value) {
                 self.start_aspirated_search();
                 report.done = false;
             } else {
                 report.depth = depth;
-                report.value = value;
             }
+            report.value = value;
         }
         Ok(report)
     }
