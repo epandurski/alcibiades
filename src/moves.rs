@@ -51,19 +51,19 @@ impl MoveDigest {
     /// Returns the move type.
     #[inline]
     pub fn move_type(&self) -> MoveType {
-        ((self.0 & M_MASK_MOVE_TYPE as u16) >> M_SHIFT_MOVE_TYPE) as MoveType
+        (self.0 >> SHIFT_MOVE_TYPE & 3) as MoveType
     }
 
     /// Returns the origin square of the played piece.
     #[inline]
     pub fn orig_square(&self) -> Square {
-        ((self.0 & M_MASK_ORIG_SQUARE as u16) >> M_SHIFT_ORIG_SQUARE) as Square
+        (self.0 >> SHIFT_ORIG_SQUARE & 63) as Square
     }
 
     /// Returns the destination square for the played piece.
     #[inline]
     pub fn dest_square(&self) -> Square {
-        ((self.0 & M_MASK_DEST_SQUARE as u16) >> M_SHIFT_DEST_SQUARE) as Square
+        (self.0 >> SHIFT_DEST_SQUARE & 63) as Square
     }
 
     /// Returns a value between 0 and 3 representing the auxiliary
@@ -74,7 +74,7 @@ impl MoveDigest {
     /// zero.
     #[inline]
     pub fn aux_data(&self) -> usize {
-        ((self.0 & M_MASK_AUX_DATA as u16) >> M_SHIFT_AUX_DATA) as usize
+        (self.0 >> SHIFT_AUX_DATA & 3) as usize
     }
 }
 
@@ -158,27 +158,22 @@ impl Move {
         debug_assert!(dest_square <= 63);
         debug_assert!(captured_piece != KING && captured_piece <= PIECE_NONE);
         debug_assert!(enpassant_file <= 8);
-        debug_assert!(aux_data <= 0b11);
+        debug_assert!(aux_data <= 3);
         debug_assert!(move_type == MOVE_PROMOTION || aux_data == 0);
         debug_assert!(orig_square != dest_square ||
                       move_type == MOVE_NORMAL && captured_piece == PIECE_NONE);
 
-        Move(// The order of those operations could be important to
-             // allow more optimizations.
-             //
-             // Most probably constants:
-             (score as u64) << M_SHIFT_SCORE |
-             (move_type << M_SHIFT_MOVE_TYPE | aux_data << M_SHIFT_AUX_DATA) as u64 |
+        Move(// Most probably constants:
+             (score as u64) << SHIFT_SCORE |
+             (move_type << SHIFT_MOVE_TYPE | aux_data << SHIFT_AUX_DATA) as u64 |
              (
-                 // Values that most probably *do not* change in cycle:
-                 castling_rights.value() << M_SHIFT_CASTLING_RIGHTS |
-                 enpassant_file << M_SHIFT_ENPASSANT_FILE |
-                 played_piece << M_SHIFT_PIECE |
-                 orig_square << M_SHIFT_ORIG_SQUARE |
-
-                 // Values that most probably *do* change in cycle:
-                 (!captured_piece & 0b111) << M_SHIFT_CAPTURED_PIECE |
-                 dest_square << M_SHIFT_DEST_SQUARE) as u64)
+                 // Sorted by increasing likelihood of being changed in a cycle:
+                 castling_rights.value() << SHIFT_CASTLING_RIGHTS |
+                 enpassant_file << SHIFT_ENPASSANT_FILE |
+                 played_piece << SHIFT_PIECE |
+                 orig_square << SHIFT_ORIG_SQUARE |
+                 (!captured_piece & 7) << SHIFT_CAPTURED_PIECE |
+                 dest_square << SHIFT_DEST_SQUARE) as u64)
     }
 
     /// Creates an invalid move instance.
@@ -189,7 +184,7 @@ impl Move {
     /// available.
     #[inline]
     pub fn invalid() -> Move {
-        Move(((!PIECE_NONE & 0b111) << M_SHIFT_CAPTURED_PIECE | KING << M_SHIFT_PIECE) as u64)
+        Move(((!PIECE_NONE & 7) << SHIFT_CAPTURED_PIECE | KING << SHIFT_PIECE) as u64)
     }
 
     /// Decodes the promoted piece type from the raw value returned by
@@ -206,20 +201,21 @@ impl Move {
     /// Assigns a new score for the move.
     #[inline]
     pub fn set_score(&mut self, score: u32) {
-        self.0 &= !M_MASK_SCORE;
-        self.0 |= (score as u64) << M_SHIFT_SCORE;
+        const MASK_SCORE: u64 = (::std::u32::MAX as u64) << SHIFT_SCORE;
+        self.0 &= !MASK_SCORE;
+        self.0 |= (score as u64) << SHIFT_SCORE;
     }
 
     /// Returns the assigned move score.
     #[inline]
     pub fn score(&self) -> u32 {
-        (self.0 >> M_SHIFT_SCORE) as u32
+        (self.0 >> SHIFT_SCORE) as u32
     }
 
     /// Returns the move type.
     #[inline]
     pub fn move_type(&self) -> MoveType {
-        (self.0 as usize & M_MASK_MOVE_TYPE) >> M_SHIFT_MOVE_TYPE
+        self.0 as usize >> SHIFT_MOVE_TYPE & 3
     }
 
     /// Returns the played piece type.
@@ -227,39 +223,39 @@ impl Move {
     /// Castling is considered as king's move.
     #[inline]
     pub fn played_piece(&self) -> PieceType {
-        (self.0 as usize & M_MASK_PIECE) >> M_SHIFT_PIECE
+        self.0 as usize >> SHIFT_PIECE & 7
     }
 
     /// Returns the origin square of the played piece.
     #[inline]
     pub fn orig_square(&self) -> Square {
-        (self.0 as usize & M_MASK_ORIG_SQUARE) >> M_SHIFT_ORIG_SQUARE
+        self.0 as usize >> SHIFT_ORIG_SQUARE & 63
     }
 
     /// Returns the destination square for the played piece.
     #[inline]
     pub fn dest_square(&self) -> Square {
-        (self.0 as usize & M_MASK_DEST_SQUARE) >> M_SHIFT_DEST_SQUARE
+        self.0 as usize >> SHIFT_DEST_SQUARE & 63
     }
 
     /// Returns the captured piece type.
     #[inline]
     pub fn captured_piece(&self) -> PieceType {
-        (!(self.0 as usize) & M_MASK_CAPTURED_PIECE) >> M_SHIFT_CAPTURED_PIECE
+        !(self.0 as usize) >> SHIFT_CAPTURED_PIECE & 7
     }
 
     /// If the *previous move* was a double pawn push, returns pushed
     /// pawn's file (a value between 0 and 7). Otherwise returns `8`.
     #[inline]
     pub fn enpassant_file(&self) -> usize {
-        (self.0 as usize & M_MASK_ENPASSANT_FILE) >> M_SHIFT_ENPASSANT_FILE
+        self.0 as usize >> SHIFT_ENPASSANT_FILE & 15
     }
 
     /// Returns the castling rights as they were before the move was
     /// played.
     #[inline]
     pub fn castling_rights(&self) -> CastlingRights {
-        CastlingRights::new(self.0 as usize >> M_SHIFT_CASTLING_RIGHTS)
+        CastlingRights::new(self.0 as usize >> SHIFT_CASTLING_RIGHTS)
     }
 
     /// Returns a value between 0 and 3 representing the auxiliary
@@ -270,7 +266,7 @@ impl Move {
     /// zero.
     #[inline]
     pub fn aux_data(&self) -> usize {
-        (self.0 as usize & M_MASK_AUX_DATA) >> M_SHIFT_AUX_DATA
+        self.0 as usize >> SHIFT_AUX_DATA & 3
     }
 
     /// Returns the least significant 16 bits of the raw move value.
@@ -297,11 +293,14 @@ impl Move {
     /// `false` otherwise.
     #[inline]
     pub fn is_pawn_advance_or_capure(&self) -> bool {
+        const MASK_PIECE: usize = 7 << SHIFT_PIECE;
+        const MASK_CAPTURED_PIECE: usize = 7 << SHIFT_CAPTURED_PIECE;
+
         // We use clever bit manipulations to avoid branches.
-        const P: usize = (!PAWN & 0b111) << M_SHIFT_PIECE;
-        const C: usize = (!PIECE_NONE & 0b111) << M_SHIFT_CAPTURED_PIECE;
+        const P: usize = (!PAWN & 7) << SHIFT_PIECE;
+        const C: usize = (!PIECE_NONE & 7) << SHIFT_CAPTURED_PIECE;
         let v = self.0 as usize;
-        (v & M_MASK_PIECE | C) ^ (v & M_MASK_CAPTURED_PIECE | P) >= M_MASK_PIECE
+        (v & MASK_PIECE | C) ^ (v & MASK_CAPTURED_PIECE | P) >= MASK_PIECE
     }
 
     /// Returns if the move is a null move.
@@ -340,26 +339,15 @@ impl AddMove for Vec<Move> {
 
 
 // Field shifts
-const M_SHIFT_SCORE: usize = 32;
-const M_SHIFT_CAPTURED_PIECE: usize = 27;
-const M_SHIFT_PIECE: usize = 24;
-const M_SHIFT_CASTLING_RIGHTS: usize = 20;
-const M_SHIFT_ENPASSANT_FILE: usize = 16;
-const M_SHIFT_MOVE_TYPE: usize = 14;
-const M_SHIFT_ORIG_SQUARE: usize = 8;
-const M_SHIFT_DEST_SQUARE: usize = 2;
-const M_SHIFT_AUX_DATA: usize = 0;
-
-
-// Field masks
-const M_MASK_CAPTURED_PIECE: usize = 0b111 << M_SHIFT_CAPTURED_PIECE;
-const M_MASK_PIECE: usize = 0b111 << M_SHIFT_PIECE;
-const M_MASK_ENPASSANT_FILE: usize = 0b1111 << M_SHIFT_ENPASSANT_FILE;
-const M_MASK_MOVE_TYPE: usize = 0b11 << M_SHIFT_MOVE_TYPE;
-const M_MASK_ORIG_SQUARE: usize = 0b111111 << M_SHIFT_ORIG_SQUARE;
-const M_MASK_DEST_SQUARE: usize = 0b111111 << M_SHIFT_DEST_SQUARE;
-const M_MASK_AUX_DATA: usize = 0b11 << M_SHIFT_AUX_DATA;
-const M_MASK_SCORE: u64 = (::std::u32::MAX as u64) << M_SHIFT_SCORE;
+const SHIFT_SCORE: usize = 32;
+const SHIFT_CAPTURED_PIECE: usize = 27;
+const SHIFT_PIECE: usize = 24;
+const SHIFT_CASTLING_RIGHTS: usize = 20;
+const SHIFT_ENPASSANT_FILE: usize = 16;
+const SHIFT_MOVE_TYPE: usize = 14;
+const SHIFT_ORIG_SQUARE: usize = 8;
+const SHIFT_DEST_SQUARE: usize = 2;
+const SHIFT_AUX_DATA: usize = 0;
 
 
 /// Returns the algebraic notation for a given square.
