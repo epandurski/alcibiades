@@ -43,5 +43,5 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
 
     /// Decides whether the search must be terminated and the best
     /// move played.
-    fn must_play(&self, search: &T) -> bool;
+    fn must_play(&self) -> bool;
 }

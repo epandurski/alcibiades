@@ -23,7 +23,7 @@ impl<S> TimeManager<S> for DummyTimeManager
     fn update(&mut self, _: &SearchReport<Vec<Variation>>) {}
 
     /// Returns `false`.
-    fn must_play(&self, _: &S) -> bool {
+    fn must_play(&self) -> bool {
         false
     }
 }

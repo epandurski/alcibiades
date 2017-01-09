@@ -129,7 +129,7 @@ impl<S> TimeManager<S> for StdTimeManager
         }
     }
 
-    fn must_play(&self, _: &S) -> bool {
+    fn must_play(&self) -> bool {
         self.must_play || elapsed_millis(&self.started_at) > self.hard_limit
     }
 }
