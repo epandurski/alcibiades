@@ -169,8 +169,8 @@ pub trait SearchExecutor: SetOption {
     ///
     /// * `time` gives the remaining time on the clocks, which is
     ///   useful when the search executor wants to implement its own
-    ///   time management logic. `None` indicates that there are no
-    ///   time restrictions.
+    ///   time management logic. Otherwise, it can be ignored. `None`
+    ///   indicates that there are no time restrictions.
     ///
     /// After calling `start_search`, `wait_report` and
     /// `try_recv_report` will be called periodically until the
