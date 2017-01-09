@@ -497,8 +497,8 @@ fn parse_uci_command(s: &str) -> Result<UciCommand, ParseError> {
         ).unwrap();
     }
     if let Some(captures) = RE.captures(s) {
-        let command_str = captures.at(1).unwrap();
-        let params_str = captures.at(2).unwrap_or("");
+        let command_str = captures.get(1).unwrap().as_str();
+        let params_str = captures.get(2).map_or("", |m| m.as_str());
         match command_str {
             "stop" => Ok(UciCommand::Stop),
             "quit" => Ok(UciCommand::Quit),
@@ -523,8 +523,8 @@ fn parse_setoption_params(s: &str) -> Result<UciCommand, ParseError> {
     }
     if let Some(captures) = RE.captures(s) {
         Ok(UciCommand::SetOption {
-            name: captures.at(1).unwrap().to_string(),
-            value: captures.at(2).unwrap_or("").to_string(),
+            name: captures.get(1).unwrap().as_str().to_string(),
+            value: captures.get(2).map_or("", |m| m.as_str()).to_string(),
         })
     } else {
         Err(ParseError)
@@ -546,11 +546,11 @@ fn parse_position_params(s: &str) -> Result<UciCommand, ParseError> {
     if let Some(captures) = RE.captures(s) {
         Ok(UciCommand::Position {
             fen: if let Some(fen) = captures.name("fen") {
-                fen.to_string()
+                fen.as_str().to_string()
             } else {
                 STARTPOS.to_string()
             },
-            moves: captures.name("moves").unwrap_or("").to_string(),
+            moves: captures.name("moves").map_or("", |m| m.as_str()).to_string(),
         })
     } else {
         Err(ParseError)
@@ -572,10 +572,11 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
     let mut params = GoParams::default();
     for captures in RE.captures_iter(s) {
         let keyword = captures.name("keyword").unwrap();
-        match keyword {
+        match keyword.as_str() {
             "searchmoves" => {
                 if let Some(moves) = captures.name("moves") {
-                    params.searchmoves = moves.split_whitespace()
+                    params.searchmoves = moves.as_str()
+                                              .split_whitespace()
                                               .map(|x| x.to_string())
                                               .collect();
                 }
@@ -588,7 +589,7 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
             }
             _ => {
                 if let Some(number) = captures.name("number") {
-                    let field = match keyword {
+                    let field = match keyword.as_str() {
                         "wtime" => &mut params.wtime,
                         "btime" => &mut params.btime,
                         "winc" => &mut params.winc,
@@ -600,7 +601,7 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
                         "movetime" => &mut params.movetime,
                         _ => panic!("invalid keyword"),
                     };
-                    *field = number.parse::<u64>().ok();
+                    *field = number.as_str().parse::<u64>().ok();
                 }
             }
         }
