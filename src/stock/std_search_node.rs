@@ -35,6 +35,9 @@ pub struct StdSearchNode<T: Qsearch> {
     /// Information needed so as to be able to undo the played moves.
     state_stack: Vec<PositionInfo>,
 
+    /// The count of half-moves since the beginning of the game.
+    halfmove_count: u16,
+
     /// `true` if the position is deemed as a draw by repetition or
     /// because 50 moves have been played without capturing a piece or
     /// advancing a pawn.
@@ -136,6 +139,11 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     }
 
     #[inline]
+    fn fullmove_number(&self) -> u16 {
+        1 + (self.halfmove_count >> 1)
+    }
+
+    #[inline]
     fn is_check(&self) -> bool {
         self.position().checkers() != 0
     }
@@ -223,6 +231,7 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
                     }
                 }
             };
+            self.halfmove_count += 1;
             self.encountered_boards.push(self.board_hash);
             self.board_hash ^= h;
             debug_assert!(halfmove_clock <= 99);
@@ -260,6 +269,7 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
         unsafe {
             self.position_mut().undo_move(self.state().last_move);
         }
+        self.halfmove_count -= 1;
         self.board_hash = self.encountered_boards.pop().unwrap();
         self.repeated_or_rule50 = false;
         self.state_stack.pop();
@@ -272,6 +282,7 @@ impl<T: Qsearch> Clone for StdSearchNode<T> {
         StdSearchNode {
             zobrist: self.zobrist,
             position: UnsafeCell::new(self.position().clone()),
+            halfmove_count: self.halfmove_count,
             board_hash: self.board_hash,
             repeated_or_rule50: self.repeated_or_rule50,
             repeated_boards_hash: self.repeated_boards_hash,
@@ -296,10 +307,11 @@ impl<T: Qsearch> SetOption for StdSearchNode<T> {
 impl<T: Qsearch> StdSearchNode<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalBoard> {
-        let (board, halfmove_clock, _) = try!(parse_fen(fen));
+        let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
         let g = try!(T::MoveGenerator::from_board(board));
         Ok(StdSearchNode {
             zobrist: ZobristArrays::get(),
+            halfmove_count: ((fullmove_number - 1) << 1) + g.board().to_move as u16,
             board_hash: g.hash(),
             position: UnsafeCell::new(g),
             repeated_or_rule50: false,
@@ -469,6 +481,25 @@ mod tests {
         assert!(P::from_fen("8/8/8/6k1/3P4/8/8/2B4K b - d3 0 1").is_ok());
         assert!(P::from_fen("8/8/8/6k1/7P/4B3/8/7K b - h3 0 1").is_err());
         assert!(P::from_fen("8/8/8/6k1/7P/8/8/7K b - h3 0 0").is_err());
+    }
+
+    #[test]
+    fn evaluate_fullmove_number() {
+        let mut p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 6 31").ok().unwrap();
+        assert_eq!(p.fullmove_number(), 31);
+        let m = p.legal_moves()[0];
+        p.do_move(m);
+        assert_eq!(p.fullmove_number(), 31);
+        p.undo_last_move();
+        assert_eq!(p.fullmove_number(), 31);
+
+        let mut p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 b - - 6 31").ok().unwrap();
+        assert_eq!(p.fullmove_number(), 31);
+        let m = p.legal_moves()[0];
+        p.do_move(m);
+        assert_eq!(p.fullmove_number(), 32);
+        p.undo_last_move();
+        assert_eq!(p.fullmove_number(), 31);
     }
 
     #[test]

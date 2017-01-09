@@ -60,6 +60,11 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// or pawn advance.
     fn halfmove_clock(&self) -> u8;
 
+    /// Returns the number of the current full move.
+    ///
+    /// Starts at 1 and is incremented after black's move.
+    fn fullmove_number(&self) -> u16;
+
     /// Returns if the side to move is in check.
     fn is_check(&self) -> bool;
 

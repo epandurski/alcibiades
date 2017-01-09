@@ -45,7 +45,7 @@ use ranks::*;
 ///    be claimed under the fifty-move rule.
 ///
 /// 6. Fullmove number. The number of the full move. It starts at 1,
-///    and is incremented after Black's move.
+///    and is incremented after black's move.
 ///
 /// ## Example:
 /// The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
