@@ -947,11 +947,12 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             if pinners != 0 {
                 let defenders = *self.board.pieces.color.get_unchecked(self.board.to_move) &
                                 !(1 << king_square);
-                let between_our_king_and: &[Bitboard; 64] = g.squares_between_including
-                                                             .get_unchecked(king_square);
                 loop {
                     let pinner_square = bsf_reset(&mut pinners);
-                    let bb = defenders & *between_our_king_and.get_unchecked(pinner_square);
+                    let bb = defenders &
+                             *g.squares_between_including
+                               .get_unchecked(king_square)
+                               .get_unchecked(pinner_square);
                     if lsb(bb) == bb {
                         pinned |= bb;
                     }
