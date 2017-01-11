@@ -57,9 +57,8 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
     /// Returns a reference to the underlying `Board` instance.
     fn board(&self) -> &Board;
 
-    /// Returns a bitboard with all pieces of color `us` that attack
-    /// `square`.
-    fn attacks_to(&self, us: Color, square: Square) -> Bitboard;
+    /// Returns a bitboard with all pieces that attack `square`.
+    fn attacks_to(&self, square: Square) -> Bitboard;
 
     /// Returns a bitboard with all enemy pieces that attack the king.
     ///
@@ -199,8 +198,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
             let mut us = self.board().to_move;
             let mut depth = 0;
             let mut orig_square_bb = 1 << m.orig_square();
-            let mut attackers_and_defenders = self.attacks_to(WHITE, exchange_square) |
-                                              self.attacks_to(BLACK, exchange_square);
+            let mut attackers_and_defenders = self.attacks_to(exchange_square);
 
             // The `gain` array will hold the total material gained at
             // each `depth`, from the viewpoint of the side that made the

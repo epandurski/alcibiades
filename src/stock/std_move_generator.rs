@@ -69,29 +69,30 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         &self.board
     }
 
-    fn attacks_to(&self, us: Color, square: Square) -> Bitboard {
+    fn attacks_to(&self, square: Square) -> Bitboard {
         assert!(square <= 63);
-        let occupied_by_us = self.board.pieces.color[us];
-
         unsafe {
-            (self.geometry.attacks_from_unsafe(ROOK, square, self.board.occupied) & occupied_by_us &
+            (self.geometry.attacks_from_unsafe(ROOK, square, self.board.occupied) &
              (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
             (self.geometry.attacks_from_unsafe(BISHOP, square, self.board.occupied) &
-             occupied_by_us &
              (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
             (self.geometry.attacks_from_unsafe(KNIGHT, square, self.board.occupied) &
-             occupied_by_us & self.board.pieces.piece_type[KNIGHT]) |
+             self.board.pieces.piece_type[KNIGHT]) |
             (self.geometry.attacks_from_unsafe(KING, square, self.board.occupied) &
-             occupied_by_us & self.board.pieces.piece_type[KING]) |
-            (*self.geometry.pawn_attacks.get_unchecked(1 ^ us).get_unchecked(square) &
-             occupied_by_us & self.board.pieces.piece_type[PAWN])
+             self.board.pieces.piece_type[KING]) |
+            ((*self.geometry.pawn_attacks[WHITE].get_unchecked(square) &
+              self.board.pieces.color[BLACK]) |
+             (*self.geometry.pawn_attacks[BLACK].get_unchecked(square) &
+              self.board.pieces.color[WHITE])) & self.board.pieces.piece_type[PAWN]
         }
     }
 
     #[inline]
     fn checkers(&self) -> Bitboard {
         if self.checkers.get() == BB_ALL {
-            self.checkers.set(self.attacks_to(1 ^ self.board.to_move, self.king_square()));
+            self.checkers
+                .set(self.attacks_to(self.king_square()) &
+                     unsafe { *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) });
         }
         self.checkers.get()
     }
@@ -755,7 +756,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
         pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
         pop_count(o_us) <= 16 &&
-        pop_count(o_them) <= 16 && self.attacks_to(us, bsf(their_king_bb)) == 0 &&
+        pop_count(o_them) <= 16 && o_us & self.attacks_to(bsf(their_king_bb)) == 0 &&
         pawns & BB_PAWN_PROMOTION_RANKS == 0 &&
         (!self.board.castling_rights.can_castle(WHITE, QUEENSIDE) ||
          (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[WHITE] & 1 << A1 != 0) &&
@@ -796,7 +797,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         {
             assert_eq!(self.board.occupied, occupied);
             assert!(self.checkers.get() == BB_ALL ||
-                    self.checkers.get() == self.attacks_to(them, bsf(our_king_bb)));
+                    self.checkers.get() == o_them & self.attacks_to(bsf(our_king_bb)));
             true
         }
     }
@@ -982,7 +983,9 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     fn king_square_and_checkers(&self) -> (Square, Bitboard) {
         let king_square = self.king_square();
         if self.checkers.get() == BB_ALL {
-            self.checkers.set(self.attacks_to(1 ^ self.board.to_move, king_square));
+            self.checkers
+                .set(self.attacks_to(king_square) &
+                     unsafe { *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) });
         }
         (king_square, self.checkers.get())
     }
@@ -1183,19 +1186,22 @@ mod tests {
     #[test]
     fn attacks_to() {
         let b = P::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q w - - 0 1").ok().unwrap();
-        assert_eq!(b.attacks_to(WHITE, E4),
+        let white = b.board().pieces.color[WHITE];
+        let black = b.board().pieces.color[BLACK];
+
+        assert_eq!(white & b.attacks_to(E4),
                    1 << D3 | 1 << G3 | 1 << D5 | 1 << H1);
-        assert_eq!(b.attacks_to(BLACK, E4),
+        assert_eq!(black & b.attacks_to(E4),
                    1 << E3 | 1 << F4 | 1 << F5 | 1 << A4);
-        assert_eq!(b.attacks_to(BLACK, G6), 0);
-        assert_eq!(b.attacks_to(WHITE, G6), 1 << H5);
-        assert_eq!(b.attacks_to(WHITE, C2), 1 << B1);
-        assert_eq!(b.attacks_to(WHITE, F4), 0);
-        assert_eq!(b.attacks_to(BLACK, F4), 1 << A4 | 1 << E3);
-        assert_eq!(b.attacks_to(BLACK, F5), 1 << F4);
-        assert_eq!(b.attacks_to(WHITE, A6), 0);
-        assert_eq!(b.attacks_to(BLACK, G1), 1 << H2 | 1 << E3);
-        assert_eq!(b.attacks_to(BLACK, A1), 1 << A4);
+        assert_eq!(black & b.attacks_to(G6), 0);
+        assert_eq!(white & b.attacks_to(G6), 1 << H5);
+        assert_eq!(white & b.attacks_to(C2), 1 << B1);
+        assert_eq!(white & b.attacks_to(F4), 0);
+        assert_eq!(black & b.attacks_to(F4), 1 << A4 | 1 << E3);
+        assert_eq!(black & b.attacks_to(F5), 1 << F4);
+        assert_eq!(white & b.attacks_to(A6), 0);
+        assert_eq!(black & b.attacks_to(G1), 1 << H2 | 1 << E3);
+        assert_eq!(black & b.attacks_to(A1), 1 << A4);
     }
 
     #[test]
