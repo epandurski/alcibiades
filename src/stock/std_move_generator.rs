@@ -165,7 +165,6 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             {
                 let our_pawns = self.board.pieces.piece_type[PAWN] & occupied_by_us;
                 let mut pinned_pawns = our_pawns & pinned;
-                let free_pawns = our_pawns ^ pinned_pawns;
                 let pawn_legal_dests = if checkers & self.board.pieces.piece_type[PAWN] == 0 {
                     legal_dests
                 } else {
@@ -175,9 +174,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 };
 
                 // Generate all moves with not-pinned pawns.
-                if free_pawns != 0 {
-                    self.add_pawn_moves(free_pawns, pawn_legal_dests, false, moves);
-                }
+                self.add_pawn_moves(our_pawns ^ pinned_pawns, pawn_legal_dests, false, moves);
 
                 // Generate pinned pawns' moves pawn by pawn, reducing
                 // the set of legal destination for each pinned pawn
@@ -276,10 +273,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         {
             let our_pawns = self.board.pieces.piece_type[PAWN] & occupied_by_us;
             let mut pinned_pawns = our_pawns & pinned;
-            let free_pawns = our_pawns ^ pinned_pawns;
-            if free_pawns != 0 {
-                self.add_pawn_moves(free_pawns, pawn_dests, true, moves);
-            }
+            self.add_pawn_moves(our_pawns ^ pinned_pawns, pawn_dests, true, moves);
             while pinned_pawns != 0 {
                 let pawn_square = bsf_reset(&mut pinned_pawns);
                 let pawn_dests = pawn_dests &
