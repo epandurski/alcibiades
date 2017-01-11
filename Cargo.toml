@@ -1,6 +1,6 @@
 [package]
 name = "alcibiades"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Evgeni Pandurski <epandurski@gmail.com>"]
 description = "A framework for writing chess engines in Rust"
 repository = "https://github.com/epandurski/alcibiades"
