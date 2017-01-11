@@ -996,25 +996,22 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     fn king_would_be_in_check(&self, orig_square: Square, dest_square: Square) -> bool {
         debug_assert_eq!(orig_square, self.king_square());
         debug_assert!(dest_square <= 63);
+        let occupied = self.board.occupied & !(1 << orig_square);
         unsafe {
-            let occupied = self.board.occupied & !(1 << orig_square);
-            let occupied_by_them = self.board.pieces.color.get_unchecked(1 ^ self.board.to_move);
-
-            (self.geometry.attacks_from_unsafe(ROOK, dest_square, occupied) & occupied_by_them &
-             (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) !=
-            0 ||
-            (self.geometry.attacks_from_unsafe(BISHOP, dest_square, occupied) & occupied_by_them &
-             (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) !=
-            0 ||
-            (self.geometry.attacks_from_unsafe(KNIGHT, dest_square, occupied) &
-             occupied_by_them & self.board.pieces.piece_type[KNIGHT]) != 0 ||
-            (self.geometry.attacks_from_unsafe(KING, dest_square, occupied) &
-             occupied_by_them & self.board.pieces.piece_type[KING]) != 0 ||
-            (*self.geometry
-                  .pawn_attacks
-                  .get_unchecked(self.board.to_move)
-                  .get_unchecked(dest_square) & occupied_by_them &
-             self.board.pieces.piece_type[PAWN] != 0)
+            *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) &
+            ((self.geometry.attacks_from_unsafe(ROOK, dest_square, occupied) &
+              (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
+             (self.geometry.attacks_from_unsafe(BISHOP, dest_square, occupied) &
+              (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
+             (self.geometry.attacks_from_unsafe(KNIGHT, dest_square, occupied) &
+              self.board.pieces.piece_type[KNIGHT]) |
+             (self.geometry.attacks_from_unsafe(KING, dest_square, occupied) &
+              self.board.pieces.piece_type[KING]) |
+             (*self.geometry
+                   .pawn_attacks
+                   .get_unchecked(self.board.to_move)
+                   .get_unchecked(dest_square) &
+              self.board.pieces.piece_type[PAWN])) != 0
         }
     }
 
