@@ -188,7 +188,7 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
 
             let color: &[Bitboard; 2] = &self.board().pieces.color;
             let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
-            let straight_sliders = piece_type[QUEEN] | piece_type[ROOK];
+            let file_sliders = piece_type[QUEEN] | piece_type[ROOK];
             let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
             let geometry = BoardGeometry::get();
             let behind_blocker: &[Bitboard; 64] = geometry.squares_behind_blocker
@@ -237,17 +237,17 @@ pub trait MoveGenerator: Sized + Send + Clone + SetOption {
                 // capturing piece's origin square is vacant.
                 let behind = self.board().occupied &
                              *behind_blocker.get_unchecked(bsf(orig_square_bb));
-                if behind & (straight_sliders | diag_sliders) != 0 && piece != KING {
+                if behind & (file_sliders | diag_sliders) != 0 && piece != KING {
                     attackers_and_defenders |=
-                        match behind & straight_sliders &
+                        match behind & file_sliders &
                               geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
                             0 => {
-                                // Not a straight slider, possibly a diagonal slider.
+                                // Not a file slider, possibly a diagonal slider.
                                 behind & diag_sliders &
                                 geometry.attacks_from_unsafe(BISHOP, exchange_square, behind)
                             }
                             bb => {
-                                // A straight slider.
+                                // A file slider.
                                 bb
                             }
                         };

@@ -925,36 +925,38 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     fn find_pinned(&self, king_square: Square) -> Bitboard {
         let mut pinned = 0;
         unsafe {
+            let g: &BoardGeometry = &self.geometry;
             let occupied_by_them = *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move);
 
-            // To find the pinners, we "remove" all our pieces from the
-            // board, and then verify if a bishop or a rook placed on our
-            // king's square can attack any enemy bishops, rooks, or
-            // queens.
-            let mut pinners = (self.geometry
-                                   .attacks_from_unsafe(ROOK, king_square, occupied_by_them) &
-                               (self.board.pieces.piece_type[QUEEN] |
-                                self.board.pieces.piece_type[ROOK]) &
-                               occupied_by_them) |
-                              (self.geometry
-                                   .attacks_from_unsafe(BISHOP, king_square, occupied_by_them) &
-                               (self.board.pieces.piece_type[QUEEN] |
-                                self.board.pieces.piece_type[BISHOP]) &
-                               occupied_by_them);
+            // To find the potential pinners, we "remove" all our
+            // pieces from the board, and then verify if a bishop or a
+            // rook placed on our king's square can attack any enemy
+            // bishops, rooks, or queens.
+            let file_sliders = self.board.pieces.piece_type[QUEEN] |
+                               self.board.pieces.piece_type[ROOK];
+            let diag_sliders = self.board.pieces.piece_type[QUEEN] |
+                               self.board.pieces.piece_type[BISHOP];
+            let mut pinners = occupied_by_them &
+                              (file_sliders &
+                               g.attacks_from_unsafe(ROOK, king_square, occupied_by_them) |
+                               diag_sliders &
+                               g.attacks_from_unsafe(BISHOP, king_square, occupied_by_them));
 
-            // Then, for each pinner we verify if there is exactly one
-            // defender between our king and the pinner.
+            // Then, for each potential pinner we verify if there is
+            // exactly one defender between our king and the pinner.
             if pinners != 0 {
                 let defenders = *self.board.pieces.color.get_unchecked(self.board.to_move) &
                                 !(1 << king_square);
-                let between_our_king_and: &[Bitboard; 64] = self.geometry
-                                                                .squares_between_including
-                                                                .get_unchecked(king_square);
-                while pinners != 0 {
+                let between_our_king_and: &[Bitboard; 64] = g.squares_between_including
+                                                             .get_unchecked(king_square);
+                loop {
                     let pinner_square = bsf_reset(&mut pinners);
                     let bb = defenders & *between_our_king_and.get_unchecked(pinner_square);
                     if lsb(bb) == bb {
                         pinned |= bb;
+                    }
+                    if pinners == 0 {
+                        break;
                     }
                 }
             }
