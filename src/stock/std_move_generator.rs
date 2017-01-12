@@ -1067,7 +1067,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     }
 
     /// A helper method. It returns the type of the piece at `square`.
-    #[inline]
+    #[inline(always)]
     fn get_piece_type_at(&self, square: Square) -> PieceType {
         debug_assert!(square <= 63);
         let bb = 1 << square & self.board.occupied;
