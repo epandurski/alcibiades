@@ -280,14 +280,10 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
 impl<T: Qsearch> Clone for StdSearchNode<T> {
     fn clone(&self) -> Self {
         StdSearchNode {
-            zobrist: self.zobrist,
             position: UnsafeCell::new(self.position().clone()),
-            halfmove_count: self.halfmove_count,
-            board_hash: self.board_hash,
-            repeated_or_rule50: self.repeated_or_rule50,
-            repeated_boards_hash: self.repeated_boards_hash,
             encountered_boards: self.encountered_boards.clone(),
             state_stack: self.state_stack.clone(),
+            ..*self
         }
     }
 }
@@ -308,12 +304,12 @@ impl<T: Qsearch> StdSearchNode<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalBoard> {
         let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
-        let g = try!(T::MoveGenerator::from_board(board));
+        let gen = try!(T::MoveGenerator::from_board(board));
         Ok(StdSearchNode {
             zobrist: ZobristArrays::get(),
-            halfmove_count: ((fullmove_number - 1) << 1) + g.board().to_move as u16,
-            board_hash: g.hash(),
-            position: UnsafeCell::new(g),
+            halfmove_count: ((fullmove_number - 1) << 1) + gen.board().to_move as u16,
+            board_hash: gen.hash(),
+            position: UnsafeCell::new(gen),
             repeated_or_rule50: false,
             repeated_boards_hash: 0,
             encountered_boards: vec![0; halfmove_clock as usize],
