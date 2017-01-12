@@ -360,7 +360,7 @@ impl<T: Qsearch> StdSearchNode<T> {
 
     /// Returns if the root position (the earliest in `state_stack`)
     /// can be reached by playing moves from the current position.
-    #[inline(always)]
+    #[inline]
     fn root_is_reachable(&self) -> bool {
         self.encountered_boards.len() <= self.state().halfmove_clock as usize
     }

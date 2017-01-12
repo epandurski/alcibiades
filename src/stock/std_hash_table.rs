@@ -242,7 +242,7 @@ impl HashTable for StdHashTable {
 impl StdHashTable {
     /// A helper method for `store`. It implements the record
     /// replacement strategy.
-    #[inline(always)]
+    #[inline]
     fn calc_score(&self, record: &Record) -> isize {
         // Here we try to return higher values for the records that
         // are move likely to save CPU work in the future:
@@ -268,7 +268,7 @@ impl StdHashTable {
 
     /// A helper method for `probe` and `store`. It returns the
     /// cluster for a given key.
-    #[inline(always)]
+    #[inline]
     unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
         let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
         &mut (&mut *self.table.get())[cluster_index]
@@ -310,7 +310,7 @@ impl Record {
         self.data.gen_bound & 0b11111100
     }
 
-    #[inline(always)]
+    #[inline]
     fn set_generation(&mut self, generation: u8) {
         debug_assert_eq!(generation & 0b11, 0);
 

@@ -1035,7 +1035,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
 
     /// A helper method. It returns a bitboard representing the
     /// en-passant target square if there is one.
-    #[inline(always)]
+    #[inline]
     fn enpassant_bb(&self) -> Bitboard {
         if self.board.enpassant_file >= 8 {
             0
@@ -1067,7 +1067,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     }
 
     /// A helper method. It returns the type of the piece at `square`.
-    #[inline(always)]
+    #[inline]
     fn get_piece_type_at(&self, square: Square) -> PieceType {
         debug_assert!(square <= 63);
         let bb = 1 << square & self.board.occupied;
@@ -1129,7 +1129,7 @@ const BB_CASTLING_ROOK_MOVEMENT: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << 
 /// this separation is that knowing the destination square and the
 /// pawn move sub-type (the index in the `dest_sets` array) is enough
 /// to recover the origin square.
-#[inline(always)]
+#[inline]
 fn calc_pawn_dest_sets(us: Color,
                        occupied_by_us: Bitboard,
                        occupied_by_them: Bitboard,
