@@ -801,7 +801,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     /// square `orig_square`, and for each square that is within the
     /// `legal_dests` set adds a new move to `moves`. `piece` must not
     /// be `PAWN`.
-    #[inline(always)]
+    #[inline]
     fn add_piece_moves<U: AddMove>(&self,
                                    piece: PieceType,
                                    orig_square: Square,
