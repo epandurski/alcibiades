@@ -30,16 +30,16 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     type Evaluator = T;
 
     fn from_board(board: Board) -> Result<Self, IllegalBoard> {
-        let mut g = StdMoveGenerator {
+        let mut gen = StdMoveGenerator {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
             board: board,
             evaluator: unsafe { uninitialized() },
             checkers: Cell::new(BB_ALL),
         };
-        if g.is_legal() {
-            g.evaluator = T::new(g.board());
-            Ok(g)
+        if gen.is_legal() {
+            gen.evaluator = T::new(gen.board());
+            Ok(gen)
         } else {
             Err(IllegalBoard)
         }
@@ -730,69 +730,70 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             return false;
         }
         let us = self.board.to_move;
+        let them = 1 ^ us;
         let enpassant_bb = self.enpassant_bb();
-        let occupied = self.board.pieces.piece_type.into_iter().fold(0, |acc, x| {
+        let color: &[Bitboard; 2] = &self.board.pieces.color;
+        let piece_type: &[Bitboard; 6] = &self.board.pieces.piece_type;
+
+        // Verify if `piece_type` is messed up. `occupied` becomes
+        // `BB_ALL` in this case.
+        let occupied = piece_type.into_iter().fold(0, |acc, x| {
             if acc & x == 0 {
                 acc | x
             } else {
                 BB_ALL
             }
-        });  // `occupied` becomes `BB_ALL` if `self.pieces.piece_type` is messed up.
+        });
 
-        let them = 1 ^ us;
-        let o_us = self.board.pieces.color[us];
-        let o_them = self.board.pieces.color[them];
-        let our_king_bb = self.board.pieces.piece_type[KING] & o_us;
-        let their_king_bb = self.board.pieces.piece_type[KING] & o_them;
-        let pawns = self.board.pieces.piece_type[PAWN];
-
-        occupied != BB_ALL && occupied == o_us | o_them && o_us & o_them == 0 &&
-        pop_count(our_king_bb) == 1 && pop_count(their_king_bb) == 1 &&
-        pop_count(pawns & o_us) <= 8 && pop_count(pawns & o_them) <= 8 &&
-        pop_count(o_us) <= 16 &&
-        pop_count(o_them) <= 16 && o_us & self.attacks_to(bsf(their_king_bb)) == 0 &&
-        pawns & BB_PAWN_PROMOTION_RANKS == 0 &&
-        (!self.board.castling_rights.can_castle(WHITE, QUEENSIDE) ||
-         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[WHITE] & 1 << A1 != 0) &&
-         (self.board.pieces.piece_type[KING] & self.board.pieces.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.board.castling_rights.can_castle(WHITE, KINGSIDE) ||
-         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[WHITE] & 1 << H1 != 0) &&
-         (self.board.pieces.piece_type[KING] & self.board.pieces.color[WHITE] & 1 << E1 != 0)) &&
-        (!self.board.castling_rights.can_castle(BLACK, QUEENSIDE) ||
-         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[BLACK] & 1 << A8 != 0) &&
-         (self.board.pieces.piece_type[KING] & self.board.pieces.color[BLACK] & 1 << E8 != 0)) &&
-        (!self.board.castling_rights.can_castle(BLACK, KINGSIDE) ||
-         (self.board.pieces.piece_type[ROOK] & self.board.pieces.color[BLACK] & 1 << H8 != 0) &&
-         (self.board.pieces.piece_type[KING] & self.board.pieces.color[BLACK] & 1 << E8 != 0)) &&
+        (occupied != BB_ALL) &&
+        (occupied == color[us] | color[them] && color[us] & color[them] == 0) &&
+        (pop_count(piece_type[KING] & color[us]) == 1 &&
+         pop_count(piece_type[KING] & color[them]) == 1) &&
+        (pop_count(piece_type[PAWN] & color[us]) <= 8 &&
+         pop_count(piece_type[PAWN] & color[them]) <= 8) &&
+        (pop_count(color[us]) <= 16 && pop_count(color[them]) <= 16) &&
+        (color[us] & self.attacks_to(bsf(piece_type[KING] & color[them])) == 0) &&
+        (piece_type[PAWN] & BB_PAWN_PROMOTION_RANKS == 0) &&
+        ((!self.board.castling_rights.can_castle(WHITE, QUEENSIDE) ||
+          (piece_type[ROOK] & color[WHITE] & 1 << A1 != 0) &&
+          (piece_type[KING] & color[WHITE] & 1 << E1 != 0)) &&
+         (!self.board.castling_rights.can_castle(WHITE, KINGSIDE) ||
+          (piece_type[ROOK] & color[WHITE] & 1 << H1 != 0) &&
+          (piece_type[KING] & color[WHITE] & 1 << E1 != 0)) &&
+         (!self.board.castling_rights.can_castle(BLACK, QUEENSIDE) ||
+          (piece_type[ROOK] & color[BLACK] & 1 << A8 != 0) &&
+          (piece_type[KING] & color[BLACK] & 1 << E8 != 0)) &&
+         (!self.board.castling_rights.can_castle(BLACK, KINGSIDE) ||
+          (piece_type[ROOK] & color[BLACK] & 1 << H8 != 0) &&
+          (piece_type[KING] & color[BLACK] & 1 << E8 != 0))) &&
         (enpassant_bb == 0 ||
          {
-            let shifts: &[isize; 4] = &PAWN_MOVE_SHIFTS[them];
-            let dest_square_bb = gen_shift(enpassant_bb, shifts[PAWN_PUSH]);
-            let orig_square_bb = gen_shift(enpassant_bb, -shifts[PAWN_PUSH]);
-            let our_king_square = bsf(our_king_bb);
-            (dest_square_bb & pawns & o_them != 0) && (enpassant_bb & !occupied != 0) &&
-            (orig_square_bb & !occupied != 0) &&
+            let dest_square_bb = gen_shift(enpassant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let orig_square_bb = gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+            let our_king_square = bsf(piece_type[KING] & color[us]);
+            (dest_square_bb & piece_type[PAWN] & color[them] != 0) &&
+            (enpassant_bb & !occupied != 0) && (orig_square_bb & !occupied != 0) &&
             {
                 let mask = orig_square_bb | dest_square_bb;
-                let pawns = pawns ^ mask;
-                let o_them = o_them ^ mask;
+                let pawns = piece_type[PAWN] ^ mask;
                 let occupied = occupied ^ mask;
+                let occupied_by_them = color[them] ^ mask;
                 0 ==
-                (self.geometry.attacks_from(ROOK, our_king_square, occupied) & o_them &
-                 (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
-                (self.geometry.attacks_from(BISHOP, our_king_square, occupied) & o_them &
-                 (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
-                (self.geometry.attacks_from(KNIGHT, our_king_square, occupied) & o_them &
-                 self.board.pieces.piece_type[KNIGHT]) |
-                (gen_shift(our_king_bb, -shifts[PAWN_EAST_CAPTURE]) & o_them & pawns & !BB_FILE_H) |
-                (gen_shift(our_king_bb, -shifts[PAWN_WEST_CAPTURE]) & o_them & pawns & !BB_FILE_A)
+                occupied_by_them &
+                ((self.geometry.attacks_from(ROOK, our_king_square, occupied) &
+                  (piece_type[ROOK] | piece_type[QUEEN])) |
+                 (self.geometry.attacks_from(BISHOP, our_king_square, occupied) &
+                  (piece_type[BISHOP] | piece_type[QUEEN])) |
+                 (self.geometry.attacks_from(KNIGHT, our_king_square, occupied) &
+                  piece_type[KNIGHT]) |
+                 (self.geometry.pawn_attacks[us][our_king_square] & pawns))
             }
         }) &&
         {
-            assert_eq!(self.board.occupied, occupied);
             assert!(self.checkers.get() == BB_ALL ||
-                    self.checkers.get() == o_them & self.attacks_to(bsf(our_king_bb)));
-            true
+                    self.checkers.get() ==
+                    color[them] & self.attacks_to(bsf(piece_type[KING] & color[us])));
+            self.board.occupied == occupied
         }
     }
 
@@ -1090,9 +1091,11 @@ const PAWN_PUSH: usize = 0;
 const PAWN_DOUBLE_PUSH: usize = 1;
 
 /// Pawn move sub-type -- a capture toward the queen-side.
+#[allow(dead_code)]
 const PAWN_WEST_CAPTURE: usize = 2;
 
 /// Pawn move sub-type -- a capture toward the king-side.
+#[allow(dead_code)]
 const PAWN_EAST_CAPTURE: usize = 3;
 
 
