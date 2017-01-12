@@ -589,16 +589,17 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             let is_pawn_double_push = {
                 let mut x = dest_square as isize - orig_square as isize;
 
-                // This is equivalent to `x = x.abs()`, with no branches:
+                // This is equivalent to `x = x.abs()`, but without branches.
                 let mask = x >> 6;
                 x ^= mask;
                 x -= mask;
                 debug_assert!(0 <= x && x <= 63);
 
-                // Blend `played_piece` into `x`:
+                // Blend `played_piece` into `x` as well.
                 x |= (played_piece as isize) << 6;
 
-                // This outcome should be easy for the branch predictor:
+                // This should be `false` most of the time, therefore
+                // making branch predictor's work easier.
                 x == (PAWN << 6) as isize | PAWN_MOVE_SHIFTS[WHITE][PAWN_DOUBLE_PUSH]
             };
             self.board.enpassant_file = if is_pawn_double_push {
