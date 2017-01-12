@@ -1124,10 +1124,10 @@ const BB_CASTLING_ROOK_MOVEMENT: [[Bitboard; 2]; 2] = [[1 << A1 | 1 << D1, 1 << 
 /// for a given set of `pawns`, and writes them to the supplied
 /// `dest_sets` array.
 ///
-/// `dest_sets` is indexed by the sub-type of the pawn move: push,
-/// double push, west capture, east capture. The benefit of this
-/// separation is that knowing the destination square and the pawn
-/// move sub-type (the index in the `dest_sets` array) is enough
+/// `dest_sets` is indexed by the sub-type of the pawn move: 0) push,
+/// 1) double push, 2) west capture, 3) east capture. The benefit of
+/// this separation is that knowing the destination square and the
+/// pawn move sub-type (the index in the `dest_sets` array) is enough
 /// to recover the origin square.
 #[inline(always)]
 fn calc_pawn_dest_sets(us: Color,
@@ -1142,16 +1142,16 @@ fn calc_pawn_dest_sets(us: Color,
     debug_assert!(occupied_by_us & occupied_by_them == 0);
     debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) & !occupied_by_them ==
                   0);
-    const NOT_CAPTURING: [Bitboard; 4] = [BB_ALL, BB_ALL, 0, 0];
-    const PROPER_ORIGIN: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8), // push
-                                          BB_RANK_2 | BB_RANK_7, // double push
-                                          !(BB_FILE_A | BB_RANK_1 | BB_RANK_8), // west capture
-                                          !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)]; // east capture
+    const PUSHING_TARGETS: [Bitboard; 4] = [BB_ALL, BB_ALL, 0, 0];
+    const LEGITIMATE_ORIGINS: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
+                                               BB_RANK_2 | BB_RANK_7,
+                                               !(BB_FILE_A | BB_RANK_1 | BB_RANK_8),
+                                               !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
     let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
     let capture_targets = occupied_by_them | enpassant_bb;
     for i in 0..4 {
-        dest_sets[i] = gen_shift(pawns & PROPER_ORIGIN[i], shifts[i]) &
-                       (capture_targets ^ NOT_CAPTURING[i]) &
+        dest_sets[i] = gen_shift(pawns & LEGITIMATE_ORIGINS[i], shifts[i]) &
+                       (capture_targets ^ PUSHING_TARGETS[i]) &
                        !occupied_by_us;
     }
 
