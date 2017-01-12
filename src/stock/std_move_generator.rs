@@ -586,9 +586,22 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
             // Update the en-passant file.
             h ^= *self.zobrist.enpassant_file.get_unchecked(self.board.enpassant_file);
-            self.board.enpassant_file = if played_piece == PAWN &&
-                                           dest_square as isize - orig_square as isize ==
-                                           PAWN_MOVE_SHIFTS[us][PAWN_DOUBLE_PUSH] {
+            let is_pawn_double_push = {
+                let mut x = dest_square as isize - orig_square as isize;
+
+                // This is equivalent to `x = x.abs()`, with no branches:
+                let mask = x >> 6;
+                x ^= mask;
+                x -= mask;
+                debug_assert!(0 <= x && x <= 63);
+
+                // Blend `played_piece` into `x`:
+                x |= (played_piece as isize) << 6;
+
+                // This outcome should be easy for the branch predictor:
+                x == (PAWN << 6) as isize | PAWN_MOVE_SHIFTS[WHITE][PAWN_DOUBLE_PUSH]
+            };
+            self.board.enpassant_file = if is_pawn_double_push {
                 let file = Board::file(dest_square);
                 h ^= *self.zobrist.enpassant_file.get_unchecked(file);
                 file
