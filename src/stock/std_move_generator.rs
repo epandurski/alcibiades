@@ -1087,12 +1087,13 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         if bb == 0 {
             return PIECE_NONE;
         }
-        for i in (KING..PIECE_NONE).rev() {
+        for i in (QUEEN..PIECE_NONE).rev() {
             if bb & self.board.pieces.piece_type[i] != 0 {
                 return i;
             }
         }
-        panic!("invalid board");
+        debug_assert!(bb & self.board.pieces.piece_type[KING] != 0);
+        return KING;
     }
 }
 
