@@ -172,10 +172,11 @@ pub trait SearchExecutor: SetOption {
     ///   time management logic. Otherwise, it can be ignored. `None`
     ///   indicates that there are no time restrictions.
     ///
-    /// After calling `start_search`, `wait_report` and
-    /// `try_recv_report` will be called periodically until the
-    /// returned report indicates that the search is done. A new
-    /// search will not be started until the previous search is done.
+    /// This method must not block the current thread. After calling
+    /// `start_search`, `wait_report` and `try_recv_report` will be
+    /// called periodically until the returned report indicates that
+    /// the search is done. A new search will not be started until the
+    /// previous search is done.
     ///
     /// **Important note:** The executing search must send periodic
     /// reports, informing about its current progress. Also, the
