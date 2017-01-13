@@ -1,9 +1,13 @@
 //! Implements `StdHashTable` and `StdHashTableEntry`.
 
+use libc;
+use libc::c_void;
+use std::sync::atomic::{AtomicPtr, Ordering};
+use std::slice;
 use std::isize;
-use std::cell::{UnsafeCell, Cell};
-use std::cmp::min;
-use std::mem::{transmute, size_of};
+use std::cell::Cell;
+use std::cmp::{min, max};
+use std::mem;
 use value::*;
 use depth::*;
 use hash_table::*;
@@ -86,7 +90,7 @@ impl StdHashTableEntry {
     /// Returns the contained data as one `u64` value.
     #[inline]
     fn as_u64(&self) -> u64 {
-        unsafe { transmute(*self) }
+        unsafe { mem::transmute(*self) }
     }
 }
 
@@ -100,9 +104,14 @@ pub struct StdHashTable {
     /// The number of clusters in the table.
     cluster_count: usize,
 
+    /// The raw pointer obtained from `libc::calloc`. It will be
+    /// passed to `libc::free` before the transposition table is
+    /// dropped.
+    alloc_ptr: AtomicPtr<c_void>,
+
     /// The transposition table consists of a vector of clusters. Each
     /// cluster stores 4 records.
-    table: UnsafeCell<Vec<[Record; 4]>>,
+    table_ptr: AtomicPtr<[Record; 4]>,
 }
 
 impl HashTable for StdHashTable {
@@ -110,26 +119,28 @@ impl HashTable for StdHashTable {
 
     fn new(size_mb: Option<usize>) -> StdHashTable {
         let size_mb = size_mb.unwrap_or(16);
-        let requested_cluster_count = (size_mb * 1024 * 1024) / size_of::<[Record; 4]>();
-
-        // Calculate the cluster count. (To do this, first we make
-        // sure that `requested_cluster_count` is exceeded. Then we
-        // make one step back.)
-        let mut n = 1;
-        while n <= requested_cluster_count && n != 0 {
-            n <<= 1;
-        }
-        if n > 1 {
-            n >>= 1;
-        } else {
-            n = 1;
-        }
-        assert!(n > 0);
+        let cluster_size = mem::size_of::<[Record; 4]>();
+        let cluster_count = {
+            let n = max(1, ((size_mb * 1024 * 1024) / cluster_size) as u64);
+            1 << (63 - n.leading_zeros())
+        };
+        let alloc_ptr;
+        let table_ptr = unsafe {
+            // Make sure that the first cluster is optimally
+            // aligned. This may improve performance when cache line's
+            // size is divisible to cluster's size or vice versa.
+            alloc_ptr = libc::calloc(cluster_count + 1, cluster_size);
+            let mut addr = mem::transmute::<*mut c_void, usize>(alloc_ptr);
+            addr += cluster_size;
+            addr &= !(cluster_size - 1);
+            mem::transmute::<usize, *mut [Record; 4]>(addr)
+        };
 
         StdHashTable {
             generation: Cell::new(0),
-            cluster_count: n,
-            table: UnsafeCell::new(vec![Default::default(); n]),
+            cluster_count: cluster_count,
+            alloc_ptr: AtomicPtr::new(alloc_ptr),
+            table_ptr: AtomicPtr::new(table_ptr),
         }
     }
 
@@ -144,7 +155,7 @@ impl HashTable for StdHashTable {
             // Count how many staled records from this generation
             // there are among the first `N` clusters.
             let mut staled = 0;
-            let mut cluster_iter = unsafe { &*self.table.get() }.iter();
+            let mut cluster_iter = self.table().iter();
             for _ in 0..min(N, self.cluster_count) {
                 for record in cluster_iter.next().unwrap() {
                     if record.key != 0 && record.generation() == self.generation.get() {
@@ -174,7 +185,7 @@ impl HashTable for StdHashTable {
 
         // Choose a slot to which to write the data. (Each cluster has
         // 4 slots.)
-        let mut cluster = unsafe { self.cluster_mut(key) };
+        let mut cluster = self.cluster_mut(key);
         let mut replace_index = 0;
         let mut replace_score = isize::MAX;
         for (i, record) in cluster.iter_mut().enumerate() {
@@ -213,7 +224,7 @@ impl HashTable for StdHashTable {
         // the key is stored XOR-ed with data, while data is stored
         // additionally as usual.
 
-        let cluster = unsafe { self.cluster_mut(key) };
+        let cluster = self.cluster_mut(key);
         for record in cluster.iter_mut() {
             if record.key ^ record.data.as_u64() == key {
                 // If `key` and `data` were written simultaneously by
@@ -229,8 +240,7 @@ impl HashTable for StdHashTable {
     }
 
     fn clear(&self) {
-        let table = unsafe { &mut *self.table.get() };
-        for cluster in table {
+        for cluster in self.table_mut() {
             for record in cluster.iter_mut() {
                 *record = Default::default();
             }
@@ -269,9 +279,31 @@ impl StdHashTable {
     /// A helper method for `probe` and `store`. It returns the
     /// cluster for a given key.
     #[inline]
-    unsafe fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
-        let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
-        &mut (&mut *self.table.get())[cluster_index]
+    fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
+        unsafe {
+            let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
+            self.table_mut().get_unchecked_mut(cluster_index)
+        }
+    }
+
+    #[inline]
+    fn table(&self) -> &[[Record; 4]] {
+        unsafe { slice::from_raw_parts(self.table_ptr.load(Ordering::Relaxed), self.cluster_count) }
+    }
+
+    #[inline]
+    fn table_mut(&self) -> &mut [[Record; 4]] {
+        unsafe {
+            slice::from_raw_parts_mut(self.table_ptr.load(Ordering::Relaxed), self.cluster_count)
+        }
+    }
+}
+
+impl Drop for StdHashTable {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.alloc_ptr.load(Ordering::Relaxed));
+        }
     }
 }
 
@@ -299,7 +331,7 @@ impl Default for Record {
     fn default() -> Record {
         Record {
             key: 0,
-            data: unsafe { transmute(0u64) },
+            data: unsafe { mem::transmute(0u64) },
         }
     }
 }
