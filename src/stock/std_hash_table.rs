@@ -111,7 +111,7 @@ pub struct StdHashTable {
 
     /// The transposition table consists of a vector of buckets. Each
     /// buckets stores 4 records.
-    table_ptr: AtomicPtr<[Record; 4]>,
+    table_ptr: AtomicPtr<Bucket>,
 }
 
 impl HashTable for StdHashTable {
@@ -119,7 +119,7 @@ impl HashTable for StdHashTable {
 
     fn new(size_mb: Option<usize>) -> StdHashTable {
         let size_mb = size_mb.unwrap_or(16);
-        let bucket_size = mem::size_of::<[Record; 4]>();
+        let bucket_size = mem::size_of::<Bucket>();
         let bucket_count = {
             let n = max(1, ((size_mb * 1024 * 1024) / bucket_size) as u64);
             1 << (63 - n.leading_zeros())
@@ -133,7 +133,7 @@ impl HashTable for StdHashTable {
             let mut addr = mem::transmute::<*mut c_void, usize>(alloc_ptr);
             addr += bucket_size;
             addr &= !(bucket_size - 1);
-            mem::transmute::<usize, *mut [Record; 4]>(addr)
+            mem::transmute::<usize, *mut Bucket>(addr)
         };
 
         StdHashTable {
@@ -183,8 +183,8 @@ impl HashTable for StdHashTable {
         // Set entry's generation.
         data.gen_bound = self.generation.get() | data.bound();
 
-        // Choose a slot to which to write the data. (Each bucket has
-        // 4 slots.)
+        // Choose a slot to which to write the data. (Each bucket can
+        // have several slots.)
         let mut bucket = self.bucket_mut(key);
         let mut replace_index = 0;
         let mut replace_score = isize::MAX;
@@ -279,7 +279,7 @@ impl StdHashTable {
     /// A helper method for `probe` and `store`. It returns the bucket
     /// for a given key.
     #[inline]
-    fn bucket_mut(&self, key: u64) -> &mut [Record; 4] {
+    fn bucket_mut(&self, key: u64) -> &mut Bucket {
         unsafe {
             let index = (key & (self.bucket_count - 1) as u64) as usize;
             self.table_mut().get_unchecked_mut(index)
@@ -287,12 +287,12 @@ impl StdHashTable {
     }
 
     #[inline]
-    fn table(&self) -> &[[Record; 4]] {
+    fn table(&self) -> &[Bucket] {
         unsafe { slice::from_raw_parts(self.table_ptr.load(Ordering::Relaxed), self.bucket_count) }
     }
 
     #[inline]
-    fn table_mut(&self) -> &mut [[Record; 4]] {
+    fn table_mut(&self) -> &mut [Bucket] {
         unsafe {
             slice::from_raw_parts_mut(self.table_ptr.load(Ordering::Relaxed), self.bucket_count)
         }
@@ -356,10 +356,13 @@ impl Record {
 }
 
 
+type Bucket = [Record; 4];
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::Record;
+    use super::Bucket;
     use std;
     use depth::*;
     use hash_table::*;
@@ -367,8 +370,8 @@ mod tests {
 
     #[test]
     fn bucket_size() {
-        assert_eq!(std::mem::size_of::<[Record; 4]>(), 64);
-        assert_eq!(std::mem::size_of::<Record>(), 16);
+        let n = std::mem::size_of::<Bucket>();
+        assert!(n % 64 == 0 || 64 % n == 0);
     }
 
     #[test]
