@@ -101,16 +101,16 @@ pub struct StdHashTable {
     /// be zeros.
     generation: Cell<u8>,
 
-    /// The number of clusters in the table.
-    cluster_count: usize,
+    /// The number of buckets in the table.
+    bucket_count: usize,
 
     /// The raw pointer obtained from `libc::calloc`. It will be
     /// passed to `libc::free` before the transposition table is
     /// dropped.
     alloc_ptr: AtomicPtr<c_void>,
 
-    /// The transposition table consists of a vector of clusters. Each
-    /// cluster stores 4 records.
+    /// The transposition table consists of a vector of buckets. Each
+    /// buckets stores 4 records.
     table_ptr: AtomicPtr<[Record; 4]>,
 }
 
@@ -119,26 +119,26 @@ impl HashTable for StdHashTable {
 
     fn new(size_mb: Option<usize>) -> StdHashTable {
         let size_mb = size_mb.unwrap_or(16);
-        let cluster_size = mem::size_of::<[Record; 4]>();
-        let cluster_count = {
-            let n = max(1, ((size_mb * 1024 * 1024) / cluster_size) as u64);
+        let bucket_size = mem::size_of::<[Record; 4]>();
+        let bucket_count = {
+            let n = max(1, ((size_mb * 1024 * 1024) / bucket_size) as u64);
             1 << (63 - n.leading_zeros())
         };
         let alloc_ptr;
         let table_ptr = unsafe {
-            // Make sure that the first cluster is optimally
+            // Make sure that the first bucket is optimally
             // aligned. This may improve performance when cache line's
-            // size is divisible to cluster's size or vice versa.
-            alloc_ptr = libc::calloc(cluster_count + 1, cluster_size);
+            // size is divisible to bucket's size or vice versa.
+            alloc_ptr = libc::calloc(bucket_count + 1, bucket_size);
             let mut addr = mem::transmute::<*mut c_void, usize>(alloc_ptr);
-            addr += cluster_size;
-            addr &= !(cluster_size - 1);
+            addr += bucket_size;
+            addr &= !(bucket_size - 1);
             mem::transmute::<usize, *mut [Record; 4]>(addr)
         };
 
         StdHashTable {
             generation: Cell::new(0),
-            cluster_count: cluster_count,
+            bucket_count: bucket_count,
             alloc_ptr: AtomicPtr::new(alloc_ptr),
             table_ptr: AtomicPtr::new(table_ptr),
         }
@@ -153,11 +153,11 @@ impl HashTable for StdHashTable {
             debug_assert_eq!(self.generation.get() & 0b11, 0);
 
             // Count how many staled records from this generation
-            // there are among the first `N` clusters.
+            // there are among the first `N` buckets.
             let mut staled = 0;
-            let mut cluster_iter = self.table().iter();
-            for _ in 0..min(N, self.cluster_count) {
-                for record in cluster_iter.next().unwrap() {
+            let mut bucket_iter = self.table().iter();
+            for _ in 0..min(N, self.bucket_count) {
+                for record in bucket_iter.next().unwrap() {
                     if record.key != 0 && record.generation() == self.generation.get() {
                         staled += 1;
                     }
@@ -183,12 +183,12 @@ impl HashTable for StdHashTable {
         // Set entry's generation.
         data.gen_bound = self.generation.get() | data.bound();
 
-        // Choose a slot to which to write the data. (Each cluster has
+        // Choose a slot to which to write the data. (Each bucket has
         // 4 slots.)
-        let mut cluster = self.cluster_mut(key);
+        let mut bucket = self.bucket_mut(key);
         let mut replace_index = 0;
         let mut replace_score = isize::MAX;
-        for (i, record) in cluster.iter_mut().enumerate() {
+        for (i, record) in bucket.iter_mut().enumerate() {
             // Check if this is an empty slot, or an old record for
             // the same key. If this this is the case we will use this
             // slot for the new record.
@@ -211,7 +211,7 @@ impl HashTable for StdHashTable {
         }
 
         // Write the data to the chosen slot.
-        cluster[replace_index] = Record {
+        bucket[replace_index] = Record {
             key: key ^ data.as_u64(),
             data: data,
         };
@@ -224,8 +224,8 @@ impl HashTable for StdHashTable {
         // the key is stored XOR-ed with data, while data is stored
         // additionally as usual.
 
-        let cluster = self.cluster_mut(key);
-        for record in cluster.iter_mut() {
+        let bucket = self.bucket_mut(key);
+        for record in bucket.iter_mut() {
             if record.key ^ record.data.as_u64() == key {
                 // If `key` and `data` were written simultaneously by
                 // different search instances with different keys,
@@ -240,8 +240,8 @@ impl HashTable for StdHashTable {
     }
 
     fn clear(&self) {
-        for cluster in self.table_mut() {
-            for record in cluster.iter_mut() {
+        for bucket in self.table_mut() {
+            for record in bucket.iter_mut() {
                 *record = Default::default();
             }
         }
@@ -276,25 +276,25 @@ impl StdHashTable {
         })
     }
 
-    /// A helper method for `probe` and `store`. It returns the
-    /// cluster for a given key.
+    /// A helper method for `probe` and `store`. It returns the bucket
+    /// for a given key.
     #[inline]
-    fn cluster_mut(&self, key: u64) -> &mut [Record; 4] {
+    fn bucket_mut(&self, key: u64) -> &mut [Record; 4] {
         unsafe {
-            let cluster_index = (key & (self.cluster_count - 1) as u64) as usize;
-            self.table_mut().get_unchecked_mut(cluster_index)
+            let index = (key & (self.bucket_count - 1) as u64) as usize;
+            self.table_mut().get_unchecked_mut(index)
         }
     }
 
     #[inline]
     fn table(&self) -> &[[Record; 4]] {
-        unsafe { slice::from_raw_parts(self.table_ptr.load(Ordering::Relaxed), self.cluster_count) }
+        unsafe { slice::from_raw_parts(self.table_ptr.load(Ordering::Relaxed), self.bucket_count) }
     }
 
     #[inline]
     fn table_mut(&self) -> &mut [[Record; 4]] {
         unsafe {
-            slice::from_raw_parts_mut(self.table_ptr.load(Ordering::Relaxed), self.cluster_count)
+            slice::from_raw_parts_mut(self.table_ptr.load(Ordering::Relaxed), self.bucket_count)
         }
     }
 }
@@ -366,7 +366,7 @@ mod tests {
     use moves::*;
 
     #[test]
-    fn cluster_size() {
+    fn bucket_size() {
         assert_eq!(std::mem::size_of::<[Record; 4]>(), 64);
         assert_eq!(std::mem::size_of::<Record>(), 16);
     }
