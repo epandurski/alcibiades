@@ -4,6 +4,7 @@ use libc;
 use libc::c_void;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::slice;
+use std::ops::{Deref, DerefMut};
 use std::isize;
 use std::cell::Cell;
 use std::cmp::{min, max};
@@ -359,6 +360,59 @@ impl Record {
 type Bucket = [Record; 4];
 
 
+struct Cluster<'a, T: Sized + 'a> {
+    info: *mut u32,
+    entries: &'a mut [T],
+}
+
+const BUCKET_INFO_SHIFTS: [u8; 6] = [0, 5, 10, 15, 20, 25];
+
+impl<'a, T: Sized + 'a> Cluster<'a, T> {
+    #[inline]
+    pub unsafe fn new(p: *mut c_void) -> Cluster<'a, T> {
+        Cluster {
+            info: p.offset(60) as *mut u32,
+            entries: slice::from_raw_parts_mut(p as *mut T, 60 / mem::size_of::<T>()),
+        }
+    }
+
+    #[inline]
+    pub fn get_generation(&self, index: usize) -> u32 {
+        let info = unsafe { self.info.as_ref().unwrap() };
+        *info >> BUCKET_INFO_SHIFTS[index] & 31
+    }
+
+    #[inline]
+    pub fn set_generation(&self, index: usize, generation: u32) {
+        debug_assert!(generation <= 31);
+        let info = unsafe { self.info.as_mut().unwrap() };
+        *info &= [!(31 << 0),
+                  !(31 << 5),
+                  !(31 << 10),
+                  !(31 << 15),
+                  !(31 << 20),
+                  !(31 << 25)][index];
+        *info |= generation << BUCKET_INFO_SHIFTS[index];
+    }
+}
+
+impl<'a, T: Sized + 'a> Deref for Cluster<'a, T> {
+    type Target = &'a mut [T];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.entries
+    }
+}
+
+impl<'a, T: Sized + 'a> DerefMut for Cluster<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.entries
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,6 +421,25 @@ mod tests {
     use depth::*;
     use hash_table::*;
     use moves::*;
+
+    #[test]
+    fn bucket() {
+        use libc;
+        use moves::MoveDigest;
+        use super::Cluster;
+        unsafe {
+            let p = libc::malloc(64);
+            let mut b = Cluster::<(u32, StdHashTableEntry)>::new(p);
+            b[0] = (0, StdHashTableEntry::new(0, BOUND_NONE, 10, MoveDigest::invalid()));
+            b.set_generation(0, 12);
+            b.set_generation(1, 13);
+            assert_eq!(b[0].1.depth, 10);
+            assert_eq!(b.get_generation(0), 12);
+            assert_eq!(b.get_generation(1), 13);
+            assert_eq!(b.iter().count(), 5);
+            libc::free(p);
+        }
+    }
 
     #[test]
     fn bucket_size() {
