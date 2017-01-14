@@ -5,7 +5,6 @@ use libc::c_void;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::marker::PhantomData;
 use std::slice;
-use std::ops::{Deref, DerefMut};
 use std::isize;
 use std::cell::Cell;
 use std::cmp::{min, max};
@@ -364,55 +363,48 @@ impl Record {
 type Bucket = [Record; 4];
 
 
-struct Cluster<'a, T: Sized + 'a> {
+struct Cluster<T: Sized> {
     info: *mut u32,
-    entries: &'a mut [T],
+    first: *mut T,
 }
 
-const BUCKET_INFO_SHIFTS: [u8; 6] = [0, 5, 10, 15, 20, 25];
-
-impl<'a, T: Sized + 'a> Cluster<'a, T> {
+impl<T: Sized> Cluster<T> {
     #[inline]
-    pub unsafe fn new(p: *mut c_void) -> Cluster<'a, T> {
+    pub unsafe fn new(p: *mut c_void) -> Cluster<T> {
         Cluster {
             info: p.offset(60) as *mut u32,
-            entries: slice::from_raw_parts_mut(p as *mut T, 60 / mem::size_of::<T>()),
+            first: p as *mut T,
         }
     }
 
     #[inline]
+    pub fn count(&self) -> usize {
+        60 / mem::size_of::<T>()
+    }
+
+    #[inline]
+    pub fn get(&self, index: usize) -> *mut T {
+        assert!(index < self.count());
+        unsafe { self.first.offset(index as isize) }
+    }
+
+    #[inline]
     pub fn get_generation(&self, index: usize) -> u32 {
-        let info = unsafe { self.info.as_ref().unwrap() };
-        *info >> BUCKET_INFO_SHIFTS[index] & 31
+        unsafe { *self.info >> (5 * index) & 31 }
     }
 
     #[inline]
     pub fn set_generation(&self, index: usize, generation: u32) {
         debug_assert!(generation <= 31);
-        let info = unsafe { self.info.as_mut().unwrap() };
-        *info &= [!(31 << 0),
-                  !(31 << 5),
-                  !(31 << 10),
-                  !(31 << 15),
-                  !(31 << 20),
-                  !(31 << 25)][index];
-        *info |= generation << BUCKET_INFO_SHIFTS[index];
-    }
-}
-
-impl<'a, T: Sized + 'a> Deref for Cluster<'a, T> {
-    type Target = &'a mut [T];
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.entries
-    }
-}
-
-impl<'a, T: Sized + 'a> DerefMut for Cluster<'a, T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.entries
+        unsafe {
+            *self.info &= [!(31 << 0),
+                           !(31 << 5),
+                           !(31 << 10),
+                           !(31 << 15),
+                           !(31 << 20),
+                           !(31 << 25)][index];
+            *self.info |= generation << (5 * index);
+        }
     }
 }
 
