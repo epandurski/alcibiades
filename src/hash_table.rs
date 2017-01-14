@@ -149,7 +149,7 @@ pub trait HashTable: Sync + Send {
 
 
 /// A trait for transposition table entries.
-pub trait HashTableEntry: Copy {
+pub trait HashTableEntry: Copy + Send {
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. Must not be

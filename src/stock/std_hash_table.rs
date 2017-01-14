@@ -3,6 +3,7 @@
 use libc;
 use libc::c_void;
 use std::sync::atomic::{AtomicPtr, Ordering};
+use std::marker::PhantomData;
 use std::slice;
 use std::ops::{Deref, DerefMut};
 use std::isize;
@@ -97,7 +98,9 @@ impl StdHashTableEntry {
 
 
 /// Implements the `HashTable` trait.
-pub struct StdHashTable {
+pub struct StdHashTable<T: HashTableEntry> {
+    phantom: PhantomData<T>,
+
     /// The current generation number. The lowest 2 bits will always
     /// be zeros.
     generation: Cell<u8>,
@@ -115,10 +118,10 @@ pub struct StdHashTable {
     table_ptr: AtomicPtr<Bucket>,
 }
 
-impl HashTable for StdHashTable {
+impl<T: HashTableEntry> HashTable for StdHashTable<T> {
     type Entry = StdHashTableEntry;
 
-    fn new(size_mb: Option<usize>) -> StdHashTable {
+    fn new(size_mb: Option<usize>) -> StdHashTable<T> {
         let size_mb = size_mb.unwrap_or(16);
         let bucket_size = mem::size_of::<Bucket>();
         let bucket_count = {
@@ -138,6 +141,7 @@ impl HashTable for StdHashTable {
         };
 
         StdHashTable {
+            phantom: PhantomData,
             generation: Cell::new(0),
             bucket_count: bucket_count,
             alloc_ptr: AtomicPtr::new(alloc_ptr),
@@ -250,7 +254,7 @@ impl HashTable for StdHashTable {
     }
 }
 
-impl StdHashTable {
+impl<T: HashTableEntry> StdHashTable<T> {
     /// A helper method for `store`. It implements the record
     /// replacement strategy.
     #[inline]
@@ -300,7 +304,7 @@ impl StdHashTable {
     }
 }
 
-impl Drop for StdHashTable {
+impl<T: HashTableEntry> Drop for StdHashTable<T> {
     fn drop(&mut self) {
         unsafe {
             libc::free(self.alloc_ptr.load(Ordering::Relaxed));
@@ -308,7 +312,7 @@ impl Drop for StdHashTable {
     }
 }
 
-unsafe impl Sync for StdHashTable {}
+unsafe impl<T: HashTableEntry> Sync for StdHashTable<T> {}
 
 
 /// Represents a record in the transposition table.
@@ -449,7 +453,7 @@ mod tests {
 
     #[test]
     fn store_and_probe() {
-        let tt = StdHashTable::new(None);
+        let tt = StdHashTable::<StdHashTableEntry>::new(None);
         assert!(tt.probe(1).is_none());
         let data = StdHashTableEntry::new(0, 0, 50, MoveDigest::invalid());
         assert_eq!(data.depth(), 50);
@@ -477,7 +481,7 @@ mod tests {
 
     #[test]
     fn new_search() {
-        let tt = StdHashTable::new(None);
+        let tt = StdHashTable::<StdHashTableEntry>::new(None);
         assert_eq!(tt.generation.get(), 0 << 2);
         tt.new_search();
         assert_eq!(tt.generation.get(), 1 << 2);

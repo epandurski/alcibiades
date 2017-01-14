@@ -48,7 +48,8 @@
 //!
 //! fn main() {
 //!     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
-//!     type SearchExecutor = Deepening<StdSearchExecutor<StdHashTable, SearchNode>>;
+//!     type HashTable = StdHashTable<StdHashTableEntry>;
+//!     type SearchExecutor = Deepening<StdSearchExecutor<HashTable, SearchNode>>;
 //!     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe");
 //! }
 //! ```
