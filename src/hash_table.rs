@@ -194,6 +194,13 @@ pub trait HashTableEntry: Copy + Send {
     /// `MoveDigest::invalid()` if no move is available.
     fn move_digest(&self) -> MoveDigest;
 
+    /// Sets a new best or refutation move digest.
+    ///
+    /// `HashTable` trait implementations may use this method when
+    /// they overwrite an old record for the same position, and want
+    /// to keep the move from the old record.
+    fn set_move_digest(&mut self, move_digest: MoveDigest);
+
     /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
     fn static_eval(&self) -> Value;
 }
