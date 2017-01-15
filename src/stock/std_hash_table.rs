@@ -285,7 +285,12 @@ impl<T: HashTableEntry> StdHashTable<T> {
     /// Returns an iterator over the buckets in the table.
     #[inline]
     fn buckets(&self) -> BucketIter<Record<T>> {
-        BucketIter::new(self.table_ptr, self.bucket_count)
+        BucketIter {
+            buckets: PhantomData,
+            table_ptr: self.table_ptr,
+            bucket_count: self.bucket_count,
+            iterated: 0,
+        }
     }
 }
 
@@ -393,7 +398,7 @@ impl<R> Bucket<R> {
     /// Sets the generation number for a given slot.
     #[inline]
     pub fn set_generation(&self, slot: usize, generation: usize) {
-        assert!(generation <= 31);
+        debug_assert!(generation <= 31);
         unsafe {
             let mut info = (*self.info).load(Ordering::Relaxed);
             info &= [!(31 << 0),
@@ -419,35 +424,26 @@ impl<R> Drop for Bucket<R> {
 }
 
 
+/// A helper type for `StdHashTable`. It iterates over the buckets in
+/// the table.
 struct BucketIter<R> {
     buckets: PhantomData<R>,
-    base: *mut c_void,
-    count: usize,
-    current_index: usize,
-}
-
-impl<R> BucketIter<R> {
-    fn new(p: *mut c_void, count: usize) -> BucketIter<R> {
-        BucketIter {
-            buckets: PhantomData,
-            base: p,
-            count: count,
-            current_index: 0,
-        }
-    }
+    table_ptr: *mut c_void,
+    bucket_count: usize,
+    iterated: usize,
 }
 
 impl<R> Iterator for BucketIter<R> {
     type Item = Bucket<R>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        debug_assert!(self.current_index <= self.count);
-        if self.current_index == self.count {
+        debug_assert!(self.iterated <= self.bucket_count);
+        if self.iterated == self.bucket_count {
             None
         } else {
-            let byte_offset = (self.current_index * BUCKET_SIZE) as isize;
-            let bucket = unsafe { Bucket::new(self.base.offset(byte_offset)) };
-            self.current_index += 1;
+            let byte_offset = (self.iterated * BUCKET_SIZE) as isize;
+            let bucket = unsafe { Bucket::new(self.table_ptr.offset(byte_offset)) };
+            self.iterated += 1;
             Some(bucket)
         }
     }
