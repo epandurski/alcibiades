@@ -182,7 +182,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
 
     fn store(&self, key: u64, mut data: Self::Entry) {
         let bucket = self.bucket(key);
-        let trimmed_key = (key >> 32) as u32;
+        let key = chop_key(key);
 
         // Choose a slot to which to write the data.
         let mut replace_slot = 0;
@@ -193,7 +193,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             // Verify if this is an old record for the same key. If
             // this is the case, we will use this slot for the new
             // record.
-            if record.key == trimmed_key {
+            if record.key == key {
                 if data.move_digest() == MoveDigest::invalid() {
                     // Keep the move from the old record.
                     data.set_move_digest(record.data.move_digest());
@@ -214,7 +214,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
         // Write the data to the chosen slot.
         unsafe {
             *bucket.get(replace_slot) = Record {
-                key: trimmed_key,
+                key: key,
                 data: data,
             };
             bucket.set_generation(replace_slot, self.generation.get());
@@ -224,11 +224,11 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
     #[inline]
     fn probe(&self, key: u64) -> Option<Self::Entry> {
         let bucket = self.bucket(key);
-        let trimmed_key = (key >> 32) as u32;
+        let key = chop_key(key);
         for slot in 0..Bucket::<Record<T>>::len() {
             if bucket.get_generation(slot) != 0 {
                 let record = unsafe { bucket.get(slot).as_ref().unwrap() };
-                if record.key == trimmed_key {
+                if record.key == key {
                     bucket.set_generation(slot, self.generation.get());
                     return Some(record.data);
                 }
@@ -309,10 +309,12 @@ unsafe impl<T: HashTableEntry> Send for StdHashTable<T> {}
 
 /// Represents a record in the transposition table.
 ///
-/// Consists of a hash table entry plus the highest 32 bits of the key.
+/// Consists of a hash table entry plus the highest 32 bits of the
+/// key. The key is split into two `u16` values to allow more flexible
+/// alignment.
 #[derive(Copy, Clone)]
 struct Record<T: HashTableEntry> {
-    key: u32,
+    key: (u16, u16),
     data: T,
 }
 
@@ -450,6 +452,14 @@ impl<T: HashTableEntry> Iterator for Iter<T> {
 }
 
 
+/// A helper function for `StdHashTable`. It takes the highest 32 bits
+/// of an `u64` value and splits them into two `u16` values.
+#[inline]
+fn chop_key(key: u64) -> (u16, u16) {
+    unsafe { mem::transmute::<u32, (u16, u16)>((key >> 32) as u32) }
+}
+
+
 #[cfg(test)]
 mod tests {
     use libc;
@@ -469,7 +479,7 @@ mod tests {
             let mut record = b.get(0).as_mut().unwrap();
             let entry = StdHashTableEntry::new(0, BOUND_NONE, 10, MoveDigest::invalid());
             *record = Record {
-                key: 0,
+                key: (0, 0),
                 data: entry,
             };
             b.set_generation(0, 12);
