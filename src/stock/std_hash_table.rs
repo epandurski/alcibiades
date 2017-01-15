@@ -284,9 +284,9 @@ impl<T: HashTableEntry> StdHashTable<T> {
 
     /// Returns an iterator over the buckets in the table.
     #[inline]
-    fn buckets(&self) -> BucketIter<Record<T>> {
-        BucketIter {
-            buckets: PhantomData,
+    fn buckets(&self) -> Iter<T> {
+        Iter {
+            entries: PhantomData,
             table_ptr: self.table_ptr,
             bucket_count: self.bucket_count,
             iterated: 0,
@@ -426,15 +426,15 @@ impl<R> Drop for Bucket<R> {
 
 /// A helper type for `StdHashTable`. It iterates over the buckets in
 /// the table.
-struct BucketIter<R> {
-    buckets: PhantomData<R>,
+struct Iter<T: HashTableEntry> {
+    entries: PhantomData<T>,
     table_ptr: *mut c_void,
     bucket_count: usize,
     iterated: usize,
 }
 
-impl<R> Iterator for BucketIter<R> {
-    type Item = Bucket<R>;
+impl<T: HashTableEntry> Iterator for Iter<T> {
+    type Item = Bucket<Record<T>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         debug_assert!(self.iterated <= self.bucket_count);
