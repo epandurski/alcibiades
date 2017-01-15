@@ -88,7 +88,7 @@ impl HashTableEntry for StdHashTableEntry {
 
 /// Implements the `HashTable` trait.
 pub struct StdHashTable<T: HashTableEntry> {
-    phantom: PhantomData<T>,
+    entries: PhantomData<T>,
 
     /// The current generation number.
     ///
@@ -138,7 +138,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             mem::transmute::<usize, *mut c_void>(addr)
         };
         StdHashTable {
-            phantom: PhantomData,
+            entries: PhantomData,
             generation: Cell::new(1),
             bucket_count: bucket_count,
             alloc_ptr: alloc_ptr,
@@ -423,19 +423,19 @@ impl<R> Drop for Bucket<R> {
 
 
 struct BucketIter<R> {
+    buckets: PhantomData<R>,
     base: *mut c_void,
     count: usize,
     current_index: usize,
-    phantom: PhantomData<R>,
 }
 
 impl<R> BucketIter<R> {
     fn new(p: *mut c_void, count: usize) -> BucketIter<R> {
         BucketIter {
+            buckets: PhantomData,
             base: p,
             count: count,
             current_index: 0,
-            phantom: PhantomData,
         }
     }
 }
