@@ -452,16 +452,15 @@ impl<T: HashTableEntry> Iterator for Iter<T> {
 
 #[cfg(test)]
 mod tests {
+    use libc;
     use super::*;
+    use super::{Bucket, Record};
     use depth::*;
-    use hash_table::*;
     use moves::*;
+    use hash_table::*;
 
     #[test]
     fn bucket() {
-        use libc;
-        use moves::MoveDigest;
-        use super::{Bucket, Record};
         unsafe {
             let p = libc::malloc(64);
             let b = Bucket::<Record<StdHashTableEntry>>::new(p);
