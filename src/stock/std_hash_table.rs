@@ -116,7 +116,12 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
     type Entry = T;
 
     fn new(size_mb: Option<usize>) -> StdHashTable<T> {
+        assert_eq!(BUCKET_SIZE, 64);
         assert_eq!(mem::size_of::<c_void>(), 1);
+        assert!(Bucket::<Record<T>>::len() >= 3,
+                format!("too big hash table entry: {} bytes", mem::size_of::<T>()));
+        assert!(Bucket::<Record<T>>::len() <= 6,
+                format!("too small hash table entry: {} bytes", mem::size_of::<T>()));
         let size_mb = size_mb.unwrap_or(16);
         let bucket_count = {
             // Make sure that the number of buckets is a power of 2.
@@ -179,14 +184,15 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
         let bucket = self.bucket(key);
         let trimmed_key = (key >> 32) as u32;
 
-        // Choose a slot to which to write the data. (Each bucket has
-        // several slots.)
+        // Choose a slot to which to write the data.
         let mut replace_slot = 0;
         let mut replace_score = isize::MAX;
         for slot in 0..Bucket::<Record<T>>::len() {
             let record = unsafe { bucket.get(slot).as_ref().unwrap() };
 
-            // Verify if this is an old record for the same key.
+            // Verify if this is an old record for the same key. If
+            // this is the case, we will use this slot for the new
+            // record.
             if record.key == trimmed_key {
                 if data.move_digest() == MoveDigest::invalid() {
                     // Keep the move from the old record.
@@ -207,7 +213,10 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
 
         // Write the data to the chosen slot.
         unsafe {
-            *bucket.get(replace_slot) = Record::new(trimmed_key, data);
+            *bucket.get(replace_slot) = Record {
+                key: trimmed_key,
+                data: data,
+            };
             bucket.set_generation(replace_slot, self.generation.get());
         }
     }
@@ -275,6 +284,8 @@ impl<T: HashTableEntry> StdHashTable<T> {
         }
     }
 
+    /// A helper method for `new_search` and `clear`. It returns an
+    /// iterator over the buckets in the table.
     #[inline]
     fn buckets(&self) -> BucketIter<Record<T>> {
         BucketIter::new(self.table_ptr, self.bucket_count)
@@ -296,46 +307,53 @@ unsafe impl<T: HashTableEntry> Send for StdHashTable<T> {}
 
 /// Represents a record in the transposition table.
 ///
-/// It consists of a 32 bit key plus data.
+/// Consists of a hash table entry plus the highest 32 bits of the key.
 #[derive(Copy, Clone)]
 struct Record<T: HashTableEntry> {
     key: u32,
     data: T,
 }
 
-impl<T: HashTableEntry> Record<T> {
-    #[inline]
-    pub fn new(key: u32, data: T) -> Record<T> {
-        Record {
-            key: key,
-            data: data,
-        }
-    }
-}
 
+/// Holds a set of records in the transposition table.
+///
+/// `R` gives records' type. Each bucket can hold up to 6 records,
+/// depending on their size. A 5-bit generation number is stored for
+/// each record.
+struct Bucket<R> {
+    first: *mut R,
 
-struct Bucket<T> {
-    first: *mut T,
+    // The lowest 30 bits are used to store records' generation
+    // numbers (6 slots, 5 bits each). Bit 31 is used as a locking
+    // flag.
     info: *mut AtomicUsize,
 }
 
-const BUCKET_LOCK: usize = 1 << 31;
+/// The size of each bucket in bytes.
+///
+/// `64` is the most common cache line size.
+const BUCKET_SIZE: usize = 64;
 
-impl<T> Bucket<T> {
+/// A locking flag in the `info` field.
+///
+/// **Important note:** Acquiring the lock is expensive. It is entirely
+/// possible that having no lock at all will not cause any problems in
+/// practice, considering that on most platforms buckets will be
+/// aligned to machine's cache lines.
+const BUCKET_LOCKING_FLAG: usize = 1 << 31;
+
+impl<R> Bucket<R> {
+    /// Creates a new instance from a raw pointer.
     #[inline]
-    pub unsafe fn new(p: *mut c_void) -> Bucket<T> {
-        // Acquire the bucket lock.
-        //
-        // TODO: Obtaining this lock is expensive. It is not clear if
-        // not having a lock at all would cause any problems in
-        // practice. May be we should be optimistic.
+    pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
+        // Acquire the lock for the bucket.
         let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
         let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
         loop {
             let value = info.load(Ordering::Relaxed);
-            if value & BUCKET_LOCK == 0 {
+            if value & BUCKET_LOCKING_FLAG == 0 {
                 if info.compare_exchange_weak(value,
-                                              value | BUCKET_LOCK,
+                                              value | BUCKET_LOCKING_FLAG,
                                               Ordering::Acquire,
                                               Ordering::Relaxed)
                        .is_ok() {
@@ -345,11 +363,12 @@ impl<T> Bucket<T> {
         }
 
         Bucket {
-            first: p as *mut T,
+            first: p as *mut R,
             info: info as *mut AtomicUsize,
         }
     }
 
+    /// Returns the number of slots in the bucket.
     #[inline]
     pub fn len() -> usize {
         // **Important note:** Because `AtomicU32` is unstable at the
@@ -357,21 +376,24 @@ impl<T> Bucket<T> {
         // 64-bit platforms the `info` field may overlap with the last
         // record in the bucket. But that is OK, because we read and
         // manipulate only the last 32 bits of the `info` field.
-        (BUCKET_SIZE - 4) / mem::size_of::<T>()
+        (BUCKET_SIZE - 4) / mem::size_of::<R>()
     }
 
+    /// Returns a raw pointer to the record in a given slot.
     #[inline]
-    pub fn get(&self, slot: usize) -> *mut T {
+    pub fn get(&self, slot: usize) -> *mut R {
         assert!(slot < Self::len());
         unsafe { self.first.offset(slot as isize) }
     }
 
+    /// Returns the generation number for a given slot.
     #[inline]
     pub fn get_generation(&self, slot: usize) -> usize {
         let info = unsafe { (*self.info).load(Ordering::Relaxed) };
         info >> (5 * slot) & 31
     }
 
+    /// Sets the generation number for a given slot.
     #[inline]
     pub fn set_generation(&self, slot: usize, generation: usize) {
         assert!(generation <= 31);
@@ -389,26 +411,26 @@ impl<T> Bucket<T> {
     }
 }
 
-impl<T> Drop for Bucket<T> {
+impl<R> Drop for Bucket<R> {
     #[inline]
     fn drop(&mut self) {
-        // Release the bucket lock.
+        // Release the lock for the bucket.
         let info = unsafe { self.info.as_mut().unwrap() };
         let value = info.load(Ordering::Relaxed);
-        info.store(value & !BUCKET_LOCK, Ordering::Release);
+        info.store(value & !BUCKET_LOCKING_FLAG, Ordering::Release);
     }
 }
 
 
-struct BucketIter<T> {
+struct BucketIter<R> {
     base: *mut c_void,
     count: usize,
     current_index: usize,
-    phantom: PhantomData<T>,
+    phantom: PhantomData<R>,
 }
 
-impl<T> BucketIter<T> {
-    fn new(p: *mut c_void, count: usize) -> BucketIter<T> {
+impl<R> BucketIter<R> {
+    fn new(p: *mut c_void, count: usize) -> BucketIter<R> {
         BucketIter {
             base: p,
             count: count,
@@ -418,8 +440,8 @@ impl<T> BucketIter<T> {
     }
 }
 
-impl<T> Iterator for BucketIter<T> {
-    type Item = Bucket<T>;
+impl<R> Iterator for BucketIter<R> {
+    type Item = Bucket<R>;
 
     fn next(&mut self) -> Option<Self::Item> {
         debug_assert!(self.current_index <= self.count);
@@ -433,10 +455,6 @@ impl<T> Iterator for BucketIter<T> {
         }
     }
 }
-
-
-// Equals the most common cache line size.
-const BUCKET_SIZE: usize = 64;
 
 
 #[cfg(test)]
@@ -458,7 +476,10 @@ mod tests {
             assert_eq!(b.get_generation(1), 0);
             let mut record = b.get(0).as_mut().unwrap();
             let entry = StdHashTableEntry::new(0, BOUND_NONE, 10, MoveDigest::invalid());
-            *record = Record::new(0, entry);
+            *record = Record {
+                key: 0,
+                data: entry,
+            };
             b.set_generation(0, 12);
             b.set_generation(1, 13);
             assert_eq!(record.data.depth, 10);
