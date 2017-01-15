@@ -248,13 +248,12 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
 }
 
 impl<T: HashTableEntry> StdHashTable<T> {
-    /// A helper method for `store`. It implements the record
-    /// replacement strategy.
+    /// Implements the record replacement strategy.
+    ///
+    /// In this method we try to return higher values for the records
+    /// that are move likely to save CPU work in the future.
     #[inline]
     fn calc_score(&self, data: &T, generation: usize) -> isize {
-        // Here we try to return higher values for the records that
-        // are move likely to save CPU work in the future:
-
         // Positions from the current generation are always scored
         // higher than positions from older generations.
         (if generation == self.generation.get() {
@@ -274,8 +273,7 @@ impl<T: HashTableEntry> StdHashTable<T> {
         })
     }
 
-    /// A helper method for `probe` and `store`. For given key it
-    /// returns a bucket.
+    /// Returns the bucket for a given key.
     #[inline]
     fn bucket(&self, key: u64) -> Bucket<Record<T>> {
         unsafe {
@@ -284,8 +282,7 @@ impl<T: HashTableEntry> StdHashTable<T> {
         }
     }
 
-    /// A helper method for `new_search` and `clear`. It returns an
-    /// iterator over the buckets in the table.
+    /// Returns an iterator over the buckets in the table.
     #[inline]
     fn buckets(&self) -> BucketIter<Record<T>> {
         BucketIter::new(self.table_ptr, self.bucket_count)
