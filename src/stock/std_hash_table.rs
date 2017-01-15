@@ -317,7 +317,7 @@ struct Record<T: HashTableEntry> {
 }
 
 
-/// Holds a set of records in the transposition table.
+/// A handle to a set of records (a bucket) in the hash table.
 ///
 /// `R` gives records' type. Each bucket can hold up to 6 records,
 /// depending on their size. A 5-bit generation number is stored for
@@ -326,7 +326,7 @@ struct Bucket<R> {
     first: *mut R,
 
     // Bits 0-29 are used to store records' generation numbers (6
-    // slots, 5 bits each). Bit 30 is not used. Bit 31 is used as a
+    // slots, 5 bits each). Bit 30 is not used, bit 31 is used as a
     // locking flag.
     info: *mut AtomicUsize,
 }
@@ -337,11 +337,6 @@ struct Bucket<R> {
 const BUCKET_SIZE: usize = 64;
 
 /// A locking flag in the `info` field.
-///
-/// **Important note:** Acquiring the lock is expensive. It is entirely
-/// possible that having no lock at all will not cause any problems in
-/// practice, considering that on most platforms buckets will be
-/// aligned to machine's cache lines.
 const BUCKET_LOCKING_FLAG: usize = 1 << 31;
 
 impl<R> Bucket<R> {
@@ -349,6 +344,11 @@ impl<R> Bucket<R> {
     #[inline]
     pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
         // Acquire the lock for the bucket.
+        //
+        // **Important note:** Acquiring the lock is expensive. It is
+        // entirely possible that having no lock at all will not cause
+        // any problems in practice, considering that on most
+        // platforms buckets will be aligned to machine's cache lines.
         let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
         let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
         loop {
