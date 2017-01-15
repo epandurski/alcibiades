@@ -320,9 +320,9 @@ struct Record<T: HashTableEntry> {
 struct Bucket<R> {
     first: *mut R,
 
-    // The lowest 30 bits are used to store records' generation
-    // numbers (6 slots, 5 bits each). Bit 31 is used as a locking
-    // flag.
+    // Bits 0-29 are used to store records' generation numbers (6
+    // slots, 5 bits each). Bit 30 is not used. Bit 31 is used as a
+    // locking flag.
     info: *mut AtomicUsize,
 }
 
