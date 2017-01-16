@@ -1,4 +1,4 @@
-//! Implements `StdHashTable` and `StdHashTableEntry`.
+//! Implements `StdHashTable`.
 
 use libc;
 use libc::c_void;
@@ -8,82 +8,9 @@ use std::isize;
 use std::cell::Cell;
 use std::cmp::max;
 use std::mem;
-use value::*;
 use depth::*;
 use hash_table::*;
 use moves::MoveDigest;
-
-
-/// Implements the `HashTableEntry` trait.
-#[derive(Copy, Clone, Debug)]
-pub struct StdHashTableEntry {
-    value: Value,
-    bound: BoundType,
-    depth: Depth,
-    move_digest: MoveDigest,
-    static_eval: Value,
-}
-
-impl HashTableEntry for StdHashTableEntry {
-    #[inline]
-    fn new(value: Value,
-           bound: BoundType,
-           depth: Depth,
-           move_digest: MoveDigest)
-           -> StdHashTableEntry {
-        Self::with_static_eval(value, bound, depth, move_digest, VALUE_UNKNOWN)
-    }
-
-    #[inline]
-    fn with_static_eval(value: Value,
-                        bound: BoundType,
-                        depth: Depth,
-                        move_digest: MoveDigest,
-                        static_eval: Value)
-                        -> StdHashTableEntry {
-        debug_assert!(value != VALUE_UNKNOWN);
-        debug_assert!(bound <= 0b11);
-        debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
-        StdHashTableEntry {
-            value: value,
-            bound: bound,
-            depth: depth,
-            move_digest: move_digest,
-            static_eval: static_eval,
-        }
-    }
-
-    #[inline]
-    fn value(&self) -> Value {
-        self.value
-    }
-
-    #[inline]
-    fn bound(&self) -> BoundType {
-        self.bound
-    }
-
-    #[inline]
-    fn depth(&self) -> Depth {
-        self.depth
-    }
-
-    #[inline]
-    fn move_digest(&self) -> MoveDigest {
-        self.move_digest
-    }
-
-    #[inline]
-    fn set_move_digest(&mut self, move_digest: MoveDigest) {
-        self.move_digest = move_digest;
-    }
-
-    /// Returns the `static_eval` passed to the constructor.
-    #[inline]
-    fn static_eval(&self) -> Value {
-        self.static_eval
-    }
-}
 
 
 /// Represents a record in the transposition table.
@@ -502,6 +429,7 @@ mod tests {
     use value::*;
     use moves::*;
     use hash_table::*;
+    use stock::std_hash_table_entry::*;
 
     #[test]
     fn bucket() {
@@ -518,7 +446,7 @@ mod tests {
             };
             b.set_generation(0, 12);
             b.set_generation(1, 13);
-            assert_eq!(record.data.depth, 10);
+            assert_eq!(record.data.depth(), 10);
             assert_eq!(b.get_generation(0), 12);
             assert_eq!(b.get_generation(1), 13);
             assert_eq!(Bucket::<Record<StdHashTableEntry>>::len(), 5);
@@ -546,7 +474,7 @@ mod tests {
             b.set_generation(2, 12);
             b.set_generation(3, 12);
             b.set_generation(4, 12);
-            assert_eq!(record.data.static_eval, VALUE_UNKNOWN);
+            assert_eq!(record.data.static_eval(), VALUE_UNKNOWN);
             libc::free(p);
         }
     }
