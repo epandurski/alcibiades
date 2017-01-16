@@ -87,6 +87,12 @@ impl HashTableEntry for StdHashTableEntry {
 
 
 /// Implements the `HashTable` trait.
+///
+/// `StdHashTable` provides a generic transposition table
+/// implementation that can efficiently pack in memory wide range of
+/// hash table entry types. The only condition is that `T` has a size
+/// between 6 and 16 bytes, and alignment requirements of 4 bytes or
+/// less.
 pub struct StdHashTable<T: HashTableEntry> {
     entries: PhantomData<T>,
 
@@ -116,8 +122,11 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
     type Entry = T;
 
     fn new(size_mb: Option<usize>) -> StdHashTable<T> {
-        assert_eq!(BUCKET_SIZE, 64);
         assert_eq!(mem::size_of::<c_void>(), 1);
+        assert_eq!(BUCKET_SIZE, 64);
+        assert!(mem::align_of::<T>() <= 4,
+                format!("too restrictive hash table entry alignment: {} bytes",
+                        mem::align_of::<T>()));
         assert!(Bucket::<Record<T>>::len() >= 3,
                 format!("too big hash table entry: {} bytes", mem::size_of::<T>()));
         assert!(Bucket::<Record<T>>::len() <= 6,
