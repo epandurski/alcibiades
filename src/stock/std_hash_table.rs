@@ -347,8 +347,31 @@ struct Bucket<R> {
 /// `64` is the most common cache line size.
 const BUCKET_SIZE: usize = 64;
 
-/// A locking flag in the `info` field.
+// A locking flag in the `info` field.
+#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
 const BUCKET_LOCKING_FLAG: usize = 1 << 31;
+#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
+const BUCKET_LOCKING_FLAG: usize = 1 << 63;
+
+#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
+const BUCKET_GENERATION_SHIFTS: [usize; 6] = [0, 5, 10, 15, 20, 25];
+#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
+const BUCKET_GENERATION_SHIFTS: [usize; 6] = [32, 37, 42, 47, 52, 57];
+
+#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
+const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 0),
+                                             !(31 << 5),
+                                             !(31 << 10),
+                                             !(31 << 15),
+                                             !(31 << 20),
+                                             !(31 << 25)];
+#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
+const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 32),
+                                             !(31 << 37),
+                                             !(31 << 42),
+                                             !(31 << 47),
+                                             !(31 << 52),
+                                             !(31 << 57)];
 
 impl<R> Bucket<R> {
     /// Creates a new instance from a raw pointer.
@@ -363,12 +386,10 @@ impl<R> Bucket<R> {
         let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
         let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
         loop {
-            let value = info.load(Ordering::Relaxed);
-            if value & BUCKET_LOCKING_FLAG == 0 {
-                if info.compare_exchange_weak(value,
-                                              value | BUCKET_LOCKING_FLAG,
-                                              Ordering::Acquire,
-                                              Ordering::Relaxed)
+            let old = info.load(Ordering::Relaxed);
+            if old & BUCKET_LOCKING_FLAG == 0 {
+                let new = old | BUCKET_LOCKING_FLAG;
+                if info.compare_exchange_weak(old, new, Ordering::Acquire, Ordering::Relaxed)
                        .is_ok() {
                     break;
                 }
@@ -404,7 +425,7 @@ impl<R> Bucket<R> {
     #[inline]
     pub fn get_generation(&self, slot: usize) -> usize {
         let info = unsafe { (*self.info).load(Ordering::Relaxed) };
-        info >> (5 * slot) & 31
+        info >> BUCKET_GENERATION_SHIFTS[slot] & 31
     }
 
     /// Sets the generation number for a given slot.
@@ -413,13 +434,8 @@ impl<R> Bucket<R> {
         debug_assert!(generation <= 31);
         unsafe {
             let mut info = (*self.info).load(Ordering::Relaxed);
-            info &= [!(31 << 0),
-                     !(31 << 5),
-                     !(31 << 10),
-                     !(31 << 15),
-                     !(31 << 20),
-                     !(31 << 25)][slot];
-            info |= generation << (5 * slot);
+            info &= BUCKET_GENERATION_MASKS[slot];
+            info |= generation << BUCKET_GENERATION_SHIFTS[slot];
             (*self.info).store(info, Ordering::Relaxed);
         }
     }
