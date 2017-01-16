@@ -130,11 +130,11 @@ impl<R> Bucket<R> {
     pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
         // Acquire the lock for the bucket.
         //
-        // **Important note:** Acquiring the lock is expensive. It is
-        // entirely possible that on many platforms having no lock at
-        // all will cause no problems in practice, considering that on
-        // most platforms buckets will be aligned to machine's cache
-        // lines.
+        // **Important note:** Acquiring the lock with
+        // `Ordering::Acquire` is expensive. It is entirely possible
+        // that on many platforms this is not necessary in practice,
+        // considering that on most platforms buckets will be aligned
+        // to machine's cache lines.
         let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
         let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
         loop {
@@ -170,20 +170,19 @@ impl<R> Bucket<R> {
     /// Returns the generation number for a given slot.
     #[inline]
     pub fn get_generation(&self, slot: usize) -> usize {
-        let info = unsafe { (*self.info).load(Ordering::Relaxed) };
-        info >> GENERATION_SHIFTS[slot] & 31
+        let info = unsafe { self.info.as_mut().unwrap() };
+        info.load(Ordering::Relaxed) >> GENERATION_SHIFTS[slot] & 31
     }
 
     /// Sets the generation number for a given slot.
     #[inline]
     pub fn set_generation(&self, slot: usize, generation: usize) {
         debug_assert!(generation <= 31);
-        unsafe {
-            let mut info = (*self.info).load(Ordering::Relaxed);
-            info &= GENERATION_MASKS[slot];
-            info |= generation << GENERATION_SHIFTS[slot];
-            (*self.info).store(info, Ordering::Relaxed);
-        }
+        let info = unsafe { self.info.as_mut().unwrap() };
+        let mut v = info.load(Ordering::Relaxed);
+        v &= GENERATION_MASKS[slot];
+        v |= generation << GENERATION_SHIFTS[slot];
+        info.store(v, Ordering::Relaxed);
     }
 }
 
@@ -192,8 +191,9 @@ impl<R> Drop for Bucket<R> {
     fn drop(&mut self) {
         // Release the lock for the bucket.
         let info = unsafe { self.info.as_mut().unwrap() };
-        let value = info.load(Ordering::Relaxed);
-        info.store(value & !BUCKET_LOCKING_FLAG, Ordering::Release);
+        let old = info.load(Ordering::Relaxed);
+        let new = old & !BUCKET_LOCKING_FLAG;
+        info.store(new, Ordering::Release);
     }
 }
 
