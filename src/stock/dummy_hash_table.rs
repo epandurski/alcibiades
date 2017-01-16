@@ -1,7 +1,7 @@
 //! Implements `DummyHashTable`.
 
 use hash_table::*;
-use stock::std_hash_table::StdHashTableEntry;
+use stock::std_hash_table_entry::StdHashTableEntry;
 
 
 /// Implements a hash table that never stores anything.

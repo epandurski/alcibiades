@@ -1010,7 +1010,8 @@ mod tests {
     use search_node::*;
     use moves::*;
     use hash_table::*;
-    use stock::{StdHashTable, StdSearchNode, StdQsearch, StdMoveGenerator, SimpleEvaluator};
+    use stock::{StdHashTable, StdHashTableEntry, StdSearchNode, StdQsearch, StdMoveGenerator,
+                SimpleEvaluator};
     use utils::MoveStack;
 
     type P = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
@@ -1021,7 +1022,7 @@ mod tests {
                                 &mut vec![].into_iter())
                     .ok()
                     .unwrap();
-        let tt = StdHashTable::new(None);
+        let tt = StdHashTable::<StdHashTableEntry>::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);

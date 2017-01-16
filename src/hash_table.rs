@@ -149,7 +149,7 @@ pub trait HashTable: Sync + Send {
 
 
 /// A trait for transposition table entries.
-pub trait HashTableEntry: Copy {
+pub trait HashTableEntry: Copy + Send {
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. Must not be
@@ -196,6 +196,25 @@ pub trait HashTableEntry: Copy {
 
     /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
     fn static_eval(&self) -> Value;
+
+    /// Returns the relative importance of the entry.
+    ///
+    /// Transposition tables may use this method to improve their
+    /// record replacement strategy. Normally, when possible, entries
+    /// with lower `importance` will be replaced before entries with
+    /// higher `importance`. Therefore this method should try to
+    /// return higher values for entries that are move likely to save
+    /// CPU work in the future. For example, positions analyzed to a
+    /// higher depth are probably more "important" than those analyzed
+    /// to a lower depth.
+    fn importance(&self) -> i16;
+
+    /// Sets a new best or refutation move digest.
+    ///
+    /// Transposition tables may use this method when they overwrite
+    /// an old record for the same position, and want to keep the move
+    /// from the old record.
+    fn set_move_digest(&mut self, move_digest: MoveDigest);
 }
 
 
