@@ -75,4 +75,17 @@ impl HashTableEntry for StdHashTableEntry {
     fn static_eval(&self) -> Value {
         self.static_eval
     }
+
+    #[inline]
+    fn importance(&self) -> i16 {
+        // Positions with higher search depths are scored higher.
+        self.depth as i16
+
+        // Positions with exact evaluations are given slight advantage.
+        + (if self.bound == BOUND_EXACT {
+            1
+        } else {
+            0
+        })
+    }
 }

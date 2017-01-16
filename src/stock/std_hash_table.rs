@@ -8,7 +8,6 @@ use std::isize;
 use std::cell::Cell;
 use std::cmp::max;
 use std::mem;
-use depth::*;
 use hash_table::*;
 use moves::MoveDigest;
 
@@ -232,6 +231,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
         }
     }
 
+    #[inline]
     fn store(&self, key: u64, mut data: Self::Entry) {
         let bucket = self.bucket(key);
         let key = chop_key(key);
@@ -255,8 +255,13 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             }
 
             // Calculate the score for the record in this slot. The
-            // replaced slot will be the slot with the lowest score.
-            let score = self.calc_score(&record.data, bucket.get_generation(slot));
+            // replaced record will be the one with the lowest score.
+            let mut score = record.data.importance() as isize;
+            if bucket.get_generation(slot) == self.generation.get() {
+                // Positions from the current generation are always
+                // scored higher than positions from older generations.
+                score += isize::MAX / 2;
+            };
             if score < replace_score {
                 replace_slot = slot;
                 replace_score = score;
@@ -300,31 +305,6 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
 }
 
 impl<T: HashTableEntry> StdHashTable<T> {
-    /// Implements the record replacement strategy.
-    ///
-    /// In this method we try to return higher values for the records
-    /// that are move likely to save CPU work in the future.
-    #[inline]
-    fn calc_score(&self, data: &T, generation: usize) -> isize {
-        // Positions from the current generation are always scored
-        // higher than positions from older generations.
-        (if generation == self.generation.get() {
-            DEPTH_MAX as isize + 2
-        } else {
-            0
-        }) 
-            
-        // Positions with higher search depths are scored higher.
-        + data.depth() as isize
-            
-        // Positions with exact evaluations are given slight advantage.
-        + (if data.bound() == BOUND_EXACT {
-            1
-        } else {
-            0
-        })
-    }
-
     /// Returns the bucket for a given key.
     #[inline]
     fn bucket(&self, key: u64) -> Bucket<Record<T>> {
@@ -371,6 +351,7 @@ struct Iter<T: HashTableEntry> {
 impl<T: HashTableEntry> Iterator for Iter<T> {
     type Item = Bucket<Record<T>>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         debug_assert!(self.iterated <= self.bucket_count);
         if self.iterated == self.bucket_count {
