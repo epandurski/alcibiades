@@ -98,11 +98,18 @@ pub struct StdHashTable<T: HashTableEntry> {
 
     /// The current generation number.
     ///
-    /// This is always between 1 and 31. Generation `0` is reserved
-    /// for empty records.
+    /// A generation number is assigned to each entry, so as to be
+    /// able to determine which entries are from the current search,
+    /// and which are from previous searches. Entries from previous
+    /// searches will be replaced before entries from the current
+    /// search. The generation number is always between 1 and
+    /// 31. Generation `0` is reserved for empty records.
     generation: Cell<usize>,
 
     /// The number of buckets in the table.
+    ///
+    /// Each bucket can hold 3 to 6 entries, depending on their size.
+    /// `bucket_count` should always be a power of 2.
     bucket_count: usize,
 
     /// The raw pointer obtained from `libc::calloc`.
@@ -122,6 +129,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
     type Entry = T;
 
     fn new(size_mb: Option<usize>) -> StdHashTable<T> {
+        // Assert our basic premises.
         assert_eq!(mem::size_of::<c_void>(), 1);
         assert_eq!(BUCKET_SIZE, 64);
         assert!(mem::align_of::<T>() <= 4,
@@ -131,6 +139,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
                 format!("too big hash table entry: {} bytes", mem::size_of::<T>()));
         assert!(Bucket::<Record<T>>::len() <= 6,
                 format!("too small hash table entry: {} bytes", mem::size_of::<T>()));
+
         let size_mb = size_mb.unwrap_or(16);
         let bucket_count = {
             // Make sure that the number of buckets is a power of 2.
@@ -193,7 +202,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
         let bucket = self.bucket(key);
         let key = chop_key(key);
 
-        // Choose a slot to which to write the data.
+        // Choose a bucket slot to which to write the data.
         let mut replace_slot = 0;
         let mut replace_score = isize::MAX;
         for slot in 0..Bucket::<Record<T>>::len() {
@@ -336,9 +345,16 @@ struct Record<T: HashTableEntry> {
 struct Bucket<R> {
     first: *mut R,
 
-    // Bits 0-29 are used to store records' generation numbers (6
-    // slots, 5 bits each). Bit 30 is not used, bit 31 is used as a
-    // locking flag.
+    // This field is laid out the following way: 30 of the bits are
+    // used to store records' generation numbers (6 slots, 5 bits
+    // each). 1 bit is not used, 1 bit is used as a locking flag.
+    //
+    // **Important note:** Because `AtomicU32` is unstable at the time
+    // of writing, we use `AtomicUsize` for the `info` field. So, on
+    // 64-bit platforms the `info` field may overlap with the last
+    // record in the bucket. But that is OK, because we mind machine's
+    // endianness and read and manipulate only the last 4 bytes of the
+    // `info` field.
     info: *mut AtomicUsize,
 }
 
@@ -346,32 +362,6 @@ struct Bucket<R> {
 ///
 /// `64` is the most common cache line size.
 const BUCKET_SIZE: usize = 64;
-
-// A locking flag in the `info` field.
-#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
-const BUCKET_LOCKING_FLAG: usize = 1 << 31;
-#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
-const BUCKET_LOCKING_FLAG: usize = 1 << 63;
-
-#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
-const BUCKET_GENERATION_SHIFTS: [usize; 6] = [0, 5, 10, 15, 20, 25];
-#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
-const BUCKET_GENERATION_SHIFTS: [usize; 6] = [32, 37, 42, 47, 52, 57];
-
-#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
-const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 0),
-                                             !(31 << 5),
-                                             !(31 << 10),
-                                             !(31 << 15),
-                                             !(31 << 20),
-                                             !(31 << 25)];
-#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
-const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 32),
-                                             !(31 << 37),
-                                             !(31 << 42),
-                                             !(31 << 47),
-                                             !(31 << 52),
-                                             !(31 << 57)];
 
 impl<R> Bucket<R> {
     /// Creates a new instance from a raw pointer.
@@ -405,12 +395,6 @@ impl<R> Bucket<R> {
     /// Returns the number of slots in the bucket.
     #[inline]
     pub fn len() -> usize {
-        // **Important note:** Because `AtomicU32` is unstable at the
-        // moment of this writing, we use `AtomicUsize` for the `info`
-        // field. So, on 64-bit platforms the `info` field may overlap
-        // with the last record in the bucket. But that is OK, because
-        // we mind machine's endianness and read and manipulate only
-        // the last 4 bytes of the `info` field.
         (BUCKET_SIZE - 4) / mem::size_of::<R>()
     }
 
@@ -484,6 +468,34 @@ impl<T: HashTableEntry> Iterator for Iter<T> {
 fn chop_key(key: u64) -> (u16, u16) {
     unsafe { mem::transmute::<u32, (u16, u16)>((key >> 32) as u32) }
 }
+
+
+// A locking flag in the `info` field.
+#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
+const BUCKET_LOCKING_FLAG: usize = 1 << 31;
+#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
+const BUCKET_LOCKING_FLAG: usize = 1 << 63;
+
+#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
+const BUCKET_GENERATION_SHIFTS: [usize; 6] = [0, 5, 10, 15, 20, 25];
+#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
+const BUCKET_GENERATION_SHIFTS: [usize; 6] = [32, 37, 42, 47, 52, 57];
+
+#[cfg(any(target_pointer_width = "32", target_endian = "big"))]
+const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 0),
+                                             !(31 << 5),
+                                             !(31 << 10),
+                                             !(31 << 15),
+                                             !(31 << 20),
+                                             !(31 << 25)];
+#[cfg(all(target_pointer_width = "64", target_endian = "little"))]
+const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 32),
+                                             !(31 << 37),
+                                             !(31 << 42),
+                                             !(31 << 47),
+                                             !(31 << 52),
+                                             !(31 << 57)];
+
 
 
 #[cfg(test)]
