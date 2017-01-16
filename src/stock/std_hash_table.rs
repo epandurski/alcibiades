@@ -385,10 +385,11 @@ impl<R> Bucket<R> {
     #[inline]
     pub fn len() -> usize {
         // **Important note:** Because `AtomicU32` is unstable at the
-        // moment, we use `AtomicUsize` for the `info` field. So, on
-        // 64-bit platforms the `info` field may overlap with the last
-        // record in the bucket. But that is OK, because we read and
-        // manipulate only the last 32 bits of the `info` field.
+        // moment of this writing, we use `AtomicUsize` for the `info`
+        // field. So, on 64-bit platforms the `info` field may overlap
+        // with the last record in the bucket. But that is OK, because
+        // we mind machine's endianness and read and manipulate only
+        // the last 4 bytes of the `info` field.
         (BUCKET_SIZE - 4) / mem::size_of::<R>()
     }
 
@@ -475,6 +476,7 @@ mod tests {
     use super::*;
     use super::{Bucket, Record};
     use depth::*;
+    use value::*;
     use moves::*;
     use hash_table::*;
 
@@ -497,6 +499,31 @@ mod tests {
             assert_eq!(b.get_generation(0), 12);
             assert_eq!(b.get_generation(1), 13);
             assert_eq!(Bucket::<Record<StdHashTableEntry>>::len(), 5);
+            libc::free(p);
+        }
+    }
+
+    #[test]
+    fn bucket_endianness() {
+        unsafe {
+            let p = libc::malloc(64);
+            let b = Bucket::<Record<StdHashTableEntry>>::new(p);
+            let mut record = b.get(4).as_mut().unwrap();
+            let entry = StdHashTableEntry::with_static_eval(0,
+                                                            BOUND_NONE,
+                                                            10,
+                                                            MoveDigest::invalid(),
+                                                            VALUE_UNKNOWN);
+            *record = Record {
+                key: (0, 0),
+                data: entry,
+            };
+            b.set_generation(0, 12);
+            b.set_generation(1, 12);
+            b.set_generation(2, 12);
+            b.set_generation(3, 12);
+            b.set_generation(4, 12);
+            assert_eq!(record.data.static_eval, VALUE_UNKNOWN);
             libc::free(p);
         }
     }
