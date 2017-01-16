@@ -128,9 +128,10 @@ impl<R> Bucket<R> {
     /// Creates a new instance from a raw pointer.
     #[inline]
     pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
-        // Acquire the lock for the bucket.
         let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
         let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
+
+        // Acquire the lock for the bucket.
         loop {
             let old = info.load(Ordering::Relaxed);
             if old & BUCKET_LOCKING_FLAG == 0 {
