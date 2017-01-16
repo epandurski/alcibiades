@@ -47,8 +47,8 @@
 //! use alcibiades::engine::run_uci;
 //!
 //! fn main() {
-//!     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 //!     type HashTable = StdHashTable<StdHashTableEntry>;
+//!     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 //!     type SearchExecutor = Deepening<StdSearchExecutor<HashTable, SearchNode>>;
 //!     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe");
 //! }

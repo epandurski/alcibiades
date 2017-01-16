@@ -197,6 +197,13 @@ pub trait HashTableEntry: Copy + Send {
     /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
     fn static_eval(&self) -> Value;
 
+    /// Sets a new best or refutation move digest.
+    ///
+    /// Transposition tables may use this method when they overwrite
+    /// an old record for the same position, and want to keep the move
+    /// from the old record.
+    fn set_move_digest(&mut self, move_digest: MoveDigest);
+
     /// Returns the relative importance of the entry.
     ///
     /// Transposition tables may use this method to improve their
@@ -207,14 +214,14 @@ pub trait HashTableEntry: Copy + Send {
     /// CPU work in the future. For example, positions analyzed to a
     /// higher depth are probably more "important" than those analyzed
     /// to a lower depth.
-    fn importance(&self) -> i16;
-
-    /// Sets a new best or refutation move digest.
-    ///
-    /// Transposition tables may use this method when they overwrite
-    /// an old record for the same position, and want to keep the move
-    /// from the old record.
-    fn set_move_digest(&mut self, move_digest: MoveDigest);
+    #[inline]
+    fn importance(&self) -> i16 {
+        match self.bound() {
+            BOUND_EXACT => self.depth() as i16,
+            BOUND_NONE => 0,
+            _ => self.depth() as i16 - 1,
+        }
+    }
 }
 
 

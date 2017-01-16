@@ -65,11 +65,6 @@ impl HashTableEntry for StdHashTableEntry {
         self.move_digest
     }
 
-    #[inline]
-    fn set_move_digest(&mut self, move_digest: MoveDigest) {
-        self.move_digest = move_digest;
-    }
-
     /// Returns the `static_eval` passed to the constructor.
     #[inline]
     fn static_eval(&self) -> Value {
@@ -77,15 +72,7 @@ impl HashTableEntry for StdHashTableEntry {
     }
 
     #[inline]
-    fn importance(&self) -> i16 {
-        // Positions with higher search depths are scored higher.
-        self.depth as i16
-
-        // Positions with exact evaluations are given slight advantage.
-        + (if self.bound == BOUND_EXACT {
-            1
-        } else {
-            0
-        })
+    fn set_move_digest(&mut self, move_digest: MoveDigest) {
+        self.move_digest = move_digest;
     }
 }

@@ -261,7 +261,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             if bucket.get_generation(slot) == self.generation.get() {
                 // Positions from the current generation are always
                 // scored higher than positions from older generations.
-                score += isize::MAX / 2;
+                score += 1 << 16;
             };
             if score < replace_score {
                 replace_slot = slot;
