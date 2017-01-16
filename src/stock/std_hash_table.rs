@@ -86,10 +86,122 @@ impl HashTableEntry for StdHashTableEntry {
 }
 
 
+/// Represents a record in the transposition table.
+///
+/// Consists of a hash table entry plus the highest 32 bits of the
+/// key. The key is split into two `u16` values to allow more flexible
+/// alignment.
+#[derive(Copy, Clone)]
+struct Record<T: HashTableEntry> {
+    key: (u16, u16),
+    data: T,
+}
+
+
+/// A handle to a set of records (a bucket) in the hash table.
+///
+/// `R` gives records' type. Each bucket can hold up to 6 records,
+/// depending on their size. A 5-bit generation number is stored for
+/// each record.
+struct Bucket<R> {
+    first: *mut R,
+
+    // This field is laid out the following way: 30 of the bits are
+    // used to store records' generation numbers (6 slots, 5 bits
+    // each); 1 bit is not used; 1 bit is used as a locking flag.
+    //
+    // **Important note:** Because `AtomicU32` is unstable at the time
+    // of writing, we use `AtomicUsize` for the `info` field. So, on
+    // 64-bit platforms the `info` field may overlap with the last
+    // record in the bucket. But that is OK, because we mind machine's
+    // endianness and read and manipulate only the last 4 bytes of the
+    // `info` field.
+    info: *mut AtomicUsize,
+}
+
+/// The size of each bucket in bytes.
+///
+/// `64` is the most common cache line size.
+const BUCKET_SIZE: usize = 64;
+
+impl<R> Bucket<R> {
+    /// Creates a new instance from a raw pointer.
+    #[inline]
+    pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
+        // Acquire the lock for the bucket.
+        //
+        // **Important note:** Acquiring the lock is expensive. It is
+        // entirely possible that on many platforms having no lock at
+        // all will cause no problems in practice, considering that on
+        // most platforms buckets will be aligned to machine's cache
+        // lines.
+        let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
+        let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
+        loop {
+            let old = info.load(Ordering::Relaxed);
+            if old & BUCKET_LOCKING_FLAG == 0 {
+                let new = old | BUCKET_LOCKING_FLAG;
+                if info.compare_exchange_weak(old, new, Ordering::Acquire, Ordering::Relaxed)
+                       .is_ok() {
+                    break;
+                }
+            }
+        }
+
+        Bucket {
+            first: p as *mut R,
+            info: info as *mut AtomicUsize,
+        }
+    }
+
+    /// Returns the number of slots in the bucket.
+    #[inline]
+    pub fn len() -> usize {
+        (BUCKET_SIZE - 4) / mem::size_of::<R>()
+    }
+
+    /// Returns a raw pointer to the record in a given slot.
+    #[inline]
+    pub fn get(&self, slot: usize) -> *mut R {
+        assert!(slot < Self::len());
+        unsafe { self.first.offset(slot as isize) }
+    }
+
+    /// Returns the generation number for a given slot.
+    #[inline]
+    pub fn get_generation(&self, slot: usize) -> usize {
+        let info = unsafe { (*self.info).load(Ordering::Relaxed) };
+        info >> GENERATION_SHIFTS[slot] & 31
+    }
+
+    /// Sets the generation number for a given slot.
+    #[inline]
+    pub fn set_generation(&self, slot: usize, generation: usize) {
+        debug_assert!(generation <= 31);
+        unsafe {
+            let mut info = (*self.info).load(Ordering::Relaxed);
+            info &= GENERATION_MASKS[slot];
+            info |= generation << GENERATION_SHIFTS[slot];
+            (*self.info).store(info, Ordering::Relaxed);
+        }
+    }
+}
+
+impl<R> Drop for Bucket<R> {
+    #[inline]
+    fn drop(&mut self) {
+        // Release the lock for the bucket.
+        let info = unsafe { self.info.as_mut().unwrap() };
+        let value = info.load(Ordering::Relaxed);
+        info.store(value & !BUCKET_LOCKING_FLAG, Ordering::Release);
+    }
+}
+
+
 /// Implements the `HashTable` trait.
 ///
 /// `StdHashTable` provides a generic transposition table
-/// implementation that can efficiently pack in memory wide range of
+/// implementation that can efficiently pack in memory a wide range of
 /// hash table entry types. The only condition is that `T` has a size
 /// between 6 and 16 bytes, and alignment requirements of 4 bytes or
 /// less.
@@ -98,17 +210,17 @@ pub struct StdHashTable<T: HashTableEntry> {
 
     /// The current generation number.
     ///
-    /// A generation number is assigned to each entry, so as to be
-    /// able to determine which entries are from the current search,
-    /// and which are from previous searches. Entries from previous
-    /// searches will be replaced before entries from the current
+    /// A generation number is assigned to each record, so as to be
+    /// able to determine which records are from the current search,
+    /// and which are from previous searches. Records from previous
+    /// searches will be replaced before records from the current
     /// search. The generation number is always between 1 and
     /// 31. Generation `0` is reserved for empty records.
     generation: Cell<usize>,
 
     /// The number of buckets in the table.
     ///
-    /// Each bucket can hold 3 to 6 entries, depending on their size.
+    /// Each bucket can hold 3 to 6 records, depending on their size.
     /// `bucket_count` should always be a power of 2.
     bucket_count: usize,
 
@@ -325,117 +437,6 @@ unsafe impl<T: HashTableEntry> Sync for StdHashTable<T> {}
 unsafe impl<T: HashTableEntry> Send for StdHashTable<T> {}
 
 
-/// Represents a record in the transposition table.
-///
-/// Consists of a hash table entry plus the highest 32 bits of the
-/// key. The key is split into two `u16` values to allow more flexible
-/// alignment.
-#[derive(Copy, Clone)]
-struct Record<T: HashTableEntry> {
-    key: (u16, u16),
-    data: T,
-}
-
-
-/// A handle to a set of records (a bucket) in the hash table.
-///
-/// `R` gives records' type. Each bucket can hold up to 6 records,
-/// depending on their size. A 5-bit generation number is stored for
-/// each record.
-struct Bucket<R> {
-    first: *mut R,
-
-    // This field is laid out the following way: 30 of the bits are
-    // used to store records' generation numbers (6 slots, 5 bits
-    // each). 1 bit is not used, 1 bit is used as a locking flag.
-    //
-    // **Important note:** Because `AtomicU32` is unstable at the time
-    // of writing, we use `AtomicUsize` for the `info` field. So, on
-    // 64-bit platforms the `info` field may overlap with the last
-    // record in the bucket. But that is OK, because we mind machine's
-    // endianness and read and manipulate only the last 4 bytes of the
-    // `info` field.
-    info: *mut AtomicUsize,
-}
-
-/// The size of each bucket in bytes.
-///
-/// `64` is the most common cache line size.
-const BUCKET_SIZE: usize = 64;
-
-impl<R> Bucket<R> {
-    /// Creates a new instance from a raw pointer.
-    #[inline]
-    pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
-        // Acquire the lock for the bucket.
-        //
-        // **Important note:** Acquiring the lock is expensive. It is
-        // entirely possible that having no lock at all will not cause
-        // any problems in practice, considering that on most
-        // platforms buckets will be aligned to machine's cache lines.
-        let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
-        let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
-        loop {
-            let old = info.load(Ordering::Relaxed);
-            if old & BUCKET_LOCKING_FLAG == 0 {
-                let new = old | BUCKET_LOCKING_FLAG;
-                if info.compare_exchange_weak(old, new, Ordering::Acquire, Ordering::Relaxed)
-                       .is_ok() {
-                    break;
-                }
-            }
-        }
-
-        Bucket {
-            first: p as *mut R,
-            info: info as *mut AtomicUsize,
-        }
-    }
-
-    /// Returns the number of slots in the bucket.
-    #[inline]
-    pub fn len() -> usize {
-        (BUCKET_SIZE - 4) / mem::size_of::<R>()
-    }
-
-    /// Returns a raw pointer to the record in a given slot.
-    #[inline]
-    pub fn get(&self, slot: usize) -> *mut R {
-        assert!(slot < Self::len());
-        unsafe { self.first.offset(slot as isize) }
-    }
-
-    /// Returns the generation number for a given slot.
-    #[inline]
-    pub fn get_generation(&self, slot: usize) -> usize {
-        let info = unsafe { (*self.info).load(Ordering::Relaxed) };
-        info >> BUCKET_GENERATION_SHIFTS[slot] & 31
-    }
-
-    /// Sets the generation number for a given slot.
-    #[inline]
-    pub fn set_generation(&self, slot: usize, generation: usize) {
-        debug_assert!(generation <= 31);
-        unsafe {
-            let mut info = (*self.info).load(Ordering::Relaxed);
-            info &= BUCKET_GENERATION_MASKS[slot];
-            info |= generation << BUCKET_GENERATION_SHIFTS[slot];
-            (*self.info).store(info, Ordering::Relaxed);
-        }
-    }
-}
-
-impl<R> Drop for Bucket<R> {
-    #[inline]
-    fn drop(&mut self) {
-        // Release the lock for the bucket.
-        let info = unsafe { self.info.as_mut().unwrap() };
-        let value = info.load(Ordering::Relaxed);
-        info.store(value & !BUCKET_LOCKING_FLAG, Ordering::Release);
-    }
-}
-
-
 /// A helper type for `StdHashTable`. It iterates over the buckets in
 /// the table.
 struct Iter<T: HashTableEntry> {
@@ -470,31 +471,30 @@ fn chop_key(key: u64) -> (u16, u16) {
 }
 
 
-// A locking flag in the `info` field.
 #[cfg(any(target_pointer_width = "32", target_endian = "big"))]
 const BUCKET_LOCKING_FLAG: usize = 1 << 31;
 #[cfg(all(target_pointer_width = "64", target_endian = "little"))]
 const BUCKET_LOCKING_FLAG: usize = 1 << 63;
 
 #[cfg(any(target_pointer_width = "32", target_endian = "big"))]
-const BUCKET_GENERATION_SHIFTS: [usize; 6] = [0, 5, 10, 15, 20, 25];
+const GENERATION_SHIFTS: [usize; 6] = [0, 5, 10, 15, 20, 25];
 #[cfg(all(target_pointer_width = "64", target_endian = "little"))]
-const BUCKET_GENERATION_SHIFTS: [usize; 6] = [32, 37, 42, 47, 52, 57];
+const GENERATION_SHIFTS: [usize; 6] = [32, 37, 42, 47, 52, 57];
 
 #[cfg(any(target_pointer_width = "32", target_endian = "big"))]
-const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 0),
-                                             !(31 << 5),
-                                             !(31 << 10),
-                                             !(31 << 15),
-                                             !(31 << 20),
-                                             !(31 << 25)];
+const GENERATION_MASKS: [usize; 6] = [!(31 << 0),
+                                      !(31 << 5),
+                                      !(31 << 10),
+                                      !(31 << 15),
+                                      !(31 << 20),
+                                      !(31 << 25)];
 #[cfg(all(target_pointer_width = "64", target_endian = "little"))]
-const BUCKET_GENERATION_MASKS: [usize; 6] = [!(31 << 32),
-                                             !(31 << 37),
-                                             !(31 << 42),
-                                             !(31 << 47),
-                                             !(31 << 52),
-                                             !(31 << 57)];
+const GENERATION_MASKS: [usize; 6] = [!(31 << 32),
+                                      !(31 << 37),
+                                      !(31 << 42),
+                                      !(31 << 47),
+                                      !(31 << 52),
+                                      !(31 << 57)];
 
 
 
