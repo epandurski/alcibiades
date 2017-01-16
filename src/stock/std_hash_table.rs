@@ -188,6 +188,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             addr &= !(BUCKET_SIZE - 1);
             mem::transmute::<usize, *mut c_void>(addr)
         };
+
         StdHashTable {
             entries: PhantomData,
             generation: Cell::new(1),
