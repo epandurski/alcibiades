@@ -129,12 +129,6 @@ impl<R> Bucket<R> {
     #[inline]
     pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
         // Acquire the lock for the bucket.
-        //
-        // **Important note:** Acquiring the lock with
-        // `Ordering::Acquire` is expensive. It is entirely possible
-        // that on many platforms this is not necessary in practice,
-        // considering that on most platforms buckets will be aligned
-        // to machine's cache lines.
         let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
         let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
         loop {
