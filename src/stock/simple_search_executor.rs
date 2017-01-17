@@ -347,11 +347,6 @@ impl<'a, T, N> Search<'a, T, N>
             // Try moves.
             while let Some(m) = self.do_move() {
                 try!(self.report_progress(1));
-                let reduced_depth = if depth < 2 {
-                    0
-                } else {
-                    depth - 2
-                };
 
                 // Make a recursive call.
                 let mut v = if m.score() > REDUCTION_THRESHOLD {
@@ -368,7 +363,7 @@ impl<'a, T, N> Search<'a, T, N>
                     // 1). Only if it seems that the move is better
                     // than our current best move, we do a full-depth,
                     // full-window search.
-                    match -try!(self.run(-alpha - 1, -alpha, reduced_depth, m)) {
+                    match -try!(self.run(-alpha - 1, -alpha, depth - 2, m)) {
                         v if v <= alpha => v,
                         _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
                     }
@@ -495,7 +490,7 @@ impl<'a, T, N> Search<'a, T, N>
         };
 
         // On leaf nodes, do quiescence search.
-        if depth == 0 {
+        if depth <= 0 {
             let result = self.position.evaluate_quiescence(depth, alpha, beta, static_eval);
             try!(self.report_progress(result.searched_nodes()));
             let bound = if result.value() >= beta {
@@ -508,7 +503,7 @@ impl<'a, T, N> Search<'a, T, N>
             self.tt.store(hash,
                           T::Entry::with_static_eval(result.value(),
                                                      bound,
-                                                     0,
+                                                     depth,
                                                      MoveDigest::invalid(),
                                                      static_eval));
             return Ok(Some(result.value()));
