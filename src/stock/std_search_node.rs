@@ -7,6 +7,7 @@ use std::collections::hash_map::DefaultHasher;
 use uci::{SetOption, OptionDescription};
 use board::{Board, IllegalBoard};
 use value::*;
+use depth::*;
 use qsearch::{Qsearch, QsearchParams, QsearchResult};
 use moves::{Move, MoveDigest, AddMove};
 use move_generator::MoveGenerator;
@@ -164,6 +165,7 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
 
     #[inline]
     fn evaluate_quiescence(&self,
+                           depth: Depth,
                            lower_bound: Value,
                            upper_bound: Value,
                            static_eval: Value)
@@ -174,7 +176,7 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
         } else {
             T::qsearch(QsearchParams {
                 position: unsafe { self.position_mut() },
-                depth: 0,
+                depth: depth,
                 lower_bound: lower_bound,
                 upper_bound: upper_bound,
                 static_eval: static_eval,
@@ -621,7 +623,7 @@ mod tests {
     #[test]
     fn evaluate_quiescence() {
         let p = P::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(-10000, 10000, VALUE_UNKNOWN).searched_nodes(),
+        assert_eq!(p.evaluate_quiescence(0, -10000, 10000, VALUE_UNKNOWN).searched_nodes(),
                    1);
     }
 

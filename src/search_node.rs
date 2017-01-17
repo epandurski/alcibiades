@@ -3,6 +3,7 @@
 use uci::SetOption;
 use board::{Board, IllegalBoard};
 use moves::{Move, MoveDigest, AddMove};
+use depth::*;
 use value::*;
 use evaluator::Evaluator;
 use qsearch::QsearchResult;
@@ -92,19 +93,28 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// search can cheaply and correctly resolve many simple tactical
     /// issues, it is completely blind to the more complex ones.
     ///
-    /// `lower_bound` and `upper_bound` together give the interval
-    /// within which an as precise as possible evaluation is
-    /// required. If during the calculation is determined that the
-    /// exact evaluation is outside of this interval, this method may
-    /// return a value that is closer to the the interval bounds than
-    /// the exact evaluation, but always staying on the correct side
-    /// of the interval. `static_eval` should be position's static
-    /// evaluation, or `VALUE_UNKNOWN`.
+    /// * `depth` is the depth at which the main search stops and the
+    ///   quiescence search takes on. It should be between `DEPTH_MIN`
+    ///   and `DEPTH_MAX`. Normally, it will be zero or less. The
+    ///   quiescence search implementation may decide to perform less
+    ///   thorough analysis when `depth` is smaller.
+    ///
+    /// * `lower_bound` and `upper_bound` together give the interval
+    ///   within which an as precise as possible evaluation is
+    ///   required. If during the calculation is determined that the
+    ///   exact evaluation is outside of this interval, this method
+    ///   may return a value that is closer to the the interval bounds
+    ///   than the exact evaluation, but always staying on the correct
+    ///   side of the interval.
+    ///
+    /// * `static_eval` should be position's static evaluation, or
+    ///   `VALUE_UNKNOWN`.
     ///
     /// **Important note:** This method will return a reliable result
     /// even when the side to move is in check. Repeated and rule-50
     /// positions are always evaluated to `0`.
     fn evaluate_quiescence(&self,
+                           depth: Depth,
                            lower_bound: Value,
                            upper_bound: Value,
                            static_eval: Value)

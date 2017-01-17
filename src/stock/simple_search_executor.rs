@@ -496,7 +496,7 @@ impl<'a, T, N> Search<'a, T, N>
 
         // On leaf nodes, do quiescence search.
         if depth == 0 {
-            let result = self.position.evaluate_quiescence(alpha, beta, static_eval);
+            let result = self.position.evaluate_quiescence(depth, alpha, beta, static_eval);
             try!(self.report_progress(result.searched_nodes()));
             let bound = if result.value() >= beta {
                 BOUND_LOWER
