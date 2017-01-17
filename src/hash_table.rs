@@ -216,10 +216,11 @@ pub trait HashTableEntry: Copy + Send {
     /// to a lower depth.
     #[inline]
     fn importance(&self) -> i16 {
+        let depth = self.depth() as i16;
         match self.bound() {
-            BOUND_EXACT => self.depth() as i16 + 1,
-            BOUND_NONE => -1,
-            _ => self.depth() as i16,
+            BOUND_EXACT => depth + 1,
+            BOUND_NONE => DEPTH_MIN as i16 - 1,
+            _ => depth,
         }
     }
 }
