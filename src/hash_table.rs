@@ -217,9 +217,9 @@ pub trait HashTableEntry: Copy + Send {
     #[inline]
     fn importance(&self) -> i16 {
         match self.bound() {
-            BOUND_EXACT => self.depth() as i16,
-            BOUND_NONE => 0,
-            _ => self.depth() as i16 - 1,
+            BOUND_EXACT => self.depth() as i16 + 1,
+            BOUND_NONE => -1,
+            _ => self.depth() as i16,
         }
     }
 }
