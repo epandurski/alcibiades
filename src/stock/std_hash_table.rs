@@ -242,13 +242,19 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
         let mut replace_score = isize::MAX;
         for slot in 0..Bucket::<Record<T>>::len() {
             let record = unsafe { bucket.get(slot).as_ref().unwrap() };
+            let generation = bucket.get_generation(slot);
 
-            // Verify if this is an old record for the same key. If
-            // this is the case, we will use this slot for the new
-            // record.
+            // Use this slot if it is empty.
+            if generation == 0 {
+                replace_slot = slot;
+                break;
+            }
+
+            // Use this slot if it contains an old record for the same key.
             if record.key == key {
                 if data.move_digest() == MoveDigest::invalid() {
-                    // Keep the move from the old record.
+                    // Keep the move from the old record if the new
+                    // record has no move.
                     data.set_move_digest(record.data.move_digest());
                 }
                 replace_slot = slot;
@@ -258,7 +264,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             // Calculate the score for the record in this slot. The
             // replaced record will be the one with the lowest score.
             let mut score = record.data.importance() as isize;
-            if bucket.get_generation(slot) == self.generation.get() {
+            if generation == self.generation.get() {
                 // Positions from the current generation are always
                 // scored higher than positions from older generations.
                 score += 1 << 16;
