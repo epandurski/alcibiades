@@ -145,8 +145,8 @@ enum Command<N: SearchNode> {
 }
 
 
-/// Listens for commands, executes simple searches, sends reports
-/// back.
+/// A helper function. It listens for commands, executes simple
+/// searches, sends reports back.
 ///
 /// This function will block and wait to receive commands on the
 /// `commands` channel to start, stop, or exit searches. It is
@@ -155,30 +155,6 @@ enum Command<N: SearchNode> {
 /// master thread via the `reports` channel. When the search is done,
 /// the final `SearchReport` message will have its `done` field set to
 /// `true`.
-///
-/// # Example:
-///
-/// ```text
-/// // Spawn a slave thread:
-/// let tt = Arc::new(tt);
-/// let (commands_tx, commands_rx) = channel();
-/// let (reports_tx, reports_rx) = channel();
-/// thread::spawn(move || {
-///     serve_simple(tt, commands_rx, reports_tx);
-/// });
-///
-/// // Send a command to start a new search:
-/// commands_tx.send(Command::Search {
-///     search_id: 0,
-///     position: StdSearchNode::form_fen("8/8/8/8/8/8/7P/5k1K b - - 0 99"),
-///     depth: 5,
-///     lower_bound: VALUE_MIN,
-///     upper_bound: VALUE_MAX,
-/// }).unwrap();
-/// ```
-///
-/// This function executes sequential (non-parallel) search to a fixed
-/// depth.
 fn serve_simple<T, N>(tt: Arc<T>,
                       commands: Receiver<Command<N>>,
                       reports: Sender<SearchReport<()>>,
@@ -284,7 +260,6 @@ struct Search<'a, T, N>
     unreported_nodes: u64,
     report_function: &'a mut FnMut(u64) -> bool,
 }
-
 
 impl<'a, T, N> Search<'a, T, N>
     where T: HashTable + 'a,
@@ -600,7 +575,7 @@ impl<'a, T, N> Search<'a, T, N>
     }
 
     /// A helper method for `run`. Each call to `run` ends with a call
-    /// to `_end`.
+    /// to `node_end`.
     #[inline]
     fn node_end(&mut self) {
         // Restore the move list from the previous ply (half-move) and
@@ -864,7 +839,6 @@ struct NodeState {
     is_check: bool,
     killer: Option<MoveDigest>,
 }
-
 
 
 /// Holds two killer moves with their hit counters for every
