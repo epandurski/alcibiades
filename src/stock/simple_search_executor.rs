@@ -352,7 +352,7 @@ impl<'a, T, N> Search<'a, T, N>
                 let mut v = if m.score() > REDUCTION_THRESHOLD {
                     // The moves that have good chances to cause a
                     // beta cut-off we analyze with a full depth and
-                    // fully open window (alpha, beta). Most probably
+                    // fully open window (alpha, beta). We hope that
                     // at least one of these moves will raise `alpha`.
                     -try!(self.run(-beta, -alpha, depth - 1, m))
                 } else {
@@ -509,8 +509,8 @@ impl<'a, T, N> Search<'a, T, N>
             return Ok(Some(result.value()));
         }
 
-        // Save the current move list. Also, save checkers and pinned
-        // bitboards, because we will need them at later phases.
+        // Save the current move list and other info that we will need
+        // at later phases.
         {
             self.moves.save();
             let state = self.state_stack.last_mut().unwrap();
