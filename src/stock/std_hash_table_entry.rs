@@ -33,7 +33,7 @@ impl HashTableEntry for StdHashTableEntry {
                         move_digest: MoveDigest,
                         static_eval: Value)
                         -> StdHashTableEntry {
-        debug_assert!(value != VALUE_UNKNOWN);
+        debug_assert!(VALUE_MIN <= value && value <= VALUE_MAX);
         debug_assert!(bound <= 0b11);
         debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
         StdHashTableEntry {
