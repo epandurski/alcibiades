@@ -152,8 +152,8 @@ pub trait HashTable: Sync + Send {
 pub trait HashTableEntry: Copy + Send {
     /// Creates a new instance.
     ///
-    /// * `value` -- The value assigned to the position. Must not be
-    ///   `VALUE_UNKNOWN`.
+    /// * `value` -- The value assigned to the position. Must be
+    ///   between `VALUE_MIN` and `VALUE_MAX`.
     ///
     /// * `bound` -- The accuracy of the assigned value.
     ///
