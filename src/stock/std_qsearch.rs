@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use uci::{SetOption, OptionDescription};
 use board::*;
 use value::*;
+use depth::*;
 use moves::*;
 use evaluator::Evaluator;
 use qsearch::{Qsearch, QsearchParams, QsearchResult};
@@ -55,6 +56,10 @@ impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
     type QsearchResult = StdQsearchResult;
 
     fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> Self::QsearchResult {
+        debug_assert!(DEPTH_MIN <= params.depth && params.depth <= 0);
+        debug_assert!(params.lower_bound >= VALUE_MIN);
+        debug_assert!(params.upper_bound <= VALUE_MAX);
+        debug_assert!(params.lower_bound < params.upper_bound);
         thread_local!(
             static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
         );
