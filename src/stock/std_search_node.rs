@@ -170,6 +170,9 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
                            upper_bound: Value,
                            static_eval: Value)
                            -> Self::QsearchResult {
+        debug_assert!(DEPTH_MIN <= depth && depth <= 0);
+        debug_assert!(lower_bound >= VALUE_MIN);
+        debug_assert!(upper_bound <= VALUE_MAX);
         debug_assert!(lower_bound < upper_bound);
         if self.repeated_or_rule50 {
             Self::QsearchResult::new(0, 0)
