@@ -6,6 +6,7 @@ use search_executor::*;
 
 
 /// Describes the remaining time on the clocks.
+#[derive(Clone, Debug)]
 pub struct RemainingTime {
     /// The remaining time in milliseconds for white.
     pub white_millis: u64,

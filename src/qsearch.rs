@@ -53,7 +53,7 @@ pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
 
 
 /// A trait for quiescence searches' results.
-pub trait QsearchResult {
+pub trait QsearchResult: Clone {
     /// Creates a new instance.
     ///
     /// * `value` -- the calculated evaluation for the position. Must

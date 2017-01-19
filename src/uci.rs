@@ -176,6 +176,7 @@ pub enum EngineReply {
 /// Configurable options can be of several different types, depending
 /// on their intended appearance in the GUI: check box, spin box,
 /// combo box, string box, or button.
+#[derive(Clone, Debug)]
 pub enum OptionDescription {
     Check {
         default: bool,

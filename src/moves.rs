@@ -76,6 +76,38 @@ impl MoveDigest {
     pub fn aux_data(&self) -> usize {
         (self.0 >> SHIFT_AUX_DATA & 3) as usize
     }
+
+    /// Returns the algebraic notation of the encoded move.
+    ///
+    /// Examples: `e2e4`, `e7e5`, `e1g1` (white short castling),
+    /// `e7e8q` (for promotion).
+    pub fn notation(&self) -> String {
+        format!("{}{}{}",
+                notation(self.orig_square()),
+                notation(self.dest_square()),
+                match self.move_type() {
+                    MOVE_PROMOTION => ["q", "r", "b", "n"][self.aux_data()],
+                    _ => "",
+                })
+    }
+
+    /// Returns if the encoded move is a null move.
+    ///
+    /// "Null move" is a pseudo-move that changes nothing on the board
+    /// except the side to move. It is sometimes useful to include a
+    /// speculative null move in the search tree to achieve more
+    /// aggressive pruning. Null moves are represented as king's moves
+    /// for which the origin and destination squares are the same.
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.orig_square() == self.dest_square() && self.move_type() == MOVE_NORMAL
+    }
+}
+
+impl fmt::Display for MoveDigest {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.notation())
+    }
 }
 
 

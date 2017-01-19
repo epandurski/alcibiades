@@ -14,6 +14,7 @@ use utils::MoveStack;
 
 
 /// Implements the `QsearchResult` trait.
+#[derive(Clone, Debug)]
 pub struct StdQsearchResult {
     value: Value,
     searched_nodes: u64,

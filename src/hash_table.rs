@@ -228,6 +228,7 @@ pub trait HashTableEntry: Copy + Send {
 
 /// A sequence of moves from some starting position, together with the
 /// value assigned to the final position.
+#[derive(Clone, Debug)]
 pub struct Variation {
     /// A sequence of moves from some starting position.
     pub moves: Vec<Move>,

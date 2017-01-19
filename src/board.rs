@@ -38,7 +38,7 @@ pub type Bitboard = u64;
 
 
 /// Describes how the pieces are placed on the board.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct PiecesPlacement {
     /// An array of occupation bitboards indexed by piece type.  For
     /// example, `pieces_placement.piece_type[PAWN]` gives the set of
@@ -200,7 +200,7 @@ pub struct IllegalBoard;
 
 
 /// Holds a chess position.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Board {
     /// The placement of the pieces on the board.
     pub pieces: PiecesPlacement,

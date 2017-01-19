@@ -21,7 +21,7 @@ use time_manager::RemainingTime;
 /// return a value that is closer to the the interval bounds than the
 /// exact evaluation, but always staying on the correct side of the
 /// interval (i.e. "fail-soft").
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SearchParams<T: SearchNode> {
     /// A number identifying the search.
     pub search_id: usize,
@@ -61,7 +61,7 @@ pub struct SearchParams<T: SearchNode> {
 
 
 /// A progress report from a search.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SearchReport<T> {
     /// The ID assigned to the search.
     ///
