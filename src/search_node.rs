@@ -107,6 +107,11 @@ pub trait SearchNode: Send + Clone + SetOption {
     ///   than the exact evaluation, but always staying on the correct
     ///   side of the interval.
     ///
+    ///   * `lower_bound` should be no lesser than `VALUE_MIN`.
+    ///
+    ///   * `upper_bound` should be greater than `lower_bound`, but no
+    ///     greater than `VALUE_MAX`.
+    ///
     /// * `static_eval` should be position's static evaluation, or
     ///   `VALUE_UNKNOWN`.
     ///
