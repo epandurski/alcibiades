@@ -164,12 +164,12 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     }
 
     #[inline]
-    fn evaluate_quiescence(&self,
-                           depth: Depth,
-                           lower_bound: Value,
-                           upper_bound: Value,
-                           static_eval: Value)
-                           -> Self::QsearchResult {
+    fn qsearch(&self,
+               depth: Depth,
+               lower_bound: Value,
+               upper_bound: Value,
+               static_eval: Value)
+               -> Self::QsearchResult {
         debug_assert!(DEPTH_MIN <= depth && depth <= 0);
         debug_assert!(lower_bound >= VALUE_MIN);
         debug_assert!(upper_bound <= VALUE_MAX);
@@ -624,9 +624,9 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_quiescence() {
+    fn qsearch() {
         let p = P::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(0, -10000, 10000, VALUE_UNKNOWN).searched_nodes(),
+        assert_eq!(p.qsearch(0, -10000, 10000, VALUE_UNKNOWN).searched_nodes(),
                    1);
     }
 

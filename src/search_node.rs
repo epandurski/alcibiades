@@ -37,7 +37,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// with.
     type Evaluator: Evaluator;
 
-    /// The type of result object that `evaluate_quiescence` returns.
+    /// The type of result object that `qsearch` returns.
     type QsearchResult: QsearchResult;
 
     /// Instantiates a new chess position from playing history.
@@ -118,12 +118,12 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// **Important note:** This method will return a reliable result
     /// even when the side to move is in check. Repeated and rule-50
     /// positions are always evaluated to `0`.
-    fn evaluate_quiescence(&self,
-                           depth: Depth,
-                           lower_bound: Value,
-                           upper_bound: Value,
-                           static_eval: Value)
-                           -> Self::QsearchResult;
+    fn qsearch(&self,
+               depth: Depth,
+               lower_bound: Value,
+               upper_bound: Value,
+               static_eval: Value)
+               -> Self::QsearchResult;
 
     /// Returns the likely evaluation change (material) to be lost or
     /// gained as a result of a given move.
