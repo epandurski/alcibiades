@@ -252,7 +252,16 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
 
             // Use this slot if it contains an old record for the same key.
             if record.key == key {
-                if data.move_digest() == MoveDigest::invalid() {
+                if record.data.bound() == BOUND_EXACT &&
+                   record.data.importance() > data.importance() {
+                    // Keep the old record if we are certain that it
+                    // is more important than the new one.
+                    //
+                    // **Note:** We do not keep old records with
+                    // inexact bounds because they can be useless,
+                    // regardless of their depth.
+                    data = record.data;
+                } else if data.move_digest() == MoveDigest::invalid() {
                     // Keep the move from the old record if the new
                     // record has no move.
                     data.set_move_digest(record.data.move_digest());
