@@ -20,8 +20,11 @@ use super::aspiration::Aspiration;
 /// Executes mulit-PV searches with aspiration windows, complying with
 /// `searchmoves`.
 /// 
-/// The final progress report contains the `searchmoves` vector sorted
-/// by descending move strength.
+/// The auxiliary data field of searches' progress reports will
+/// contain either an empty vector of moves, or the `searchmoves`
+/// vector sorted by descending move strength. This allows the
+/// iterative deepening routine to improve `searchmoves`' order on
+/// each iteration.
 pub struct Multipv<T: SearchExecutor> {
     tt: Arc<T::HashTable>,
     params: SearchParams<T::SearchNode>,
