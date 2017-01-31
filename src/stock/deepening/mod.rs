@@ -54,7 +54,6 @@ use self::multipv::Multipv;
 /// **Important note:** `Deepening` requires a proper transposition
 /// table to do its work. It can not work with `DummyHashTable`.
 pub struct Deepening<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -78,7 +77,6 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
 
     fn new(tt: Arc<Self::HashTable>) -> Deepening<T> {
         Deepening {
-            tt: tt.clone(),
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
@@ -124,7 +122,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         if done && !self.search_is_terminated {
             debug_assert_eq!(depth, self.depth + 1);
             report.depth = depth;
-            report.data.extend(self.extract_variations(data));
+            report.data.extend(self.multipv.extract_variations());
             self.previously_searched_nodes = report.searched_nodes;
             self.depth = depth;
             if depth < self.params.depth {
@@ -163,30 +161,6 @@ impl<T: SearchExecutor> Deepening<T> {
                                       ..self.params.clone()
                                   },
                                   None);
-    }
-
-    fn extract_variations(&mut self, moves: Vec<Move>) -> Vec<Variation> {
-        let mut variations = vec![];
-        if self.multipv.genuine_multipv() {
-            for m in moves.iter().take(self.multipv.variation_count()) {
-                assert!(self.params.position.do_move(*m));
-                let mut v = self.tt.extract_pv(&self.params.position);
-                self.params.position.undo_last_move();
-                v.moves.insert(0, *m);
-                v.value = -v.value;
-                v.bound = match v.bound {
-                    BOUND_LOWER => BOUND_UPPER,
-                    BOUND_UPPER => BOUND_LOWER,
-                    x => x,
-                };
-                variations.push(v);
-            }
-        } else if self.multipv.variation_count() != 0 {
-            // Aspiration only.
-            debug_assert_eq!(self.multipv.variation_count(), 1);
-            variations.push(self.tt.extract_pv(&self.params.position));
-        }
-        variations
     }
 }
 

@@ -17,10 +17,11 @@ use super::{bogus_params, contains_dups};
 use super::aspiration::Aspiration;
 
 
-/// Executes mulit-PV searches with aspiration windows.
+/// Executes mulit-PV searches with aspiration windows, complying with
+/// `searchmoves`.
 /// 
-/// The final progress report will contain the `searchmoves` vector
-/// sorted by descending move strength.
+/// The final progress report contains the `searchmoves` vector sorted
+/// by descending move strength.
 pub struct Multipv<T: SearchExecutor> {
     tt: Arc<T::HashTable>,
     params: SearchParams<T::SearchNode>,
@@ -30,7 +31,7 @@ pub struct Multipv<T: SearchExecutor> {
     // The real work will be handed over to `searcher`.
     searcher: Aspiration<T>,
 
-    // The number of best lines of play that are being calculated.
+    // The number of best lines of play that should be calculated.
     variation_count: usize,
 
     // Whether all legal moves in the root position are considered.
@@ -75,20 +76,26 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         debug_assert!(!contains_dups(&params.searchmoves));
 
         let n = params.searchmoves.len();
-        self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
         self.all_moves_are_considered = n == params.position.legal_moves().len();
+        self.params = params;
+        self.search_is_terminated = false;
+        self.previously_searched_nodes = 0;
+        self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
         if n == 0 || self.variation_count == 1 && self.all_moves_are_considered {
-            // An aspiration-only search.
+            // A plain aspiration search.
+            //
+            // A search is not a genuine multi-PV search if all legal
+            // moves in the root position are being considered, and
+            // the number of best lines of play that should be
+            // calculated is one or zero. In those cases we fall-back
+            // to a plain aspiration search.
             debug_assert!(self.variation_count <= 1);
             self.searcher.lmr_mode = false;
-            self.searcher.start_search(params, None);
+            self.searcher.start_search(self.params.clone(), None);
         } else {
             // A genuine multi-PV search.
             debug_assert!(self.variation_count >= 1);
             self.searcher.lmr_mode = true;
-            self.params = params;
-            self.search_is_terminated = false;
-            self.previously_searched_nodes = 0;
             self.current_move_index = 0;
             self.values = vec![VALUE_MIN; n];
             self.search_current_move();
@@ -96,7 +103,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
-        if self.genuine_multipv() {
+        if self.runs_genuine_multipv_search() {
             let SearchReport { searched_nodes, value, done, .. } = try!(self.searcher
                                                                             .try_recv_report());
             let mut report = SearchReport {
@@ -110,7 +117,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
             if done && !self.search_is_terminated {
                 self.previously_searched_nodes = report.searched_nodes;
                 self.params.position.undo_last_move();
-                self.change_current_move(-value);
+                self.advance_current_move(-value);
                 if self.search_current_move() {
                     report.done = false;
                 } else {
@@ -155,30 +162,37 @@ impl<T: SearchExecutor> SetOption for Multipv<T> {
 
 
 impl<T: SearchExecutor> Multipv<T> {
-    /// Returns the number of best lines of play that are being
-    /// calculated.
-    #[inline]
-    pub fn variation_count(&self) -> usize {
-        self.variation_count
-    }
-
-    /// Returns if the current search is a genuine multi-PV search.
-    ///
-    /// A search is not a genuine multi-PV search if all legal moves
-    /// in the root position are being considered, and the number of
-    /// best lines of play that are being calculated is zero or one.
-    #[inline]
-    pub fn genuine_multipv(&self) -> bool {
-        self.searcher.lmr_mode
+    /// Returns the best lines of play so far.
+    pub fn extract_variations(&mut self) -> Vec<Variation> {
+        let mut variations = vec![];
+        if self.runs_genuine_multipv_search() {
+            for m in self.params.searchmoves.iter().take(self.variation_count) {
+                let p = &mut self.params.position;
+                assert!(p.do_move(*m));
+                let mut v = self.tt.extract_pv(p);
+                p.undo_last_move();
+                v.moves.insert(0, *m);
+                v.value = -v.value;
+                v.bound = match v.bound {
+                    BOUND_LOWER => BOUND_UPPER,
+                    BOUND_UPPER => BOUND_LOWER,
+                    x => x,
+                };
+                variations.push(v);
+            }
+        } else if self.variation_count != 0 {
+            debug_assert_eq!(self.variation_count, 1);
+            variations.push(self.tt.extract_pv(&self.params.position));
+        }
+        variations
     }
 
     fn search_current_move(&mut self) -> bool {
         if self.current_move_index < self.params.searchmoves.len() {
             let alpha = self.values[self.variation_count - 1];
             if alpha < self.params.upper_bound {
-                assert!(self.params
-                            .position
-                            .do_move(self.params.searchmoves[self.current_move_index]));
+                let m = self.params.searchmoves[self.current_move_index];
+                assert!(self.params.position.do_move(m));
                 self.previously_searched_nodes += 1;
                 self.searcher.start_search(SearchParams {
                                                search_id: 0,
@@ -198,7 +212,6 @@ impl<T: SearchExecutor> Multipv<T> {
 
     fn write_reslut_to_tt(&self) {
         if self.all_moves_are_considered {
-            let p = &self.params.position;
             let value = self.values[0];
             let bound = match value {
                 v if v <= self.params.lower_bound => BOUND_UPPER,
@@ -206,24 +219,29 @@ impl<T: SearchExecutor> Multipv<T> {
                 _ => BOUND_EXACT,
             };
             let best_move = self.params.searchmoves[0];
-            let static_eval = p.evaluator().evaluate(p.board());
+            let p = &self.params.position;
             self.tt.store(p.hash(), <T::HashTable as HashTable>::Entry::with_static_eval(
-                value, bound, self.params.depth, best_move.digest(), static_eval));
+                value, bound, self.params.depth, best_move.digest(), p.evaluator().evaluate(p.board())));
         }
     }
 
-    fn change_current_move(&mut self, v: Value) {
+    fn advance_current_move(&mut self, v: Value) {
         debug_assert!(v >= self.values[self.current_move_index]);
         let mut i = self.current_move_index;
         self.current_move_index += 1;
 
-        // Update `self.values`, making sure that it remains sorted.
+        // Update `self.values` making sure that it remains sorted.
         self.values[i] = v;
         while i > 0 && v > self.values[i - 1] {
             self.values.swap(i, i - 1);
             self.params.searchmoves.swap(i, i - 1);
             i -= 1;
         }
+    }
+
+    #[inline]
+    fn runs_genuine_multipv_search(&self) -> bool {
+        self.searcher.lmr_mode
     }
 }
 
