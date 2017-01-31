@@ -197,18 +197,19 @@ impl<T: SearchExecutor> Multipv<T> {
     }
 
     fn write_reslut_to_tt(&self) {
-        let best_move = self.params.searchmoves[0];
-        let value = self.values[0];
-        let bound = match value {
-            v if v <= self.params.lower_bound && !self.all_moves_are_considered => BOUND_NONE,
-            v if v <= self.params.lower_bound => BOUND_UPPER,
-            v if v >= self.params.upper_bound || !self.all_moves_are_considered => BOUND_LOWER,
-            _ => BOUND_EXACT,
-        };
-        let p = &self.params.position;
-        let static_eval = p.evaluator().evaluate(p.board());
-        self.tt.store(p.hash(), <T::HashTable as HashTable>::Entry::with_static_eval(
+        if self.all_moves_are_considered {
+            let p = &self.params.position;
+            let value = self.values[0];
+            let bound = match value {
+                v if v <= self.params.lower_bound => BOUND_UPPER,
+                v if v >= self.params.upper_bound => BOUND_LOWER,
+                _ => BOUND_EXACT,
+            };
+            let best_move = self.params.searchmoves[0];
+            let static_eval = p.evaluator().evaluate(p.board());
+            self.tt.store(p.hash(), <T::HashTable as HashTable>::Entry::with_static_eval(
                 value, bound, self.params.depth, best_move.digest(), static_eval));
+        }
     }
 
     fn change_current_move(&mut self, v: Value) {
