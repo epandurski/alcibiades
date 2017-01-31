@@ -68,6 +68,7 @@ pub struct Deepening<T: SearchExecutor> {
     value: Value,
 }
 
+
 impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     type HashTable = T::HashTable;
 
@@ -143,6 +144,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
     }
 }
 
+
 impl<T: SearchExecutor> SetOption for Deepening<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         Multipv::<T>::options()
@@ -152,6 +154,7 @@ impl<T: SearchExecutor> SetOption for Deepening<T> {
         Multipv::<T>::set_option(name, value)
     }
 }
+
 
 impl<T: SearchExecutor> Deepening<T> {
     fn search_next_depth(&mut self) {
