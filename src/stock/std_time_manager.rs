@@ -24,10 +24,10 @@ pub struct StdTimeManager {
 }
 
 
-impl<S> TimeManager<S> for StdTimeManager
-    where S: SearchExecutor<ReportData = Vec<Variation>>
+impl<T> TimeManager<T> for StdTimeManager
+    where T: SearchExecutor<ReportData = Vec<Variation>>
 {
-    fn new(position: &S::SearchNode, time: &RemainingTime) -> StdTimeManager {
+    fn new(position: &T::SearchNode, time: &RemainingTime) -> StdTimeManager {
         // Get our remaining time and increment (in milliseconds).
         let (t, inc) = if position.board().to_move == WHITE {
             (time.white_millis as f64, time.winc_millis as f64)
@@ -76,61 +76,22 @@ impl<S> TimeManager<S> for StdTimeManager
         }
     }
 
-    fn update(&mut self, report: &SearchReport<Vec<Variation>>) {
-        let &SearchReport { ref depth, ref value, ref searched_nodes, .. } = report;
-        if *depth > self.depth {
-            self.depth = *depth;
-            if *searched_nodes < 100 {
-                return; // We ignore the first few depths.
-            }
-            let t = elapsed_millis(&self.started_at);
-            let depth = *depth as f64;
-            let searched_nodes = *searched_nodes as f64;
-
-            // We maintain a list of data points so as to be able to
-            // intelligently guess how much time it will take for the
-            // next search depth to complete. (We apply an exponential
-            // regression over the last `M` points in the list.)
-            const M: usize = 5;
-            self.extrapolation_points.push((depth, searched_nodes.ln()));
-            let expected_duration = match self.extrapolation_points.len() {
-                n if n >= M => {
-                    let last_m = &self.extrapolation_points[n - M..];
-                    let factor = (extrapolate(last_m, depth + 1.0).exp() / searched_nodes).max(1.0);
-
-                    // Update `BRANCHING_FACTOR`. This is an average
-                    // branching factor calculated over the last few
-                    // moves.
-                    if n == M {
-                        let mut bf = BRANCHING_FACTOR.write().unwrap();
-                        *bf = (*bf * 2.0 + factor) / 3.0;
-                    }
-
-                    factor * t
+    #[allow(unused_variables)]
+    fn must_play(&mut self,
+                 search_executor: &mut T,
+                 report: Option<&SearchReport<Vec<Variation>>>)
+                 -> bool {
+        if !self.must_play {
+            let mut is_finished = false;
+            if let Some(r) = report {
+                if r.depth > self.depth {
+                    self.depth = r.depth;
+                    is_finished = self.is_deep_enough(r);
                 }
-                _ => *BRANCHING_FACTOR.read().unwrap() * t,
-            };
-
-            // We may need to revise the allotted time if position's
-            // evaluation has changed a lot with the newly completed
-            // depth.
-            if (expected_duration > self.allotted_time) &&
-               (self.value != VALUE_UNKNOWN && *value != VALUE_UNKNOWN) &&
-               (self.value as isize - *value as isize).abs() >= 25 {
-                self.allotted_time = expected_duration;
             }
-            self.value = *value;
-
-            // We try to stay as close as possible to the allotted
-            // time, without crossing the hard limit.
-            self.must_play = expected_duration > self.hard_limit ||
-                             expected_duration > self.allotted_time &&
-                             expected_duration - self.allotted_time > self.allotted_time - t;
+            self.must_play = is_finished || elapsed_millis(&self.started_at) > self.hard_limit;
         }
-    }
-
-    fn must_play(&self) -> bool {
-        self.must_play || elapsed_millis(&self.started_at) > self.hard_limit
+        self.must_play
     }
 }
 
@@ -148,6 +109,62 @@ impl SetOption for StdTimeManager {
                 _ => (),
             }
         }
+    }
+}
+
+
+impl StdTimeManager {
+    /// A helper method. It decides whether we should stop now or we
+    /// should search deeper.
+    fn is_deep_enough(&mut self, report: &SearchReport<Vec<Variation>>) -> bool {
+        if report.searched_nodes < 100 {
+            return false; // We ignore the first few depths.
+        }
+        let t = elapsed_millis(&self.started_at);
+        let depth = report.depth as f64;
+        let searched_nodes = report.searched_nodes as f64;
+
+        // We maintain a list of data points so as to be able to
+        // intelligently guess how much time it will take for the
+        // next search depth to complete. (We apply an exponential
+        // regression over the last `M` points in the list.)
+        const M: usize = 5;
+        self.extrapolation_points.push((depth, searched_nodes.ln()));
+        let expected_duration = match self.extrapolation_points.len() {
+            n if n >= M => {
+                let last_m = &self.extrapolation_points[n - M..];
+                let factor = (extrapolate(last_m, depth + 1.0).exp() / searched_nodes).max(1.0);
+
+                // Update `BRANCHING_FACTOR`. This is an average
+                // branching factor calculated over the last few
+                // moves.
+                if n == M {
+                    let mut bf = BRANCHING_FACTOR.write().unwrap();
+                    *bf = (*bf * 2.0 + factor) / 3.0;
+                }
+
+                factor * t
+            }
+            _ => *BRANCHING_FACTOR.read().unwrap() * t,
+        };
+
+        // We may need to revise the allotted time if position's
+        // evaluation has changed a lot with the newly completed
+        // depth.
+        //
+        // TODO: `25` must be bound to pawn's value.
+        if (expected_duration > self.allotted_time) &&
+           (self.value != VALUE_UNKNOWN && report.value != VALUE_UNKNOWN) &&
+           (self.value as isize - report.value as isize).abs() >= 25 {
+            self.allotted_time = expected_duration;
+        }
+        self.value = report.value;
+
+        // We try to stay as close as possible to the allotted
+        // time, without crossing the hard limit.
+        expected_duration > self.hard_limit ||
+        (expected_duration > self.allotted_time &&
+         expected_duration - self.allotted_time > self.allotted_time - t)
     }
 }
 
