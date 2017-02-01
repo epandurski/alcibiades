@@ -13,17 +13,14 @@ use uci::SetOption;
 pub struct DummyTimeManager;
 
 
-impl<S> TimeManager<S> for DummyTimeManager
-    where S: SearchExecutor<ReportData = Vec<Variation>>
+impl<T> TimeManager<T> for DummyTimeManager
+    where T: SearchExecutor<ReportData = Vec<Variation>>
 {
-    fn new(_: &S::SearchNode, _: &RemainingTime) -> DummyTimeManager {
+    fn new(_: &T::SearchNode, _: &RemainingTime) -> DummyTimeManager {
         DummyTimeManager
     }
 
-    fn update(&mut self, _: &SearchReport<Vec<Variation>>) {}
-
-    /// Returns `false`.
-    fn must_play(&self) -> bool {
+    fn must_play(&mut self, _: &mut T, _: Option<&SearchReport<Vec<Variation>>>) -> bool {
         false
     }
 }

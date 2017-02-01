@@ -259,7 +259,7 @@ impl<S, T> UciEngine for Engine<S, T>
             // See if we must stop thinking and play.
             if is_thinking && !self.is_pondering &&
                match self.play_when {
-                PlayWhen::TimeManagement(ref tm) => self.status.done || tm.must_play(),
+                PlayWhen::TimeManagement(_) => self.status.done,
                 PlayWhen::MoveTime(t) => self.status.done || self.status.duration_millis >= t,
                 PlayWhen::Nodes(n) => self.status.done || self.status.searched_nodes >= n,
                 PlayWhen::Depth(d) => self.status.done || self.status.depth >= d,
@@ -360,9 +360,23 @@ impl<S, T> Engine<S, T>
     }
 
     fn wait_status_update(&mut self, duration: Duration) {
+        let mut received_report = false;
         self.searcher.wait_report(duration);
         while let Ok(r) = self.searcher.try_recv_report() {
-            self.process_report(&r)
+            received_report = true;
+            self.process_report(&r);
+            self.inform_time_manager(Some(&r));
+        }
+        if !received_report && !self.status.done {
+            self.inform_time_manager(None);
+        }
+    }
+
+    fn inform_time_manager(&mut self, report: Option<&SearchReport<Vec<Variation>>>) {
+        if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
+            if tm.must_play(&mut self.searcher, report) && !self.is_pondering {
+                self.searcher.terminate_search();
+            }
         }
     }
 
@@ -387,11 +401,6 @@ impl<S, T> Engine<S, T>
         if elapsed_millis >= 1000 {
             let nodes = report.searched_nodes - self.nps_stats.1;
             self.nps_stats = (1000 * nodes / elapsed_millis, report.searched_nodes, duration_millis)
-        }
-
-        // Inform the time manager.
-        if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
-            tm.update(report);
         }
 
         // If principal variations are provided with the report, show them.
