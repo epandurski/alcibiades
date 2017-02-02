@@ -184,11 +184,20 @@ pub trait SearchExecutor: SetOption {
     /// after a specified duration or earlier.
     fn wait_report(&self, duration: Duration);
 
-    /// Requests the termination of the current search.
+    /// Sends a message to the currently executing search.
     ///
-    /// Can be called more than once for the same search. After
-    /// calling `terminate_search`, `wait_report` and
-    /// `try_recv_report` will continue to be called periodically
-    /// until the returned report indicates that the search is done.
-    fn terminate_search(&mut self);
+    /// `message` is not bound to any particular format, but the
+    /// implementation must meet the following requirements:
+    ///
+    /// * The message `"TERMINATE"` is recognized as a request to
+    ///   terminate the current search.  After receiving
+    ///   `"TERMINATE"`, `wait_report` and `try_recv_report` methods
+    ///   will continue to be called periodically until the returned
+    ///   report indicates that the search is done.
+    ///
+    /// * `"TERMINATE"` can be received more than once for the same
+    ///   search.
+    ///
+    /// * Unrecognized messages are ignored.
+    fn send_message(&mut self, message: &str);
 }

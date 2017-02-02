@@ -348,7 +348,7 @@ impl<S, T> Engine<S, T>
     }
 
     fn terminate(&mut self) {
-        self.searcher.terminate_search();
+        self.searcher.send_message("TERMINATE");
         while !self.status.done {
             self.wait_status_update(Duration::from_millis(1000));
         }
@@ -370,7 +370,7 @@ impl<S, T> Engine<S, T>
     fn inform_time_manager(&mut self, report: Option<&SearchReport<Vec<Variation>>>) {
         if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
             if tm.must_play(&mut self.searcher, report) && !self.is_pondering {
-                self.searcher.terminate_search();
+                self.searcher.send_message("TERMINATE");
             }
         }
     }
