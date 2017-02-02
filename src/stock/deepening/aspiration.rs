@@ -11,7 +11,6 @@ use depth::*;
 use hash_table::*;
 use search_node::SearchNode;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
-use time_manager::RemainingTime;
 use super::{bogus_params, contains_dups};
 
 
@@ -74,7 +73,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams<T::SearchNode>, _: Option<&RemainingTime>) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         debug_assert!(params.depth >= 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
@@ -144,13 +143,12 @@ impl<T: SearchExecutor> Aspiration<T> {
             self.params.depth
         };
         self.searcher.start_search(SearchParams {
-                                       search_id: 0,
-                                       depth: depth,
-                                       lower_bound: self.alpha,
-                                       upper_bound: self.beta,
-                                       ..self.params.clone()
-                                   },
-                                   None);
+            search_id: 0,
+            depth: depth,
+            lower_bound: self.alpha,
+            upper_bound: self.beta,
+            ..self.params.clone()
+        });
     }
 
     fn calc_initial_aspiration_window(&mut self) {

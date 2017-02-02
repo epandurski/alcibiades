@@ -219,18 +219,13 @@ impl<S, T> UciEngine for Engine<S, T>
             PlayWhen::TimeManagement(T::new(&self.position, &remaining_time))
         };
         self.searcher.start_search(SearchParams {
-                                       search_id: 0,
-                                       position: self.position.clone(),
-                                       depth: depth,
-                                       lower_bound: VALUE_MIN,
-                                       upper_bound: VALUE_MAX,
-                                       searchmoves: searchmoves,
-                                   },
-                                   if let PlayWhen::TimeManagement(_) = self.play_when {
-                                       Some(&remaining_time)
-                                   } else {
-                                       None
-                                   });
+            search_id: 0,
+            position: self.position.clone(),
+            depth: depth,
+            lower_bound: VALUE_MIN,
+            upper_bound: VALUE_MAX,
+            searchmoves: searchmoves,
+        });
     }
 
     fn ponder_hit(&mut self) {

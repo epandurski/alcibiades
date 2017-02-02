@@ -12,7 +12,6 @@ use hash_table::*;
 use evaluator::Evaluator;
 use search_node::SearchNode;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
-use time_manager::RemainingTime;
 use super::{bogus_params, contains_dups};
 use super::aspiration::Aspiration;
 
@@ -70,7 +69,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams<T::SearchNode>, _: Option<&RemainingTime>) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         debug_assert!(params.depth > 0);
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
@@ -94,7 +93,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
             // to a plain aspiration search.
             debug_assert!(self.variation_count <= 1);
             self.searcher.lmr_mode = false;
-            self.searcher.start_search(self.params.clone(), None);
+            self.searcher.start_search(self.params.clone());
         } else {
             // A genuine multi-PV search.
             debug_assert!(self.variation_count >= 1);
@@ -198,14 +197,13 @@ impl<T: SearchExecutor> Multipv<T> {
                 assert!(self.params.position.do_move(m));
                 self.previously_searched_nodes += 1;
                 self.searcher.start_search(SearchParams {
-                                               search_id: 0,
-                                               depth: self.params.depth - 1,
-                                               lower_bound: -self.params.upper_bound,
-                                               upper_bound: -max(alpha, self.params.lower_bound),
-                                               searchmoves: self.params.position.legal_moves(),
-                                               ..self.params.clone()
-                                           },
-                                           None);
+                    search_id: 0,
+                    depth: self.params.depth - 1,
+                    lower_bound: -self.params.upper_bound,
+                    upper_bound: -max(alpha, self.params.lower_bound),
+                    searchmoves: self.params.position.legal_moves(),
+                    ..self.params.clone()
+                });
                 return true;
             }
         }

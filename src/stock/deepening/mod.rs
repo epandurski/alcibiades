@@ -14,7 +14,6 @@ use depth::*;
 use hash_table::*;
 use search_node::SearchNode;
 use search_executor::{SearchParams, SearchReport, SearchExecutor};
-use time_manager::RemainingTime;
 use self::multipv::Multipv;
 
 
@@ -87,7 +86,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         }
     }
 
-    fn start_search(&mut self, params: SearchParams<T::SearchNode>, _: Option<&RemainingTime>) {
+    fn start_search(&mut self, params: SearchParams<T::SearchNode>) {
         assert!(params.depth > 0, "For deepening, depth must be at least 1.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound >= VALUE_MIN);
@@ -159,11 +158,10 @@ impl<T: SearchExecutor> SetOption for Deepening<T> {
 impl<T: SearchExecutor> Deepening<T> {
     fn search_next_depth(&mut self) {
         self.multipv.start_search(SearchParams {
-                                      search_id: 0,
-                                      depth: self.depth + 1,
-                                      ..self.params.clone()
-                                  },
-                                  None);
+            search_id: 0,
+            depth: self.depth + 1,
+            ..self.params.clone()
+        });
     }
 }
 
