@@ -1,7 +1,7 @@
 //! Implements `StdTimeManager`.
 
 use std::sync::RwLock;
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 use board::*;
 use depth::*;
 use value::*;
@@ -178,7 +178,7 @@ lazy_static! {
 /// A helper function. It calculates the elapsed milliseconds since a
 /// given time.
 fn elapsed_millis(since: &SystemTime) -> f64 {
-    let d = since.elapsed().unwrap();
+    let d = since.elapsed().unwrap_or(Duration::from_millis(0));
     (1000 * d.as_secs()) as f64 + (d.subsec_nanos() / 1_000_000) as f64
 }
 
