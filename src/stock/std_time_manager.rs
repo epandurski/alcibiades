@@ -117,23 +117,27 @@ impl StdTimeManager {
     /// A helper method. It decides whether we should stop now or we
     /// should search deeper.
     fn is_deep_enough(&mut self, report: &SearchReport<Vec<Variation>>) -> bool {
-        if report.searched_nodes < 100 {
-            return false; // We ignore the first few depths.
-        }
         let t = elapsed_millis(&self.started_at);
-        let depth = report.depth as f64;
-        let searched_nodes = report.searched_nodes as f64;
+        if t == 0.0 || report.searched_nodes < 100 {
+            // We ignore the first few depths.
+            return false;
+        }
 
         // We maintain a list of data points so as to be able to
         // intelligently guess how much time it will take for the
         // next search depth to complete. (We apply an exponential
         // regression over the last `M` points in the list.)
         const M: usize = 5;
-        self.extrapolation_points.push((depth, searched_nodes.ln()));
+        let x = report.depth as f64;
+        let y = t.ln();
+        self.extrapolation_points.push((x, y));
         let expected_duration = match self.extrapolation_points.len() {
             n if n >= M => {
                 let last_m = &self.extrapolation_points[n - M..];
-                let factor = (extrapolate(last_m, depth + 1.0).exp() / searched_nodes).max(1.0);
+                let factor = (extrapolate_y(last_m, x + 1.0).exp() / t).max(1.0);
+
+                // let x_max = extrapolate_x(last_m, y_max);
+                // let slope = (y_max - y) / (x_max - x);
 
                 // Update `BRANCHING_FACTOR`. This is an average
                 // branching factor calculated over the last few
@@ -162,7 +166,7 @@ impl StdTimeManager {
 
         // We try to stay as close as possible to the allotted
         // time, without crossing the hard limit.
-        expected_duration > self.hard_limit ||
+        1.33 * expected_duration > self.hard_limit ||
         (expected_duration > self.allotted_time &&
          expected_duration - self.allotted_time > self.allotted_time - t)
     }
@@ -185,7 +189,7 @@ fn elapsed_millis(since: &SystemTime) -> f64 {
 
 /// A helper function. It linearly extrapolates the value y(x) using
 /// the (x, y) values in `points` as a reference.
-fn extrapolate(points: &[(f64, f64)], x: f64) -> f64 {
+fn extrapolate_y(points: &[(f64, f64)], x: f64) -> f64 {
     debug_assert!(points.len() > 1);
     let sum_x = points.iter().fold(0.0, |acc, &p| acc + p.0);
     let sum_y = points.iter().fold(0.0, |acc, &p| acc + p.1);
@@ -198,14 +202,32 @@ fn extrapolate(points: &[(f64, f64)], x: f64) -> f64 {
 }
 
 
+/// A helper function. It linearly extrapolates the value x(y) using
+/// the (x, y) values in `points` as a reference.
+fn extrapolate_x(points: &[(f64, f64)], y: f64) -> f64 {
+    debug_assert!(points.len() > 1);
+    let sum_x = points.iter().fold(0.0, |acc, &p| acc + p.0);
+    let sum_y = points.iter().fold(0.0, |acc, &p| acc + p.1);
+    let sum_xx = points.iter().fold(0.0, |acc, &p| acc + p.0 * p.0);
+    let sum_xy = points.iter().fold(0.0, |acc, &p| acc + p.0 * p.1);
+    let n = points.len() as f64;
+    let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
+    let intercept = (sum_y - slope * sum_x) / n;
+    (y - intercept) / slope.max(0.01)
+}
+
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn linear_regression() {
-        use super::extrapolate;
+        use super::{extrapolate_x, extrapolate_y};
         let points = vec![(21.0, 1.0), (22.0, 2.0), (23.0, 3.0), (24.0, 4.0)];
         let x = 25.0;
-        let y = extrapolate(&points, x);
+        let y = extrapolate_y(&points, x);
         assert!(4.99 < y && y < 5.01);
+        let y = 5.0;
+        let x = extrapolate_x(&points, y);
+        assert!(24.99 < x && x < 25.01);
     }
 }
