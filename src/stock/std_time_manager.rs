@@ -88,9 +88,10 @@ impl<T> TimeManager<T> for StdTimeManager
                 if r.depth > self.depth {
                     self.depth = r.depth;
                     let (target_depth, t_next) = self.target_depth(r);
+                    let t_pessimistic = t_next * AVG_SLOPE.read().unwrap().exp().sqrt();
                     let msg = format!("TARGET_DEPTH={}", target_depth);
                     search_executor.send_message(msg.as_str());
-                    is_finished = r.depth >= target_depth || t_next > self.hard_limit
+                    is_finished = r.depth >= target_depth || t_pessimistic > self.hard_limit
                 }
             }
             self.must_play = is_finished || elapsed_millis(&self.started_at) > self.hard_limit;
@@ -175,7 +176,7 @@ impl StdTimeManager {
         }
         self.value = report.value;
 
-        (target_depth, 1.5 * t_next)
+        (target_depth, t_next)
     }
 }
 
