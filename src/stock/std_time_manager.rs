@@ -29,7 +29,7 @@ impl<T> TimeManager<T> for StdTimeManager
     where T: SearchExecutor<ReportData = Vec<Variation>>
 {
     fn new(position: &T::SearchNode, time: &RemainingTime) -> StdTimeManager {
-        // Get our remaining time and increment (in milliseconds).
+        // Get our remaining time and time increment (in milliseconds).
         let (t, inc) = if position.board().to_move == WHITE {
             (time.white_millis as f64, time.winc_millis as f64)
         } else {
@@ -87,7 +87,10 @@ impl<T> TimeManager<T> for StdTimeManager
             if let Some(r) = report {
                 if r.depth > self.depth {
                     self.depth = r.depth;
-                    is_finished = self.is_deep_enough(r);
+                    let (target_depth, t_next) = self.target_depth(r);
+                    let msg = format!("TARGET_DEPTH={}", target_depth);
+                    search_executor.send_message(msg.as_str());
+                    is_finished = r.depth >= target_depth || t_next > self.hard_limit
                 }
             }
             self.must_play = is_finished || elapsed_millis(&self.started_at) > self.hard_limit;
@@ -115,62 +118,64 @@ impl SetOption for StdTimeManager {
 
 
 impl StdTimeManager {
-    /// A helper method. It decides whether we should stop now or we
-    /// should search deeper.
-    fn is_deep_enough(&mut self, report: &SearchReport<Vec<Variation>>) -> bool {
+    /// Guesses what target depth we will be able to reach, and how
+    /// much time (milliseconds) it will take for the next search
+    /// depth to complete.
+    fn target_depth(&mut self, report: &SearchReport<Vec<Variation>>) -> (Depth, f64) {
         let t = elapsed_millis(&self.started_at);
+
+        // Ignore the first 1-2 depths.
         if t < 0.001 || report.searched_nodes < 100 {
-            // We ignore the first few depths.
-            return false;
+            return (DEPTH_MAX, t);
         }
 
-        // We maintain a list of (x, y) data points so as to be able
-        // to intelligently guess how much time it will take for the
-        // next search depth to complete, and what target depth we
-        // will be able to reach. (To do that we apply a linear
-        // regression over the last `M` points in the list.)
-        const M: usize = 5;
+        // Add (x, y) to the list of data points.
         let x = report.depth as f64;
         let y = t.ln();
-        let x_max;
-        let y_max = self.allotted_time.ln(); // TODO: `self.allotted_time != 0.0`?
         self.data_points.push((x, y));
-        let t_next = match self.data_points.len() {
+
+        // Do a linear extrapolation based on the last `M` data points.
+        const M: usize = 5;
+        let y_max = self.allotted_time.max(0.001).ln();
+        let x_max;
+        let t_next;
+        match self.data_points.len() {
             n if n >= M => {
                 let last_m = &self.data_points[n - M..];
                 let (slope, intercept) = linear_regression(last_m);
                 debug_assert!(slope >= 0.001);
-                x_max = (y_max - intercept) / slope;
                 if n == M {
-                    // Update `AVG_SLOPE`.
                     let mut s = AVG_SLOPE.write().unwrap();
                     *s = (*s * 2.0 + slope) / 3.0;
                 }
-                (slope * (x + 1.0) + intercept).exp()
+                x_max = (y_max - intercept) / slope;
+                t_next = (slope * (x + 1.0) + intercept).exp();
             }
             _ => {
                 // There are not enough data points yet -- use `AVG_SLOPE`.
                 let s = AVG_SLOPE.read().unwrap();
                 x_max = x + (y_max - y) / *s;
-                t * s.exp()
+                t_next = t * s.exp();
             }
         };
+
+        // Set the target depth as close as possible to `x_max`.
         let mut target_depth = x_max.round()
                                     .min(DEPTH_MAX as f64)
                                     .max(DEPTH_MIN as f64) as Depth;
 
-        if target_depth <= report.depth &&
+        // Search one ply deeper if the target depth is reached, but
+        // position's evaluation has changed a lot.
+        //
+        // TODO: `25` must be bound to pawn's value.
+        if target_depth == report.depth &&
            (self.value != VALUE_UNKNOWN && report.value != VALUE_UNKNOWN) &&
            (self.value as isize - report.value as isize).abs() >= 25 {
-            // Search one ply deeper if position's evaluation has
-            // changed a lot with the newly completed depth.
-            //
-            // TODO: `25` must be bound to pawn's value.
-            target_depth = min(report.depth + 1, DEPTH_MAX);
+            target_depth = min(target_depth + 1, DEPTH_MAX);
         }
         self.value = report.value;
 
-        report.depth >= target_depth || 1.5 * t_next > self.hard_limit
+        (target_depth, 1.5 * t_next)
     }
 }
 
@@ -181,15 +186,14 @@ lazy_static! {
 }
 
 
-/// A helper function. It calculates the elapsed milliseconds since a
-/// given time.
+/// Calculates elapsed milliseconds since a given time.
 fn elapsed_millis(since: &SystemTime) -> f64 {
     let d = since.elapsed().unwrap_or(Duration::from_millis(0));
     (1000 * d.as_secs()) as f64 + (d.subsec_nanos() / 1_000_000) as f64
 }
 
 
-/// A helper function. It linearly extrapolates the values in `points`.
+/// Calculates a regression line that approximates `points`.
 fn linear_regression(points: &[(f64, f64)]) -> (f64, f64) {
     debug_assert!(points.len() > 1);
     let sum_x = points.iter().fold(0.0, |acc, &p| acc + p.0);
