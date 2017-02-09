@@ -138,9 +138,11 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         self.searcher.wait_report(duration);
     }
 
-    fn terminate_search(&mut self) {
-        self.search_is_terminated = true;
-        self.searcher.terminate_search();
+    fn send_message(&mut self, message: &str) {
+        if message == "TERMINATE" {
+            self.search_is_terminated = true;
+        }
+        self.searcher.send_message(message);
     }
 }
 

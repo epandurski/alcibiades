@@ -107,8 +107,10 @@ impl<T, N> SearchExecutor for SimpleSearchExecutor<T, N>
         }
     }
 
-    fn terminate_search(&mut self) {
-        self.thread_commands.send(Command::Terminate).unwrap();
+    fn send_message(&mut self, message: &str) {
+        if message == "TERMINATE" {
+            self.thread_commands.send(Command::Terminate).unwrap();
+        }
     }
 }
 

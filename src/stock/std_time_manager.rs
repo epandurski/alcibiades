@@ -1,7 +1,8 @@
 //! Implements `StdTimeManager`.
 
 use std::sync::RwLock;
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
+use std::cmp::min;
 use board::*;
 use depth::*;
 use value::*;
@@ -17,7 +18,7 @@ pub struct StdTimeManager {
     started_at: SystemTime,
     depth: Depth,
     value: Value,
-    extrapolation_points: Vec<(f64, f64)>,
+    data_points: Vec<(f64, f64)>,
     hard_limit: f64,
     allotted_time: f64,
     must_play: bool,
@@ -28,7 +29,7 @@ impl<T> TimeManager<T> for StdTimeManager
     where T: SearchExecutor<ReportData = Vec<Variation>>
 {
     fn new(position: &T::SearchNode, time: &RemainingTime) -> StdTimeManager {
-        // Get our remaining time and increment (in milliseconds).
+        // Get our remaining time and time increment (in milliseconds).
         let (t, inc) = if position.board().to_move == WHITE {
             (time.white_millis as f64, time.winc_millis as f64)
         } else {
@@ -52,7 +53,7 @@ impl<T> TimeManager<T> for StdTimeManager
             started_at: SystemTime::now(),
             depth: 0,
             value: VALUE_UNKNOWN,
-            extrapolation_points: Vec::with_capacity(32),
+            data_points: Vec::with_capacity(32),
             hard_limit: if position.legal_moves().len() > 1 {
                 hard_limit
             } else {
@@ -86,7 +87,11 @@ impl<T> TimeManager<T> for StdTimeManager
             if let Some(r) = report {
                 if r.depth > self.depth {
                     self.depth = r.depth;
-                    is_finished = self.is_deep_enough(r);
+                    let (target_depth, t_next) = self.target_depth(r);
+                    let t_pessimistic = t_next * AVG_SLOPE.read().unwrap().exp().sqrt();
+                    let msg = format!("TARGET_DEPTH={}", target_depth);
+                    search_executor.send_message(msg.as_str());
+                    is_finished = r.depth >= target_depth || t_pessimistic > self.hard_limit
                 }
             }
             self.must_play = is_finished || elapsed_millis(&self.started_at) > self.hard_limit;
@@ -114,78 +119,83 @@ impl SetOption for StdTimeManager {
 
 
 impl StdTimeManager {
-    /// A helper method. It decides whether we should stop now or we
-    /// should search deeper.
-    fn is_deep_enough(&mut self, report: &SearchReport<Vec<Variation>>) -> bool {
-        if report.searched_nodes < 100 {
-            return false; // We ignore the first few depths.
-        }
+    /// Guesses what target depth we will be able to reach, and how
+    /// much time (milliseconds) it will take for the next search
+    /// depth to complete.
+    fn target_depth(&mut self, report: &SearchReport<Vec<Variation>>) -> (Depth, f64) {
         let t = elapsed_millis(&self.started_at);
-        let depth = report.depth as f64;
-        let searched_nodes = report.searched_nodes as f64;
 
-        // We maintain a list of data points so as to be able to
-        // intelligently guess how much time it will take for the
-        // next search depth to complete. (We apply an exponential
-        // regression over the last `M` points in the list.)
+        // Ignore the first 1-2 depths.
+        if t < 0.001 || report.searched_nodes < 100 {
+            return (DEPTH_MAX, t);
+        }
+
+        // Add (x, y) to the list of data points.
+        let x = report.depth as f64;
+        let y = t.ln();
+        self.data_points.push((x, y));
+
+        // Do a linear extrapolation based on the last `M` data points.
         const M: usize = 5;
-        self.extrapolation_points.push((depth, searched_nodes.ln()));
-        let expected_duration = match self.extrapolation_points.len() {
+        let y_max = self.allotted_time.max(0.001).ln();
+        let x_max;
+        let t_next;
+        match self.data_points.len() {
             n if n >= M => {
-                let last_m = &self.extrapolation_points[n - M..];
-                let factor = (extrapolate(last_m, depth + 1.0).exp() / searched_nodes).max(1.0);
-
-                // Update `BRANCHING_FACTOR`. This is an average
-                // branching factor calculated over the last few
-                // moves.
+                let last_m = &self.data_points[n - M..];
+                let (slope, intercept) = linear_regression(last_m);
+                debug_assert!(slope >= 0.001);
                 if n == M {
-                    let mut bf = BRANCHING_FACTOR.write().unwrap();
-                    *bf = (*bf * 2.0 + factor) / 3.0;
+                    let mut s = AVG_SLOPE.write().unwrap();
+                    *s = (*s * 2.0 + slope) / 3.0;
                 }
-
-                factor * t
+                x_max = (y_max - intercept) / slope;
+                t_next = (slope * (x + 1.0) + intercept).exp();
             }
-            _ => *BRANCHING_FACTOR.read().unwrap() * t,
+            _ => {
+                // There are not enough data points yet -- use `AVG_SLOPE`.
+                let s = AVG_SLOPE.read().unwrap();
+                x_max = x + (y_max - y) / *s;
+                t_next = t * s.exp();
+            }
         };
 
-        // We may need to revise the allotted time if position's
-        // evaluation has changed a lot with the newly completed
-        // depth.
+        // Set the target depth as close as possible to `x_max`.
+        let mut target_depth = x_max.round()
+                                    .min(DEPTH_MAX as f64)
+                                    .max(DEPTH_MIN as f64) as Depth;
+
+        // Search one ply deeper if the target depth is reached, but
+        // position's evaluation worsened a lot.
         //
         // TODO: `25` must be bound to pawn's value.
-        if (expected_duration > self.allotted_time) &&
+        if target_depth <= report.depth &&
            (self.value != VALUE_UNKNOWN && report.value != VALUE_UNKNOWN) &&
-           (self.value as isize - report.value as isize).abs() >= 25 {
-            self.allotted_time = expected_duration;
+           (self.value as isize - report.value as isize >= 25) {
+            target_depth = min(report.depth + 1, DEPTH_MAX);
         }
         self.value = report.value;
 
-        // We try to stay as close as possible to the allotted
-        // time, without crossing the hard limit.
-        expected_duration > self.hard_limit ||
-        (expected_duration > self.allotted_time &&
-         expected_duration - self.allotted_time > self.allotted_time - t)
+        (target_depth, t_next)
     }
 }
 
 
 lazy_static! {
     static ref PONDERING_IS_ALLOWED: RwLock<bool> = RwLock::new(false);
-    static ref BRANCHING_FACTOR: RwLock<f64> = RwLock::new(2.0);
+    static ref AVG_SLOPE: RwLock<f64> = RwLock::new(0.7);
 }
 
 
-/// A helper function. It calculates the elapsed milliseconds since a
-/// given time.
+/// Calculates elapsed milliseconds since a given time.
 fn elapsed_millis(since: &SystemTime) -> f64 {
-    let d = since.elapsed().unwrap();
+    let d = since.elapsed().unwrap_or(Duration::from_millis(0));
     (1000 * d.as_secs()) as f64 + (d.subsec_nanos() / 1_000_000) as f64
 }
 
 
-/// A helper function. It linearly extrapolates the value y(x) using
-/// the (x, y) values in `points` as a reference.
-fn extrapolate(points: &[(f64, f64)], x: f64) -> f64 {
+/// Calculates a regression line that approximates `points`.
+fn linear_regression(points: &[(f64, f64)]) -> (f64, f64) {
     debug_assert!(points.len() > 1);
     let sum_x = points.iter().fold(0.0, |acc, &p| acc + p.0);
     let sum_y = points.iter().fold(0.0, |acc, &p| acc + p.1);
@@ -194,7 +204,7 @@ fn extrapolate(points: &[(f64, f64)], x: f64) -> f64 {
     let n = points.len() as f64;
     let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
     let intercept = (sum_y - slope * sum_x) / n;
-    slope * x + intercept
+    (slope.max(0.001), intercept)
 }
 
 
@@ -202,10 +212,11 @@ fn extrapolate(points: &[(f64, f64)], x: f64) -> f64 {
 mod tests {
     #[test]
     fn linear_regression() {
-        use super::extrapolate;
+        use super::linear_regression;
         let points = vec![(21.0, 1.0), (22.0, 2.0), (23.0, 3.0), (24.0, 4.0)];
         let x = 25.0;
-        let y = extrapolate(&points, x);
+        let (slope, intercept) = linear_regression(&points);
+        let y = slope * x + intercept;
         assert!(4.99 < y && y < 5.01);
     }
 }

@@ -348,7 +348,7 @@ impl<S, T> Engine<S, T>
     }
 
     fn terminate(&mut self) {
-        self.searcher.terminate_search();
+        self.searcher.send_message("TERMINATE");
         while !self.status.done {
             self.wait_status_update(Duration::from_millis(1000));
         }
@@ -370,7 +370,7 @@ impl<S, T> Engine<S, T>
     fn inform_time_manager(&mut self, report: Option<&SearchReport<Vec<Variation>>>) {
         if let PlayWhen::TimeManagement(ref mut tm) = self.play_when {
             if tm.must_play(&mut self.searcher, report) && !self.is_pondering {
-                self.searcher.terminate_search();
+                self.searcher.send_message("TERMINATE");
             }
         }
     }
@@ -379,8 +379,9 @@ impl<S, T> Engine<S, T>
         assert!(!self.status.done);
         assert!(report.depth >= self.status.depth);
         assert!(report.searched_nodes >= self.status.searched_nodes);
+        let zero_millis = Duration::from_millis(0);
         let duration_millis = {
-            let d = self.started_at.elapsed().unwrap();
+            let d = self.started_at.elapsed().unwrap_or(zero_millis);
             1000 * d.as_secs() + (d.subsec_nanos() / 1_000_000) as u64
         };
         self.status = SearchStatus {
@@ -406,7 +407,7 @@ impl<S, T> Engine<S, T>
         }
 
         // If nothing has happened for a while, show progress info.
-        if self.silent_since.elapsed().unwrap().as_secs() > 10 {
+        if self.silent_since.elapsed().unwrap_or(zero_millis).as_secs() > 10 {
             self.queue_progress_info();
             self.silent_since = SystemTime::now();
         }

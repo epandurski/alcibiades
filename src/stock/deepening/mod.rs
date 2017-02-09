@@ -7,6 +7,7 @@ mod multipv;
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
+use regex::Regex;
 use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
@@ -65,6 +66,9 @@ pub struct Deepening<T: SearchExecutor> {
 
     // The value for the root position so far.
     value: Value,
+
+    // The depth at which the search are likely to be terminated.
+    depth_target: Depth,
 }
 
 
@@ -83,6 +87,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
             multipv: Multipv::new(tt),
             depth: 0,
             value: VALUE_UNKNOWN,
+            depth_target: DEPTH_MAX,
         }
     }
 
@@ -137,9 +142,18 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         self.multipv.wait_report(duration);
     }
 
-    fn terminate_search(&mut self) {
-        self.search_is_terminated = true;
-        self.multipv.terminate_search();
+    fn send_message(&mut self, message: &str) {
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"^TARGET_DEPTH=([-+]?\d+)$").unwrap();
+        }
+        if let Some(captures) = RE.captures(message) {
+            self.depth_target = captures.get(1).unwrap().as_str().parse::<Depth>().unwrap();
+        } else {
+            if message == "TERMINATE" {
+                self.search_is_terminated = true;
+            }
+            self.multipv.send_message(message);
+        }
     }
 }
 
