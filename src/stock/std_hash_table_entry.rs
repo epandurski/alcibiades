@@ -23,16 +23,6 @@ impl HashTableEntry for StdHashTableEntry {
            depth: Depth,
            move_digest: MoveDigest)
            -> StdHashTableEntry {
-        Self::with_static_eval(value, bound, depth, move_digest, VALUE_UNKNOWN)
-    }
-
-    #[inline]
-    fn with_static_eval(value: Value,
-                        bound: BoundType,
-                        depth: Depth,
-                        move_digest: MoveDigest,
-                        static_eval: Value)
-                        -> StdHashTableEntry {
         debug_assert!(VALUE_MIN <= value && value <= VALUE_MAX);
         debug_assert!(bound <= 0b11);
         debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
@@ -41,7 +31,7 @@ impl HashTableEntry for StdHashTableEntry {
             bound: bound,
             depth: depth,
             move_digest: move_digest,
-            static_eval: static_eval,
+            static_eval: VALUE_UNKNOWN,
         }
     }
 
@@ -65,14 +55,37 @@ impl HashTableEntry for StdHashTableEntry {
         self.move_digest
     }
 
-    /// Returns the `static_eval` passed to the constructor.
     #[inline]
     fn static_eval(&self) -> Value {
         self.static_eval
     }
 
     #[inline]
+    fn set_value(&mut self, value: Value) {
+        debug_assert!(VALUE_MIN <= value && value <= VALUE_MAX);
+        self.value = value;
+    }
+
+    #[inline]
+    fn set_bound(&mut self, bound: BoundType) {
+        debug_assert!(bound <= 0b11);
+        self.bound = bound;
+    }
+
+    #[inline]
+    fn set_depth(&mut self, depth: Depth) {
+        debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
+        self.depth = depth;
+    }
+
+    #[inline]
     fn set_move_digest(&mut self, move_digest: MoveDigest) {
         self.move_digest = move_digest;
+    }
+
+    /// Sets position's static evaluation.
+    #[inline]
+    fn set_static_eval(&mut self, static_eval: Value) {
+        self.static_eval = static_eval;
     }
 }

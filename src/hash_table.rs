@@ -157,8 +157,8 @@ pub trait HashTableEntry: Copy + Send {
     ///
     /// * `bound` -- The accuracy of the assigned value.
     ///
-    /// * `depth` -- The depth of search. Must be between `DEPTH_MIN`
-    ///   and `DEPTH_MAX`.
+    /// * `depth` -- The search depth for the assigned value. Must be
+    ///   between `DEPTH_MIN` and `DEPTH_MAX`.
     ///
     /// * `move_digest` -- Best or refutation move digest, or
     ///   `MoveDigest::invalid()` if no move is available.
@@ -171,38 +171,50 @@ pub trait HashTableEntry: Copy + Send {
     ///
     /// * `static_eval` -- Position's static evaluation, or
     ///   `VALUE_UNKNOWN`.
-    ///
-    /// **Important note:** `static_eval` will be ignored if there is
-    /// no field allotted for it in the underlying memory structure.
     fn with_static_eval(value: Value,
                         bound: BoundType,
                         depth: Depth,
                         move_digest: MoveDigest,
                         static_eval: Value)
-                        -> Self;
+                        -> Self {
+        let mut entry = Self::new(value, bound, depth, move_digest);
+        entry.set_static_eval(static_eval);
+        entry
+    }
 
     /// Returns the value assigned to the position.
     fn value(&self) -> Value;
 
+    /// Sets the value assigned to the position.
+    fn set_value(&mut self, value: Value);
+
     /// Returns the accuracy of the assigned value.
     fn bound(&self) -> BoundType;
 
+    /// Sets the accuracy of the assigned value.
+    fn set_bound(&mut self, bound: BoundType);
+
     /// Returns the search depth for the assigned value.
     fn depth(&self) -> Depth;
+
+    /// Sets the search depth for the assigned value.
+    fn set_depth(&mut self, depth: Depth);
 
     /// Returns best or refutation move digest, or
     /// `MoveDigest::invalid()` if no move is available.
     fn move_digest(&self) -> MoveDigest;
 
+    /// Sets best or refutation move digest.
+    fn set_move_digest(&mut self, move_digest: MoveDigest);
+
     /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
     fn static_eval(&self) -> Value;
 
-    /// Sets a new best or refutation move digest.
+    /// Sets position's static evaluation.
     ///
-    /// Transposition tables may use this method when they overwrite
-    /// an old record for the same position, and want to keep the move
-    /// from the old record.
-    fn set_move_digest(&mut self, move_digest: MoveDigest);
+    /// **Important note:** This method does nothing if the underlying
+    /// memory structure has no field allotted for static evaluation.
+    fn set_static_eval(&mut self, static_eval: Value);
 
     /// Returns the relative importance of the entry.
     ///
