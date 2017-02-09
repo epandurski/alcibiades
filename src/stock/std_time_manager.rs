@@ -166,12 +166,12 @@ impl StdTimeManager {
                                     .max(DEPTH_MIN as f64) as Depth;
 
         // Search one ply deeper if the target depth is reached, but
-        // position's evaluation has changed a lot.
+        // position's evaluation worsened a lot.
         //
         // TODO: `25` must be bound to pawn's value.
         if target_depth == report.depth &&
            (self.value != VALUE_UNKNOWN && report.value != VALUE_UNKNOWN) &&
-           (self.value as isize - report.value as isize).abs() >= 25 {
+           (self.value as isize - report.value as isize >= 25) {
             target_depth = min(target_depth + 1, DEPTH_MAX);
         }
         self.value = report.value;
