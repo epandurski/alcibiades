@@ -169,10 +169,10 @@ impl StdTimeManager {
         // position's evaluation worsened a lot.
         //
         // TODO: `25` must be bound to pawn's value.
-        if target_depth == report.depth &&
+        if target_depth <= report.depth &&
            (self.value != VALUE_UNKNOWN && report.value != VALUE_UNKNOWN) &&
            (self.value as isize - report.value as isize >= 25) {
-            target_depth = min(target_depth + 1, DEPTH_MAX);
+            target_depth = min(report.depth + 1, DEPTH_MAX);
         }
         self.value = report.value;
 
