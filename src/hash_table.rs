@@ -171,6 +171,10 @@ pub trait HashTableEntry: Copy + Send {
     ///
     /// * `static_eval` -- Position's static evaluation, or
     ///   `VALUE_UNKNOWN`.
+    ///
+    /// **Important note:** `static_eval` will be ignored if the
+    /// underlying memory structure has no field allotted for static
+    /// evaluation.
     fn with_static_eval(value: Value,
                         bound: BoundType,
                         depth: Depth,
@@ -208,13 +212,17 @@ pub trait HashTableEntry: Copy + Send {
     fn set_move_digest(&mut self, move_digest: MoveDigest);
 
     /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
-    fn static_eval(&self) -> Value;
+    fn static_eval(&self) -> Value {
+        VALUE_UNKNOWN
+    }
 
     /// Sets position's static evaluation.
     ///
-    /// **Important note:** This method does nothing if the underlying
-    /// memory structure has no field allotted for static evaluation.
-    fn set_static_eval(&mut self, static_eval: Value);
+    /// **Important note:** This method will do nothing if the
+    /// underlying memory structure has no field allotted for static
+    /// evaluation.
+    #[allow(unused_variables)]
+    fn set_static_eval(&mut self, static_eval: Value) {}
 
     /// Returns the relative importance of the entry.
     ///
