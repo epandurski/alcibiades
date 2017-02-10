@@ -164,6 +164,11 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     }
 
     #[inline]
+    fn evaluate_move(&self, m: Move) -> Value {
+        self.position().evaluate_move(m)
+    }
+
+    #[inline]
     fn qsearch(&self,
                depth: Depth,
                lower_bound: Value,
@@ -188,11 +193,6 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     }
 
     #[inline]
-    fn evaluate_move(&self, m: Move) -> Value {
-        self.position().evaluate_move(m)
-    }
-
-    #[inline]
     fn generate_moves<U: AddMove>(&self, moves: &mut U) {
         if !self.repeated_or_rule50 {
             self.position().generate_all(moves);
@@ -211,6 +211,11 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     #[inline]
     fn null_move(&self) -> Move {
         self.position().null_move()
+    }
+
+    #[inline]
+    fn last_move(&self) -> Move {
+        self.state().last_move
     }
 
     fn do_move(&mut self, m: Move) -> bool {
@@ -445,6 +450,7 @@ mod tests {
     use search_node::*;
     use evaluator::*;
     use qsearch::*;
+    use moves::Move;
     use stock::{StdSearchNode, StdQsearch, StdMoveGenerator, SimpleEvaluator};
     type P = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 
@@ -487,9 +493,11 @@ mod tests {
     #[test]
     fn evaluate_fullmove_number() {
         let mut p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 6 31").ok().unwrap();
+        assert_eq!(p.last_move(), Move::invalid());
         assert_eq!(p.fullmove_number(), 31);
         let m = p.legal_moves()[0];
         p.do_move(m);
+        assert_eq!(p.last_move(), m);
         assert_eq!(p.fullmove_number(), 31);
         p.undo_last_move();
         assert_eq!(p.fullmove_number(), 31);
