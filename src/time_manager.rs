@@ -46,8 +46,8 @@ pub trait TimeManager<T: SearchExecutor<ReportData = Vec<Variation>>>: SetOption
     ///   executor that performs the search. The time manager should
     ///   be careful when calling methods on the search executor, so
     ///   as not to disturb its normal working. In particular,
-    ///   `start_search`, `terminate_search`, and `try_recv_report`
-    ///   methods must not be called.
+    ///   `start_search` and `try_recv_report` methods must not be
+    ///   called, and a `"TERMINATE"` message must not be sent.
     ///
     /// * `report`, when supplied, gives a reference to the next
     ///   search progress report. `must_play` will be called exactly
