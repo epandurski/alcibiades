@@ -34,7 +34,8 @@
 ///
 /// * `DEPTH_MIN` is the minimum allowed search depth in half-moves (a
 ///   negative number).
-pub type Depth = i8;
+pub type Depth = i16;
 
-pub const DEPTH_MIN: i8 = -32;
-pub const DEPTH_MAX: i8 = 95;
+pub const DEPTH_MIN: Depth = -32;
+pub const DEPTH_MAX: Depth = 95;
+pub const DEPTH_ONE_PLY: Depth = 1;

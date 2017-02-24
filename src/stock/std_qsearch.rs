@@ -71,7 +71,7 @@ impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
                     params.upper_bound,
                     params.static_eval,
                     0,
-                    -params.depth,
+                    (-params.depth / DEPTH_ONE_PLY) as i8,
                     &mut *s.get(),
                     &mut searched_nodes)
         });

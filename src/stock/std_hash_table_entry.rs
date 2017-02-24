@@ -11,7 +11,7 @@ use moves::MoveDigest;
 pub struct StdHashTableEntry {
     value: Value,
     bound: BoundType,
-    depth: Depth,
+    depth: i8,
     move_digest: MoveDigest,
     static_eval: Value,
 }
@@ -29,7 +29,7 @@ impl HashTableEntry for StdHashTableEntry {
         StdHashTableEntry {
             value: value,
             bound: bound,
-            depth: depth,
+            depth: depth as i8,
             move_digest: move_digest,
             static_eval: VALUE_UNKNOWN,
         }
@@ -47,7 +47,7 @@ impl HashTableEntry for StdHashTableEntry {
 
     #[inline]
     fn depth(&self) -> Depth {
-        self.depth
+        self.depth as Depth
     }
 
     #[inline]
@@ -75,7 +75,7 @@ impl HashTableEntry for StdHashTableEntry {
     #[inline]
     fn set_depth(&mut self, depth: Depth) {
         debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
-        self.depth = depth;
+        self.depth = depth as i8;
     }
 
     #[inline]

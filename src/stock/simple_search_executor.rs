@@ -800,7 +800,7 @@ const NODE_COUNT_REPORT_INTERVAL: u64 = 15000;
 
 /// The number of half-moves with which the search depth will be
 /// reduced when trying null moves.
-const NULL_MOVE_REDUCTION: i8 = 3;
+const NULL_MOVE_REDUCTION: i16 = 3;
 
 
 /// Moves with move scores higher than this number will be searched at
