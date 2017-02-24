@@ -114,8 +114,7 @@ pub trait SearchNode: Send + Clone + SetOption {
     /// * `depth` is the depth at which the main search stops and the
     ///   quiescence search takes on. It should be between `DEPTH_MIN`
     ///   and `0`. The quiescence search implementation may decide to
-    ///   perform less thorough analysis when `depth` is smaller than
-    ///   zero.
+    ///   perform less thorough analysis when `depth` is smaller.
     ///
     /// * `lower_bound` and `upper_bound` together give the interval
     ///   within which an as precise as possible evaluation is

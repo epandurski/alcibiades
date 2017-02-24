@@ -11,7 +11,6 @@ pub use self::move_stack::MoveStack;
 pub use self::notation::parse_fen;
 
 
-use depth::*;
 use move_generator::MoveGenerator;
 
 /// Performs move path enumeration.
@@ -26,9 +25,9 @@ use move_generator::MoveGenerator;
 /// amount of time taken for each iteration, it's possible to compare
 /// the performance of different move generators or the same generator
 /// on different machines.
-pub fn perft<T: MoveGenerator>(position: &mut T, depth: Depth) -> u64 {
-    fn pft<T: MoveGenerator>(s: &mut MoveStack, p: &mut T, d: Depth) -> u64 {
-        if d <= 0 {
+pub fn perft<T: MoveGenerator>(position: &mut T, depth: u8) -> u64 {
+    fn pft<T: MoveGenerator>(s: &mut MoveStack, p: &mut T, d: u8) -> u64 {
+        if d == 0 {
             return 1;
         }
         let mut nodes = 0;

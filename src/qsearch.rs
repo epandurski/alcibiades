@@ -29,8 +29,7 @@ pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
     /// This is the depth at which the main search stops and the
     /// quiescence search takes on. It should be between `DEPTH_MIN`
     /// and `0`. The quiescence search implementation may decide to
-    /// perform less thorough analysis when `depth` is smaller than
-    /// zero.
+    /// perform less thorough analysis when `depth` is smaller.
     pub depth: Depth,
 
     /// The lower bound for the new search.
