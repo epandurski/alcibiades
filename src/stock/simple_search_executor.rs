@@ -798,9 +798,8 @@ const MOVE_SCORE_MAX: u32 = ::std::u32::MAX;
 const NODE_COUNT_REPORT_INTERVAL: u64 = 15000;
 
 
-/// The number of half-moves with which the search depth will be
-/// reduced when trying null moves.
-const NULL_MOVE_REDUCTION: i16 = 3;
+/// The search depth reduction applied when trying null moves.
+const NULL_MOVE_REDUCTION: Depth = 3 * DEPTH_ONE_PLY;
 
 
 /// Moves with move scores higher than this number will be searched at
