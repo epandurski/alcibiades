@@ -425,7 +425,6 @@ mod tests {
     use depth::*;
     use value::*;
     use moves::*;
-    use hash_table::*;
     use stock::std_hash_table_entry::*;
 
     #[test]
