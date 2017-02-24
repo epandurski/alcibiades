@@ -645,7 +645,6 @@ const ROOK_MAGICS: [u64; 64] = [36028867955671040,
 mod tests {
     use super::*;
     use super::{bb_bishop_attacks, bb_rook_attacks};
-    use board::*;
     use squares::*;
     use bitsets::pop_count;
 
