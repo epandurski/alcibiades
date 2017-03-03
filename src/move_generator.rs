@@ -28,7 +28,7 @@ use utils::BoardGeometry;
 ///
 /// **Important note:** `MoveGenerator` is unaware of repeating
 /// positions and rule-50.
-pub trait MoveGenerator: Sized + Send + Clone + SetOption {
+pub trait MoveGenerator: Clone + SetOption + Send + 'static {
     /// The type of static evaluator that the implementation works
     /// with.
     type Evaluator: Evaluator;

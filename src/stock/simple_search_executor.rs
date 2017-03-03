@@ -53,8 +53,8 @@ pub struct SimpleSearchExecutor<T: HashTable, N: SearchNode> {
 }
 
 impl<T, N> SearchExecutor for SimpleSearchExecutor<T, N>
-    where T: HashTable + 'static,
-          N: SearchNode + 'static
+    where T: HashTable,
+          N: SearchNode
 {
     type HashTable = T;
 

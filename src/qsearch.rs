@@ -84,7 +84,7 @@ pub trait QsearchResult: Clone {
 /// completely blind to the more complex ones. To implement your own
 /// quiescence search routine, you must define a type that implements
 /// the `Qsearch` trait.
-pub trait Qsearch: SetOption + Send {
+pub trait Qsearch: SetOption + Send + 'static {
     /// The type of move generator that the implementation works with.
     type MoveGenerator: MoveGenerator;
 

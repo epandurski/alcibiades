@@ -24,7 +24,7 @@ use value::*;
 /// position has pending tactical threats, the static evaluation will
 /// be grossly incorrect. To implement your own static evaluator, you
 /// must define a type that implements the `Evaluator` trait.
-pub trait Evaluator: Clone + Send + SetOption {
+pub trait Evaluator: Clone + SetOption + Send + 'static {
     /// Creates a new instance and binds it to a given position.
     ///
     /// When a new instance is created, it is bound to a particular

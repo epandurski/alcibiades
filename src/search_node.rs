@@ -32,7 +32,7 @@ use qsearch::QsearchResult;
 /// `SearchNode::from_history` "forgets" all positions that have
 /// occurred exactly once. Also, the newly created instance is never
 /// deemed a draw due to repetition or rule-50.
-pub trait SearchNode: Send + Clone + SetOption {
+pub trait SearchNode: Clone + SetOption + Send + 'static {
     /// The type of static evaluator that the implementation works
     /// with.
     type Evaluator: Evaluator;

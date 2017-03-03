@@ -47,7 +47,7 @@ pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 /// were searched, and what we concluded about them. To implement your
 /// own transposition table, you must define a type that implements
 /// the `HashTable` trait.
-pub trait HashTable: Sync + Send {
+pub trait HashTable: Sync + Send + 'static {
     type Entry: HashTableEntry;
 
     /// Creates a new transposition table.
@@ -149,7 +149,7 @@ pub trait HashTable: Sync + Send {
 
 
 /// A trait for transposition table entries.
-pub trait HashTableEntry: Copy + Send {
+pub trait HashTableEntry: Copy + Send + 'static {
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. Must be
