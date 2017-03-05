@@ -25,66 +25,76 @@ use value::*;
 /// be grossly incorrect. To implement your own static evaluator, you
 /// must define a type that implements the `Evaluator` trait.
 pub trait Evaluator: Clone + SetOption + Send + 'static {
-    /// Creates a new instance and binds it to a given position.
+    /// Creates a new instance bound to a given position.
     ///
-    /// When a new instance is created, it is bound to a particular
-    /// chess position (given by the `board` parameter). And for a
-    /// moment, this is the only position that can be correctly
-    /// evaluated. The instance then can be re-bound to the next (or
-    /// the previous) position in the line of play by issuing calls to
-    /// `will_do_move` and `done_move` methods (or respectively,
-    /// `will_undo_move` and `undone_move` methods) .
-    fn new(board: &Board) -> Self;
+    /// When a new evaluator is created it is bound to a particular
+    /// chess position (given by the `position` parameter), and for
+    /// the moment, this is the only position that it can
+    /// evaluate. The evaluator then can be re-bound to the next (or
+    /// the previous) position in the current line of play by issuing
+    /// a pair of calls to the `will_do_move` and `done_move` methods
+    /// (or respectively, `will_undo_move` and `undone_move`
+    /// methods). Thus, evaluator's state can be kept up-to-date,
+    /// following the current line of play.
+    fn new(position: &Board) -> Self;
 
-    /// Evaluates the the position to which the instance is bound.
+    /// Evaluates the the position to which the evaluator is currently
+    /// bound.
     ///
-    /// `board` points to the position to which the instance is bound.
+    /// `position` points to the position to which the evaluator is
+    /// currently bound.
     ///
     /// The returned value must be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
-    fn evaluate(&self, board: &Board) -> Value;
+    fn evaluate(&self, position: &Board) -> Value;
 
-    /// Returns whether the position is zugzwangy.
+    /// Returns whether the position to which the evaluator is
+    /// currently bound is "zugzwangy".
+    ///
+    /// `position` points to the position to which the evaluator is
+    /// currently bound.
     ///
     /// In many endgame positions there is a relatively high
     /// probability of zugzwang occurring. For such positions, this
     /// method returns `true`. This is useful when we want to decide
     /// whether it is safe to try a null move.
-    fn is_zugzwangy(&self, board: &Board) -> bool;
+    fn is_zugzwangy(&self, position: &Board) -> bool;
 
     /// Updates evaluator's state to keep up with a move that will be
     /// played.
     ///
-    /// `board` points to the position to which the instance is bound.
+    /// `position` points to the position to which the evaluator is
+    /// currently bound (that is: before `m` is played).
     ///
     /// `m` is a legal move, or (if not in check) a "null move".
     #[inline]
     #[allow(unused_variables)]
-    fn will_do_move(&mut self, board: &Board, m: Move) {}
+    fn will_do_move(&mut self, position: &Board, m: Move) {}
 
     /// Updates evaluator's state to keep up with a move that was
     /// played.
     ///
-    /// `board` points to the new position to which the instance is
-    /// bound.
+    /// `position` points to the new position to which the evaluator
+    /// is bound (that is: after `m` was played).
     #[inline]
     #[allow(unused_variables)]
-    fn done_move(&mut self, board: &Board, m: Move) {}
+    fn done_move(&mut self, position: &Board, m: Move) {}
 
     /// Updates evaluator's state to keep up with a move that will be
     /// taken back.
     ///
-    /// `board` points to the position to which the instance is bound.
+    /// `position` points to the position to which the evaluator is
+    /// currently bound (that is: before `m` is taken back).
     #[inline]
     #[allow(unused_variables)]
-    fn will_undo_move(&mut self, board: &Board, m: Move) {}
+    fn will_undo_move(&mut self, position: &Board, m: Move) {}
 
     /// Updates evaluator's state in accordance with a move that was
     /// taken back.
     ///
-    /// `board` points to the new position to which the instance is
-    /// bound.
+    /// `position` points to the new position to which the evaluator is
+    /// bound (that is: after `m` was taken back).
     #[inline]
     #[allow(unused_variables)]
-    fn undone_move(&mut self, board: &Board, m: Move) {}
+    fn undone_move(&mut self, position: &Board, m: Move) {}
 }

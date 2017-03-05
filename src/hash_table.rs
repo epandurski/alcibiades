@@ -190,26 +190,26 @@ pub trait HashTableEntry: Copy + Send + 'static {
     fn value(&self) -> Value;
 
     /// Sets the value assigned to the position.
-    fn set_value(&mut self, value: Value);
+    fn set_value(&mut self, Value);
 
     /// Returns the accuracy of the assigned value.
     fn bound(&self) -> BoundType;
 
     /// Sets the accuracy of the assigned value.
-    fn set_bound(&mut self, bound: BoundType);
+    fn set_bound(&mut self, BoundType);
 
     /// Returns the search depth for the assigned value.
     fn depth(&self) -> Depth;
 
     /// Sets the search depth for the assigned value.
-    fn set_depth(&mut self, depth: Depth);
+    fn set_depth(&mut self, Depth);
 
     /// Returns best or refutation move digest, or
     /// `MoveDigest::invalid()` if no move is available.
     fn move_digest(&self) -> MoveDigest;
 
     /// Sets best or refutation move digest.
-    fn set_move_digest(&mut self, move_digest: MoveDigest);
+    fn set_move_digest(&mut self, MoveDigest);
 
     /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
     fn static_eval(&self) -> Value {
@@ -222,7 +222,7 @@ pub trait HashTableEntry: Copy + Send + 'static {
     /// underlying memory structure has no field allotted for static
     /// evaluation.
     #[allow(unused_variables)]
-    fn set_static_eval(&mut self, static_eval: Value) {}
+    fn set_static_eval(&mut self, Value) {}
 
     /// Returns the relative importance of the entry.
     ///

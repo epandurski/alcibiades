@@ -92,5 +92,5 @@ pub trait Qsearch: SetOption + Send + 'static {
     type QsearchResult: QsearchResult;
 
     /// Performs a quiescence search and returns a result object.
-    fn qsearch(params: QsearchParams<Self::MoveGenerator>) -> Self::QsearchResult;
+    fn qsearch(QsearchParams<Self::MoveGenerator>) -> Self::QsearchResult;
 }

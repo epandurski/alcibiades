@@ -160,7 +160,7 @@ pub trait SearchExecutor: SetOption {
     type ReportData;
 
     /// Creates a new instance.
-    fn new(tt: Arc<Self::HashTable>) -> Self;
+    fn new(Arc<Self::HashTable>) -> Self;
 
     /// Starts a new search.
     ///
@@ -175,19 +175,20 @@ pub trait SearchExecutor: SetOption {
     /// executing search must continuously update the transposition
     /// table so that, at each moment, it contains the results of the
     /// work done so far.
-    fn start_search(&mut self, params: SearchParams<Self::SearchNode>);
+    fn start_search(&mut self, SearchParams<Self::SearchNode>);
 
     /// Attempts to return a search progress report without blocking.
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError>;
 
     /// Waits until a search progress report is available, timing out
     /// after a specified duration or earlier.
-    fn wait_report(&self, duration: Duration);
+    fn wait_report(&self, Duration);
 
     /// Sends a message to the currently executing search.
     ///
-    /// `message` is not bound to any particular format, but the
-    /// implementation must meet the following requirements:
+    /// The message string is not constrained to any particular
+    /// format, but the implementation must meet the following
+    /// requirements:
     ///
     /// * The message `"TERMINATE"` is recognized as a request to
     ///   terminate the current search.  After receiving
@@ -199,5 +200,5 @@ pub trait SearchExecutor: SetOption {
     ///   search.
     ///
     /// * Unrecognized messages are ignored.
-    fn send_message(&mut self, message: &str);
+    fn send_message(&mut self, &str);
 }
