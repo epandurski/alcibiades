@@ -201,7 +201,9 @@ pub enum OptionDescription {
 pub trait SetOption {
     /// Returns a list of supported configuration options (name and
     /// description).
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(String, OptionDescription)>
+        where Self: Sized
+    {
         vec![]
     }
 
@@ -209,7 +211,7 @@ pub trait SetOption {
     ///
     /// Does nothing if called with unsupported option name.
     #[allow(unused_variables)]
-    fn set_option(name: &str, value: &str) {}
+    fn set_option(name: &str, value: &str) where Self: Sized {}
 }
 
 
