@@ -434,7 +434,7 @@ impl<E: UciEngine> Server<E> {
                     UciCommand::Go(params) => {
                         engine.go(&params);
                     }
-                    UciCommand::Quit => panic!("This should never happen!"),
+                    UciCommand::Quit => unreachable!(),
                 }
             } // 'read_commands
 

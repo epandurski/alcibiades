@@ -206,7 +206,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             self.generation.set(match self.generation.get() {
                 n @ 1...30 => n + 1,
                 31 => 1,
-                _ => panic!("invalid generation number"),
+                _ => unreachable!(),
             });
             debug_assert!(self.generation.get() > 0);
             debug_assert!(self.generation.get() < 32);
