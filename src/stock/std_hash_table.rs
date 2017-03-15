@@ -241,7 +241,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
         let mut replace_slot = 0;
         let mut replace_score = isize::MAX;
         for slot in 0..Bucket::<Record<T>>::len() {
-            let record = unsafe { bucket.get(slot).as_ref().unwrap() };
+            let record = unsafe { &mut *bucket.get(slot) };
             let generation = bucket.get_generation(slot);
 
             // Use this slot if it is empty.
@@ -300,7 +300,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
         let key = chop_key(key);
         for slot in 0..Bucket::<Record<T>>::len() {
             if bucket.get_generation(slot) != 0 {
-                let record = unsafe { bucket.get(slot).as_ref().unwrap() };
+                let record = unsafe { &mut *bucket.get(slot) };
                 if record.key == key {
                     bucket.set_generation(slot, self.generation.get());
                     return Some(record.data);
