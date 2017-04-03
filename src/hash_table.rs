@@ -159,70 +159,40 @@ pub trait HashTableEntry: Copy + Send + 'static {
     ///
     /// * `depth` -- The search depth for the assigned value. Must be
     ///   between `DEPTH_MIN` and `DEPTH_MAX`.
-    ///
-    /// * `move_digest` -- Best or refutation move digest, or
-    ///   `MoveDigest::invalid()` if no move is available.
-    fn new(value: Value, bound: BoundType, depth: Depth, move_digest: MoveDigest) -> Self;
-
-    /// Creates a new instance.
-    ///
-    /// The only difference between this function and `new` is that
-    /// this function requires one additional parameter:
-    ///
-    /// * `static_eval` -- Position's static evaluation, or
-    ///   `VALUE_UNKNOWN`.
-    ///
-    /// **Important note:** `static_eval` will be ignored if the
-    /// underlying memory structure has no field allotted for static
-    /// evaluation.
-    fn with_static_eval(value: Value,
-                        bound: BoundType,
-                        depth: Depth,
-                        move_digest: MoveDigest,
-                        static_eval: Value)
-                        -> Self {
-        let mut entry = Self::new(value, bound, depth, move_digest);
-        entry.set_static_eval(static_eval);
-        entry
-    }
+    fn new(value: Value, bound: BoundType, depth: Depth) -> Self;
 
     /// Returns the value assigned to the position.
     fn value(&self) -> Value;
 
-    /// Sets the value assigned to the position.
-    fn set_value(&mut self, Value);
-
     /// Returns the accuracy of the assigned value.
     fn bound(&self) -> BoundType;
-
-    /// Sets the accuracy of the assigned value.
-    fn set_bound(&mut self, BoundType);
 
     /// Returns the search depth for the assigned value.
     fn depth(&self) -> Depth;
 
-    /// Sets the search depth for the assigned value.
-    fn set_depth(&mut self, Depth);
+    /// Consumes the instance and returns a new instance with updated
+    /// best/refutation move digest.
+    fn set_move_digest(self, MoveDigest) -> Self;
 
-    /// Returns best or refutation move digest, or
-    /// `MoveDigest::invalid()` if no move is available.
+    /// Returns the best/refutation move digest assigned to the
+    /// position, or `MoveDigest::invalid()` if no move is available.
     fn move_digest(&self) -> MoveDigest;
 
-    /// Sets best or refutation move digest.
-    fn set_move_digest(&mut self, MoveDigest);
-
-    /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
-    fn static_eval(&self) -> Value {
-        VALUE_UNKNOWN
-    }
-
-    /// Sets position's static evaluation.
+    /// Consumes the instance and returns a new instance with updated
+    /// static evaluation.
     ///
     /// **Important note:** This method will do nothing if the
     /// underlying memory structure has no field allotted for static
     /// evaluation.
-    #[allow(unused_variables)]
-    fn set_static_eval(&mut self, Value) {}
+    fn set_static_eval(self, Value) -> Self {
+        self
+    }
+
+    /// Returns the static evaluation assigned to the position, or
+    /// `VALUE_UNKNOWN`.
+    fn static_eval(&self) -> Value {
+        VALUE_UNKNOWN
+    }
 
     /// Returns the relative importance of the entry.
     ///

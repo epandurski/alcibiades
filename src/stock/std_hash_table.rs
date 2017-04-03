@@ -264,7 +264,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
                 } else if data.move_digest() == MoveDigest::invalid() {
                     // Keep the move from the old record if the new
                     // record has no move.
-                    data.set_move_digest(record.data.move_digest());
+                    data = data.set_move_digest(record.data.move_digest());
                 }
                 replace_slot = slot;
                 break;
@@ -435,7 +435,7 @@ mod tests {
             assert_eq!(b.get_generation(0), 0);
             assert_eq!(b.get_generation(1), 0);
             let mut record = b.get(0).as_mut().unwrap();
-            let entry = StdHashTableEntry::new(0, BOUND_NONE, 10, MoveDigest::invalid());
+            let entry = StdHashTableEntry::new(0, BOUND_NONE, 10);
             *record = Record {
                 key: (0, 0),
                 data: entry,
@@ -456,11 +456,7 @@ mod tests {
             let p = libc::malloc(64);
             let b = Bucket::<Record<StdHashTableEntry>>::new(p);
             let mut record = b.get(4).as_mut().unwrap();
-            let entry = StdHashTableEntry::with_static_eval(0,
-                                                            BOUND_NONE,
-                                                            10,
-                                                            MoveDigest::invalid(),
-                                                            VALUE_UNKNOWN);
+            let entry = StdHashTableEntry::new(0, BOUND_NONE, 10);
             *record = Record {
                 key: (0, 0),
                 data: entry,
@@ -479,17 +475,16 @@ mod tests {
     fn store_and_probe() {
         let tt = StdHashTable::<StdHashTableEntry>::new(None);
         assert!(tt.probe(1).is_none());
-        let data = StdHashTableEntry::new(0, 0, 50, MoveDigest::invalid());
+        let data = StdHashTableEntry::new(0, 0, 50);
         assert_eq!(data.depth(), 50);
         assert_eq!(data.move_digest(), MoveDigest::invalid());
         tt.store(1, data);
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        tt.store(1, StdHashTableEntry::new(0, 0, 50, MoveDigest::invalid()));
+        tt.store(1, StdHashTableEntry::new(0, 0, 50));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), MoveDigest::invalid());
-        let digest = MoveDigest::invalid();
         for i in 2..50 {
-            tt.store(i, StdHashTableEntry::new(i as i16, 0, i as Depth, digest));
+            tt.store(i, StdHashTableEntry::new(i as i16, 0, i as Depth));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);

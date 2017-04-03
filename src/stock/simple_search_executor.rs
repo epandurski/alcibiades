@@ -469,7 +469,7 @@ impl<'a, T, N> Search<'a, T, N>
             let v = self.position
                         .evaluator()
                         .evaluate(self.position.board());
-            (T::Entry::with_static_eval(0, BOUND_NONE, 0, MoveDigest::invalid(), v), v)
+            (T::Entry::new(0, BOUND_NONE, 0).set_static_eval(v), v)
         };
         self.state_stack.push(NodeState {
             phase: NodePhase::Pristine,
@@ -502,11 +502,7 @@ impl<'a, T, N> Search<'a, T, N>
                 BOUND_EXACT
             };
             self.tt.store(hash,
-                          T::Entry::with_static_eval(result.value(),
-                                                     bound,
-                                                     depth,
-                                                     MoveDigest::invalid(),
-                                                     static_eval));
+                          T::Entry::new(result.value(), bound, depth).set_static_eval(static_eval));
             return Ok(Some(result.value()));
         }
 
@@ -556,11 +552,8 @@ impl<'a, T, N> Search<'a, T, N>
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
                     self.tt.store(hash,
-                                  T::Entry::with_static_eval(beta,
-                                                             BOUND_LOWER,
-                                                             depth,
-                                                             MoveDigest::invalid(),
-                                                             static_eval));
+                                  T::Entry::new(beta, BOUND_LOWER, depth)
+                                      .set_static_eval(static_eval));
                     return Ok(Some(beta));
                 }
             }
@@ -747,11 +740,9 @@ impl<'a, T, N> Search<'a, T, N>
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: Depth, best_move: Move) {
         self.tt.store(self.position.hash(),
-                      T::Entry::with_static_eval(value,
-                                                 bound,
-                                                 depth,
-                                                 best_move.digest(),
-                                                 self.state_stack.last().unwrap().static_eval));
+                      T::Entry::new(value, bound, depth)
+                          .set_move_digest(best_move.digest())
+                          .set_static_eval(self.state_stack.last().unwrap().static_eval));
     }
 
     /// A helper method for `run`. It reports search progress.

@@ -223,8 +223,10 @@ impl<T: SearchExecutor> Multipv<T> {
             };
             let best_move = self.params.searchmoves[0];
             let p = &self.params.position;
-            self.tt.store(p.hash(), <T::HashTable as HashTable>::Entry::with_static_eval(
-                value, bound, self.params.depth, best_move.digest(), p.evaluator().evaluate(p.board())));
+            self.tt.store(p.hash(),
+                          <T::HashTable as HashTable>::Entry::new(value, bound, self.params.depth)
+                              .set_move_digest(best_move.digest())
+                              .set_static_eval(p.evaluator().evaluate(p.board())));
         }
     }
 
