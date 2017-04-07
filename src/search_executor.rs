@@ -19,7 +19,7 @@ use search_node::SearchNode;
 /// the exact evaluation is outside of this interval, the search may
 /// return a value that is closer to the the interval bounds than the
 /// exact evaluation, but always staying on the correct side of the
-/// interval (i.e. "fail-soft").
+/// interval (i.e. "fail-soft" semantics).
 #[derive(Clone, Debug)]
 pub struct SearchParams<T: SearchNode> {
     /// A number identifying the search.
@@ -160,7 +160,10 @@ pub trait SearchExecutor: SetOption {
     type ReportData;
 
     /// Creates a new instance.
-    fn new(Arc<Self::HashTable>) -> Self;
+    ///
+    /// `tt` gives a transposition table for the new search executor
+    /// to work with.
+    fn new(tt: Arc<Self::HashTable>) -> Self;
 
     /// Starts a new search.
     ///
@@ -175,30 +178,31 @@ pub trait SearchExecutor: SetOption {
     /// executing search must continuously update the transposition
     /// table so that, at each moment, it contains the results of the
     /// work done so far.
-    fn start_search(&mut self, SearchParams<Self::SearchNode>);
+    fn start_search(&mut self, params: SearchParams<Self::SearchNode>);
+
+    /// Waits until a search progress report is available, timing out
+    /// after a specified duration or earlier.
+    fn wait_report(&self, timeout_after: Duration);
 
     /// Attempts to return a search progress report without blocking.
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError>;
 
-    /// Waits until a search progress report is available, timing out
-    /// after a specified duration or earlier.
-    fn wait_report(&self, Duration);
-
     /// Sends a message to the currently executing search.
     ///
-    /// The message string is not constrained to any particular
-    /// format, but the implementation must meet the following
-    /// requirements:
+    /// The message format is not specified, but the implementation
+    /// **must** meet the following requirements:
+    /// 
+    /// * Unrecognized messages are ignored.
     ///
     /// * The message `"TERMINATE"` is recognized as a request to
-    ///   terminate the current search.  After receiving
-    ///   `"TERMINATE"`, `wait_report` and `try_recv_report` methods
-    ///   will continue to be called periodically until the returned
-    ///   report indicates that the search is done.
+    ///   terminate the current search.
     ///
-    /// * `"TERMINATE"` can be received more than once for the same
-    ///   search.
+    /// * Receiving two or more termination requests for the same
+    ///   search does not cause any problems.
     ///
-    /// * Unrecognized messages are ignored.
-    fn send_message(&mut self, &str);
+    /// **Note:** Normally, after sending one or more `"TERMINATE"`
+    /// messages, `wait_report` and `try_recv_report` methods will
+    /// continue to be called periodically until the returned report
+    /// indicates that the search is done.
+    fn send_message(&mut self, msg: &str);
 }

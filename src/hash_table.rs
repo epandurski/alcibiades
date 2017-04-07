@@ -172,7 +172,7 @@ pub trait HashTableEntry: Copy + Send + 'static {
 
     /// Consumes the instance and returns a new instance with updated
     /// best/refutation move digest.
-    fn set_move_digest(self, MoveDigest) -> Self;
+    fn set_move_digest(self, move_digest: MoveDigest) -> Self;
 
     /// Returns the best/refutation move digest assigned to the
     /// position, or `MoveDigest::invalid()` if no move is available.
@@ -184,7 +184,8 @@ pub trait HashTableEntry: Copy + Send + 'static {
     /// **Important note:** This method will do nothing if the
     /// underlying memory structure has no field allotted for static
     /// evaluation.
-    fn set_static_eval(self, Value) -> Self {
+    #[allow(unused_variables)]
+    fn set_static_eval(self, static_eval: Value) -> Self {
         self
     }
 

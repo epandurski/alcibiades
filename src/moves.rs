@@ -359,7 +359,7 @@ impl fmt::Display for Move {
 /// A trait for adding moves to move containers.
 pub trait AddMove {
     /// Adds a move to the move container.
-    fn add_move(&mut self, Move);
+    fn add_move(&mut self, m: Move);
 }
 
 impl AddMove for Vec<Move> {
