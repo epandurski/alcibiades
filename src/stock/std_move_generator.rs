@@ -88,13 +88,8 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     }
 
     #[inline]
-    fn checkers(&self) -> Bitboard {
-        if self.checkers.get() == BB_ALL {
-            self.checkers
-                .set(self.attacks_to(self.king_square()) &
-                     unsafe { *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) });
-        }
-        self.checkers.get()
+    fn is_check(&self) -> bool {
+        self.checkers() != 0
     }
 
     #[inline]
@@ -518,7 +513,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                     return None;  // the king is in check -- illegal move
                 }
             } else {
-                if self.checkers() != 0 {
+                if self.is_check() {
                     return None;  // invalid "null move"
                 }
             }
@@ -974,6 +969,24 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) })
     }
 
+    /// Returns a bitboard with all enemy pieces and pawns that attack
+    /// the king of the side to move.
+    ///
+    /// The calculated bitboard is temporarily stored in move
+    /// generator's instance. In case another call to `checkers` is
+    /// made before any move was done/undone, `checkers` will return
+    /// the stored bitboard instead of re-calculating it, thus saving
+    /// time.
+    #[inline]
+    fn checkers(&self) -> Bitboard {
+        if self.checkers.get() == BB_ALL {
+            self.checkers
+                .set(self.attacks_to(self.king_square()) &
+                     unsafe { *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) });
+        }
+        self.checkers.get()
+    }
+
     /// A helper method. It returns the square that the king of the
     /// side to move occupies, and its checker. Needed only for
     /// performance reasons.
@@ -1025,7 +1038,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
             self.board.castling_rights.can_castle(self.board.to_move, side) &&
             (self.board.occupied &
              *BETWEEN.get_unchecked(self.board.to_move).get_unchecked(side) == 0) &&
-            self.checkers() == 0 &&
+            !self.is_check() &&
             !self.king_would_be_in_check(king_square,
                                          *[[D1, F1], [D8, F8]]
                                               .get_unchecked(self.board.to_move)

@@ -105,7 +105,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
                   stand_pat == position.evaluator().evaluate(position.board()));
     const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
 
-    let in_check = position.checkers() != 0;
+    let is_check = position.is_check();
 
     // At the beginning of quiescence, position's static evaluation
     // (`stand_pat`) is used to establish a lower bound on the
@@ -115,7 +115,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
     // that this assumption is not true if the the side to move is in
     // check, because in this case all possible check evasions will be
     // tried.)
-    if in_check {
+    if is_check {
         // Position's static evaluation is useless when in check.
         stand_pat = lower_bound;
     } else if stand_pat == VALUE_UNKNOWN {
@@ -150,7 +150,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
         // destination squares of previous moves.) For all other
         // moves, a static exchange evaluation is performed to
         // decide if the move should be tried.
-        if !in_check && move_type != MOVE_ENPASSANT && recapture_squares & dest_square_bb == 0 {
+        if !is_check && move_type != MOVE_ENPASSANT && recapture_squares & dest_square_bb == 0 {
             match position.evaluate_move(m) {
                 // A losing move -- do not try it.
                 x if x < 0 => continue 'trymoves,
@@ -168,7 +168,7 @@ fn qsearch<T: MoveGenerator>(position: &mut T,
             // If the move does not give check, ensure that
             // the immediate material gain from the move is
             // big enough.
-            if position.checkers() == 0 {
+            if !position.is_check() {
                 let material_gain = if move_type == MOVE_PROMOTION {
                     PIECE_VALUES[captured_piece] +
                     PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())] -

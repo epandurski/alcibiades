@@ -146,7 +146,7 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
 
     #[inline]
     fn is_check(&self) -> bool {
-        self.position().checkers() != 0
+        self.position().is_check()
     }
 
     #[inline]
