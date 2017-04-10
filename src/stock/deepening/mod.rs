@@ -103,6 +103,7 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
         self.previously_searched_nodes = 0;
         self.depth = 0;
         self.value = VALUE_UNKNOWN;
+        self.depth_target = DEPTH_MAX;
         self.search_next_depth();
     }
 
