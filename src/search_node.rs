@@ -35,7 +35,7 @@ use qsearch::QsearchResult;
 pub trait SearchNode: Clone + SetOption + Send + 'static {
     /// The type of static evaluator that the implementation works
     /// with.
-    type Evaluator: Evaluator;
+    type Evaluator: Evaluator<Board>;
 
     /// The type of result object that `qsearch` returns.
     type QsearchResult: QsearchResult;

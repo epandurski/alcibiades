@@ -1,7 +1,6 @@
 //! Defines the `Evaluator` trait.
 
 use uci::SetOption;
-use board::Board;
 use moves::Move;
 use value::*;
 
@@ -24,7 +23,7 @@ use value::*;
 /// position has pending tactical threats, the static evaluation will
 /// be grossly incorrect. To implement your own static evaluator, you
 /// must define a type that implements the `Evaluator` trait.
-pub trait Evaluator: Clone + SetOption + Send + 'static {
+pub trait Evaluator<T>: Clone + SetOption + Send + 'static {
     /// Creates a new instance bound to a given position.
     ///
     /// When a new evaluator is created it is bound to a particular
@@ -36,7 +35,7 @@ pub trait Evaluator: Clone + SetOption + Send + 'static {
     /// (or respectively, `will_undo_move` and `undone_move`
     /// methods). Thus, evaluator's state can be kept up-to-date,
     /// following the current line of play.
-    fn new(position: &Board) -> Self;
+    fn new(position: &T) -> Self;
 
     /// Evaluates the the position to which the evaluator is currently
     /// bound.
@@ -46,7 +45,7 @@ pub trait Evaluator: Clone + SetOption + Send + 'static {
     ///
     /// The returned value must be between `VALUE_EVAL_MIN` and
     /// `VALUE_EVAL_MAX`.
-    fn evaluate(&self, position: &Board) -> Value;
+    fn evaluate(&self, position: &T) -> Value;
 
     /// Returns whether the position to which the evaluator is
     /// currently bound is "zugzwangy".
@@ -58,7 +57,7 @@ pub trait Evaluator: Clone + SetOption + Send + 'static {
     /// probability of zugzwang occurring. For such positions, this
     /// method returns `true`. This is useful when we want to decide
     /// whether it is safe to try a null move.
-    fn is_zugzwangy(&self, position: &Board) -> bool;
+    fn is_zugzwangy(&self, position: &T) -> bool;
 
     /// Updates evaluator's state to keep up with a move that will be
     /// played.
@@ -69,7 +68,7 @@ pub trait Evaluator: Clone + SetOption + Send + 'static {
     /// `m` is a legal move, or (if not in check) a "null move".
     #[inline]
     #[allow(unused_variables)]
-    fn will_do_move(&mut self, position: &Board, m: Move) {}
+    fn will_do_move(&mut self, position: &T, m: Move) {}
 
     /// Updates evaluator's state to keep up with a move that was
     /// played.
@@ -78,7 +77,7 @@ pub trait Evaluator: Clone + SetOption + Send + 'static {
     /// is bound (that is: after `m` was played).
     #[inline]
     #[allow(unused_variables)]
-    fn done_move(&mut self, position: &Board, m: Move) {}
+    fn done_move(&mut self, position: &T, m: Move) {}
 
     /// Updates evaluator's state to keep up with a move that will be
     /// taken back.
@@ -87,7 +86,7 @@ pub trait Evaluator: Clone + SetOption + Send + 'static {
     /// currently bound (that is: before `m` is taken back).
     #[inline]
     #[allow(unused_variables)]
-    fn will_undo_move(&mut self, position: &Board, m: Move) {}
+    fn will_undo_move(&mut self, position: &T, m: Move) {}
 
     /// Updates evaluator's state in accordance with a move that was
     /// taken back.
@@ -96,5 +95,5 @@ pub trait Evaluator: Clone + SetOption + Send + 'static {
     /// bound (that is: after `m` was taken back).
     #[inline]
     #[allow(unused_variables)]
-    fn undone_move(&mut self, position: &Board, m: Move) {}
+    fn undone_move(&mut self, position: &T, m: Move) {}
 }

@@ -14,7 +14,7 @@ use utils::{BoardGeometry, ZobristArrays};
 
 /// Implements the `MoveGenerator` trait.
 #[derive(Clone)]
-pub struct StdMoveGenerator<T: Evaluator> {
+pub struct StdMoveGenerator<T: Evaluator<Board>> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
     board: Board,
@@ -26,7 +26,7 @@ pub struct StdMoveGenerator<T: Evaluator> {
 }
 
 
-impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
+impl<T: Evaluator<Board>> MoveGenerator for StdMoveGenerator<T> {
     type Evaluator = T;
 
     fn from_board(board: Board) -> Result<Self, IllegalBoard> {
@@ -683,7 +683,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 }
 
 
-impl<T: Evaluator> SetOption for StdMoveGenerator<T> {
+impl<T: Evaluator<Board>> SetOption for StdMoveGenerator<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
@@ -694,7 +694,7 @@ impl<T: Evaluator> SetOption for StdMoveGenerator<T> {
 }
 
 
-impl<T: Evaluator> StdMoveGenerator<T> {
+impl<T: Evaluator<Board>> StdMoveGenerator<T> {
     /// A helper method for `create`. It analyzes the position on the
     /// board and decides if it is legal.
     ///
@@ -1187,7 +1187,7 @@ mod tests {
     use evaluator::*;
     use stock::{StdMoveGenerator, SimpleEvaluator};
 
-    impl<E: Evaluator> StdMoveGenerator<E> {
+    impl<E: Evaluator<Board>> StdMoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalBoard> {
             StdMoveGenerator::from_board(try!(Board::from_fen(fen)))
         }
@@ -1470,7 +1470,7 @@ mod tests {
     fn try_move_digest() {
         use std::mem::transmute;
         use evaluator::*;
-        fn try_all<E: Evaluator>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
+        fn try_all<E: Evaluator<Board>>(b: &StdMoveGenerator<E>, stack: &MoveStack) {
             let mut i = 0u16;
             loop {
                 if let Some(m) = b.try_move_digest(unsafe { transmute(i) }) {

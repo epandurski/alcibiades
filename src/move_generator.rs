@@ -39,7 +39,7 @@ use utils::BoardGeometry;
 pub trait MoveGenerator: Clone + SetOption + Send + 'static {
     /// The type of static evaluator that the implementation works
     /// with.
-    type Evaluator: Evaluator;
+    type Evaluator: Evaluator<Board>;
 
     /// Creates a new instance, consuming the supplied `Board`
     /// instance.

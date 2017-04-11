@@ -17,7 +17,7 @@ pub struct SimpleEvaluator {
 
 impl SetOption for SimpleEvaluator {}
 
-impl Evaluator for SimpleEvaluator {
+impl Evaluator<Board> for SimpleEvaluator {
     fn new(position: &Board) -> SimpleEvaluator {
         let us = position.to_move;
         let them = 1 ^ us;
