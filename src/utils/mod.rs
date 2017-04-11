@@ -26,8 +26,8 @@ use move_generator::MoveGenerator;
 /// amount of time taken for each iteration, it's possible to compare
 /// the performance of different move generators or the same generator
 /// on different machines.
-pub fn perft<T: MoveGenerator>(position: &mut T, depth: Depth) -> u64 {
-    fn pft<T: MoveGenerator>(s: &mut MoveStack, p: &mut T, d: Depth) -> u64 {
+pub fn perft<T: MoveGenerator<U>, U>(position: &mut T, depth: Depth) -> u64 {
+    fn pft<T: MoveGenerator<U>, U>(s: &mut MoveStack, p: &mut T, d: Depth) -> u64 {
         if d <= 0 {
             return 1;
         }

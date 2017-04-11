@@ -3,6 +3,7 @@
 use uci::SetOption;
 use value::*;
 use depth::*;
+use board::Board;
 use move_generator::MoveGenerator;
 
 
@@ -15,7 +16,7 @@ use move_generator::MoveGenerator;
 /// return a value that is closer to the the interval bounds than the
 /// exact evaluation, but always staying on the correct side of the
 /// interval (i.e. "fail-soft" semantics).
-pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
+pub struct QsearchParams<'a, T: MoveGenerator<Board> + 'a> {
     /// A mutable reference to the root position for the search.
     ///
     /// **Important note:** The search routine may use this reference
@@ -86,7 +87,7 @@ pub trait QsearchResult: Clone {
 /// the `Qsearch` trait.
 pub trait Qsearch: SetOption + Send + 'static {
     /// The type of move generator that the implementation works with.
-    type MoveGenerator: MoveGenerator;
+    type MoveGenerator: MoveGenerator<Board>;
 
     /// The type of result object that the search produces.
     type QsearchResult: QsearchResult;

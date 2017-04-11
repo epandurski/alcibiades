@@ -62,7 +62,7 @@ pub struct StdSearchNode<T: Qsearch> {
 
 
 impl<T: Qsearch> SearchNode for StdSearchNode<T> {
-    type Evaluator = <<T as Qsearch>::MoveGenerator as MoveGenerator>::Evaluator;
+    type Evaluator = <<T as Qsearch>::MoveGenerator as MoveGenerator<Board>>::Evaluator;
 
     type QsearchResult = T::QsearchResult;
 

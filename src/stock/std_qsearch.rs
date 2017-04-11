@@ -47,11 +47,11 @@ impl QsearchResult for StdQsearchResult {
 /// Performs classical quiescence search with stand pat, delta
 /// pruning, static exchange evaluation, check evasions, limited
 /// checks and recaptures.
-pub struct StdQsearch<T: MoveGenerator> {
+pub struct StdQsearch<T: MoveGenerator<Board>> {
     phantom: PhantomData<T>,
 }
 
-impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
+impl<T: MoveGenerator<Board>> Qsearch for StdQsearch<T> {
     type MoveGenerator = T;
 
     type QsearchResult = StdQsearchResult;
@@ -79,7 +79,7 @@ impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
     }
 }
 
-impl<T: MoveGenerator> SetOption for StdQsearch<T> {
+impl<T: MoveGenerator<Board>> SetOption for StdQsearch<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
@@ -91,15 +91,15 @@ impl<T: MoveGenerator> SetOption for StdQsearch<T> {
 
 
 /// A classical recursive quiescence search implementation.
-fn qsearch<T: MoveGenerator>(position: &mut T,
-                             mut lower_bound: Value, // alpha
-                             upper_bound: Value, // beta
-                             mut stand_pat: Value, // position's static evaluation
-                             mut recapture_squares: Bitboard,
-                             ply: i8, // the reached `qsearch` depth
-                             move_stack: &mut MoveStack,
-                             searched_nodes: &mut u64)
-                             -> Value {
+fn qsearch<T: MoveGenerator<Board>>(position: &mut T,
+                                    mut lower_bound: Value, // alpha
+                                    upper_bound: Value, // beta
+                                    mut stand_pat: Value, // position's static evaluation
+                                    mut recapture_squares: Bitboard,
+                                    ply: i8, // the reached `qsearch` depth
+                                    move_stack: &mut MoveStack,
+                                    searched_nodes: &mut u64)
+                                    -> Value {
     debug_assert!(lower_bound < upper_bound);
     debug_assert!(stand_pat == VALUE_UNKNOWN ||
                   stand_pat == position.evaluator().evaluate(position.board()));

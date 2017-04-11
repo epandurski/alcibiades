@@ -2,10 +2,12 @@
 
 use std::mem::uninitialized;
 use std::cell::Cell;
+use std::cmp::max;
 use uci::{SetOption, OptionDescription};
 use board::*;
 use squares::*;
 use moves::*;
+use value::*;
 use evaluator::Evaluator;
 use move_generator::MoveGenerator;
 use bitsets::*;
@@ -26,7 +28,7 @@ pub struct StdMoveGenerator<T: Evaluator<Board>> {
 }
 
 
-impl<T: Evaluator<Board>> MoveGenerator for StdMoveGenerator<T> {
+impl<T: Evaluator<Board>> MoveGenerator<Board> for StdMoveGenerator<T> {
     type Evaluator = T;
 
     fn from_board(board: Board) -> Result<Self, IllegalBoard> {
@@ -679,6 +681,124 @@ impl<T: Evaluator<Board>> MoveGenerator for StdMoveGenerator<T> {
         self.evaluator.undone_move(&self.board, m);
 
         debug_assert!(self.is_legal());
+    }
+
+    fn evaluate_move(&self, m: Move) -> Value {
+        debug_assert!(m.played_piece() < PIECE_NONE);
+        debug_assert!(m.captured_piece() <= PIECE_NONE);
+        const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
+
+        unsafe {
+            let mut piece = m.played_piece();
+            let captured_piece = m.captured_piece();
+
+            // Try not to waste CPU cycles when the played piece is
+            // less valuable than the captured piece.
+            if piece > captured_piece {
+                return *PIECE_VALUES.get_unchecked(captured_piece);
+            }
+
+            // This is the square on which all the action takes place.
+            let exchange_square = m.dest_square();
+
+            let color: &[Bitboard; 2] = &self.board().pieces.color;
+            let piece_type: &[Bitboard; 6] = &self.board().pieces.piece_type;
+            let file_sliders = piece_type[QUEEN] | piece_type[ROOK];
+            let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
+            let geometry = BoardGeometry::get();
+            let behind_blocker: &[Bitboard; 64] = geometry.squares_behind_blocker
+                                                          .get_unchecked(exchange_square);
+
+            // These variables (along with `piece`) will be updated on each capture:
+            let mut us = self.board().to_move;
+            let mut depth = 0;
+            let mut orig_square_bb = 1 << m.orig_square();
+            let mut attackers_and_defenders = self.attacks_to(exchange_square);
+
+            // The `gain` array will hold the total material gained at
+            // each `depth`, from the viewpoint of the side that made the
+            // last capture (`us`).
+            let mut gain: [Value; 34] = uninitialized();
+            gain[0] = if m.move_type() == MOVE_PROMOTION {
+                piece = Move::piece_from_aux_data(m.aux_data());
+                PIECE_VALUES[captured_piece] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
+            } else {
+                *PIECE_VALUES.get_unchecked(captured_piece)
+            };
+
+            // Examine the possible exchanges, fill the `gain` array.
+            'exchange: while orig_square_bb != 0 {
+                let current_gain = *gain.get_unchecked(depth);
+
+                // Store a speculative value that will be used if the
+                // captured piece happens to be defended.
+                let speculative_gain: &mut Value = gain.get_unchecked_mut(depth + 1);
+                *speculative_gain = *PIECE_VALUES.get_unchecked(piece) - current_gain;
+
+                if max(-current_gain, *speculative_gain) < 0 {
+                    // The side that made the last capture wins even if
+                    // the captured piece happens to be defended. So, we
+                    // stop here to save precious CPU cycles. Note that
+                    // here we may happen to return an incorrect SEE
+                    // value, but the sign will be correct, which is by
+                    // far the most important information.
+                    break;
+                }
+
+                // Register that capturing piece's origin square is now vacant.
+                attackers_and_defenders &= !orig_square_bb;
+
+                // Consider adding new attackers/defenders, now that
+                // capturing piece's origin square is vacant.
+                let behind = self.board().occupied &
+                             *behind_blocker.get_unchecked(bsf(orig_square_bb));
+                if behind & (file_sliders | diag_sliders) != 0 && piece != KING {
+                    attackers_and_defenders |=
+                        match behind & file_sliders &
+                              geometry.attacks_from_unsafe(ROOK, exchange_square, behind) {
+                            0 => {
+                                // Not a file slider, possibly a diagonal slider.
+                                behind & diag_sliders &
+                                geometry.attacks_from_unsafe(BISHOP, exchange_square, behind)
+                            }
+                            bb => {
+                                // A file slider.
+                                bb
+                            }
+                        };
+                }
+
+                // Change the side to move.
+                us ^= 1;
+
+                // Find the next piece to enter the exchange. (The least
+                // valuable piece belonging to the side to move.)
+                let candidates = attackers_and_defenders & *color.get_unchecked(us);
+                if candidates != 0 {
+                    for p in (KING..PIECE_NONE).rev() {
+                        let bb = candidates & piece_type[p];
+                        if bb != 0 {
+                            depth += 1;
+                            piece = p;
+                            orig_square_bb = lsb(bb);
+                            continue 'exchange;
+                        }
+                    }
+                }
+                break 'exchange;
+            }
+
+            // Negamax the `gain` array for the final static exchange
+            // evaluation. (The `gain` array actually represents an unary
+            // tree, at each node of which the player can either continue
+            // the exchange or back off.)
+            while depth > 0 {
+                *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
+                                                          *gain.get_unchecked(depth));
+                depth -= 1;
+            }
+            gain[0]
+        }
     }
 }
 
