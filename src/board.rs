@@ -199,6 +199,20 @@ impl fmt::Display for CastlingRights {
 pub struct IllegalBoard;
 
 
+/// A trait for internal board representations.
+///
+/// Every chess engine needs an internal board representation to
+/// maintain chess positions for its search, evaluation, and
+/// game-play. Beside modeling the chessboard with its
+/// piece-placement, some additional information is required to fully
+/// specify a chess position, such as: side to move, castling rights,
+/// and possible en-passant target square.
+pub trait BoardRepresentation {
+    /// Returns the side to move.
+    fn to_move(&self) -> Color;
+}
+
+
 /// Holds a chess position.
 #[derive(Clone, Debug)]
 pub struct Board {
@@ -256,6 +270,13 @@ impl Board {
     pub fn rank(square: Square) -> usize {
         debug_assert!(square <= 63);
         square >> 3
+    }
+}
+
+impl BoardRepresentation for Board {
+    #[inline]
+    fn to_move(&self) -> Color {
+        self.to_move
     }
 }
 

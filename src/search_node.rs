@@ -1,7 +1,7 @@
 //! Defines the `SearchNode` trait.
 
 use uci::SetOption;
-use board::{Board, IllegalBoard};
+use board::{BoardRepresentation, IllegalBoard};
 use moves::{Move, MoveDigest, AddMove};
 use depth::*;
 use value::*;
@@ -33,9 +33,13 @@ use qsearch::QsearchResult;
 /// occurred exactly once. Also, the newly created instance is never
 /// deemed a draw due to repetition or rule-50.
 pub trait SearchNode: Clone + SetOption + Send + 'static {
+    /// The type of board representation that the implementation works
+    /// with.
+    type BoardRepresentation: BoardRepresentation;
+
     /// The type of static evaluator that the implementation works
     /// with.
-    type Evaluator: Evaluator<Board>;
+    type Evaluator: Evaluator<Self::BoardRepresentation>;
 
     /// The type of result object that `qsearch` returns.
     type QsearchResult: QsearchResult;
@@ -55,7 +59,7 @@ pub trait SearchNode: Clone + SetOption + Send + 'static {
     fn hash(&self) -> u64;
 
     /// Returns a reference to the underlying `Board` instance.
-    fn board(&self) -> &Board;
+    fn board(&self) -> &Self::BoardRepresentation;
 
     /// Returns the number of half-moves since the last piece capture
     /// or pawn advance.

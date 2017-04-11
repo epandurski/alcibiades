@@ -30,7 +30,7 @@ impl<T> TimeManager<T> for StdTimeManager
 {
     fn new(position: &T::SearchNode, time: &RemainingTime) -> StdTimeManager {
         // Get our remaining time and time increment (in milliseconds).
-        let (t, inc) = if position.board().to_move == WHITE {
+        let (t, inc) = if position.board().to_move() == WHITE {
             (time.white_millis as f64, time.winc_millis as f64)
         } else {
             (time.black_millis as f64, time.binc_millis as f64)
