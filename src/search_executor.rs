@@ -1,9 +1,10 @@
 //! Defines the `SearchExecutor` trait.
 
 use std::time::Duration;
+use std::cell::RefCell;
 use std::sync::Arc;
-use std::sync::mpsc::{Sender, Receiver, TryRecvError};
-use uci::SetOption;
+use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
+use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
 use depth::*;
@@ -224,7 +225,73 @@ pub trait Search: SetOption {
     /// `tt` gives a transposition table for the new search executor
     /// to work with.
     fn start(tt: Arc<Self::HashTable>,
-             messages_from: Receiver<&str>,
+             messages_from: Receiver<String>,
              reports_to: Sender<SearchReport<Self::ReportData>>,
              params: SearchParams<Self::SearchNode>);
+}
+
+
+struct StdSearchExecutor<T: Search> {
+    tt: Arc<T::HashTable>,
+    messages_tx: Sender<String>,
+    reports_rx: Receiver<SearchReport<T::ReportData>>,
+    reports_tx: Sender<SearchReport<T::ReportData>>,
+    pending_report: RefCell<Option<SearchReport<T::ReportData>>>,
+}
+
+
+impl<T: Search> SearchExecutor for StdSearchExecutor<T> {
+    type HashTable = T::HashTable;
+
+    type SearchNode = T::SearchNode;
+
+    type ReportData = T::ReportData;
+
+    fn new(tt: Arc<Self::HashTable>) -> Self {
+        let (messages_tx, _) = channel();
+        let (reports_tx, reports_rx) = channel();
+        Self {
+            tt: tt,
+            messages_tx: messages_tx,
+            reports_rx: reports_rx,
+            reports_tx: reports_tx,
+            pending_report: RefCell::new(None),
+        }
+    }
+
+    fn start_search(&mut self, params: SearchParams<Self::SearchNode>) {
+        let (messages_tx, messages_rx) = channel();
+        self.messages_tx = messages_tx;
+        T::start(self.tt.clone(), messages_rx, self.reports_tx.clone(), params);
+    }
+
+    fn wait_report(&self, timeout_after: Duration) {
+        let mut report = self.pending_report.borrow_mut();
+        if report.is_none() {
+            *report = self.reports_rx.recv_timeout(timeout_after).ok();
+        }
+    }
+
+    fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
+        self.pending_report
+            .borrow_mut()
+            .take()
+            .ok_or(TryRecvError::Empty)
+            .or_else(|_| self.reports_rx.try_recv())
+    }
+
+    fn send_message(&mut self, msg: &str) {
+        self.messages_tx.send(msg.to_string()).unwrap();
+    }
+}
+
+
+impl<T: Search> SetOption for StdSearchExecutor<T> {
+    fn options() -> Vec<(String, OptionDescription)> {
+        T::options()
+    }
+
+    fn set_option(name: &str, value: &str) {
+        T::set_option(name, value);
+    }
 }
