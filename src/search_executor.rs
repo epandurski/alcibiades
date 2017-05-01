@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 use std::sync::Arc;
-use std::sync::mpsc::TryRecvError;
+use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use uci::SetOption;
 use moves::Move;
 use value::*;
@@ -205,4 +205,26 @@ pub trait SearchExecutor: SetOption {
     /// continue to be called periodically until the returned report
     /// indicates that the search is done.
     fn send_message(&mut self, msg: &str);
+}
+
+
+pub trait Search: SetOption {
+    /// The type of transposition (hash) table that the implementation
+    /// works with.
+    type HashTable: HashTable;
+
+    /// The type of search node that the implementation works with.
+    type SearchNode: SearchNode;
+
+    /// The type of auxiliary data that search progress reports carry.
+    type ReportData;
+
+    /// Creates a new instance.
+    ///
+    /// `tt` gives a transposition table for the new search executor
+    /// to work with.
+    fn start(tt: Arc<Self::HashTable>,
+             messages_from: Receiver<&str>,
+             reports_to: Sender<SearchReport<Self::ReportData>>,
+             params: SearchParams<Self::SearchNode>);
 }
