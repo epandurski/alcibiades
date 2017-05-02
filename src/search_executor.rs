@@ -61,7 +61,7 @@ pub struct SearchParams<T: SearchNode> {
 
 /// A progress report from a search.
 #[derive(Clone, Debug)]
-pub struct SearchReport<T> {
+pub struct SearchReport<T: Send> {
     /// The ID assigned to the search.
     ///
     /// Should be the same for all reports from a given search.
@@ -148,7 +148,7 @@ pub struct SearchReport<T> {
 ///
 /// 3. Obtains the principal variation(s) from search reports, or
 ///    directly from the transposition table.
-pub trait SearchExecutor: SetOption {
+pub trait SearchExecutor: SetOption + Send + 'static {
     /// The type of transposition (hash) table that the implementation
     /// works with.
     type HashTable: HashTable;
@@ -157,7 +157,7 @@ pub trait SearchExecutor: SetOption {
     type SearchNode: SearchNode;
 
     /// The type of auxiliary data that search progress reports carry.
-    type ReportData;
+    type ReportData: Send;
 
     /// Creates a new instance.
     ///
