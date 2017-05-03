@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn bucket() {
         unsafe {
-            let p = libc::malloc(64);
+            let p = libc::calloc(1, 64);
             let b = Bucket::<Record<StdHashTableEntry>>::new(p);
             assert_eq!(b.get_generation(0), 0);
             assert_eq!(b.get_generation(1), 0);
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn bucket_endianness() {
         unsafe {
-            let p = libc::malloc(64);
+            let p = libc::calloc(1, 64);
             let b = Bucket::<Record<StdHashTableEntry>>::new(p);
             let mut record = b.get(4).as_mut().unwrap();
             let entry = StdHashTableEntry::new(0, BOUND_NONE, 10);
