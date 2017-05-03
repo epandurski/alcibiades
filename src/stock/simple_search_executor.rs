@@ -15,7 +15,7 @@ use depth::*;
 use board::*;
 use moves::*;
 use hash_table::*;
-use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use search::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
 use evaluator::Evaluator;
 use qsearch::QsearchResult;

@@ -6,7 +6,7 @@ use std::cmp::min;
 use board::*;
 use depth::*;
 use value::*;
-use search_executor::*;
+use search::*;
 use hash_table::Variation;
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};

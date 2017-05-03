@@ -11,7 +11,7 @@ use value::*;
 use depth::*;
 use hash_table::*;
 use moves::Move;
-use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use search::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
 

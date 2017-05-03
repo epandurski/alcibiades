@@ -14,7 +14,7 @@ use value::*;
 use depth::*;
 use hash_table::*;
 use search_node::SearchNode;
-use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use search::{SearchParams, SearchReport, SearchExecutor};
 use self::multipv::Multipv;
 
 

@@ -10,6 +10,7 @@ mod std_move_generator;
 mod std_time_manager;
 mod simple_evaluator;
 mod deepening;
+mod thread_executor;
 
 pub use self::std_hash_table::*;
 pub use self::std_hash_table_entry::*;
@@ -21,3 +22,4 @@ pub use self::std_move_generator::*;
 pub use self::std_time_manager::*;
 pub use self::simple_evaluator::*;
 pub use self::deepening::*;
+pub use self::thread_executor::*;

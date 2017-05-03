@@ -11,7 +11,7 @@ use depth::*;
 use hash_table::*;
 use evaluator::Evaluator;
 use search_node::SearchNode;
-use search_executor::{SearchParams, SearchReport, SearchExecutor};
+use search::{SearchParams, SearchReport, SearchExecutor};
 use super::{bogus_params, contains_dups};
 use super::aspiration::Aspiration;
 

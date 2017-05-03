@@ -2,7 +2,7 @@
 
 use uci::SetOption;
 use hash_table::Variation;
-use search_executor::*;
+use search::*;
 
 
 /// Describes the remaining time on the clocks.
