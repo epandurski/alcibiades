@@ -209,7 +209,7 @@ pub trait SearchExecutor: SetOption {
 }
 
 
-pub trait Search: SetOption {
+pub trait SearchThread: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
     type HashTable: HashTable;
@@ -224,14 +224,14 @@ pub trait Search: SetOption {
     ///
     /// `tt` gives a transposition table for the new search executor
     /// to work with.
-    fn start(tt: Arc<Self::HashTable>,
+    fn spawn(tt: Arc<Self::HashTable>,
              messages_from: Receiver<String>,
              reports_to: Sender<SearchReport<Self::ReportData>>,
              params: SearchParams<Self::SearchNode>);
 }
 
 
-struct StdSearchExecutor<T: Search> {
+struct StdSearchExecutor<T: SearchThread> {
     tt: Arc<T::HashTable>,
     messages_tx: Sender<String>,
     reports_rx: Receiver<SearchReport<T::ReportData>>,
@@ -240,7 +240,7 @@ struct StdSearchExecutor<T: Search> {
 }
 
 
-impl<T: Search> SearchExecutor for StdSearchExecutor<T> {
+impl<T: SearchThread> SearchExecutor for StdSearchExecutor<T> {
     type HashTable = T::HashTable;
 
     type SearchNode = T::SearchNode;
@@ -262,7 +262,10 @@ impl<T: Search> SearchExecutor for StdSearchExecutor<T> {
     fn start_search(&mut self, params: SearchParams<Self::SearchNode>) {
         let (messages_tx, messages_rx) = channel();
         self.messages_tx = messages_tx;
-        T::start(self.tt.clone(), messages_rx, self.reports_tx.clone(), params);
+        T::spawn(self.tt.clone(),
+                 messages_rx,
+                 self.reports_tx.clone(),
+                 params);
     }
 
     fn wait_report(&self, timeout_after: Duration) {
@@ -286,7 +289,7 @@ impl<T: Search> SearchExecutor for StdSearchExecutor<T> {
 }
 
 
-impl<T: Search> SetOption for StdSearchExecutor<T> {
+impl<T: SearchThread> SetOption for StdSearchExecutor<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }
