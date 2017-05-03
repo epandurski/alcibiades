@@ -209,25 +209,75 @@ pub trait SearchExecutor: SetOption {
 }
 
 
+/// A trait for spawning search threads.
+///
+/// Chess programs must rely on some type of search in order to play
+/// reasonably. Searching involves looking ahead at different move
+/// sequences and evaluating the positions after making the
+/// moves. Normally, this is done by traversing and min-maxing a
+/// tree-like data-structure by some algorithm.
+///
+/// There are two types of searches that should be distinguished:
+///
+/// * **Depth-first search.**
+///
+///   Starts at the root and explores as far as possible along each
+///   branch before backtracking.
+///
+/// * **Iterative deepening search.**
+///
+///   A depth-first search is executed with a depth of one ply, then
+///   the depth is incremented and another search is executed. This
+///   process is repeated until the search is terminated or the
+///   requested search depth is reached. In case of a terminated
+///   search, the engine can always fall back to the move selected in
+///   the last iteration of the search.
 pub trait SearchThread: SetOption {
-    /// The type of transposition (hash) table that the implementation
+    /// The type of transposition (hash) table that the search thread
     /// works with.
     type HashTable: HashTable;
 
-    /// The type of search node that the implementation works with.
+    /// The type of search node that the search thread works with.
     type SearchNode: SearchNode;
 
     /// The type of auxiliary data that search progress reports carry.
     type ReportData;
 
-    /// Creates a new instance.
+    /// Spawns a new search thread.
     ///
-    /// `tt` gives a transposition table for the new search executor
-    /// to work with.
-    fn spawn(tt: Arc<Self::HashTable>,
-             messages_from: Receiver<String>,
-             reports_to: Sender<SearchReport<Self::ReportData>>,
-             params: SearchParams<Self::SearchNode>);
+    /// * `params` specifies the exact parameters for the new search
+    ///   -- starting position, search depth etc.
+    ///
+    /// * `tt` supplies a transposition table instance.
+    ///
+    ///   The search thread must continuously update `tt` so that, at
+    ///   each moment, it contains the results of the work done so
+    ///   far.
+    ///
+    /// * `reports_tx` gives the sending-half of progress reports'
+    ///   channel.
+    ///
+    ///   The search thread must send periodic reports to
+    ///   `reports_tx`, informing about the current progress of the
+    ///   search.
+    ///
+    /// * `messages_rx` gives the receiving-half of control messages'
+    ///   channel.
+    ///
+    ///   Control messages' format is not specified, but the
+    ///   implementation **must** meet the following requirements:
+    /// 
+    ///   * Unrecognized messages are ignored.
+    ///
+    ///   * The message `"TERMINATE"` is recognized as a request to
+    ///     terminate the search.
+    ///
+    ///   * Receiving two or more termination requests does not cause
+    ///     problems.
+    fn spawn(params: SearchParams<Self::SearchNode>,
+             tt: Arc<Self::HashTable>,
+             reports_tx: Sender<SearchReport<Self::ReportData>>,
+             messages_rx: Receiver<String>);
 }
 
 
@@ -262,10 +312,10 @@ impl<T: SearchThread> SearchExecutor for StdSearchExecutor<T> {
     fn start_search(&mut self, params: SearchParams<Self::SearchNode>) {
         let (messages_tx, messages_rx) = channel();
         self.messages_tx = messages_tx;
-        T::spawn(self.tt.clone(),
-                 messages_rx,
+        T::spawn(params,
+                 self.tt.clone(),
                  self.reports_tx.clone(),
-                 params);
+                 messages_rx);
     }
 
     fn wait_report(&self, timeout_after: Duration) {
