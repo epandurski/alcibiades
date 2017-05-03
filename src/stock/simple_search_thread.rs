@@ -3,10 +3,8 @@
 use std::mem;
 use std::cmp::max;
 use std::thread;
-use std::cell::UnsafeCell;
-use std::sync::{Arc, Mutex, Condvar};
-use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvError};
-use std::time::Duration;
+use std::sync::Arc;
+use std::sync::mpsc::{Sender, Receiver};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use uci::{SetOption, OptionDescription};
@@ -15,7 +13,7 @@ use depth::*;
 use board::*;
 use moves::*;
 use hash_table::*;
-use search::{SearchParams, SearchReport, SearchExecutor};
+use search::*;
 use search_node::SearchNode;
 use evaluator::Evaluator;
 use qsearch::QsearchResult;
@@ -45,14 +43,11 @@ use utils::MoveStack;
 /// `searchmoves` search parameter. It always analyses all legal moves
 /// in the root position.
 pub struct SimpleSearchThread<T: HashTable, N: SearchNode> {
-    phantom: PhantomData<T>,
-    thread_join_handle: Option<thread::JoinHandle<()>>,
-    thread_commands: Sender<Command<N>>,
-    thread_reports: Receiver<SearchReport<()>>,
-    has_reports_condition: Arc<(Mutex<bool>, Condvar)>,
+    phantom1: PhantomData<T>,
+    phantom2: PhantomData<N>,
 }
 
-impl<T, N> SearchExecutor for SimpleSearchThread<T, N>
+impl<T, N> SearchThread for SimpleSearchThread<T, N>
     where T: HashTable,
           N: SearchNode
 {
@@ -62,24 +57,11 @@ impl<T, N> SearchExecutor for SimpleSearchThread<T, N>
 
     type ReportData = ();
 
-    fn new(tt: Arc<T>) -> SimpleSearchThread<T, N> {
-        let (commands_tx, commands_rx) = channel();
-        let (reports_tx, reports_rx) = channel();
-        let has_reports_condition = Arc::new((Mutex::new(false), Condvar::new()));
-        SimpleSearchThread {
-            phantom: PhantomData,
-            thread_commands: commands_tx,
-            thread_reports: reports_rx,
-            has_reports_condition: has_reports_condition.clone(),
-
-            // Spawn a thread that will do the real work.
-            thread_join_handle: Some(thread::spawn(move || {
-                serve_simple(tt, commands_rx, reports_tx, has_reports_condition);
-            })),
-        }
-    }
-
-    fn start_search(&mut self, params: SearchParams<N>) {
+    fn spawn(params: SearchParams<Self::SearchNode>,
+             tt: Arc<Self::HashTable>,
+             reports_tx: Sender<SearchReport<Self::ReportData>>,
+             messages_rx: Receiver<String>)
+             -> thread::JoinHandle<()> {
         assert!(params.depth >= 0, "depth must be at least 0.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
@@ -87,30 +69,55 @@ impl<T, N> SearchExecutor for SimpleSearchThread<T, N>
         debug_assert!(params.searchmoves.is_empty() ||
                       contains_same_moves(&params.searchmoves, &params.position.legal_moves()),
                       "SimpleSearchThread ignores searchmoves");
-        self.thread_commands.send(Command::Start(params)).unwrap();
-    }
-
-    fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
-        let mut has_reports = self.has_reports_condition.0.lock().unwrap();
-        let result = self.thread_reports.try_recv();
-        if result.is_err() {
-            *has_reports = false;
-        }
-        result
-    }
-
-    fn wait_report(&self, duration: Duration) {
-        let &(ref has_reports, ref condition) = &*self.has_reports_condition;
-        let has_reports = has_reports.lock().unwrap();
-        if !*has_reports {
-            condition.wait_timeout(has_reports, duration).unwrap();
-        }
-    }
-
-    fn send_message(&mut self, message: &str) {
-        if message == "TERMINATE" {
-            self.thread_commands.send(Command::Terminate).unwrap();
-        }
+        thread::spawn(move || {
+            let SearchParams {
+                search_id,
+                position,
+                depth,
+                lower_bound,
+                upper_bound,
+                ..
+            } = params;
+            let report = SearchReport {
+                search_id: search_id,
+                searched_nodes: 0,
+                depth: 0,
+                value: VALUE_UNKNOWN,
+                data: (),
+                done: false,
+            };
+            let mut reporting = |searched_nodes| {
+                reports_tx
+                    .send(SearchReport {
+                              searched_nodes,
+                              ..report
+                          })
+                    .ok();
+                if let Ok(msg) = messages_rx.try_recv() {
+                    msg == "TERMINATE"
+                } else {
+                    false
+                }
+            };
+            let mut move_stack = MoveStack::new();
+            let mut search = Search::new(position, tt.deref(), &mut move_stack, &mut reporting);
+            let (depth, value) = if let Ok(v) =
+                search.run(lower_bound, upper_bound, depth, Move::invalid()) {
+                (depth, v)
+            } else {
+                (0, VALUE_UNKNOWN)
+            };
+            reports_tx
+                .send(SearchReport {
+                          searched_nodes: search.node_count(),
+                          depth: depth,
+                          value: value,
+                          done: true,
+                          ..report
+                      })
+                .ok();
+            search.reset();
+        })
     }
 }
 
@@ -124,129 +131,12 @@ impl<T: HashTable, N: SearchNode> SetOption for SimpleSearchThread<T, N> {
     }
 }
 
-impl<T: HashTable, N: SearchNode> Drop for SimpleSearchThread<T, N> {
-    fn drop(&mut self) {
-        self.thread_commands.send(Command::Exit).unwrap();
-        self.thread_join_handle.take().unwrap().join().unwrap();
-    }
-}
-
-
-/// Represents a command to a search thread.
-enum Command<N: SearchNode> {
-    /// Starts a new search.
-    Start(SearchParams<N>),
-
-    /// Terminates the currently running search.
-    Terminate,
-
-    /// Terminates the currently running search and exits the search
-    /// thread.
-    Exit,
-}
-
-
-/// A helper function. It listens for commands, executes simple
-/// searches, sends reports back.
-///
-/// This function will block and wait to receive commands on the
-/// `commands` channel to start, stop, or exit searches. It is
-/// intended to be called in a separate thread. While the search is
-/// executed, regular `SearchReport` messages will be send back to the
-/// master thread via the `reports` channel. When the search is done,
-/// the final `SearchReport` message will have its `done` field set to
-/// `true`.
-fn serve_simple<T, N>(tt: Arc<T>,
-                      commands: Receiver<Command<N>>,
-                      reports: Sender<SearchReport<()>>,
-                      has_reports_condition: Arc<(Mutex<bool>, Condvar)>)
-    where T: HashTable,
-          N: SearchNode
-{
-    thread_local!(
-        static MOVE_STACK: UnsafeCell<MoveStack> = UnsafeCell::new(MoveStack::new())
-    );
-    MOVE_STACK.with(|s| {
-        let &(ref has_reports, ref condition) = &*has_reports_condition;
-        let mut move_stack = unsafe { &mut *s.get() };
-        let mut pending_command = None;
-        loop {
-            // If there is a pending command, we take it, otherwise we
-            // block and wait to receive a command.
-            let command = match pending_command.take() {
-                Some(cmd) => cmd,
-                None => commands.recv().or::<RecvError>(Ok(Command::Exit)).unwrap(),
-            };
-
-            match command {
-                Command::Start(SearchParams { search_id,
-                                              position,
-                                              depth,
-                                              lower_bound,
-                                              upper_bound,
-                                              .. }) => {
-                    debug_assert!(lower_bound < upper_bound);
-                    let mut report = |searched_nodes| {
-                        reports.send(SearchReport {
-                                   search_id: search_id,
-                                   searched_nodes: searched_nodes,
-                                   depth: 0,
-                                   value: VALUE_UNKNOWN,
-                                   data: (),
-                                   done: false,
-                               })
-                               .ok();
-                        let mut has_reports = has_reports.lock().unwrap();
-                        *has_reports = true;
-                        condition.notify_one();
-
-                        if let Ok(cmd) = commands.try_recv() {
-                            pending_command = Some(cmd);
-                            true
-                        } else {
-                            false
-                        }
-                    };
-                    let mut search = Search::new(position, tt.deref(), move_stack, &mut report);
-                    let (depth, value) = if let Ok(v) = search.run(lower_bound,
-                                                                   upper_bound,
-                                                                   depth,
-                                                                   Move::invalid()) {
-                        (depth, v)
-                    } else {
-                        (0, VALUE_UNKNOWN)
-                    };
-
-                    reports.send(SearchReport {
-                               search_id: search_id,
-                               searched_nodes: search.node_count(),
-                               depth: depth,
-                               value: value,
-                               data: (),
-                               done: true,
-                           })
-                           .ok();
-                    let mut has_reports = has_reports.lock().unwrap();
-                    *has_reports = true;
-                    condition.notify_one();
-
-                    search.reset();
-                }
-
-                Command::Terminate => continue,
-
-                Command::Exit => break,
-            }
-        }
-    })
-}
-
 
 /// Represents a terminated search condition.
 struct TerminatedSearch;
 
 
-/// Represents a game tree search.        
+/// Represents a game tree search.
 struct Search<'a, T, N>
     where T: HashTable + 'a,
           N: SearchNode
@@ -467,17 +357,18 @@ impl<'a, T, N> Search<'a, T, N>
             }
         } else {
             let v = self.position
-                        .evaluator()
-                        .evaluate(self.position.board());
+                .evaluator()
+                .evaluate(self.position.board());
             (T::Entry::new(0, BOUND_NONE, 0).set_static_eval(v), v)
         };
-        self.state_stack.push(NodeState {
-            phase: NodePhase::Pristine,
-            hash_move_digest: entry.move_digest(),
-            static_eval: static_eval,
-            is_check: unsafe { mem::uninitialized() }, // We will initialize this soon!
-            killer: None,
-        });
+        self.state_stack
+            .push(NodeState {
+                      phase: NodePhase::Pristine,
+                      hash_move_digest: entry.move_digest(),
+                      static_eval: static_eval,
+                      is_check: unsafe { mem::uninitialized() }, // We will initialize this soon!
+                      killer: None,
+                  });
 
         // Check if the TT entry gives the result.
         if entry.depth() >= depth {
@@ -501,8 +392,9 @@ impl<'a, T, N> Search<'a, T, N>
             } else {
                 BOUND_EXACT
             };
-            self.tt.store(hash,
-                          T::Entry::new(result.value(), bound, depth).set_static_eval(static_eval));
+            self.tt
+                .store(hash,
+                       T::Entry::new(result.value(), bound, depth).set_static_eval(static_eval));
             return Ok(Some(result.value()));
         }
 
@@ -523,9 +415,9 @@ impl<'a, T, N> Search<'a, T, N>
         // sub-tree under the null move.
         if !last_move.is_null() && static_eval >= beta &&
            {
-            let p = &self.position;
-            !p.evaluator().is_zugzwangy(p.board())
-        } {
+               let p = &self.position;
+               !p.evaluator().is_zugzwangy(p.board())
+           } {
             // Calculate the reduced depth.
             let reduced_depth = if depth > 7 {
                 depth - NULL_MOVE_REDUCTION - 1
@@ -551,9 +443,10 @@ impl<'a, T, N> Search<'a, T, N>
                     // less a lie (because of the depth reduction),
                     // and therefore we better tell a smaller lie and
                     // return `beta` here instead of `value`.
-                    self.tt.store(hash,
-                                  T::Entry::new(beta, BOUND_LOWER, depth)
-                                      .set_static_eval(static_eval));
+                    self.tt
+                        .store(hash,
+                               T::Entry::new(beta, BOUND_LOWER, depth)
+                                   .set_static_eval(static_eval));
                     return Ok(Some(beta));
                 }
             }
@@ -600,10 +493,10 @@ impl<'a, T, N> Search<'a, T, N>
         let ply = self.state_stack.len() - 1;
         let state = &mut self.state_stack[ply];
         debug_assert!(if let NodePhase::Pristine = state.phase {
-            false
-        } else {
-            true
-        });
+                          false
+                      } else {
+                          true
+                      });
         debug_assert!(ply < DEPTH_MAX as usize);
 
         // Try the hash move.
@@ -651,15 +544,15 @@ impl<'a, T, N> Search<'a, T, N>
 
         // Try the generated moves.
         while let Some(mut m) = if let NodePhase::TriedLosingCaptures = state.phase {
-            // After we have tried the losing captures, we try the
-            // rest of the moves in the order in which they reside in
-            // the move stack, because at this stage the probability
-            // of cut-off is low, so the move ordering is not
-            // important.
-            self.moves.pop()
-        } else {
-            self.moves.pull_best()
-        } {
+                  // After we have tried the losing captures, we try the
+                  // rest of the moves in the order in which they reside in
+                  // the move stack, because at this stage the probability
+                  // of cut-off is low, so the move ordering is not
+                  // important.
+                  self.moves.pop()
+              } else {
+                  self.moves.pull_best()
+              } {
             // First -- the winning and even captures and promotions
             // to queen.
             if let NodePhase::GeneratedMoves = state.phase {
@@ -739,10 +632,11 @@ impl<'a, T, N> Search<'a, T, N>
     /// information in the transposition table.
     #[inline]
     fn store(&mut self, value: Value, bound: BoundType, depth: Depth, best_move: Move) {
-        self.tt.store(self.position.hash(),
-                      T::Entry::new(value, bound, depth)
-                          .set_move_digest(best_move.digest())
-                          .set_static_eval(self.state_stack.last().unwrap().static_eval));
+        self.tt
+            .store(self.position.hash(),
+                   T::Entry::new(value, bound, depth)
+                       .set_move_digest(best_move.digest())
+                       .set_static_eval(self.state_stack.last().unwrap().static_eval));
     }
 
     /// A helper method for `run`. It reports search progress.
@@ -979,16 +873,22 @@ mod tests {
     fn search() {
         let p = P::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1",
                                 &mut vec![].into_iter())
-                    .ok()
-                    .unwrap();
+                .ok()
+                .unwrap();
         let tt = StdHashTable::<StdHashTableEntry>::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
-        let value = search.run(VALUE_MIN, VALUE_MAX, 1, Move::invalid()).ok().unwrap();
+        let value = search
+            .run(VALUE_MIN, VALUE_MAX, 1, Move::invalid())
+            .ok()
+            .unwrap();
         assert!(value < -300);
         search.reset();
-        let value = search.run(VALUE_MIN, VALUE_MAX, 8, Move::invalid()).ok().unwrap();
+        let value = search
+            .run(VALUE_MIN, VALUE_MAX, 8, Move::invalid())
+            .ok()
+            .unwrap();
         assert!(value > VALUE_EVAL_MAX);
     }
 
@@ -997,8 +897,8 @@ mod tests {
         let mut killers = KillerTable::new();
         let mut p = P::from_history("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1",
                                     &mut vec![].into_iter())
-                        .ok()
-                        .unwrap();
+                .ok()
+                .unwrap();
         let mut v = MoveStack::new();
         p.generate_moves(&mut v);
         let mut i = 1;

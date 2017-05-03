@@ -1,5 +1,6 @@
 //! Defines search-related types and traits.
 
+use std::thread;
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
@@ -137,7 +138,7 @@ pub struct SearchReport<T> {
 ///
 ///   You can use `stock::Deepening` to turn a depth-first searcher
 ///   into a deepening searcher.
-/// 
+///
 /// Here is what the engine does on each move:
 ///
 /// 1. Calls `start_search`.
@@ -191,7 +192,7 @@ pub trait SearchExecutor: SetOption {
     ///
     /// The message format is not specified, but the implementation
     /// **must** meet the following requirements:
-    /// 
+    ///
     /// * Unrecognized messages are ignored.
     ///
     /// * The message `"TERMINATE"` is recognized as a request to
@@ -265,7 +266,7 @@ pub trait SearchThread: SetOption {
     ///
     ///   Control messages' format is not specified, but the
     ///   implementation **must** meet the following requirements:
-    /// 
+    ///
     ///   * Unrecognized messages are ignored.
     ///
     ///   * The message `"TERMINATE"` is recognized as a request to
@@ -276,5 +277,6 @@ pub trait SearchThread: SetOption {
     fn spawn(params: SearchParams<Self::SearchNode>,
              tt: Arc<Self::HashTable>,
              reports_tx: Sender<SearchReport<Self::ReportData>>,
-             messages_rx: Receiver<String>);
+             messages_rx: Receiver<String>)
+             -> thread::JoinHandle<()>;
 }
