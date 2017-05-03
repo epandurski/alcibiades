@@ -1,3 +1,5 @@
+//! Implements `ThreadExecutor`.
+
 use std::thread;
 use std::time::Duration;
 use std::cell::RefCell;
@@ -7,6 +9,7 @@ use uci::{SetOption, OptionDescription};
 use search::*;
 
 
+/// Turns a `SearchThread` into `SearchExecutor`.
 pub struct ThreadExecutor<T: SearchThread> {
     tt: Arc<T::HashTable>,
     messages_tx: Sender<String>,

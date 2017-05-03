@@ -3,6 +3,7 @@
 
 mod aspiration;
 mod multipv;
+mod thread_executor;
 
 use std::time::Duration;
 use std::sync::Arc;
@@ -13,9 +14,10 @@ use moves::Move;
 use value::*;
 use depth::*;
 use hash_table::*;
+use search::*;
 use search_node::SearchNode;
-use search::{SearchParams, SearchReport, SearchExecutor};
 use self::multipv::Multipv;
+use self::thread_executor::ThreadExecutor;
 
 
 /// Executes searches with iterative deepening, aspiration windows,
@@ -53,13 +55,13 @@ use self::multipv::Multipv;
 ///
 /// **Important note:** `Deepening` requires a proper transposition
 /// table to do its work. It can not work with `DummyHashTable`.
-pub struct Deepening<T: SearchExecutor> {
+pub struct Deepening<T: SearchThread> {
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
 
     // The real work will be handed over to `multipv`.
-    multipv: Multipv<T>,
+    multipv: Multipv<ThreadExecutor<T>>,
 
     // The search depth completed so far.
     depth: Depth,
@@ -72,7 +74,7 @@ pub struct Deepening<T: SearchExecutor> {
 }
 
 
-impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
+impl<T: SearchThread> SearchExecutor for Deepening<T> {
     type HashTable = T::HashTable;
 
     type SearchNode = T::SearchNode;
@@ -159,18 +161,18 @@ impl<T: SearchExecutor> SearchExecutor for Deepening<T> {
 }
 
 
-impl<T: SearchExecutor> SetOption for Deepening<T> {
+impl<T: SearchThread> SetOption for Deepening<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        Multipv::<T>::options()
+        Multipv::<ThreadExecutor<T>>::options()
     }
 
     fn set_option(name: &str, value: &str) {
-        Multipv::<T>::set_option(name, value)
+        Multipv::<ThreadExecutor<T>>::set_option(name, value)
     }
 }
 
 
-impl<T: SearchExecutor> Deepening<T> {
+impl<T: SearchThread> Deepening<T> {
     fn search_next_depth(&mut self) {
         self.multipv.start_search(SearchParams {
             search_id: 0,
