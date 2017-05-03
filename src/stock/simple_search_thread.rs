@@ -43,8 +43,8 @@ use utils::MoveStack;
 /// `searchmoves` search parameter. It always analyses all legal moves
 /// in the root position.
 pub struct SimpleSearchThread<T: HashTable, N: SearchNode> {
-    phantom1: PhantomData<T>,
-    phantom2: PhantomData<N>,
+    phantom_t: PhantomData<T>,
+    phantom_n: PhantomData<N>,
 }
 
 impl<T, N> SearchThread for SimpleSearchThread<T, N>
@@ -116,7 +116,6 @@ impl<T, N> SearchThread for SimpleSearchThread<T, N>
                           ..report
                       })
                 .ok();
-            search.reset();
         })
     }
 }
@@ -145,7 +144,6 @@ struct Search<'a, T, N>
     killers: KillerTable,
     position: N,
     moves: &'a mut MoveStack,
-    moves_starting_ply: usize,
     state_stack: Vec<NodeState>,
     reported_nodes: u64,
     unreported_nodes: u64,
@@ -168,13 +166,11 @@ impl<'a, T, N> Search<'a, T, N>
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(u64) -> bool)
                -> Search<'a, T, N> {
-        let moves_starting_ply = move_stack.ply();
         Search {
             tt: tt,
             killers: KillerTable::new(),
             position: root,
             moves: move_stack,
-            moves_starting_ply: moves_starting_ply,
             state_stack: Vec::with_capacity(32),
             reported_nodes: 0,
             unreported_nodes: 0,
@@ -314,18 +310,6 @@ impl<'a, T, N> Search<'a, T, N>
     #[inline]
     pub fn node_count(&self) -> u64 {
         self.reported_nodes + self.unreported_nodes
-    }
-
-    /// Resets the instance to the state it had when it was created.
-    #[inline]
-    pub fn reset(&mut self) {
-        while self.moves.ply() > self.moves_starting_ply {
-            self.moves.restore();
-        }
-        self.state_stack.clear();
-        self.reported_nodes = 0;
-        self.unreported_nodes = 0;
-        self.killers.forget_all();
     }
 
     /// A helper method for `run`. Each call to `run` begins with a
@@ -797,14 +781,6 @@ impl KillerTable {
         let pair = &mut self.array[half_move];
         pair.minor.hits >>= 1;
         pair.major.hits >>= 1;
-    }
-
-    /// Forgets all registered killer moves.
-    #[inline]
-    pub fn forget_all(&mut self) {
-        for pair in self.array.iter_mut() {
-            *pair = Default::default();
-        }
     }
 }
 
