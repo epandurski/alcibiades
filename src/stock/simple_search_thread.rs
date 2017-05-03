@@ -60,8 +60,7 @@ impl<T, N> SearchThread for SimpleSearchThread<T, N>
     fn spawn(params: SearchParams<Self::SearchNode>,
              tt: Arc<Self::HashTable>,
              reports_tx: Sender<SearchReport<Self::ReportData>>,
-             messages_rx: Receiver<String>)
-             -> thread::JoinHandle<()> {
+             messages_rx: Receiver<String>) {
         assert!(params.depth >= 0, "depth must be at least 0.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
@@ -116,7 +115,7 @@ impl<T, N> SearchThread for SimpleSearchThread<T, N>
                           ..report
                       })
                 .ok();
-        })
+        });
     }
 }
 
@@ -847,11 +846,12 @@ mod tests {
 
     #[test]
     fn search() {
+        let tt = StdHashTable::<StdHashTableEntry>::new(None);
+
         let p = P::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1",
                                 &mut vec![].into_iter())
                 .ok()
                 .unwrap();
-        let tt = StdHashTable::<StdHashTableEntry>::new(None);
         let mut moves = MoveStack::new();
         let mut report = |_| false;
         let mut search = Search::new(p, &tt, &mut moves, &mut report);
@@ -860,7 +860,14 @@ mod tests {
             .ok()
             .unwrap();
         assert!(value < -300);
-        search.reset();
+
+        let p = P::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1",
+                                &mut vec![].into_iter())
+                .ok()
+                .unwrap();
+        let mut moves = MoveStack::new();
+        let mut report = |_| false;
+        let mut search = Search::new(p, &tt, &mut moves, &mut report);
         let value = search
             .run(VALUE_MIN, VALUE_MAX, 8, Move::invalid())
             .ok()

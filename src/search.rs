@@ -1,6 +1,5 @@
 //! Defines search-related types and traits.
 
-use std::thread;
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
@@ -277,6 +276,5 @@ pub trait SearchThread: SetOption {
     fn spawn(params: SearchParams<Self::SearchNode>,
              tt: Arc<Self::HashTable>,
              reports_tx: Sender<SearchReport<Self::ReportData>>,
-             messages_rx: Receiver<String>)
-             -> thread::JoinHandle<()>;
+             messages_rx: Receiver<String>);
 }
