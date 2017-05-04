@@ -26,11 +26,10 @@ impl<T: Search> SearchExecutor for ThreadExecutor<T> {
     type ReportData = T::ReportData;
 
     fn new(tt: Arc<Self::HashTable>) -> Self {
-        let (messages_tx, _) = channel();
         let (reports_tx, reports_rx) = channel();
         Self {
             tt: tt,
-            messages_tx: messages_tx,
+            messages_tx: channel().0,
             reports_rx: reports_rx,
             reports_tx: reports_tx,
             pending_report: RefCell::new(None),
