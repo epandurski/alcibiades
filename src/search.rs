@@ -108,25 +108,24 @@ pub struct SearchReport<T> {
 }
 
 
-/// A trait for executing consecutive searches in different starting
-/// positions.
+/// A trait for performing iterative deepening searches.
 ///
 /// Chess programs must rely on some type of search in order to play
 /// reasonably. Searching involves looking ahead at different move
 /// sequences and evaluating the positions after making the
 /// moves. Normally, this is done by traversing and min-maxing a
 /// tree-like data-structure by some algorithm. To implement your own
-/// search algorithm, you must define a type that implements the
-/// `SearchExecutor` trait.
+/// search algorithm, you must define a type that implements either
+/// `Search` or `SearchExecutor` trait.
 ///
 /// There are two types of searches that should be distinguished:
 ///
-/// * **Depth-first search.**
+/// * **Depth-first search** (the `Search` trait).
 ///
 ///   Starts at the root and explores as far as possible along each
 ///   branch before backtracking.
 ///
-/// * **Iterative deepening search.**
+/// * **Iterative deepening search** (the `SearchExecutor` trait).
 ///
 ///   A depth-first search is executed with a depth of one ply, then
 ///   the depth is incremented and another search is executed. This
@@ -137,17 +136,6 @@ pub struct SearchReport<T> {
 ///
 ///   You can use `stock::Deepening` to turn a depth-first searcher
 ///   into a deepening searcher.
-///
-/// Here is what the engine does on each move:
-///
-/// 1. Calls `start_search`.
-///
-/// 2. Continues calling `wait_report` and `try_recv_report`
-///    periodically, until the returned report indicates that the
-///    search is done.
-///
-/// 3. Obtains the principal variation(s) from search reports, or
-///    directly from the transposition table.
 pub trait SearchExecutor: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
@@ -173,11 +161,11 @@ pub trait SearchExecutor: SetOption {
     /// the search is done. A new search will not be started until the
     /// previous search is done.
     ///
-    /// **Important note:** The executing search must send periodic
-    /// reports, informing about its current progress. Also, the
-    /// executing search must continuously update the transposition
-    /// table so that, at each moment, it contains the results of the
-    /// work done so far.
+    /// **Important note:** The executing search must generate
+    /// periodic reports, informing about its current progress. Also,
+    /// the executing search must continuously update the
+    /// transposition table so that, at each moment, it contains the
+    /// results of the work done so far.
     fn start_search(&mut self, params: SearchParams<Self::SearchNode>);
 
     /// Waits until a search progress report is available, timing out
@@ -208,22 +196,24 @@ pub trait SearchExecutor: SetOption {
 }
 
 
-/// A trait for spawning search threads.
+/// A trait for performing depth-first searches.
 ///
 /// Chess programs must rely on some type of search in order to play
 /// reasonably. Searching involves looking ahead at different move
 /// sequences and evaluating the positions after making the
 /// moves. Normally, this is done by traversing and min-maxing a
-/// tree-like data-structure by some algorithm.
+/// tree-like data-structure by some algorithm. To implement your own
+/// search algorithm, you must define a type that implements either
+/// `Search` or `SearchExecutor` trait.
 ///
 /// There are two types of searches that should be distinguished:
 ///
-/// * **Depth-first search.**
+/// * **Depth-first search** (the `Search` trait).
 ///
 ///   Starts at the root and explores as far as possible along each
 ///   branch before backtracking.
 ///
-/// * **Iterative deepening search.**
+/// * **Iterative deepening search** (the `SearchExecutor` trait).
 ///
 ///   A depth-first search is executed with a depth of one ply, then
 ///   the depth is incremented and another search is executed. This
@@ -231,18 +221,21 @@ pub trait SearchExecutor: SetOption {
 ///   requested search depth is reached. In case of a terminated
 ///   search, the engine can always fall back to the move selected in
 ///   the last iteration of the search.
+///
+///   You can use `stock::Deepening` to turn a depth-first searcher
+///   into a deepening searcher.
 pub trait Search: SetOption {
-    /// The type of transposition (hash) table that the search thread
+    /// The type of transposition (hash) table that the implementation
     /// works with.
     type HashTable: HashTable;
 
-    /// The type of search node that the search thread works with.
+    /// The type of search node that the implementation works with.
     type SearchNode: SearchNode;
 
     /// The type of auxiliary data that search progress reports carry.
     type ReportData;
 
-    /// Spawns a new search thread.
+    /// Starts a new search thread.
     ///
     /// * `params` specifies the exact parameters for the new search
     ///   -- starting position, search depth etc.

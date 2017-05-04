@@ -433,10 +433,10 @@ impl<S, T> Engine<S, T>
 ///
 /// # Type parameters:
 ///
-/// * `S` should implement game tree searching (presumably with
-///   iterative deepening). If principal variations are included in
-///   the progress reports from the search, they will be forwarded to
-///   the GUI, and eventually used to determine the best move.
+/// * `S` should implement game tree searching with iterative
+///   deepening. If principal variations are included in the progress
+///   reports from the search, they will be forwarded to the GUI, and
+///   eventually used to determine the best move.
 ///
 ///   **Note:** Normally, principal variations (PV) should be sent
 ///   only when a new search depth is reached, and possibly when a new
