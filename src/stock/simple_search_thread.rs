@@ -99,7 +99,8 @@ impl<T, N> SearchThread for SimpleSearchThread<T, N>
                 }
             };
             let mut move_stack = MoveStack::new();
-            let mut search = Search::new(position, tt.deref(), &mut move_stack, &mut reporting);
+            let mut search =
+                SearchRunner::new(position, tt.deref(), &mut move_stack, &mut reporting);
             let (depth, value) = if let Ok(v) =
                 search.run(lower_bound, upper_bound, depth, Move::invalid()) {
                 (depth, v)
@@ -135,7 +136,7 @@ struct TerminatedSearch;
 
 
 /// Represents a game tree search.
-struct Search<'a, T, N>
+struct SearchRunner<'a, T, N>
     where T: HashTable + 'a,
           N: SearchNode
 {
@@ -149,7 +150,7 @@ struct Search<'a, T, N>
     report_function: &'a mut FnMut(u64) -> bool,
 }
 
-impl<'a, T, N> Search<'a, T, N>
+impl<'a, T, N> SearchRunner<'a, T, N>
     where T: HashTable + 'a,
           N: SearchNode
 {
@@ -164,8 +165,8 @@ impl<'a, T, N> Search<'a, T, N>
                tt: &'a T,
                move_stack: &'a mut MoveStack,
                report_function: &'a mut FnMut(u64) -> bool)
-               -> Search<'a, T, N> {
-        Search {
+               -> SearchRunner<'a, T, N> {
+        SearchRunner {
             tt: tt,
             killers: KillerTable::new(),
             position: root,
@@ -832,7 +833,7 @@ fn contains_same_moves(list1: &Vec<Move>, list2: &Vec<Move>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{Search, KillerTable};
+    use super::{SearchRunner, KillerTable};
     use value::*;
     use board::*;
     use search_node::*;
@@ -854,7 +855,7 @@ mod tests {
                 .unwrap();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut search = Search::new(p, &tt, &mut moves, &mut report);
+        let mut search = SearchRunner::new(p, &tt, &mut moves, &mut report);
         let value = search
             .run(VALUE_MIN, VALUE_MAX, 1, Move::invalid())
             .ok()
@@ -867,7 +868,7 @@ mod tests {
                 .unwrap();
         let mut moves = MoveStack::new();
         let mut report = |_| false;
-        let mut search = Search::new(p, &tt, &mut moves, &mut report);
+        let mut search = SearchRunner::new(p, &tt, &mut moves, &mut report);
         let value = search
             .run(VALUE_MIN, VALUE_MAX, 8, Move::invalid())
             .ok()
