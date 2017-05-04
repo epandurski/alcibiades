@@ -39,15 +39,15 @@ use utils::MoveStack;
 /// depth for moves that are ordered closer to the end (likely
 /// fail-low nodes).
 ///
-/// **Important note:** `SimpleSearchThread` ignores the
-/// `searchmoves` search parameter. It always analyses all legal moves
-/// in the root position.
-pub struct SimpleSearchThread<T: HashTable, N: SearchNode> {
+/// **Important note:** `SimpleSearch` ignores the `searchmoves`
+/// search parameter. It always analyses all legal moves in the root
+/// position.
+pub struct SimpleSearch<T: HashTable, N: SearchNode> {
     phantom_t: PhantomData<T>,
     phantom_n: PhantomData<N>,
 }
 
-impl<T, N> Search for SimpleSearchThread<T, N>
+impl<T, N> Search for SimpleSearch<T, N>
     where T: HashTable,
           N: SearchNode
 {
@@ -67,7 +67,7 @@ impl<T, N> Search for SimpleSearchThread<T, N>
         debug_assert!(params.lower_bound != VALUE_UNKNOWN);
         debug_assert!(params.searchmoves.is_empty() ||
                       contains_same_moves(&params.searchmoves, &params.position.legal_moves()),
-                      "SimpleSearchThread ignores searchmoves");
+                      "SimpleSearch ignores searchmoves");
         thread::spawn(move || {
             let SearchParams {
                 search_id,
@@ -120,7 +120,7 @@ impl<T, N> Search for SimpleSearchThread<T, N>
     }
 }
 
-impl<T: HashTable, N: SearchNode> SetOption for SimpleSearchThread<T, N> {
+impl<T: HashTable, N: SearchNode> SetOption for SimpleSearch<T, N> {
     fn options() -> Vec<(String, OptionDescription)> {
         N::options()
     }
