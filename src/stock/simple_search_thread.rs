@@ -47,7 +47,7 @@ pub struct SimpleSearchThread<T: HashTable, N: SearchNode> {
     phantom_n: PhantomData<N>,
 }
 
-impl<T, N> SearchThread for SimpleSearchThread<T, N>
+impl<T, N> Search for SimpleSearchThread<T, N>
     where T: HashTable,
           N: SearchNode
 {
@@ -57,10 +57,10 @@ impl<T, N> SearchThread for SimpleSearchThread<T, N>
 
     type ReportData = ();
 
-    fn spawn(params: SearchParams<Self::SearchNode>,
-             tt: Arc<Self::HashTable>,
-             reports_tx: Sender<SearchReport<Self::ReportData>>,
-             messages_rx: Receiver<String>) {
+    fn start_thread(params: SearchParams<Self::SearchNode>,
+                    tt: Arc<Self::HashTable>,
+                    reports_tx: Sender<SearchReport<Self::ReportData>>,
+                    messages_rx: Receiver<String>) {
         assert!(params.depth >= 0, "depth must be at least 0.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);

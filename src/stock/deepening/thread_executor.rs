@@ -9,7 +9,7 @@ use search::*;
 
 
 /// Turns a `SearchThread` into `SearchExecutor`.
-pub struct ThreadExecutor<T: SearchThread> {
+pub struct ThreadExecutor<T: Search> {
     tt: Arc<T::HashTable>,
     messages_tx: Sender<String>,
     reports_rx: Receiver<SearchReport<T::ReportData>>,
@@ -18,7 +18,7 @@ pub struct ThreadExecutor<T: SearchThread> {
 }
 
 
-impl<T: SearchThread> SearchExecutor for ThreadExecutor<T> {
+impl<T: Search> SearchExecutor for ThreadExecutor<T> {
     type HashTable = T::HashTable;
 
     type SearchNode = T::SearchNode;
@@ -40,10 +40,10 @@ impl<T: SearchThread> SearchExecutor for ThreadExecutor<T> {
     fn start_search(&mut self, params: SearchParams<Self::SearchNode>) {
         let (messages_tx, messages_rx) = channel();
         self.messages_tx = messages_tx;
-        T::spawn(params,
-                 self.tt.clone(),
-                 self.reports_tx.clone(),
-                 messages_rx);
+        T::start_thread(params,
+                        self.tt.clone(),
+                        self.reports_tx.clone(),
+                        messages_rx);
     }
 
     fn wait_report(&self, timeout_after: Duration) {
@@ -67,7 +67,7 @@ impl<T: SearchThread> SearchExecutor for ThreadExecutor<T> {
 }
 
 
-impl<T: SearchThread> SetOption for ThreadExecutor<T> {
+impl<T: Search> SetOption for ThreadExecutor<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         T::options()
     }

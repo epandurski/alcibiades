@@ -231,7 +231,7 @@ pub trait SearchExecutor: SetOption {
 ///   requested search depth is reached. In case of a terminated
 ///   search, the engine can always fall back to the move selected in
 ///   the last iteration of the search.
-pub trait SearchThread: SetOption {
+pub trait Search: SetOption {
     /// The type of transposition (hash) table that the search thread
     /// works with.
     type HashTable: HashTable;
@@ -273,8 +273,8 @@ pub trait SearchThread: SetOption {
     ///
     ///   * Receiving two or more termination requests does not cause
     ///     problems.
-    fn spawn(params: SearchParams<Self::SearchNode>,
-             tt: Arc<Self::HashTable>,
-             reports_tx: Sender<SearchReport<Self::ReportData>>,
-             messages_rx: Receiver<String>);
+    fn start_thread(params: SearchParams<Self::SearchNode>,
+                    tt: Arc<Self::HashTable>,
+                    reports_tx: Sender<SearchReport<Self::ReportData>>,
+                    messages_rx: Receiver<String>);
 }

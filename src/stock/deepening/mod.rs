@@ -55,7 +55,7 @@ use self::thread_executor::ThreadExecutor;
 ///
 /// **Important note:** `Deepening` requires a proper transposition
 /// table to do its work. It can not work with `DummyHashTable`.
-pub struct Deepening<T: SearchThread> {
+pub struct Deepening<T: Search> {
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -74,7 +74,7 @@ pub struct Deepening<T: SearchThread> {
 }
 
 
-impl<T: SearchThread> SearchExecutor for Deepening<T> {
+impl<T: Search> SearchExecutor for Deepening<T> {
     type HashTable = T::HashTable;
 
     type SearchNode = T::SearchNode;
@@ -161,7 +161,7 @@ impl<T: SearchThread> SearchExecutor for Deepening<T> {
 }
 
 
-impl<T: SearchThread> SetOption for Deepening<T> {
+impl<T: Search> SetOption for Deepening<T> {
     fn options() -> Vec<(String, OptionDescription)> {
         Multipv::<ThreadExecutor<T>>::options()
     }
@@ -172,7 +172,7 @@ impl<T: SearchThread> SetOption for Deepening<T> {
 }
 
 
-impl<T: SearchThread> Deepening<T> {
+impl<T: Search> Deepening<T> {
     fn search_next_depth(&mut self) {
         self.multipv.start_search(SearchParams {
             search_id: 0,
