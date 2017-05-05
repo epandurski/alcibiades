@@ -6,7 +6,7 @@ use std::cmp::min;
 use board::*;
 use depth::*;
 use value::*;
-use search_executor::*;
+use search::*;
 use hash_table::Variation;
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
@@ -26,7 +26,7 @@ pub struct StdTimeManager {
 
 
 impl<T> TimeManager<T> for StdTimeManager
-    where T: SearchExecutor<ReportData = Vec<Variation>>
+    where T: DeepeningSearch<ReportData = Vec<Variation>>
 {
     fn new(position: &T::SearchNode, time: &RemainingTime) -> StdTimeManager {
         // Get our remaining time and time increment (in milliseconds).
@@ -79,7 +79,7 @@ impl<T> TimeManager<T> for StdTimeManager
 
     #[allow(unused_variables)]
     fn must_play(&mut self,
-                 search_executor: &mut T,
+                 search_instance: &mut T,
                  report: Option<&SearchReport<Vec<Variation>>>)
                  -> bool {
         if !self.must_play {
@@ -90,7 +90,7 @@ impl<T> TimeManager<T> for StdTimeManager
                     let (target_depth, t_next) = self.target_depth(r);
                     let t_pessimistic = t_next * AVG_SLOPE.read().unwrap().exp().sqrt();
                     let msg = format!("TARGET_DEPTH={}", target_depth);
-                    search_executor.send_message(msg.as_str());
+                    search_instance.send_message(msg.as_str());
                     is_finished = r.depth >= target_depth || t_pessimistic > self.hard_limit
                 }
             }
@@ -161,9 +161,10 @@ impl StdTimeManager {
         };
 
         // Set the target depth as close as possible to `x_max`.
-        let mut target_depth = x_max.round()
-                                    .min(DEPTH_MAX as f64)
-                                    .max(DEPTH_MIN as f64) as Depth;
+        let mut target_depth = x_max
+            .round()
+            .min(DEPTH_MAX as f64)
+            .max(DEPTH_MIN as f64) as Depth;
 
         // Search one ply deeper if the target depth is reached, but
         // position's evaluation worsened a lot.
