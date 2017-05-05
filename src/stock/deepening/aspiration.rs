@@ -1,5 +1,6 @@
 //! Implements `Aspiration`.
 
+use super::{bogus_params, contains_dups};
 use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::Arc;
@@ -10,8 +11,11 @@ use value::*;
 use depth::*;
 use hash_table::*;
 use search_node::SearchNode;
-use search::{SearchParams, SearchReport, SearchExecutor};
-use super::{bogus_params, contains_dups};
+use search::{SearchParams, SearchReport};
+
+// In this module we use the `DeepeningSearch` trait for depth-first
+// searches too, so rename it to avoid confusion.
+use search::DeepeningSearch as SearchExecutor;
 
 
 /// Half-width of the initial aspiration window (centipawns).

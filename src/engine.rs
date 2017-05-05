@@ -9,9 +9,9 @@ use std::cmp::{min, max};
 use uci::*;
 use value::*;
 use depth::*;
+use search::*;
 use hash_table::*;
 use moves::Move;
-use search::{SearchParams, SearchReport, SearchExecutor};
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
 
@@ -40,7 +40,7 @@ impl Default for SearchStatus {
 
 
 enum PlayWhen<S, T>
-    where S: SearchExecutor<ReportData = Vec<Variation>>,
+    where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
     TimeManagement(T), // Stop when the time manager says so.
@@ -53,7 +53,7 @@ enum PlayWhen<S, T>
 
 
 struct Engine<S, T>
-    where S: SearchExecutor<ReportData = Vec<Variation>>,
+    where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
     tt: Arc<S::HashTable>,
@@ -84,7 +84,7 @@ struct Engine<S, T>
 }
 
 impl<S, T> UciEngine for Engine<S, T>
-    where S: SearchExecutor<ReportData = Vec<Variation>>,
+    where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
     fn name() -> &'static str {
@@ -274,7 +274,7 @@ impl<S, T> UciEngine for Engine<S, T>
 }
 
 impl<S, T> Engine<S, T>
-    where S: SearchExecutor<ReportData = Vec<Variation>>,
+    where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
     fn queue_progress_info(&mut self) {
@@ -433,10 +433,10 @@ impl<S, T> Engine<S, T>
 ///
 /// # Type parameters:
 ///
-/// * `S` should implement game tree searching with iterative
-///   deepening. If principal variations are included in the progress
-///   reports from the search, they will be forwarded to the GUI, and
-///   eventually used to determine the best move.
+/// * `S` implements game tree searching with iterative deepening. If
+///   principal variations are included in the progress reports from
+///   the search, they will be forwarded to the GUI, and eventually
+///   used to determine the best move.
 ///
 ///   **Note:** Normally, principal variations (PV) should be sent
 ///   only when a new search depth is reached, and possibly when a new
@@ -448,7 +448,7 @@ impl<S, T> Engine<S, T>
 ///
 /// * `T` is responsible for managing engine's thinking time.
 pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
-    where S: SearchExecutor<ReportData = Vec<Variation>>,
+    where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
     // Set engine's identity.

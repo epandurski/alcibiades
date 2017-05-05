@@ -5,6 +5,8 @@ mod aspiration;
 mod multipv;
 mod thread_executor;
 
+use self::multipv::Multipv;
+use self::thread_executor::ThreadExecutor;
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
@@ -14,10 +16,13 @@ use moves::Move;
 use value::*;
 use depth::*;
 use hash_table::*;
-use search::*;
 use search_node::SearchNode;
-use self::multipv::Multipv;
-use self::thread_executor::ThreadExecutor;
+use search::{Search, SearchParams, SearchReport};
+
+// In this module we use the `DeepeningSearch` trait for depth-first
+// searches too, so rename it to avoid confusion.
+use search::DeepeningSearch as SearchExecutor;
+
 
 
 /// Executes searches with iterative deepening, aspiration windows,

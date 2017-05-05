@@ -115,18 +115,16 @@ pub struct SearchReport<T> {
 /// reasonably. Searching involves looking ahead at different move
 /// sequences and evaluating the positions after making the
 /// moves. Normally, this is done by traversing and min-maxing a
-/// tree-like data-structure by some algorithm. To implement your own
-/// search algorithm, you must define a type that implements either
-/// `Search` or `SearchExecutor` trait.
+/// tree-like data-structure by some algorithm.
 ///
 /// There are two types of searches that should be distinguished:
 ///
 /// * **Depth-first search** (the `Search` trait).
 ///
-///   Starts at the root and explores as far as possible along each
-///   branch before backtracking.
+///   Starts at the root position and explores as far as possible
+///   along each branch before backtracking.
 ///
-/// * **Iterative deepening search** (the `SearchExecutor` trait).
+/// * **Iterative deepening search** (the `DeepeningSearch` trait).
 ///
 ///   A depth-first search is executed with a depth of one ply, then
 ///   the depth is incremented and another search is executed. This
@@ -135,9 +133,12 @@ pub struct SearchReport<T> {
 ///   search, the engine can always fall back to the move selected in
 ///   the last iteration of the search.
 ///
-///   You can use `stock::Deepening` to turn a depth-first searcher
-///   into a deepening searcher.
-pub trait SearchExecutor: SetOption {
+/// To implement your own search algorithm, you must define a type
+/// that implements either `Search` or `DeepeningSearch` trait.
+///
+/// **Note:** You can use `stock::Deepening` to turn a depth-first
+/// search into an iterative deepening search.
+pub trait DeepeningSearch: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
     type HashTable: HashTable;
@@ -150,8 +151,8 @@ pub trait SearchExecutor: SetOption {
 
     /// Creates a new instance.
     ///
-    /// `tt` gives a transposition table for the new search executor
-    /// to work with.
+    /// `tt` supplies a transposition table instance for the search
+    /// algorithm to work with.
     fn new(tt: Arc<Self::HashTable>) -> Self;
 
     /// Starts a new search.
@@ -197,24 +198,22 @@ pub trait SearchExecutor: SetOption {
 }
 
 
-/// A trait used to spawn depth-first searching threads.
+/// A trait used to execute depth-first searches.
 ///
 /// Chess programs must rely on some type of search in order to play
 /// reasonably. Searching involves looking ahead at different move
 /// sequences and evaluating the positions after making the
 /// moves. Normally, this is done by traversing and min-maxing a
-/// tree-like data-structure by some algorithm. To implement your own
-/// search algorithm, you must define a type that implements either
-/// `Search` or `SearchExecutor` trait.
+/// tree-like data-structure by some algorithm.
 ///
 /// There are two types of searches that should be distinguished:
 ///
 /// * **Depth-first search** (the `Search` trait).
 ///
-///   Starts at the root and explores as far as possible along each
-///   branch before backtracking.
+///   Starts at the root position and explores as far as possible
+///   along each branch before backtracking.
 ///
-/// * **Iterative deepening search** (the `SearchExecutor` trait).
+/// * **Iterative deepening search** (the `DeepeningSearch` trait).
 ///
 ///   A depth-first search is executed with a depth of one ply, then
 ///   the depth is incremented and another search is executed. This
@@ -223,8 +222,11 @@ pub trait SearchExecutor: SetOption {
 ///   search, the engine can always fall back to the move selected in
 ///   the last iteration of the search.
 ///
-///   You can use `stock::Deepening` to turn a depth-first searcher
-///   into a deepening searcher.
+/// To implement your own search algorithm, you must define a type
+/// that implements either `Search` or `DeepeningSearch` trait.
+///
+/// **Note:** You can use `stock::Deepening` to turn a depth-first
+/// search into an iterative deepening search.
 pub trait Search: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
@@ -236,10 +238,14 @@ pub trait Search: SetOption {
     /// The type of auxiliary data that search progress reports carry.
     type ReportData;
 
-    /// Spawns a new depth-first searching thread.
+    /// Spawns a new search thread.
+    ///
+    /// A join handle is returned that gives the calculated evaluation
+    /// for the root position, or `VALUE_UNKNOWN` if the search was
+    /// terminated.
     ///
     /// * `params` specifies the exact parameters for the new search
-    ///   -- starting position, search depth etc.
+    ///   -- root position, search depth etc.
     ///
     /// * `tt` supplies a transposition table instance.
     ///
@@ -247,14 +253,13 @@ pub trait Search: SetOption {
     ///   each moment, it contains the results of the work done so
     ///   far.
     ///
-    /// * `reports_tx` gives the sending-half of progress reports'
+    /// * `reports` gives the sending-half of progress reports'
     ///   channel.
     ///
-    ///   The search thread must send periodic reports to
-    ///   `reports_tx`, informing about the current progress of the
-    ///   search.
+    ///   The search thread must send periodic reports to `reports`,
+    ///   informing about the current progress of the search.
     ///
-    /// * `messages_rx` gives the receiving-half of control messages'
+    /// * `messages` gives the receiving-half of control messages'
     ///   channel.
     ///
     ///   Control messages' format is not specified, but the
@@ -269,6 +274,7 @@ pub trait Search: SetOption {
     ///     problems.
     fn spawn(params: SearchParams<Self::SearchNode>,
              tt: Arc<Self::HashTable>,
-             reports_tx: Sender<SearchReport<Self::ReportData>>,
-             messages_rx: Receiver<String>) -> thread::JoinHandle<Value>;
+             reports: Sender<SearchReport<Self::ReportData>>,
+             messages: Receiver<String>)
+             -> thread::JoinHandle<Value>;
 }

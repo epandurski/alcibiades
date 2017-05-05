@@ -6,7 +6,7 @@ use stock::std_hash_table_entry::StdHashTableEntry;
 
 /// Implements a hash table that never stores anything.
 ///
-/// This is useful when the search executor does not need a hash
+/// This is useful when the search algorithm does not use a hash
 /// table.
 pub struct DummyHashTable;
 

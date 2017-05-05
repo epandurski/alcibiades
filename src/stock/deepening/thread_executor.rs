@@ -7,10 +7,14 @@ use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use uci::{SetOption, OptionDescription};
 use value::*;
-use search::*;
+use search::{Search, SearchParams, SearchReport};
+
+// In this module we use the `DeepeningSearch` trait for depth-first
+// searches too, so rename it to avoid confusion.
+use search::DeepeningSearch as SearchExecutor;
 
 
-/// Turns a `SearchThread` into `SearchExecutor`.
+/// Turns a `Search` into `SearchExecutor`.
 pub struct ThreadExecutor<T: Search> {
     tt: Arc<T::HashTable>,
     messages_tx: Sender<String>,
