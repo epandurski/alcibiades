@@ -4,7 +4,7 @@ use std::thread;
 use std::time::Duration;
 use std::cell::RefCell;
 use std::sync::Arc;
-use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
+use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError, RecvTimeoutError};
 use uci::{SetOption, OptionDescription};
 use value::*;
 use search::*;
@@ -53,7 +53,11 @@ impl<T: Search> SearchExecutor for ThreadExecutor<T> {
     fn wait_report(&self, timeout_after: Duration) {
         let mut report = self.pending_report.borrow_mut();
         if report.is_none() {
-            *report = self.reports_rx.recv_timeout(timeout_after).ok();
+            match self.reports_rx.recv_timeout(timeout_after) {
+                Ok(r) => *report = Some(r),
+                Err(RecvTimeoutError::Timeout) => (),
+                Err(RecvTimeoutError::Disconnected) => thread::sleep(timeout_after),
+            };
         }
     }
 
