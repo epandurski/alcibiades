@@ -1,10 +1,12 @@
 //! Implements `ThreadExecutor`.
 
+use std::thread;
 use std::time::Duration;
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use uci::{SetOption, OptionDescription};
+use value::*;
 use search::*;
 
 
@@ -15,6 +17,7 @@ pub struct ThreadExecutor<T: Search> {
     reports_rx: Receiver<SearchReport<T::ReportData>>,
     reports_tx: Sender<SearchReport<T::ReportData>>,
     pending_report: RefCell<Option<SearchReport<T::ReportData>>>,
+    handle: Option<thread::JoinHandle<Value>>,
 }
 
 
@@ -33,16 +36,18 @@ impl<T: Search> SearchExecutor for ThreadExecutor<T> {
             reports_rx: reports_rx,
             reports_tx: reports_tx,
             pending_report: RefCell::new(None),
+            handle: None,
         }
     }
 
     fn start_search(&mut self, params: SearchParams<Self::SearchNode>) {
         let (messages_tx, messages_rx) = channel();
         self.messages_tx = messages_tx;
-        T::start_thread(params,
-                        self.tt.clone(),
-                        self.reports_tx.clone(),
-                        messages_rx);
+        self.handle.take().and_then(|h| h.join().ok());
+        self.handle = Some(T::spawn(params,
+                                    self.tt.clone(),
+                                    self.reports_tx.clone(),
+                                    messages_rx));
     }
 
     fn wait_report(&self, timeout_after: Duration) {

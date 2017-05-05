@@ -57,10 +57,10 @@ impl<T, N> Search for SimpleSearch<T, N>
 
     type ReportData = ();
 
-    fn start_thread(params: SearchParams<Self::SearchNode>,
-                    tt: Arc<Self::HashTable>,
-                    reports_tx: Sender<SearchReport<Self::ReportData>>,
-                    messages_rx: Receiver<String>) {
+    fn spawn(params: SearchParams<Self::SearchNode>,
+             tt: Arc<Self::HashTable>,
+             reports_tx: Sender<SearchReport<Self::ReportData>>,
+             messages_rx: Receiver<String>) -> thread::JoinHandle<Value> {
         assert!(params.depth >= 0, "depth must be at least 0.");
         debug_assert!(params.depth <= DEPTH_MAX);
         debug_assert!(params.lower_bound < params.upper_bound);
@@ -116,7 +116,8 @@ impl<T, N> Search for SimpleSearch<T, N>
                           ..report
                       })
                 .ok();
-        });
+            value
+        })
     }
 }
 

@@ -1,5 +1,6 @@
 //! Defines search-related types and traits.
 
+use std::thread;
 use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
@@ -108,7 +109,7 @@ pub struct SearchReport<T> {
 }
 
 
-/// A trait for performing iterative deepening searches.
+/// A trait for executing iterative deepening searches.
 ///
 /// Chess programs must rely on some type of search in order to play
 /// reasonably. Searching involves looking ahead at different move
@@ -196,7 +197,7 @@ pub trait SearchExecutor: SetOption {
 }
 
 
-/// A trait for performing depth-first searches.
+/// A trait used to spawn depth-first searching threads.
 ///
 /// Chess programs must rely on some type of search in order to play
 /// reasonably. Searching involves looking ahead at different move
@@ -235,7 +236,7 @@ pub trait Search: SetOption {
     /// The type of auxiliary data that search progress reports carry.
     type ReportData;
 
-    /// Starts a new search thread.
+    /// Spawns a new depth-first searching thread.
     ///
     /// * `params` specifies the exact parameters for the new search
     ///   -- starting position, search depth etc.
@@ -266,8 +267,8 @@ pub trait Search: SetOption {
     ///
     ///   * Receiving two or more termination requests does not cause
     ///     problems.
-    fn start_thread(params: SearchParams<Self::SearchNode>,
-                    tt: Arc<Self::HashTable>,
-                    reports_tx: Sender<SearchReport<Self::ReportData>>,
-                    messages_rx: Receiver<String>);
+    fn spawn(params: SearchParams<Self::SearchNode>,
+             tt: Arc<Self::HashTable>,
+             reports_tx: Sender<SearchReport<Self::ReportData>>,
+             messages_rx: Receiver<String>) -> thread::JoinHandle<Value>;
 }
