@@ -43,12 +43,13 @@ pub trait TimeManager<T: DeepeningSearch<ReportData = Vec<Variation>>>
     /// Returns `true` if the search must be terminated and the best
     /// move played.
     ///
-    /// * `search_instance` is a mutable reference to the running
-    ///   search instance. The time manager should be careful when
-    ///   calling methods on the currently running search instance, so
-    ///   as not to disturb its normal working. In particular,
-    ///   `start_search` and `try_recv_report` methods must not be
-    ///   called, and a `"TERMINATE"` message must not be sent.
+    /// * `search_instance` is a mutable reference to the currently
+    ///   running search instance. The time manager should be careful
+    ///   when calling methods on the currently running search
+    ///   instance, so as not to disturb its normal working. In
+    ///   particular, `start_search` and `try_recv_report` methods
+    ///   must not be called, and a `"TERMINATE"` message must not be
+    ///   sent.
     ///
     /// * `report`, when supplied, gives a reference to an incoming
     ///   search progress report. `must_play` will be called exactly
