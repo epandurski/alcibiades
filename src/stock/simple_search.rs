@@ -1,4 +1,4 @@
-//! Implements `SimpleSearchExecutor`.
+//! Implements `SimpleSearch`.
 
 use std::mem;
 use std::cmp::max;
