@@ -62,7 +62,7 @@ pub struct SearchParams<T: SearchNode> {
 
 /// A progress report from a search.
 #[derive(Clone, Debug)]
-pub struct SearchReport<T: Send> {
+pub struct SearchReport<T> {
     /// The ID assigned to the search.
     ///
     /// Should be the same for all reports from a given search.
@@ -147,7 +147,7 @@ pub trait DeepeningSearch: SetOption {
     type SearchNode: SearchNode;
 
     /// The type of auxiliary data that search progress reports carry.
-    type ReportData: Send;
+    type ReportData;
 
     /// Creates a new instance.
     ///
