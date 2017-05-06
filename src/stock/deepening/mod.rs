@@ -3,8 +3,10 @@
 
 mod aspiration;
 mod multipv;
+mod lazy_smp;
 
 use self::multipv::Multipv;
+use self::lazy_smp::LazySmp;
 use std::thread;
 use std::time::Duration;
 use std::cell::RefCell;
