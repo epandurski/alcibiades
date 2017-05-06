@@ -1,5 +1,7 @@
 //! Implements `Multipv`.
 
+use super::{bogus_params, contains_dups};
+use super::aspiration::Aspiration;
 use std::cmp::{min, max};
 use std::time::Duration;
 use std::sync::{Arc, RwLock};
@@ -11,9 +13,11 @@ use depth::*;
 use hash_table::*;
 use evaluator::Evaluator;
 use search_node::SearchNode;
-use search_executor::{SearchParams, SearchReport, SearchExecutor};
-use super::{bogus_params, contains_dups};
-use super::aspiration::Aspiration;
+use search::{SearchParams, SearchReport};
+
+// In this module we use the `DeepeningSearch` trait for depth-first
+// searches too, so rename it to avoid confusion.
+use search::DeepeningSearch as SearchExecutor;
 
 
 /// Executes mulit-PV searches with aspiration windows, complying with

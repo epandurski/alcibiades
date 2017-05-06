@@ -49,7 +49,7 @@
 //! fn main() {
 //!     type HashTable = StdHashTable<StdHashTableEntry>;
 //!     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
-//!     type SearchExecutor = Deepening<SimpleSearchExecutor<HashTable, SearchNode>>;
+//!     type SearchExecutor = Deepening<SimpleSearch<HashTable, SearchNode>>;
 //!     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe");
 //! }
 //! ```
@@ -88,7 +88,7 @@ mod value;
 mod depth;
 mod evaluator;
 mod search_node;
-mod search_executor;
+mod search;
 mod hash_table;
 mod move_generator;
 mod qsearch;
@@ -101,7 +101,7 @@ pub use value::*;
 pub use depth::*;
 pub use evaluator::*;
 pub use search_node::*;
-pub use search_executor::*;
+pub use search::*;
 pub use hash_table::*;
 pub use move_generator::*;
 pub use qsearch::*;

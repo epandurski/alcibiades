@@ -1,8 +1,9 @@
-//! Defines the `SearchExecutor` trait.
+//! Defines search-related types and traits.
 
+use std::thread;
 use std::time::Duration;
 use std::sync::Arc;
-use std::sync::mpsc::TryRecvError;
+use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use uci::SetOption;
 use moves::Move;
 use value::*;
@@ -108,25 +109,22 @@ pub struct SearchReport<T: Send> {
 }
 
 
-/// A trait for executing consecutive searches in different starting
-/// positions.
+/// A trait for executing iterative deepening searches.
 ///
 /// Chess programs must rely on some type of search in order to play
 /// reasonably. Searching involves looking ahead at different move
 /// sequences and evaluating the positions after making the
 /// moves. Normally, this is done by traversing and min-maxing a
-/// tree-like data-structure by some algorithm. To implement your own
-/// search algorithm, you must define a type that implements the
-/// `SearchExecutor` trait.
+/// tree-like data-structure by some algorithm.
 ///
 /// There are two types of searches that should be distinguished:
 ///
-/// * **Depth-first search.**
+/// * **Depth-first search** (the `Search` trait).
 ///
-///   Starts at the root and explores as far as possible along each
-///   branch before backtracking.
+///   Starts at the root position and explores as far as possible
+///   along each branch before backtracking.
 ///
-/// * **Iterative deepening search.**
+/// * **Iterative deepening search** (the `DeepeningSearch` trait).
 ///
 ///   A depth-first search is executed with a depth of one ply, then
 ///   the depth is incremented and another search is executed. This
@@ -135,20 +133,12 @@ pub struct SearchReport<T: Send> {
 ///   search, the engine can always fall back to the move selected in
 ///   the last iteration of the search.
 ///
-///   You can use `stock::Deepening` to turn a depth-first searcher
-///   into a deepening searcher.
-/// 
-/// Here is what the engine does on each move:
+/// To implement your own search algorithm, you must define a type
+/// that implements either `Search` or `DeepeningSearch` trait.
 ///
-/// 1. Calls `start_search`.
-///
-/// 2. Continues calling `wait_report` and `try_recv_report`
-///    periodically, until the returned report indicates that the
-///    search is done.
-///
-/// 3. Obtains the principal variation(s) from search reports, or
-///    directly from the transposition table.
-pub trait SearchExecutor: SetOption + Send + 'static {
+/// **Note:** You can use `stock::Deepening` to turn a depth-first
+/// search into an iterative deepening search.
+pub trait DeepeningSearch: SetOption {
     /// The type of transposition (hash) table that the implementation
     /// works with.
     type HashTable: HashTable;
@@ -161,8 +151,8 @@ pub trait SearchExecutor: SetOption + Send + 'static {
 
     /// Creates a new instance.
     ///
-    /// `tt` gives a transposition table for the new search executor
-    /// to work with.
+    /// `tt` supplies a transposition table instance for the search
+    /// algorithm to work with.
     fn new(tt: Arc<Self::HashTable>) -> Self;
 
     /// Starts a new search.
@@ -173,11 +163,11 @@ pub trait SearchExecutor: SetOption + Send + 'static {
     /// the search is done. A new search will not be started until the
     /// previous search is done.
     ///
-    /// **Important note:** The executing search must send periodic
-    /// reports, informing about its current progress. Also, the
-    /// executing search must continuously update the transposition
-    /// table so that, at each moment, it contains the results of the
-    /// work done so far.
+    /// **Important note:** The executing search must generate
+    /// periodic reports, informing about its current progress. Also,
+    /// the executing search must continuously update the
+    /// transposition table so that, at each moment, it contains the
+    /// results of the work done so far.
     fn start_search(&mut self, params: SearchParams<Self::SearchNode>);
 
     /// Waits until a search progress report is available, timing out
@@ -191,7 +181,7 @@ pub trait SearchExecutor: SetOption + Send + 'static {
     ///
     /// The message format is not specified, but the implementation
     /// **must** meet the following requirements:
-    /// 
+    ///
     /// * Unrecognized messages are ignored.
     ///
     /// * The message `"TERMINATE"` is recognized as a request to
@@ -205,4 +195,86 @@ pub trait SearchExecutor: SetOption + Send + 'static {
     /// continue to be called periodically until the returned report
     /// indicates that the search is done.
     fn send_message(&mut self, msg: &str);
+}
+
+
+/// A trait used to execute depth-first searches.
+///
+/// Chess programs must rely on some type of search in order to play
+/// reasonably. Searching involves looking ahead at different move
+/// sequences and evaluating the positions after making the
+/// moves. Normally, this is done by traversing and min-maxing a
+/// tree-like data-structure by some algorithm.
+///
+/// There are two types of searches that should be distinguished:
+///
+/// * **Depth-first search** (the `Search` trait).
+///
+///   Starts at the root position and explores as far as possible
+///   along each branch before backtracking.
+///
+/// * **Iterative deepening search** (the `DeepeningSearch` trait).
+///
+///   A depth-first search is executed with a depth of one ply, then
+///   the depth is incremented and another search is executed. This
+///   process is repeated until the search is terminated or the
+///   requested search depth is reached. In case of a terminated
+///   search, the engine can always fall back to the move selected in
+///   the last iteration of the search.
+///
+/// To implement your own search algorithm, you must define a type
+/// that implements either `Search` or `DeepeningSearch` trait.
+///
+/// **Note:** You can use `stock::Deepening` to turn a depth-first
+/// search into an iterative deepening search.
+pub trait Search: SetOption {
+    /// The type of transposition (hash) table that the implementation
+    /// works with.
+    type HashTable: HashTable;
+
+    /// The type of search node that the implementation works with.
+    type SearchNode: SearchNode;
+
+    /// The type of auxiliary data that search progress reports carry.
+    type ReportData;
+
+    /// Spawns a new search thread.
+    ///
+    /// A join handle is returned that gives the calculated evaluation
+    /// for the root position, or `VALUE_UNKNOWN` if the search was
+    /// terminated.
+    ///
+    /// * `params` specifies the exact parameters for the new search
+    ///   -- root position, search depth etc.
+    ///
+    /// * `tt` supplies a transposition table instance.
+    ///
+    ///   The search thread must continuously update `tt` so that, at
+    ///   each moment, it contains the results of the work done so
+    ///   far.
+    ///
+    /// * `reports` gives the sending-half of progress reports'
+    ///   channel.
+    ///
+    ///   The search thread must send periodic reports to `reports`,
+    ///   informing about the current progress of the search.
+    ///
+    /// * `messages` gives the receiving-half of control messages'
+    ///   channel.
+    ///
+    ///   Control messages' format is not specified, but the
+    ///   implementation **must** meet the following requirements:
+    ///
+    ///   * Unrecognized messages are ignored.
+    ///
+    ///   * The message `"TERMINATE"` is recognized as a request to
+    ///     terminate the search.
+    ///
+    ///   * Receiving two or more termination requests does not cause
+    ///     problems.
+    fn spawn(params: SearchParams<Self::SearchNode>,
+             tt: Arc<Self::HashTable>,
+             reports: Sender<SearchReport<Self::ReportData>>,
+             messages: Receiver<String>)
+             -> thread::JoinHandle<Value>;
 }
