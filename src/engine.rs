@@ -3,9 +3,10 @@
 use std::process;
 use std::marker::PhantomData;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, Duration};
 use std::cmp::{min, max};
+use std::collections::HashMap;
 use uci::*;
 use value::*;
 use depth::*;
@@ -475,4 +476,24 @@ struct EngineIdentity {
 
 lazy_static! {
     static ref ENGINE: Mutex<Option<EngineIdentity>> = Mutex::new(None);
+    static ref OPTIONS: RwLock<HashMap<&'static str, String>> = RwLock::new(init_options());
+}
+
+fn init_options() -> HashMap<&'static str, String> {
+    HashMap::new()
+}
+
+/// Returns the current value for a given configuration option.
+pub fn get_option(name: &'static str) -> String {
+    OPTIONS
+        .read()
+        .unwrap()
+        .get(name)
+        .map(|s| s.clone())
+        .unwrap_or(String::new())
+}
+
+/// Sets a new value for a given configuration option.
+pub fn set_option(name: &'static str, value: &str) {
+    OPTIONS.write().unwrap().insert(name, value.to_string());
 }
