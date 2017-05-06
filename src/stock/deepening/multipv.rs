@@ -16,7 +16,7 @@ use search_node::SearchNode;
 use search::{SearchParams, SearchReport};
 
 // In this module we use the `DeepeningSearch` trait for depth-first
-// searches too, so rename it to avoid confusion.
+// searches too, so we rename it to avoid confusion.
 use search::DeepeningSearch as SearchExecutor;
 
 
