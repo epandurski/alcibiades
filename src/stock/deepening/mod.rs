@@ -5,7 +5,6 @@ mod aspiration;
 mod multipv;
 mod lazy_smp;
 
-use self::multipv::Multipv;
 use self::lazy_smp::LazySmp;
 use std::thread;
 use std::time::Duration;
@@ -68,7 +67,7 @@ pub struct Deepening<T: Search> {
     previously_searched_nodes: u64,
 
     // The real work will be handed over to `multipv`.
-    multipv: Multipv<ThreadExecutor<T>>,
+    multipv: LazySmp<ThreadExecutor<T>>,
 
     // The search depth completed so far.
     depth: Depth,
@@ -93,7 +92,7 @@ impl<T: Search> SearchExecutor for Deepening<T> {
             params: bogus_params(),
             search_is_terminated: false,
             previously_searched_nodes: 0,
-            multipv: Multipv::new(tt),
+            multipv: LazySmp::new(tt),
             depth: 0,
             value: VALUE_UNKNOWN,
             depth_target: DEPTH_MAX,
@@ -170,11 +169,11 @@ impl<T: Search> SearchExecutor for Deepening<T> {
 
 impl<T: Search> SetOption for Deepening<T> {
     fn options() -> Vec<(String, OptionDescription)> {
-        Multipv::<ThreadExecutor<T>>::options()
+        LazySmp::<ThreadExecutor<T>>::options()
     }
 
     fn set_option(name: &str, value: &str) {
-        Multipv::<ThreadExecutor<T>>::set_option(name, value)
+        LazySmp::<ThreadExecutor<T>>::set_option(name, value)
     }
 }
 
