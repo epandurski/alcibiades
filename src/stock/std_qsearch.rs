@@ -80,7 +80,7 @@ impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
 }
 
 impl<T: MoveGenerator> SetOption for StdQsearch<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 

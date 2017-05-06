@@ -131,7 +131,7 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
 
 impl<T: SearchExecutor> SetOption for Aspiration<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 

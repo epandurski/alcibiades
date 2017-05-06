@@ -684,7 +684,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
 
 impl<T: Evaluator> SetOption for StdMoveGenerator<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 

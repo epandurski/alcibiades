@@ -122,7 +122,7 @@ impl<T, N> Search for SimpleSearch<T, N>
 }
 
 impl<T: HashTable, N: SearchNode> SetOption for SimpleSearch<T, N> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         N::options()
     }
 

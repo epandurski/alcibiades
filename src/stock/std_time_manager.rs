@@ -102,8 +102,8 @@ impl<T> TimeManager<T> for StdTimeManager
 
 
 impl SetOption for StdTimeManager {
-    fn options() -> Vec<(String, OptionDescription)> {
-        vec![("Ponder".to_string(), OptionDescription::Check { default: false })]
+    fn options() -> Vec<(&'static str, OptionDescription)> {
+        vec![("Ponder", OptionDescription::Check { default: false })]
     }
 
     fn set_option(name: &str, value: &str) {

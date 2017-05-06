@@ -152,9 +152,9 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
 
 impl<T: SearchExecutor> SetOption for Multipv<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         let mut options = vec![
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
+            ("MultiPV", OptionDescription::Spin { min: 1, max: 500, default: 1 }),
         ];
         options.extend(Aspiration::<T>::options());
         options

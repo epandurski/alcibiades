@@ -96,11 +96,11 @@ impl<S, T> UciEngine for Engine<S, T>
         ENGINE.lock().unwrap().as_ref().unwrap().author
     }
 
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         // Add up all suported options.
         let mut options = vec![
-            ("Hash".to_string(), OptionDescription::Spin { min: 1, max: 64 * 1024, default: 16 }),
-            ("Clear Hash".to_string(), OptionDescription::Button),
+            ("Hash", OptionDescription::Spin { min: 1, max: 64 * 1024, default: 16 }),
+            ("Clear Hash", OptionDescription::Button),
         ];
         options.extend(S::options());
         options.extend(T::options());
@@ -108,12 +108,12 @@ impl<S, T> UciEngine for Engine<S, T>
         // Remove duplicated options.
         options.sort_by(|a, b| a.0.cmp(&b.0));
         let mut options_dedup = vec![];
-        let mut prev_name = String::from("");
+        let mut prev_name = "";
         for o in options.drain(..) {
             if o.0 == prev_name {
                 continue;
             }
-            prev_name = o.0.clone();
+            prev_name = o.0;
             options_dedup.push(o);
         }
         options_dedup

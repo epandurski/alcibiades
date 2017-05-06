@@ -300,7 +300,7 @@ impl<T: Qsearch> Clone for StdSearchNode<T> {
 
 
 impl<T: Qsearch> SetOption for StdSearchNode<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 

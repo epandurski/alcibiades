@@ -201,7 +201,7 @@ pub enum OptionDescription {
 pub trait SetOption {
     /// Returns a list of supported configuration options (name and
     /// description).
-    fn options() -> Vec<(String, OptionDescription)>
+    fn options() -> Vec<(&'static str, OptionDescription)>
         where Self: Sized
     {
         vec![]
@@ -228,7 +228,7 @@ pub trait UciEngine {
 
     /// Returns a list of supported configuration options (name and
     /// description).
-    fn options() -> Vec<(String, OptionDescription)>;
+    fn options() -> Vec<(&'static str, OptionDescription)>;
 
     /// Creates a new instance.
     ///

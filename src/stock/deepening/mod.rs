@@ -167,7 +167,7 @@ impl<T: Search> SearchExecutor for Deepening<T> {
 
 
 impl<T: Search> SetOption for Deepening<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         Multipv::<ThreadExecutor<T>>::options()
     }
 
@@ -249,7 +249,7 @@ impl<T: Search> SearchExecutor for ThreadExecutor<T> {
 }
 
 impl<T: Search> SetOption for ThreadExecutor<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 
