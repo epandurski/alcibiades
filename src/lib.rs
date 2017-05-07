@@ -50,7 +50,7 @@
 //!     type HashTable = StdHashTable<StdHashTableEntry>;
 //!     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 //!     type SearchExecutor = Deepening<SimpleSearch<HashTable, SearchNode>>;
-//!     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe");
+//!     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe", vec![]);
 //! }
 //! ```
 //!

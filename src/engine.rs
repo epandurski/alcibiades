@@ -119,12 +119,17 @@ impl<S, T> UciEngine for Engine<S, T>
             options_dedup.push(o);
         }
         options_dedup
+
+        // TODO: update the defaults with `ENGINE.options`.
     }
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S, T> {
         const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
         let tt = Arc::new(S::HashTable::new(tt_size_mb));
         let started_at = SystemTime::now();
+
+        // TODO: simulate "setoption" commands with `ENGINE.options`.
+
         Engine {
             tt: tt.clone(),
             position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter())
@@ -491,6 +496,9 @@ impl<S, T> Engine<S, T>
 ///
 /// * `author` gives the name of the author.
 ///
+/// * `options` gives the default configuration options (a vector of
+///   names and values).
+//
 /// # Type parameters:
 ///
 /// * `S` implements game tree searching with iterative deepening. If
@@ -507,20 +515,21 @@ impl<S, T> Engine<S, T>
 ///   so forth.
 ///
 /// * `T` is responsible for managing engine's thinking time.
-pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
+pub fn run_uci<S, T>(name: &'static str,
+                     author: &'static str,
+                     options: Vec<(&'static str, &'static str)>)
+                     -> !
     where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
-    // TODO: Add "options" parameter and simulate "setoption" commands
-    // for them.
-
     // Set engine's identity.
     {
         let mut engine = ENGINE.lock().unwrap();
         assert!(engine.is_none(), "two engines can not run in parallel");
         *engine = Some(EngineIdentity {
-                           name: name,
-                           author: author,
+                           name,
+                           author,
+                           options,
                        });
     }
 
@@ -534,6 +543,7 @@ pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
 struct EngineIdentity {
     name: &'static str,
     author: &'static str,
+    options: Vec<(&'static str, &'static str)>,
 }
 
 lazy_static! {
