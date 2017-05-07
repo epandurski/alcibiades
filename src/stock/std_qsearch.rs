@@ -43,7 +43,7 @@ impl QsearchResult for StdQsearchResult {
 
 
 /// Implements the `Qsearch` trait.
-/// 
+///
 /// Performs classical quiescence search with stand pat, delta
 /// pruning, static exchange evaluation, check evasions, limited
 /// checks and recaptures.

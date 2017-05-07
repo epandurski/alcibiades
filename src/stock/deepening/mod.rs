@@ -115,8 +115,14 @@ impl<T: Search> SearchExecutor for Deepening<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
-        let SearchReport { searched_nodes, depth, value, data, done, .. } =
-            try!(self.multipv.try_recv_report());
+        let SearchReport {
+            searched_nodes,
+            depth,
+            value,
+            data,
+            done,
+            ..
+        } = try!(self.multipv.try_recv_report());
         if value != VALUE_UNKNOWN {
             self.value = value;
         }
@@ -155,7 +161,12 @@ impl<T: Search> SearchExecutor for Deepening<T> {
             static ref RE: Regex = Regex::new(r"^TARGET_DEPTH=([-+]?\d+)$").unwrap();
         }
         if let Some(captures) = RE.captures(message) {
-            self.depth_target = captures.get(1).unwrap().as_str().parse::<Depth>().unwrap();
+            self.depth_target = captures
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse::<Depth>()
+                .unwrap();
         } else {
             if message == "TERMINATE" {
                 self.search_is_terminated = true;
@@ -264,7 +275,9 @@ fn bogus_params<T: SearchNode>() -> SearchParams<T> {
     const FEN: &'static str = "7k/8/8/8/8/8/8/7K w - - 0 1";
     SearchParams {
         search_id: 0,
-        position: T::from_history(FEN, &mut vec![].into_iter()).ok().unwrap(),
+        position: T::from_history(FEN, &mut vec![].into_iter())
+            .ok()
+            .unwrap(),
         depth: 1,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,

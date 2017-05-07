@@ -114,10 +114,14 @@ pub trait HashTable: Sync + Send + 'static {
                 // 2) The value has not diverged from the root value.
                 if depth > 0 &&
                    match root_value {
-                    v if v < VALUE_EVAL_MIN => v as isize == value as isize + moves.len() as isize,
-                    v if v > VALUE_EVAL_MAX => v as isize == value as isize - moves.len() as isize,
-                    v => v == value,
-                } {
+                       v if v < VALUE_EVAL_MIN => {
+                           v as isize == value as isize + moves.len() as isize
+                       }
+                       v if v > VALUE_EVAL_MAX => {
+                           v as isize == value as isize - moves.len() as isize
+                       }
+                       v => v == value,
+                   } {
                     // Verify that the hash move is legal.
                     if let Some(m) = p.try_move_digest(e.move_digest()) {
                         if p.do_move(m) {

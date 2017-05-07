@@ -48,7 +48,7 @@ pub struct BoardGeometry {
     /// from attacker's position.
     ///
     /// # Examples:
-    /// 
+    ///
     /// ```text
     /// g.squares_behind_blocker[B2][F6]
     /// . . . . . . . 1
@@ -229,9 +229,7 @@ impl BoardGeometry {
         static INIT_GEOMETRY: Once = ONCE_INIT;
         static mut GEOMETRY: Option<BoardGeometry> = None;
         unsafe {
-            INIT_GEOMETRY.call_once(|| {
-                GEOMETRY = Some(BoardGeometry::new());
-            });
+            INIT_GEOMETRY.call_once(|| { GEOMETRY = Some(BoardGeometry::new()); });
             GEOMETRY.as_ref().unwrap()
         }
     }
@@ -434,11 +432,7 @@ unsafe fn init_slider_map(piece: PieceType,
                     assert!(from_scratch,
                             "Error: Precalculated magic is incorrect. Square {}, for {} magic",
                             sq,
-                            if piece == BISHOP {
-                                "bishop"
-                            } else {
-                                "rook"
-                            });
+                            if piece == BISHOP { "bishop" } else { "rook" });
                     continue 'outer;
                 }
                 *attack = reference[i];
@@ -489,8 +483,8 @@ fn bb_line_attacks(line: Bitboard, from_square: Square, occupied: Bitboard) -> B
     debug_assert!(from_square_bb & line != 0);
     let potential_blockers = occupied & line;
     let forward = potential_blockers.wrapping_sub(from_square_bb.wrapping_mul(2));
-    let rev = reverse(reverse(potential_blockers)
-                          .wrapping_sub(reverse(from_square_bb).wrapping_mul(2)));
+    let rev = reverse(reverse(potential_blockers).wrapping_sub(reverse(from_square_bb)
+                                                                   .wrapping_mul(2)));
     (forward ^ rev) & line
 }
 

@@ -72,13 +72,17 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     fn attacks_to(&self, square: Square) -> Bitboard {
         assert!(square <= 63);
         unsafe {
-            (self.geometry.attacks_from_unsafe(ROOK, square, self.board.occupied) &
+            (self.geometry
+                 .attacks_from_unsafe(ROOK, square, self.board.occupied) &
              (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
-            (self.geometry.attacks_from_unsafe(BISHOP, square, self.board.occupied) &
+            (self.geometry
+                 .attacks_from_unsafe(BISHOP, square, self.board.occupied) &
              (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
-            (self.geometry.attacks_from_unsafe(KNIGHT, square, self.board.occupied) &
+            (self.geometry
+                 .attacks_from_unsafe(KNIGHT, square, self.board.occupied) &
              self.board.pieces.piece_type[KNIGHT]) |
-            (self.geometry.attacks_from_unsafe(KING, square, self.board.occupied) &
+            (self.geometry
+                 .attacks_from_unsafe(KING, square, self.board.occupied) &
              self.board.pieces.piece_type[KING]) |
             ((*self.geometry.pawn_attacks[WHITE].get_unchecked(square) &
               self.board.pieces.color[BLACK]) |
@@ -111,7 +115,12 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     /// legal, except it might leave the king in check.
     fn generate_all<U: AddMove>(&self, moves: &mut U) {
         let (king_square, checkers) = self.king_square_and_checkers();
-        let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
+        let occupied_by_us = unsafe {
+            *self.board
+                 .pieces
+                 .color
+                 .get_unchecked(self.board.to_move)
+        };
         let legal_dests = !occupied_by_us &
                           match lsb(checkers) {
             0 =>
@@ -218,7 +227,12 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             return self.generate_all(moves);
         }
         let pinned = self.find_pinned(king_square);
-        let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
+        let occupied_by_us = unsafe {
+            *self.board
+                 .pieces
+                 .color
+                 .get_unchecked(self.board.to_move)
+        };
         let occupied_by_them = self.board.occupied ^ occupied_by_us;
         let enpassant_bb = self.enpassant_bb();
         let pawn_dests;
@@ -236,11 +250,10 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                     let mut bb = self.board.pieces.piece_type[piece] & occupied_by_us;
                     while bb != 0 {
                         let orig_square = bsf_reset(&mut bb);
-                        let checking_squares = !occupied_by_us &
-                                               self.geometry
-                                                   .attacks_from_unsafe(piece,
-                                                                        their_king_square,
-                                                                        self.board.occupied);
+                        let checking_squares =
+                            !occupied_by_us &
+                            self.geometry
+                                .attacks_from_unsafe(piece, their_king_square, self.board.occupied);
                         let mut dests = occupied_by_them | checking_squares;
                         if 1 << orig_square & pinned != 0 {
                             dests &= self.geometry.squares_at_line[king_square][orig_square];
@@ -338,7 +351,12 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             return Some(m);
         }
 
-        let occupied_by_us = unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) };
+        let occupied_by_us = unsafe {
+            *self.board
+                 .pieces
+                 .color
+                 .get_unchecked(self.board.to_move)
+        };
         let orig_square_bb = occupied_by_us & (1 << orig_square);
         let dest_square_bb = 1 << dest_square;
         let mut captured_piece = self.get_piece_type_at(dest_square);
@@ -377,7 +395,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 _ => {
                     debug_assert!(generated_move.is_none());
                     return None;
-                } 
+                }
             };
 
             // Verify if the moved piece is pinned.
@@ -398,7 +416,10 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 let mut dest_sets: [Bitboard; 4] = uninitialized();
                 calc_pawn_dest_sets(self.board.to_move,
                                     occupied_by_us,
-                                    *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move),
+                                    *self.board
+                                         .pieces
+                                         .color
+                                         .get_unchecked(1 ^ self.board.to_move),
                                     enpassant_bb,
                                     orig_square_bb,
                                     &mut dest_sets);
@@ -489,15 +510,15 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             // Assert that `m` could be generated by `null_move` or
             // `generate_all`.
             assert!({
-                m.is_null() && played_piece == KING
-            } ||
+                        m.is_null() && played_piece == KING
+                    } ||
                     {
-                let mut m1 = m;
-                let mut m2 = self.try_move_digest(m.digest()).unwrap();
-                m1.set_score(0);
-                m2.set_score(0);
-                m1 == m2
-            });
+                        let mut m1 = m;
+                        let mut m2 = self.try_move_digest(m.digest()).unwrap();
+                        m1.set_score(0);
+                        m2.set_score(0);
+                        m1 == m2
+                    });
 
             // Initialize `old_hash`, which will be used to assert
             // that the returned value (`h`) is calculated correctly.
@@ -510,11 +531,11 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         if played_piece == KING {
             if orig_square != dest_square {
                 if self.king_would_be_in_check(orig_square, dest_square) {
-                    return None;  // the king is in check -- illegal move
+                    return None; // the king is in check -- illegal move
                 }
             } else {
                 if self.is_check() {
-                    return None;  // invalid "null move"
+                    return None; // invalid "null move"
                 }
             }
         }
@@ -573,14 +594,18 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 h ^= *self.zobrist
                           .castling_rights
                           .get_unchecked(self.board.castling_rights.value());
-                self.board.castling_rights.update(orig_square, dest_square);
+                self.board
+                    .castling_rights
+                    .update(orig_square, dest_square);
                 h ^= *self.zobrist
                           .castling_rights
                           .get_unchecked(self.board.castling_rights.value());
             }
 
             // Update the en-passant file.
-            h ^= *self.zobrist.enpassant_file.get_unchecked(self.board.enpassant_file);
+            h ^= *self.zobrist
+                      .enpassant_file
+                      .get_unchecked(self.board.enpassant_file);
             let is_double_push = dest_square as isize - orig_square as isize == [16, -16][us] &&
                                  played_piece == PAWN;
             self.board.enpassant_file = if is_double_push {
@@ -732,13 +757,9 @@ impl<T: Evaluator> StdMoveGenerator<T> {
 
         // Verify if `piece_type` is messed up. `occupied` becomes
         // `BB_ALL` in this case.
-        let occupied = piece_type.into_iter().fold(0, |acc, x| {
-            if acc & x == 0 {
-                acc | x
-            } else {
-                BB_ALL
-            }
-        });
+        let occupied = piece_type
+            .into_iter()
+            .fold(0, |acc, x| if acc & x == 0 { acc | x } else { BB_ALL });
 
         (occupied != BB_ALL) &&
         (occupied == color[us] | color[them] && color[us] & color[them] == 0) &&
@@ -763,27 +784,30 @@ impl<T: Evaluator> StdMoveGenerator<T> {
           (piece_type[KING] & color[BLACK] & 1 << E8 != 0))) &&
         (enpassant_bb == 0 ||
          {
-            let dest_square_bb = gen_shift(enpassant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
-            let orig_square_bb = gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
-            let our_king_square = bsf(piece_type[KING] & color[us]);
-            (dest_square_bb & piece_type[PAWN] & color[them] != 0) &&
-            (enpassant_bb & !occupied != 0) && (orig_square_bb & !occupied != 0) &&
-            {
-                let mask = orig_square_bb | dest_square_bb;
-                let pawns = piece_type[PAWN] ^ mask;
-                let occupied = occupied ^ mask;
-                let occupied_by_them = color[them] ^ mask;
-                0 ==
-                occupied_by_them &
-                ((self.geometry.attacks_from(ROOK, our_king_square, occupied) &
-                  (piece_type[ROOK] | piece_type[QUEEN])) |
-                 (self.geometry.attacks_from(BISHOP, our_king_square, occupied) &
-                  (piece_type[BISHOP] | piece_type[QUEEN])) |
-                 (self.geometry.attacks_from(KNIGHT, our_king_square, occupied) &
-                  piece_type[KNIGHT]) |
-                 (self.geometry.pawn_attacks[us][our_king_square] & pawns))
-            }
-        }) &&
+             let dest_square_bb = gen_shift(enpassant_bb, PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+             let orig_square_bb = gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[them][PAWN_PUSH]);
+             let our_king_square = bsf(piece_type[KING] & color[us]);
+             (dest_square_bb & piece_type[PAWN] & color[them] != 0) &&
+             (enpassant_bb & !occupied != 0) && (orig_square_bb & !occupied != 0) &&
+             {
+                 let mask = orig_square_bb | dest_square_bb;
+                 let pawns = piece_type[PAWN] ^ mask;
+                 let occupied = occupied ^ mask;
+                 let occupied_by_them = color[them] ^ mask;
+                 0 ==
+                 occupied_by_them &
+                 ((self.geometry
+                       .attacks_from(ROOK, our_king_square, occupied) &
+                   (piece_type[ROOK] | piece_type[QUEEN])) |
+                  (self.geometry
+                       .attacks_from(BISHOP, our_king_square, occupied) &
+                   (piece_type[BISHOP] | piece_type[QUEEN])) |
+                  (self.geometry
+                       .attacks_from(KNIGHT, our_king_square, occupied) &
+                   piece_type[KNIGHT]) |
+                  (self.geometry.pawn_attacks[us][our_king_square] & pawns))
+             }
+         }) &&
         {
             assert!(self.checkers.get() == BB_ALL ||
                     self.checkers.get() ==
@@ -806,11 +830,12 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         debug_assert!(orig_square <= 63);
         debug_assert!(legal_dests & self.board.pieces.color[self.board.to_move] == 0);
 
-        let mut piece_legal_dests = legal_dests &
-                                    unsafe {
-            self.geometry
-                .attacks_from_unsafe(piece, orig_square, self.board.occupied)
-        };
+        let mut piece_legal_dests =
+            legal_dests &
+            unsafe {
+                self.geometry
+                    .attacks_from_unsafe(piece, orig_square, self.board.occupied)
+            };
         while piece_legal_dests != 0 {
             let dest_square = bsf_reset(&mut piece_legal_dests);
             let captured_piece = self.get_piece_type_at(dest_square);
@@ -844,8 +869,14 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         let shifts = unsafe {
             dest_sets = uninitialized();
             calc_pawn_dest_sets(self.board.to_move,
-                                *self.board.pieces.color.get_unchecked(self.board.to_move),
-                                *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move),
+                                *self.board
+                                     .pieces
+                                     .color
+                                     .get_unchecked(self.board.to_move),
+                                *self.board
+                                     .pieces
+                                     .color
+                                     .get_unchecked(1 ^ self.board.to_move),
                                 enpassant_bb,
                                 pawns,
                                 &mut dest_sets)
@@ -922,7 +953,10 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         let mut pinned = 0;
         unsafe {
             let g: &BoardGeometry = &self.geometry;
-            let occupied_by_them = *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move);
+            let occupied_by_them = *self.board
+                                        .pieces
+                                        .color
+                                        .get_unchecked(1 ^ self.board.to_move);
 
             // To find the potential pinners, we "remove" all our
             // pieces from the board, and then verify if a bishop or a
@@ -932,23 +966,25 @@ impl<T: Evaluator> StdMoveGenerator<T> {
                                self.board.pieces.piece_type[ROOK];
             let diag_sliders = self.board.pieces.piece_type[QUEEN] |
                                self.board.pieces.piece_type[BISHOP];
-            let mut pinners = occupied_by_them &
-                              (file_sliders &
-                               g.attacks_from_unsafe(ROOK, king_square, occupied_by_them) |
-                               diag_sliders &
-                               g.attacks_from_unsafe(BISHOP, king_square, occupied_by_them));
+            let mut pinners =
+                occupied_by_them &
+                (file_sliders & g.attacks_from_unsafe(ROOK, king_square, occupied_by_them) |
+                 diag_sliders & g.attacks_from_unsafe(BISHOP, king_square, occupied_by_them));
 
             // Then, for each potential pinner we verify if there is
             // exactly one defender between our king and the pinner.
             if pinners != 0 {
-                let defenders = *self.board.pieces.color.get_unchecked(self.board.to_move) &
+                let defenders = *self.board
+                                     .pieces
+                                     .color
+                                     .get_unchecked(self.board.to_move) &
                                 !(1 << king_square);
                 loop {
                     let pinner_square = bsf_reset(&mut pinners);
                     let bb = defenders &
                              *g.squares_between_including
-                               .get_unchecked(king_square)
-                               .get_unchecked(pinner_square);
+                                  .get_unchecked(king_square)
+                                  .get_unchecked(pinner_square);
                     if lsb(bb) == bb {
                         pinned |= bb;
                     }
@@ -966,7 +1002,12 @@ impl<T: Evaluator> StdMoveGenerator<T> {
     #[inline]
     fn king_square(&self) -> Square {
         bsf(self.board.pieces.piece_type[KING] &
-            unsafe { *self.board.pieces.color.get_unchecked(self.board.to_move) })
+            unsafe {
+                *self.board
+                     .pieces
+                     .color
+                     .get_unchecked(self.board.to_move)
+            })
     }
 
     /// Returns a bitboard with all enemy pieces and pawns that attack
@@ -982,7 +1023,12 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         if self.checkers.get() == BB_ALL {
             self.checkers
                 .set(self.attacks_to(self.king_square()) &
-                     unsafe { *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) });
+                     unsafe {
+                         *self.board
+                              .pieces
+                              .color
+                              .get_unchecked(1 ^ self.board.to_move)
+                     });
         }
         self.checkers.get()
     }
@@ -996,7 +1042,12 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         if self.checkers.get() == BB_ALL {
             self.checkers
                 .set(self.attacks_to(king_square) &
-                     unsafe { *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) });
+                     unsafe {
+                         *self.board
+                              .pieces
+                              .color
+                              .get_unchecked(1 ^ self.board.to_move)
+                     });
         }
         (king_square, self.checkers.get())
     }
@@ -1009,14 +1060,21 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         debug_assert!(dest_square <= 63);
         let occupied = self.board.occupied & !(1 << orig_square);
         unsafe {
-            *self.board.pieces.color.get_unchecked(1 ^ self.board.to_move) &
-            ((self.geometry.attacks_from_unsafe(ROOK, dest_square, occupied) &
+            *self.board
+                 .pieces
+                 .color
+                 .get_unchecked(1 ^ self.board.to_move) &
+            ((self.geometry
+                  .attacks_from_unsafe(ROOK, dest_square, occupied) &
               (self.board.pieces.piece_type[ROOK] | self.board.pieces.piece_type[QUEEN])) |
-             (self.geometry.attacks_from_unsafe(BISHOP, dest_square, occupied) &
+             (self.geometry
+                  .attacks_from_unsafe(BISHOP, dest_square, occupied) &
               (self.board.pieces.piece_type[BISHOP] | self.board.pieces.piece_type[QUEEN])) |
-             (self.geometry.attacks_from_unsafe(KNIGHT, dest_square, occupied) &
+             (self.geometry
+                  .attacks_from_unsafe(KNIGHT, dest_square, occupied) &
               self.board.pieces.piece_type[KNIGHT]) |
-             (self.geometry.attacks_from_unsafe(KING, dest_square, occupied) &
+             (self.geometry
+                  .attacks_from_unsafe(KING, dest_square, occupied) &
               self.board.pieces.piece_type[KING]) |
              (*self.geometry
                    .pawn_attacks
@@ -1035,10 +1093,13 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         const BETWEEN: [[Bitboard; 2]; 2] = [[1 << B1 | 1 << C1 | 1 << D1, 1 << F1 | 1 << G1],
                                              [1 << B8 | 1 << C8 | 1 << D8, 1 << F8 | 1 << G8]];
         unsafe {
-            self.board.castling_rights.can_castle(self.board.to_move, side) &&
+            self.board
+                .castling_rights
+                .can_castle(self.board.to_move, side) &&
             (self.board.occupied &
-             *BETWEEN.get_unchecked(self.board.to_move).get_unchecked(side) == 0) &&
-            !self.is_check() &&
+             *BETWEEN
+                  .get_unchecked(self.board.to_move)
+                  .get_unchecked(side) == 0) && !self.is_check() &&
             !self.king_would_be_in_check(king_square,
                                          *[[D1, F1], [D8, F8]]
                                               .get_unchecked(self.board.to_move)
@@ -1154,8 +1215,8 @@ fn calc_pawn_dest_sets(us: Color,
     debug_assert!(us <= 1);
     debug_assert!(pawns & !occupied_by_us == 0);
     debug_assert!(occupied_by_us & occupied_by_them == 0);
-    debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) & !occupied_by_them ==
-                  0);
+    debug_assert!(gen_shift(enpassant_bb, -PAWN_MOVE_SHIFTS[us][PAWN_PUSH]) &
+                  !occupied_by_them == 0);
     const PUSHING_TARGETS: [Bitboard; 4] = [BB_ALL, BB_ALL, 0, 0];
     const LEGITIMATE_ORIGINS: [Bitboard; 4] = [!(BB_RANK_1 | BB_RANK_8),
                                                BB_RANK_2 | BB_RANK_7,
@@ -1196,7 +1257,9 @@ mod tests {
 
     #[test]
     fn attacks_to() {
-        let b = P::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q w - - 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/8/3K1p1P/r4k2/3Pq1N1/7p/1B5Q w - - 0 1")
+            .ok()
+            .unwrap();
         let white = b.board().pieces.color[WHITE];
         let black = b.board().pieces.color[BLACK];
 
@@ -1229,7 +1292,9 @@ mod tests {
     fn pawn_dest_sets() {
         let mut s = MoveStack::new();
 
-        let b = P::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w - h6 0 1").ok().unwrap();
+        let b = P::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K w - h6 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         let mut pawn_dests = 0u64;
         while let Some(m) = s.pop() {
@@ -1240,7 +1305,9 @@ mod tests {
         assert_eq!(pawn_dests,
                    1 << H3 | 1 << H4 | 1 << G6 | 1 << E8 | 1 << H5 | 1 << G7 | 1 << H6 | 1 << D8);
 
-        let b = P::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b - - 0 1").ok().unwrap();
+        let b = P::from_fen("k2q4/4Ppp1/5P2/6Pp/6P1/8/7P/7K b - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         let mut pawn_dests = 0u64;
         while let Some(m) = s.pop() {
@@ -1255,37 +1322,51 @@ mod tests {
     fn move_generation() {
         let mut s = MoveStack::new();
 
-        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/4K3 w - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 5);
         s.clear_all();
 
-        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 w - - 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/6K1 w - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 7);
         s.clear_all();
 
-        let b = P::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w - - 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/6NK/2pP4/3PR3/2b1q3/3P4/7k w - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 8);
         s.clear_all();
 
-        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - - 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 22);
         s.clear_all();
 
-        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - c6 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/6Nk/2pP4/3PR3/2b1q3/3P4/7K w - c6 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 23);
         s.clear_all();
 
-        let b = P::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k b - - 0 1").ok().unwrap();
+        let b = P::from_fen("K7/8/6N1/2pP4/3PR3/2b1q3/3P4/7k b - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 25);
         s.clear_all();
 
-        let b = P::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 b - - 0 1").ok().unwrap();
+        let b = P::from_fen("K7/8/6N1/2pP4/3PR2k/2b1q3/3P4/8 b - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 5);
         s.clear_all();
@@ -1294,62 +1375,86 @@ mod tests {
         assert!(P::from_fen("8/8/8/8/4pP2/8/3B4/7K b - f3 0 1").is_err());
         assert!(P::from_fen("8/8/8/4k3/4pP2/8/3B4/7K b - f3 0 1").is_ok());
 
-        let b = P::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/8/7k/5pP1/8/8/5R1K b - g3 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 6);
         s.clear_all();
 
-        let b = P::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/8/5k2/5pP1/8/8/5R1K b - g3 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 7);
         s.clear_all();
 
-        let b = P::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/8/8/4pP1k/8/8/4B2K b - f3 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 5);
         s.clear_all();
 
-        let b = P::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/8/8/4RpPk/8/8/7K b - g3 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 6);
         s.clear_all();
 
-        let b = P::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1").ok().unwrap();
+        let b = P::from_fen("8/8/8/8/3QPpPk/8/8/7K b - g3 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 7);
         s.clear();
 
-        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1").ok().unwrap();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 5);
         s.clear_all();
 
-        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 1").ok().unwrap();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w K - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 6);
         s.clear_all();
 
-        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 7);
         s.clear_all();
 
-        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - 0 1").ok().unwrap();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQ - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 5);
         s.clear_all();
 
-        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - 0 1").ok().unwrap();
+        let b = P::from_fen("rn2k2r/8/8/8/8/8/8/R3K2R b KQk - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 6);
         s.clear_all();
 
-        let b = P::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = P::from_fen("4k3/8/8/8/8/5n2/8/R3K2R w KQ - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 5);
         s.clear_all();
 
-        let mut b = P::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let mut b = P::from_fen("4k3/8/8/8/8/6n1/8/R3K2R w KQ - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         let mut count = 0;
         while let Some(m) = s.pop() {
@@ -1360,17 +1465,23 @@ mod tests {
         }
         assert_eq!(count, 19 + 4);
 
-        let b = P::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = P::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w KQ - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 5);
         s.clear_all();
 
-        let b = P::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1").ok().unwrap();
+        let b = P::from_fen("4k3/8/8/8/8/4n3/8/R3K2R w - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 5);
         s.clear_all();
 
-        let b = P::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 1").ok().unwrap();
+        let b = P::from_fen("4k3/8/1b6/8/8/8/8/R3K2R w KQ - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         assert_eq!(s.list().len(), 19 + 7);
         s.clear_all();
@@ -1380,7 +1491,9 @@ mod tests {
     fn do_undo_move() {
         let mut s = MoveStack::new();
 
-        let mut b = P::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1").ok().unwrap();
+        let mut b = P::from_fen("b3k2r/6P1/8/5pP1/8/8/6P1/R3K2R w kKQ f6 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         let count = s.list().len();
         while let Some(m) = s.pop() {
@@ -1394,7 +1507,9 @@ mod tests {
         }
         assert_eq!(s.list().len(), 0);
 
-        let mut b = P::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1").ok().unwrap();
+        let mut b = P::from_fen("b3k2r/6P1/8/5pP1/8/8/8/R3K2R b kKQ - 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         let count = s.list().len();
         while let Some(m) = s.pop() {
@@ -1411,7 +1526,9 @@ mod tests {
 
     #[test]
     fn find_pinned() {
-        let b = P::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/6b1 w - - 0 1").ok().unwrap();
+        let b = P::from_fen("k2r4/3r4/3N4/5n2/qp1K2Pq/8/3PPR2/6b1 w - - 0 1")
+            .ok()
+            .unwrap();
         assert_eq!(b.find_pinned(b.king_square()), 1 << F2 | 1 << D6 | 1 << G4);
     }
 
@@ -1419,17 +1536,23 @@ mod tests {
     fn generate_forcing() {
         let mut s = MoveStack::new();
 
-        let b = P::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1").ok().unwrap();
+        let b = P::from_fen("k6r/P7/8/6p1/6pP/8/8/7K b - h3 0 1")
+            .ok()
+            .unwrap();
         b.generate_forcing(false, &mut s);
         assert_eq!(s.list().len(), 4);
         s.clear_all();
 
-        let b = P::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1").ok().unwrap();
+        let b = P::from_fen("k7/8/8/4Pp2/4K3/8/8/8 w - f6 0 1")
+            .ok()
+            .unwrap();
         b.generate_forcing(false, &mut s);
         assert_eq!(s.list().len(), 8);
         s.clear_all();
 
-        let b = P::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1").ok().unwrap();
+        let b = P::from_fen("k7/8/8/4Pb2/4K3/8/8/8 w - - 0 1")
+            .ok()
+            .unwrap();
         b.generate_forcing(false, &mut s);
         assert_eq!(s.list().len(), 7);
         s.clear_all();
@@ -1439,7 +1562,9 @@ mod tests {
     fn null_move() {
         let mut s = MoveStack::new();
 
-        let mut b = P::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1").ok().unwrap();
+        let mut b = P::from_fen("k7/8/8/5Pp1/8/8/8/4K2R w K g6 0 1")
+            .ok()
+            .unwrap();
         b.generate_all(&mut s);
         let count = s.list().len();
         s.clear_all();
@@ -1450,7 +1575,9 @@ mod tests {
         assert_eq!(count, s.list().len());
         s.clear_all();
 
-        let mut b = P::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1").ok().unwrap();
+        let mut b = P::from_fen("k7/4r3/8/8/8/8/8/4K3 w - - 0 1")
+            .ok()
+            .unwrap();
         let m = b.null_move();
         assert!(b.do_move(m).is_none());
     }

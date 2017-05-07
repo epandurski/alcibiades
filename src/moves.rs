@@ -28,7 +28,7 @@ pub const MOVE_NORMAL: MoveType = 3;
 ///  |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
 ///  +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 ///  ```
-///  
+///
 /// There are 4 "move type"s: `0`) en-passant capture; `1`) pawn
 /// promotion; `2`) castling; `3`) normal move. "Aux data" encodes the
 /// type of the promoted piece if the move type is pawn promotion,

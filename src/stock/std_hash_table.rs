@@ -55,7 +55,9 @@ impl<R> Bucket<R> {
     #[inline]
     pub unsafe fn new(p: *mut c_void) -> Bucket<R> {
         let byte_offset = BUCKET_SIZE - mem::size_of::<usize>();
-        let info = (p.offset(byte_offset as isize) as *mut AtomicUsize).as_mut().unwrap();
+        let info = (p.offset(byte_offset as isize) as *mut AtomicUsize)
+            .as_mut()
+            .unwrap();
 
         // Acquire the lock for the bucket.
         loop {
@@ -203,11 +205,12 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
 
         loop {
             // Increment the generation number (with wrapping).
-            self.generation.set(match self.generation.get() {
-                n @ 1...30 => n + 1,
-                31 => 1,
-                _ => unreachable!(),
-            });
+            self.generation
+                .set(match self.generation.get() {
+                         n @ 1...30 => n + 1,
+                         31 => 1,
+                         _ => unreachable!(),
+                     });
             debug_assert!(self.generation.get() > 0);
             debug_assert!(self.generation.get() < 32);
 

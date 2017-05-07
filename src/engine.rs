@@ -97,10 +97,13 @@ impl<S, T> UciEngine for Engine<S, T>
 
     fn options() -> Vec<(&'static str, OptionDescription)> {
         // Add up all suported options.
-        let mut options = vec![
-            ("Hash", OptionDescription::Spin { min: 1, max: 64 * 1024, default: 16 }),
-            ("Clear Hash", OptionDescription::Button),
-        ];
+        let mut options = vec![("Hash",
+                                OptionDescription::Spin {
+                                    min: 1,
+                                    max: 64 * 1024,
+                                    default: 16,
+                                }),
+                               ("Clear Hash", OptionDescription::Button)];
         options.extend(S::options());
         options.extend(T::options());
 
@@ -124,11 +127,16 @@ impl<S, T> UciEngine for Engine<S, T>
         let started_at = SystemTime::now();
         Engine {
             tt: tt.clone(),
-            position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter()).ok().unwrap(),
+            position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter())
+                .ok()
+                .unwrap(),
             searcher: S::new(tt),
             queue: VecDeque::new(),
             started_at: started_at,
-            status: SearchStatus { done: true, ..Default::default() },
+            status: SearchStatus {
+                done: true,
+                ..Default::default()
+            },
             best_line: vec![],
             nps_stats: (0, 0, 0),
             silent_since: started_at,
@@ -179,15 +187,13 @@ impl<S, T> UciEngine for Engine<S, T>
                     }
                 }
             };
-            if moves.is_empty() {
-                legal_moves
-            } else {
-                moves
-            }
+            if moves.is_empty() { legal_moves } else { moves }
         };
 
         // Start a new search.
-        let depth = params.depth.map_or(DEPTH_MAX, |x| min(x, DEPTH_MAX as u64) as Depth);
+        let depth = params
+            .depth
+            .map_or(DEPTH_MAX, |x| min(x, DEPTH_MAX as u64) as Depth);
         let remaining_time = RemainingTime {
             white_millis: params.wtime.unwrap_or(300_000),
             black_millis: params.btime.unwrap_or(300_000),
@@ -218,14 +224,15 @@ impl<S, T> UciEngine for Engine<S, T>
         } else {
             PlayWhen::TimeManagement(T::new(&self.position, &remaining_time))
         };
-        self.searcher.start_search(SearchParams {
-            search_id: 0,
-            position: self.position.clone(),
-            depth: depth,
-            lower_bound: VALUE_MIN,
-            upper_bound: VALUE_MAX,
-            searchmoves: searchmoves,
-        });
+        self.searcher
+            .start_search(SearchParams {
+                              search_id: 0,
+                              position: self.position.clone(),
+                              depth: depth,
+                              lower_bound: VALUE_MIN,
+                              upper_bound: VALUE_MAX,
+                              searchmoves: searchmoves,
+                          });
     }
 
     fn ponder_hit(&mut self) {
@@ -254,13 +261,13 @@ impl<S, T> UciEngine for Engine<S, T>
             // See if we must stop thinking and play.
             if is_thinking && !self.is_pondering &&
                match self.play_when {
-                PlayWhen::TimeManagement(_) => self.status.done,
-                PlayWhen::MoveTime(t) => self.status.done || self.status.duration_millis >= t,
-                PlayWhen::Nodes(n) => self.status.done || self.status.searched_nodes >= n,
-                PlayWhen::Depth(d) => self.status.done || self.status.depth >= d,
-                PlayWhen::Mate(m) => self.status.done || self.status.value > VALUE_MAX - 2 * m,
-                PlayWhen::Never(_) => false,
-            } {
+                   PlayWhen::TimeManagement(_) => self.status.done,
+                   PlayWhen::MoveTime(t) => self.status.done || self.status.duration_millis >= t,
+                   PlayWhen::Nodes(n) => self.status.done || self.status.searched_nodes >= n,
+                   PlayWhen::Depth(d) => self.status.done || self.status.depth >= d,
+                   PlayWhen::Mate(m) => self.status.done || self.status.value > VALUE_MAX - 2 * m,
+                   PlayWhen::Never(_) => false,
+               } {
                 self.stop();
             }
         }
@@ -278,13 +285,29 @@ impl<S, T> Engine<S, T>
           T: TimeManager<S>
 {
     fn queue_progress_info(&mut self) {
-        let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
-        self.queue.push_back(EngineReply::Info(vec![
-            InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
-            InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
-            InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
-            InfoItem { info_type: "nps".to_string(), data: format!("{}", self.nps_stats.0) },
-        ]));
+        let SearchStatus {
+            ref depth,
+            ref searched_nodes,
+            ref duration_millis,
+            ..
+        } = self.status;
+        self.queue
+            .push_back(EngineReply::Info(vec![InfoItem {
+                                                  info_type: "depth".to_string(),
+                                                  data: format!("{}", depth),
+                                              },
+                                              InfoItem {
+                                                  info_type: "time".to_string(),
+                                                  data: format!("{}", duration_millis),
+                                              },
+                                              InfoItem {
+                                                  info_type: "nodes".to_string(),
+                                                  data: format!("{}", searched_nodes),
+                                              },
+                                              InfoItem {
+                                                  info_type: "nps".to_string(),
+                                                  data: format!("{}", self.nps_stats.0),
+                                              }]));
     }
 
     fn queue_pv(&mut self, variations: &Vec<Variation>) {
@@ -297,8 +320,18 @@ impl<S, T> Engine<S, T>
             }
         }
 
-        let SearchStatus { ref depth, ref searched_nodes, ref duration_millis, .. } = self.status;
-        for (i, &Variation { ref moves, value, bound }) in variations.iter().enumerate() {
+        let SearchStatus {
+            ref depth,
+            ref searched_nodes,
+            ref duration_millis,
+            ..
+        } = self.status;
+        for (i,
+             &Variation {
+                  ref moves,
+                  value,
+                  bound,
+              }) in variations.iter().enumerate() {
             let score = match value {
                 v if bound & BOUND_UPPER != 0 && VALUE_MIN < v && v < VALUE_EVAL_MIN => {
                     format!("mate {}", (VALUE_MIN - v - 1) / 2)
@@ -315,15 +348,35 @@ impl<S, T> Engine<S, T>
                 pv.push_str(&m.notation());
                 pv.push(' ');
             }
-            self.queue.push_back(EngineReply::Info(vec![
-                InfoItem { info_type: "depth".to_string(), data: format!("{}", depth) },
-                InfoItem { info_type: "multipv".to_string(), data: format!("{}", i + 1) },
-                InfoItem { info_type: "score".to_string(), data: score },
-                InfoItem { info_type: "time".to_string(), data: format!("{}", duration_millis) },
-                InfoItem { info_type: "nodes".to_string(), data: format!("{}", searched_nodes) },
-                InfoItem { info_type: "nps".to_string(), data: format!("{}", self.nps_stats.0) },
-                InfoItem { info_type: "pv".to_string(), data: pv },
-            ]));
+            self.queue
+                .push_back(EngineReply::Info(vec![InfoItem {
+                                                      info_type: "depth".to_string(),
+                                                      data: format!("{}", depth),
+                                                  },
+                                                  InfoItem {
+                                                      info_type: "multipv".to_string(),
+                                                      data: format!("{}", i + 1),
+                                                  },
+                                                  InfoItem {
+                                                      info_type: "score".to_string(),
+                                                      data: score,
+                                                  },
+                                                  InfoItem {
+                                                      info_type: "time".to_string(),
+                                                      data: format!("{}", duration_millis),
+                                                  },
+                                                  InfoItem {
+                                                      info_type: "nodes".to_string(),
+                                                      data: format!("{}", searched_nodes),
+                                                  },
+                                                  InfoItem {
+                                                      info_type: "nps".to_string(),
+                                                      data: format!("{}", self.nps_stats.0),
+                                                  },
+                                                  InfoItem {
+                                                      info_type: "pv".to_string(),
+                                                      data: pv,
+                                                  }]));
         }
     }
 
@@ -339,12 +392,16 @@ impl<S, T> Engine<S, T>
             m.notation()
         } else {
             // If we still do not have a best move, we pick the first legal one.
-            self.position.legal_moves().get(0).map_or("0000".to_string(), |m| m.notation())
+            self.position
+                .legal_moves()
+                .get(0)
+                .map_or("0000".to_string(), |m| m.notation())
         };
-        self.queue.push_back(EngineReply::BestMove {
-            best_move: best_move,
-            ponder_move: best_line.get(1).map(|m| m.notation()),
-        });
+        self.queue
+            .push_back(EngineReply::BestMove {
+                           best_move: best_move,
+                           ponder_move: best_line.get(1).map(|m| m.notation()),
+                       });
     }
 
     fn terminate(&mut self) {
@@ -407,7 +464,10 @@ impl<S, T> Engine<S, T>
         }
 
         // If nothing has happened for a while, show progress info.
-        if self.silent_since.elapsed().unwrap_or(zero_millis).as_secs() > 10 {
+        if self.silent_since
+               .elapsed()
+               .unwrap_or(zero_millis)
+               .as_secs() > 10 {
             self.queue_progress_info();
             self.silent_since = SystemTime::now();
         }
@@ -456,16 +516,16 @@ pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
         let mut engine = ENGINE.lock().unwrap();
         assert!(engine.is_none(), "two engines can not run in parallel");
         *engine = Some(EngineIdentity {
-            name: name,
-            author: author,
-        });
+                           name: name,
+                           author: author,
+                       });
     }
 
     // Run the engine.
     process::exit(match run_engine::<Engine<S, T>>() {
-        Ok(_) => 0,
-        Err(_) => 1,
-    });
+                      Ok(_) => 0,
+                      Err(_) => 1,
+                  });
 }
 
 struct EngineIdentity {

@@ -58,13 +58,19 @@ impl HashTableEntry for StdHashTableEntry {
 
     #[inline]
     fn set_move_digest(self, move_digest: MoveDigest) -> Self {
-        Self { move_digest: move_digest, ..self }
+        Self {
+            move_digest: move_digest,
+            ..self
+        }
     }
 
     /// Consumes the instance and returns a new instance with updated
     /// static evaluation.
     #[inline]
     fn set_static_eval(self, static_eval: Value) -> Self {
-        Self { static_eval: static_eval, ..self }
+        Self {
+            static_eval: static_eval,
+            ..self
+        }
     }
 }
