@@ -113,12 +113,12 @@ use std::sync::RwLock;
 use std::collections::HashMap;
 
 lazy_static! {
-    static ref OPTIONS: RwLock<HashMap<&'static str, String>> = RwLock::new(HashMap::new());
+    static ref CONFIGURATION: RwLock<HashMap<&'static str, String>> = RwLock::new(HashMap::new());
 }
 
 /// Returns the current value for a given configuration option.
 pub fn get_option(name: &'static str) -> String {
-    OPTIONS
+    CONFIGURATION
         .read()
         .unwrap()
         .get(name)

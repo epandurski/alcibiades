@@ -179,37 +179,6 @@ pub enum OptionDescription {
     Button,
 }
 
-impl OptionDescription {
-    fn get_default(&self) -> String {
-        match *self {
-            OptionDescription::Check { default: true } => "true".to_string(),
-            OptionDescription::Check { default: false } => "false".to_string(),
-            OptionDescription::Spin { default: ref v, .. } => format!("{}", v),
-            OptionDescription::Combo { default: ref v, .. } => v.clone(),
-            OptionDescription::String { default: ref v, .. } => v.clone(),
-            OptionDescription::Button => "".to_string(),
-        }
-    }
-
-    fn set_default(&mut self, value: &str) {
-        match *self {
-            OptionDescription::Check { default: ref mut v } => {
-                *v = match value.to_lowercase().as_str() {
-                    "true" => true,
-                    "false" => false,
-                    _ => *v,
-                }
-            }
-            OptionDescription::Spin { default: ref mut v, .. } => {
-                *v = value.parse::<i32>().unwrap_or(*v)
-            }
-            OptionDescription::Combo { default: ref mut v, .. } => *v = value.to_string(),
-            OptionDescription::String { default: ref mut v, .. } => *v = value.to_string(),
-            OptionDescription::Button => (),
-        }
-    }
-}
-
 
 /// A trait for announcing and changing configuration options.
 pub trait SetOption {

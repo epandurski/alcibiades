@@ -3,9 +3,10 @@
 use std::process;
 use std::marker::PhantomData;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, Duration};
 use std::cmp::{min, max};
+use std::collections::hash_map::Entry;
 use uci::*;
 use value::*;
 use depth::*;
@@ -88,11 +89,11 @@ impl<S, T> UciEngine for Engine<S, T>
           T: TimeManager<S>
 {
     fn name() -> &'static str {
-        ENGINE.lock().unwrap().as_ref().unwrap().name
+        ENGINE_INFO.lock().unwrap().as_ref().unwrap().name
     }
 
     fn author() -> &'static str {
-        ENGINE.lock().unwrap().as_ref().unwrap().author
+        ENGINE_INFO.lock().unwrap().as_ref().unwrap().author
     }
 
     fn options() -> Vec<(&'static str, OptionDescription)> {
@@ -118,19 +119,48 @@ impl<S, T> UciEngine for Engine<S, T>
             prev_name = o.0;
             options_dedup.push(o);
         }
-        options_dedup
 
-        // TODO: update the defaults with `ENGINE.options`.
+        // Change options' defaults if necessary.
+        let engine_info = ENGINE_INFO.lock().unwrap();
+        let mut configuration = ::CONFIGURATION.write().unwrap();
+        let mut changed_defaults = CHANGED_DEFAULTS.write().unwrap();
+        changed_defaults.clear();
+        for o in options_dedup.iter_mut() {
+            let (name, ref mut description) = *o;
+            let v_default = description.get_default();
+            {
+                let v = engine_info
+                    .as_ref()
+                    .unwrap()
+                    .get_default(name)
+                    .unwrap_or(&v_default);
+                if v_default != v {
+                    assert!(name != "Hash",
+                            "The default value for the Hash option can not be changed.");
+                    description.set_default(v);
+                    changed_defaults.push(name);
+                }
+            }
+            if let Entry::Vacant(e) = configuration.entry(name) {
+                e.insert(v_default);
+            }
+        }
+
+        options_dedup
     }
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S, T> {
         const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
+        if let Some(v) = tt_size_mb {
+            ::CONFIGURATION
+                .write()
+                .unwrap()
+                .insert("Hash", format!("{}", v));
+        }
         let tt = Arc::new(S::HashTable::new(tt_size_mb));
         let started_at = SystemTime::now();
-
-        // TODO: simulate "setoption" commands with `ENGINE.options`.
-
-        Engine {
+        let engine_info = ENGINE_INFO.lock().unwrap();
+        let mut engine = Engine {
             tt: tt.clone(),
             position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter())
                 .ok()
@@ -147,10 +177,21 @@ impl<S, T> UciEngine for Engine<S, T>
             silent_since: started_at,
             is_pondering: false,
             play_when: PlayWhen::Never(PhantomData),
+        };
+        for name in CHANGED_DEFAULTS.read().unwrap().iter() {
+            engine.set_option(name,
+                              engine_info
+                                  .as_ref()
+                                  .unwrap()
+                                  .get_default(name)
+                                  .unwrap());
         }
+        engine
     }
 
     fn set_option(&mut self, name: &str, value: &str) {
+        // TODO: support case insensitivity.
+        
         match name {
             "Hash" => {
                 // We do not support re-sizing of the transposition
@@ -165,7 +206,7 @@ impl<S, T> UciEngine for Engine<S, T>
         S::set_option(name, value);
         T::set_option(name, value);
 
-        if let Some(v) = ::OPTIONS.write().unwrap().get_mut(name) {
+        if let Some(v) = ::CONFIGURATION.write().unwrap().get_mut(name) {
             *v = value.to_string();
         }
     }
@@ -526,15 +567,15 @@ pub fn run_uci<S, T>(name: &'static str,
     where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
-    // Set engine's identity.
+    // Ensure that the engine is not already running.
     {
-        let mut engine = ENGINE.lock().unwrap();
-        assert!(engine.is_none(), "two engines can not run in parallel");
-        *engine = Some(EngineIdentity {
-                           name,
-                           author,
-                           options,
-                       });
+        let mut engine_info = ENGINE_INFO.lock().unwrap();
+        assert!(engine_info.is_none(), "two engines can not run in parallel");
+        *engine_info = Some(EngineInfo {
+                                name,
+                                author,
+                                options,
+                            });
     }
 
     // Run the engine.
@@ -544,12 +585,51 @@ pub fn run_uci<S, T>(name: &'static str,
                   });
 }
 
-struct EngineIdentity {
+struct EngineInfo {
     name: &'static str,
     author: &'static str,
     options: Vec<(&'static str, &'static str)>,
 }
 
+impl EngineInfo {
+    fn get_default(&self, name: &str) -> Option<&str> {
+        self.options.iter().find(|o| o.0 == name).map(|o| o.1)
+    }
+}
+
 lazy_static! {
-    static ref ENGINE: Mutex<Option<EngineIdentity>> = Mutex::new(None);
+    static ref ENGINE_INFO: Mutex<Option<EngineInfo>> = Mutex::new(None);
+    static ref CHANGED_DEFAULTS: RwLock<Vec<&'static str>> = RwLock::new(vec![]);
+}
+
+
+impl OptionDescription {
+    fn get_default(&self) -> String {
+        match *self {
+            OptionDescription::Check { default: true } => "true".to_string(),
+            OptionDescription::Check { default: false } => "false".to_string(),
+            OptionDescription::Spin { default: ref v, .. } => format!("{}", v),
+            OptionDescription::Combo { default: ref v, .. } => v.clone(),
+            OptionDescription::String { default: ref v, .. } => v.clone(),
+            OptionDescription::Button => "".to_string(),
+        }
+    }
+
+    fn set_default(&mut self, value: &str) {
+        match *self {
+            OptionDescription::Check { default: ref mut v } => {
+                *v = match value.to_lowercase().as_str() {
+                    "true" => true,
+                    "false" => false,
+                    _ => *v,
+                }
+            }
+            OptionDescription::Spin { default: ref mut v, .. } => {
+                *v = value.parse::<i32>().unwrap_or(*v)
+            }
+            OptionDescription::Combo { default: ref mut v, .. } => *v = value.to_string(),
+            OptionDescription::String { default: ref mut v, .. } => *v = value.to_string(),
+            OptionDescription::Button => (),
+        }
+    }
 }
