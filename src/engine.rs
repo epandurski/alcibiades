@@ -164,6 +164,10 @@ impl<S, T> UciEngine for Engine<S, T>
         }
         S::set_option(name, value);
         T::set_option(name, value);
+
+        if let Some(v) = ::OPTIONS.write().unwrap().get_mut(name) {
+            *v = value.to_string();
+        }
     }
 
     fn new_game(&mut self) {
