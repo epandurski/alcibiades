@@ -511,6 +511,9 @@ pub fn run_uci<S, T>(name: &'static str, author: &'static str) -> !
     where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
+    // TODO: Add "options" parameter and simulate "setoption" commands
+    // for them.
+
     // Set engine's identity.
     {
         let mut engine = ENGINE.lock().unwrap();
