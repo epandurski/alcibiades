@@ -107,3 +107,21 @@ pub use move_generator::*;
 pub use qsearch::*;
 pub use time_manager::*;
 pub use uci::{SetOption, OptionDescription};
+
+
+use std::sync::RwLock;
+use std::collections::HashMap;
+
+lazy_static! {
+    static ref OPTIONS: RwLock<HashMap<&'static str, String>> = RwLock::new(HashMap::new());
+}
+
+/// Returns the current value for a given configuration option.
+pub fn get_option(name: &'static str) -> String {
+    OPTIONS
+        .read()
+        .unwrap()
+        .get(name)
+        .map(|s| s.clone())
+        .unwrap_or(String::new())
+}
