@@ -108,10 +108,10 @@ impl<S, T> UciEngine for Engine<S, T>
         options.extend(S::options());
         options.extend(T::options());
 
-        // Remove duplicated options.
-        options.sort_by(|a, b| a.0.cmp(&b.0));
+        // Remove the duplicated options.
         let mut options_dedup = vec![];
         let mut prev_name = "";
+        options.sort_by(|a, b| a.0.cmp(&b.0));
         for o in options.drain(..) {
             if o.0 == prev_name {
                 continue;
@@ -120,29 +120,39 @@ impl<S, T> UciEngine for Engine<S, T>
             options_dedup.push(o);
         }
 
-        // Change options' defaults if necessary.
+        // Acquire the necessary global locks.
         let engine_info = ENGINE_INFO.lock().unwrap();
         let mut configuration = ::CONFIGURATION.write().unwrap();
         let mut changed_defaults = CHANGED_DEFAULTS.write().unwrap();
         changed_defaults.clear();
+
+        // Inspect each option.
         for o in options_dedup.iter_mut() {
             let (name, ref mut description) = *o;
-            let v_default = description.get_default();
-            {
-                let v = engine_info
+            let value = description.get_default();
+
+            // Set a new default value for the option if necessary.
+            if let Some(new_default) =
+                engine_info
                     .as_ref()
                     .unwrap()
-                    .get_default(name)
-                    .unwrap_or(&v_default);
-                if v_default != v {
+                    .options
+                    .iter()
+                    .find(|x| x.0 == name) {
+                let new_value = new_default.1;
+                if new_value != value {
                     assert!(name != "Hash",
                             "The default value for the Hash option can not be changed.");
-                    description.set_default(v);
-                    changed_defaults.push(name);
+                    description.set_default(new_value);
+
+                    // Remember that the default value has been changed.
+                    changed_defaults.push(*new_default);
                 }
             }
+
+            // Insert the option into the global configuration table.
             if let Entry::Vacant(e) = configuration.entry(name) {
-                e.insert(v_default);
+                e.insert(value);
             }
         }
 
@@ -151,15 +161,8 @@ impl<S, T> UciEngine for Engine<S, T>
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S, T> {
         const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
-        if let Some(v) = tt_size_mb {
-            ::CONFIGURATION
-                .write()
-                .unwrap()
-                .insert("Hash", format!("{}", v));
-        }
         let tt = Arc::new(S::HashTable::new(tt_size_mb));
         let started_at = SystemTime::now();
-        let engine_info = ENGINE_INFO.lock().unwrap();
         let mut engine = Engine {
             tt: tt.clone(),
             position: S::SearchNode::from_history(START_FEN, &mut vec![].into_iter())
@@ -178,20 +181,26 @@ impl<S, T> UciEngine for Engine<S, T>
             is_pondering: false,
             play_when: PlayWhen::Never(PhantomData),
         };
-        for name in CHANGED_DEFAULTS.read().unwrap().iter() {
-            engine.set_option(name,
-                              engine_info
-                                  .as_ref()
-                                  .unwrap()
-                                  .get_default(name)
-                                  .unwrap());
+
+        // Set correct value for the "Hash" option.
+        if let Some(v) = tt_size_mb {
+            ::CONFIGURATION
+                .write()
+                .unwrap()
+                .insert("Hash", format!("{}", v));
         }
+
+        // Issue a "setoption" command for each changed default.
+        for o in CHANGED_DEFAULTS.read().unwrap().iter() {
+            engine.set_option(o.0, o.1);
+        }
+
         engine
     }
 
     fn set_option(&mut self, name: &str, value: &str) {
         // TODO: support case insensitivity.
-        
+
         match name {
             "Hash" => {
                 // We do not support re-sizing of the transposition
@@ -585,21 +594,17 @@ pub fn run_uci<S, T>(name: &'static str,
                   });
 }
 
+
 struct EngineInfo {
     name: &'static str,
     author: &'static str,
     options: Vec<(&'static str, &'static str)>,
 }
 
-impl EngineInfo {
-    fn get_default(&self, name: &str) -> Option<&str> {
-        self.options.iter().find(|o| o.0 == name).map(|o| o.1)
-    }
-}
 
 lazy_static! {
     static ref ENGINE_INFO: Mutex<Option<EngineInfo>> = Mutex::new(None);
-    static ref CHANGED_DEFAULTS: RwLock<Vec<&'static str>> = RwLock::new(vec![]);
+    static ref CHANGED_DEFAULTS: RwLock<Vec<(&'static str, &'static str)>> = RwLock::new(vec![]);
 }
 
 
