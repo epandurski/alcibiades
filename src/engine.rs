@@ -199,24 +199,30 @@ impl<S, T> UciEngine for Engine<S, T>
     }
 
     fn set_option(&mut self, name: &str, value: &str) {
-        // TODO: support case insensitivity.
-
+        let name = {
+            if let Some(x) = ::CONFIGURATION
+                   .read()
+                   .unwrap()
+                   .keys()
+                   .find(|x| x.to_uppercase() == name.to_uppercase()) {
+                *x
+            } else {
+                return;
+            }
+        };
         match name {
             "Hash" => {
                 // We do not support re-sizing of the transposition
                 // table once the engine has been started.
-                return;
             }
             "Clear Hash" => {
                 self.tt.clear();
             }
-            _ => (),
-        }
-        S::set_option(name, value);
-        T::set_option(name, value);
-
-        if let Some(v) = ::CONFIGURATION.write().unwrap().get_mut(name) {
-            *v = value.to_string();
+            _ => {
+                S::set_option(name, value);
+                T::set_option(name, value);
+                *::CONFIGURATION.write().unwrap().get_mut(name).unwrap() = value.to_string();
+            }
         }
     }
 
