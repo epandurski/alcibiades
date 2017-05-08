@@ -89,11 +89,11 @@ impl<S, T> UciEngine for Engine<S, T>
           T: TimeManager<S>
 {
     fn name() -> &'static str {
-        ENGINE_INFO.lock().unwrap().as_ref().unwrap().name
+        ENGINE.lock().unwrap().as_ref().unwrap().name
     }
 
     fn author() -> &'static str {
-        ENGINE_INFO.lock().unwrap().as_ref().unwrap().author
+        ENGINE.lock().unwrap().as_ref().unwrap().author
     }
 
     fn options() -> Vec<(&'static str, OptionDescription)> {
@@ -121,7 +121,7 @@ impl<S, T> UciEngine for Engine<S, T>
         }
 
         // Acquire the necessary global locks.
-        let engine_info = ENGINE_INFO.lock().unwrap();
+        let engine_info = ENGINE.lock().unwrap();
         let mut configuration = ::CONFIGURATION.write().unwrap();
         let mut changed_defaults = CHANGED_DEFAULTS.write().unwrap();
         changed_defaults.clear();
@@ -584,13 +584,13 @@ pub fn run_uci<S, T>(name: &'static str,
 {
     // Ensure that the engine is not already running.
     {
-        let mut engine_info = ENGINE_INFO.lock().unwrap();
-        assert!(engine_info.is_none(), "two engines can not run in parallel");
-        *engine_info = Some(EngineInfo {
-                                name,
-                                author,
-                                options,
-                            });
+        let mut engine = ENGINE.lock().unwrap();
+        assert!(engine.is_none(), "two engines can not run in parallel");
+        *engine = Some(EngineInfo {
+                           name,
+                           author,
+                           options,
+                       });
     }
 
     // Run the engine.
@@ -609,7 +609,7 @@ struct EngineInfo {
 
 
 lazy_static! {
-    static ref ENGINE_INFO: Mutex<Option<EngineInfo>> = Mutex::new(None);
+    static ref ENGINE: Mutex<Option<EngineInfo>> = Mutex::new(None);
     static ref CHANGED_DEFAULTS: RwLock<Vec<(&'static str, &'static str)>> = RwLock::new(vec![]);
 }
 
