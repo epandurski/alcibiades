@@ -4,7 +4,7 @@ use super::{bogus_params, contains_dups};
 use super::aspiration::Aspiration;
 use std::cmp::{min, max};
 use std::time::Duration;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use uci::{SetOption, OptionDescription};
 use moves::Move;
@@ -86,7 +86,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
+        self.variation_count = min(n, max(1, ::get_option("MultiPV").parse().unwrap_or(0)));
         if n == 0 || self.variation_count == 1 && self.all_moves_are_considered {
             // A plain aspiration search.
             //
@@ -168,9 +168,6 @@ impl<T: SearchExecutor> SetOption for Multipv<T> {
     }
 
     fn set_option(name: &str, value: &str) {
-        if name == "MultiPV" {
-            *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
-        }
         Aspiration::<T>::set_option(name, value)
     }
 }
@@ -264,9 +261,4 @@ impl<T: SearchExecutor> Multipv<T> {
     fn runs_genuine_multipv_search(&self) -> bool {
         self.searcher.lmr_mode
     }
-}
-
-
-lazy_static! {
-    static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
 }
