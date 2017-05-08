@@ -556,8 +556,8 @@ impl<S, T> Engine<S, T>
 ///
 /// * `author` gives the name of the author.
 ///
-/// * `options` gives the default configuration options (a vector of
-///   names and values).
+/// * `options` is a vector of (name, value) pairs that override the
+///   default configuration options.
 //
 /// # Type parameters:
 ///
