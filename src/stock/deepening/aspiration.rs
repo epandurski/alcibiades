@@ -18,8 +18,13 @@ use search::{SearchParams, SearchReport};
 use search::DeepeningSearch as SearchExecutor;
 
 
-/// Half-width of the initial aspiration window (centipawns).
-const INITIAL_ASPIRATION_WINDOW: isize = 16;
+/// Returns the half-width of the initial aspiration window (centipawns).
+fn initial_window() -> isize {
+    max(5,
+        ::get_option("Initial Aspiration Window")
+            .parse()
+            .unwrap_or(0))
+}
 
 
 /// Executes searches with aspiration windows.
@@ -137,7 +142,14 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
 impl<T: SearchExecutor> SetOption for Aspiration<T> {
     fn options() -> Vec<(&'static str, OptionDescription)> {
-        T::options()
+        let mut options = vec![("Initial Aspiration Window",
+                                OptionDescription::Spin {
+                                    min: 1,
+                                    max: 10000,
+                                    default: 16,
+                                })];
+        options.extend(T::options());
+        options
     }
 
     fn set_option(name: &str, value: &str) {
@@ -164,7 +176,7 @@ impl<T: SearchExecutor> Aspiration<T> {
     }
 
     fn calc_initial_aspiration_window(&mut self) {
-        self.delta = INITIAL_ASPIRATION_WINDOW;
+        self.delta = initial_window();
         self.expected_to_fail_high = false;
         let SearchParams {
             lower_bound,
@@ -222,7 +234,7 @@ impl<T: SearchExecutor> Aspiration<T> {
 
     fn increase_delta(&mut self) {
         self.delta += 3 * self.delta / 8;
-        if self.delta > 64 * INITIAL_ASPIRATION_WINDOW {
+        if self.delta > 64 * initial_window() {
             self.delta = 1_000_000;
         }
     }
