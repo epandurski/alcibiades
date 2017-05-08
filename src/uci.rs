@@ -190,9 +190,15 @@ pub trait SetOption {
         vec![]
     }
 
-    /// Sets a new value for a given configuration option.
+    /// Updates the internal state to keep up with the new value for a
+    /// given configuration option.
     ///
-    /// Does nothing if called with unsupported option name.
+    /// * `name` gives the name of the configuration option.
+    ///
+    /// * `value` is the new value for the configuration option.
+    ///
+    /// Does nothing when called with unsupported configuration option
+    /// name.
     #[allow(unused_variables)]
     fn set_option(name: &str, value: &str) where Self: Sized {}
 }
