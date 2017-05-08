@@ -117,11 +117,15 @@ lazy_static! {
 }
 
 /// Returns the current value for a given configuration option.
+///
+/// # Panics
+///
+/// Panics if given invalid configuration option.
 pub fn get_option(name: &'static str) -> String {
     CONFIGURATION
         .read()
         .unwrap()
         .get(name)
-        .map(|s| s.clone())
-        .unwrap_or(String::new())
+        .unwrap()
+        .clone()
 }
