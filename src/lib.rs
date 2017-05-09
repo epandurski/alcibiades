@@ -42,7 +42,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! alcibiades = "0.2.7"
+//! alcibiades = "0.3.0"
 //! ```
 //!
 //! and this to your crate root:
