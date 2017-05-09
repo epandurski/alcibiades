@@ -27,10 +27,10 @@
 //! * Modular design. Users can write their own implementations for
 //!   every part of the chess engine.
 //!
-//! * Very good default implementations &mdash; move generation,
-//!   quiescence search, static exchange evaluation, time management,
-//!   iterative deepening, multi-PV, aspiration windows, generic
-//!   transposition table.
+//! * Very good default implementations -- move generation, quiescence
+//!   search, static exchange evaluation, time management, iterative
+//!   deepening, multi-PV, aspiration windows, generic transposition
+//!   table.
 //!
 //! * Very complete UCI support (including "searchmoves").
 //!
