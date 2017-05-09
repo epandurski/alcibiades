@@ -9,7 +9,7 @@ use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use search_node::SearchNode;
 use search::{SearchParams, SearchReport};
 
@@ -18,13 +18,18 @@ use search::{SearchParams, SearchReport};
 use search::DeepeningSearch as SearchExecutor;
 
 
-/// Half-width of the initial aspiration window (centipawns).
-const INITIAL_ASPIRATION_WINDOW: isize = 16;
+/// Returns the half-width of the initial aspiration window (centipawns).
+fn initial_window() -> isize {
+    max(5,
+        ::get_option("Initial Aspiration Window")
+            .parse()
+            .unwrap_or(0))
+}
 
 
 /// Executes searches with aspiration windows.
 pub struct Aspiration<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Ttable>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -55,13 +60,13 @@ pub struct Aspiration<T: SearchExecutor> {
 
 
 impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
-    type HashTable = T::HashTable;
+    type Ttable = T::Ttable;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = Vec<Move>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
+    fn new(tt: Arc<Self::Ttable>) -> Aspiration<T> {
         Aspiration {
             tt: tt.clone(),
             params: bogus_params(),
@@ -93,8 +98,13 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
-        let SearchReport { searched_nodes, depth, value, done, .. } = try!(self.searcher
-                                                                               .try_recv_report());
+        let SearchReport {
+            searched_nodes,
+            depth,
+            value,
+            done,
+            ..
+        } = try!(self.searcher.try_recv_report());
         let mut report = SearchReport {
             search_id: self.params.search_id,
             searched_nodes: self.previously_searched_nodes + searched_nodes,
@@ -131,8 +141,15 @@ impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
 
 
 impl<T: SearchExecutor> SetOption for Aspiration<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
-        T::options()
+    fn options() -> Vec<(&'static str, OptionDescription)> {
+        let mut options = vec![("Initial Aspiration Window",
+                                OptionDescription::Spin {
+                                    min: 1,
+                                    max: 10000,
+                                    default: 16,
+                                })];
+        options.extend(T::options());
+        options
     }
 
     fn set_option(name: &str, value: &str) {
@@ -148,19 +165,24 @@ impl<T: SearchExecutor> Aspiration<T> {
         } else {
             self.params.depth
         };
-        self.searcher.start_search(SearchParams {
-            search_id: 0,
-            depth: depth,
-            lower_bound: self.alpha,
-            upper_bound: self.beta,
-            ..self.params.clone()
-        });
+        self.searcher
+            .start_search(SearchParams {
+                              search_id: 0,
+                              depth: depth,
+                              lower_bound: self.alpha,
+                              upper_bound: self.beta,
+                              ..self.params.clone()
+                          });
     }
 
     fn calc_initial_aspiration_window(&mut self) {
-        self.delta = INITIAL_ASPIRATION_WINDOW;
+        self.delta = initial_window();
         self.expected_to_fail_high = false;
-        let SearchParams { lower_bound, upper_bound, .. } = self.params;
+        let SearchParams {
+            lower_bound,
+            upper_bound,
+            ..
+        } = self.params;
         let (mut a, mut b) = (VALUE_MIN, VALUE_MAX);
         if let Some(e) = self.tt.probe(self.params.position.hash()) {
             if e.depth() >= 4 && e.depth() + 2 >= self.params.depth {
@@ -190,7 +212,11 @@ impl<T: SearchExecutor> Aspiration<T> {
 
     fn widen_aspiration_window(&mut self, v: Value) -> bool {
         debug_assert!(self.delta > 0);
-        let SearchParams { lower_bound, upper_bound, .. } = self.params;
+        let SearchParams {
+            lower_bound,
+            upper_bound,
+            ..
+        } = self.params;
         if lower_bound < self.alpha && lower_bound < v && v <= self.alpha ||
            self.lmr_mode && self.expected_to_fail_high && v < upper_bound {
             // Failed low -- reduce alpha.
@@ -208,7 +234,7 @@ impl<T: SearchExecutor> Aspiration<T> {
 
     fn increase_delta(&mut self) {
         self.delta += 3 * self.delta / 8;
-        if self.delta > 64 * INITIAL_ASPIRATION_WINDOW {
+        if self.delta > 64 * initial_window() {
             self.delta = 1_000_000;
         }
     }

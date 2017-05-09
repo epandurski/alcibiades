@@ -9,7 +9,7 @@ use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use search::{SearchParams, SearchReport};
 
 // In this module we use the `DeepeningSearch` trait for depth-first
@@ -36,13 +36,13 @@ pub struct LazySmp<T: SearchExecutor> {
 
 
 impl<T: SearchExecutor> SearchExecutor for LazySmp<T> {
-    type HashTable = T::HashTable;
+    type Ttable = T::Ttable;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = Vec<Move>;
 
-    fn new(tt: Arc<Self::HashTable>) -> LazySmp<T> {
+    fn new(tt: Arc<Self::Ttable>) -> LazySmp<T> {
         LazySmp {
             params: bogus_params(),
             // search_is_terminated: false,
@@ -83,7 +83,7 @@ impl<T: SearchExecutor> SearchExecutor for LazySmp<T> {
 
 
 impl<T: SearchExecutor> SetOption for LazySmp<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         // let mut options = vec![("MultiPV".to_string(),
         //                         OptionDescription::Spin {
         //                             min: 1,

@@ -1,20 +1,20 @@
-//! Implements `DummyHashTable`.
+//! Implements `DummyTtable`.
 
-use hash_table::*;
-use stock::std_hash_table_entry::StdHashTableEntry;
+use ttable::*;
+use stock::std_ttable_entry::StdTtableEntry;
 
 
-/// Implements a hash table that never stores anything.
+/// Implements a transposition table that never stores anything.
 ///
-/// This is useful when the search algorithm does not use a hash
-/// table.
-pub struct DummyHashTable;
+/// This is useful when the search algorithm does not use a
+/// transposition table.
+pub struct DummyTtable;
 
-impl HashTable for DummyHashTable {
-    type Entry = StdHashTableEntry;
+impl Ttable for DummyTtable {
+    type Entry = StdTtableEntry;
 
-    fn new(_: Option<usize>) -> DummyHashTable {
-        DummyHashTable
+    fn new(_: Option<usize>) -> DummyTtable {
+        DummyTtable
     }
 
     /// Does nothing.
@@ -34,4 +34,4 @@ impl HashTable for DummyHashTable {
     fn clear(&self) {}
 }
 
-unsafe impl Sync for DummyHashTable {}
+unsafe impl Sync for DummyTtable {}

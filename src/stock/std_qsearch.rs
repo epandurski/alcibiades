@@ -43,7 +43,7 @@ impl QsearchResult for StdQsearchResult {
 
 
 /// Implements the `Qsearch` trait.
-/// 
+///
 /// Performs classical quiescence search with stand pat, delta
 /// pruning, static exchange evaluation, check evasions, limited
 /// checks and recaptures.
@@ -80,7 +80,7 @@ impl<T: MoveGenerator> Qsearch for StdQsearch<T> {
 }
 
 impl<T: MoveGenerator> SetOption for StdQsearch<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 

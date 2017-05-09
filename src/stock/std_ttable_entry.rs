@@ -1,14 +1,14 @@
-//! Implements `StdHashTableEntry`.
+//! Implements `StdTtableEntry`.
 
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use moves::MoveDigest;
 
 
-/// Implements the `HashTableEntry` trait.
+/// Implements the `TtableEntry` trait.
 #[derive(Copy, Clone, Debug)]
-pub struct StdHashTableEntry {
+pub struct StdTtableEntry {
     value: Value,
     bound: BoundType,
     depth: Depth,
@@ -16,13 +16,13 @@ pub struct StdHashTableEntry {
     static_eval: Value,
 }
 
-impl HashTableEntry for StdHashTableEntry {
+impl TtableEntry for StdTtableEntry {
     #[inline]
-    fn new(value: Value, bound: BoundType, depth: Depth) -> StdHashTableEntry {
+    fn new(value: Value, bound: BoundType, depth: Depth) -> StdTtableEntry {
         debug_assert!(VALUE_MIN <= value && value <= VALUE_MAX);
         debug_assert!(bound <= 0b11);
         debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
-        StdHashTableEntry {
+        StdTtableEntry {
             value: value,
             bound: bound,
             depth: depth,
@@ -58,13 +58,19 @@ impl HashTableEntry for StdHashTableEntry {
 
     #[inline]
     fn set_move_digest(self, move_digest: MoveDigest) -> Self {
-        Self { move_digest: move_digest, ..self }
+        Self {
+            move_digest: move_digest,
+            ..self
+        }
     }
 
     /// Consumes the instance and returns a new instance with updated
     /// static evaluation.
     #[inline]
     fn set_static_eval(self, static_eval: Value) -> Self {
-        Self { static_eval: static_eval, ..self }
+        Self {
+            static_eval: static_eval,
+            ..self
+        }
     }
 }

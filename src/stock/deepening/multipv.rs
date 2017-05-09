@@ -4,13 +4,13 @@ use super::{bogus_params, contains_dups};
 use super::aspiration::Aspiration;
 use std::cmp::{min, max};
 use std::time::Duration;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use evaluator::Evaluator;
 use search_node::SearchNode;
 use search::{SearchParams, SearchReport};
@@ -22,14 +22,14 @@ use search::DeepeningSearch as SearchExecutor;
 
 /// Executes mulit-PV searches with aspiration windows, complying with
 /// `searchmoves`.
-/// 
+///
 /// The auxiliary data field of searches' progress reports will
 /// contain either an empty vector of moves, or the `searchmoves`
 /// vector sorted by descending move strength. This allows the
 /// iterative deepening routine to improve `searchmoves`' order on
 /// each iteration.
 pub struct Multipv<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Ttable>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -53,13 +53,13 @@ pub struct Multipv<T: SearchExecutor> {
 
 
 impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
-    type HashTable = T::HashTable;
+    type Ttable = T::Ttable;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = Vec<Move>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Multipv<T> {
+    fn new(tt: Arc<Self::Ttable>) -> Multipv<T> {
         Multipv {
             tt: tt.clone(),
             params: bogus_params(),
@@ -86,7 +86,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
         self.params = params;
         self.search_is_terminated = false;
         self.previously_searched_nodes = 0;
-        self.variation_count = min(n, *VARIATION_COUNT.read().unwrap());
+        self.variation_count = min(n, max(1, ::get_option("MultiPV").parse().unwrap_or(0)));
         if n == 0 || self.variation_count == 1 && self.all_moves_are_considered {
             // A plain aspiration search.
             //
@@ -110,8 +110,12 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
         if self.runs_genuine_multipv_search() {
-            let SearchReport { searched_nodes, value, done, .. } = try!(self.searcher
-                                                                            .try_recv_report());
+            let SearchReport {
+                searched_nodes,
+                value,
+                done,
+                ..
+            } = try!(self.searcher.try_recv_report());
             let mut report = SearchReport {
                 search_id: self.params.search_id,
                 searched_nodes: self.previously_searched_nodes + searched_nodes,
@@ -152,18 +156,18 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
 
 
 impl<T: SearchExecutor> SetOption for Multipv<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
-        let mut options = vec![
-            ("MultiPV".to_string(), OptionDescription::Spin { min: 1, max: 500, default: 1 }),
-        ];
+    fn options() -> Vec<(&'static str, OptionDescription)> {
+        let mut options = vec![("MultiPV",
+                                OptionDescription::Spin {
+                                    min: 1,
+                                    max: 500,
+                                    default: 1,
+                                })];
         options.extend(Aspiration::<T>::options());
         options
     }
 
     fn set_option(name: &str, value: &str) {
-        if name == "MultiPV" {
-            *VARIATION_COUNT.write().unwrap() = max(value.parse::<usize>().unwrap_or(0), 1);
-        }
         Aspiration::<T>::set_option(name, value)
     }
 }
@@ -174,7 +178,10 @@ impl<T: SearchExecutor> Multipv<T> {
     pub fn extract_variations(&mut self) -> Vec<Variation> {
         let mut variations = vec![];
         if self.runs_genuine_multipv_search() {
-            for m in self.params.searchmoves.iter().take(self.variation_count) {
+            for m in self.params
+                    .searchmoves
+                    .iter()
+                    .take(self.variation_count) {
                 let p = &mut self.params.position;
                 assert!(p.do_move(*m));
                 let mut v = self.tt.extract_pv(p);
@@ -202,14 +209,15 @@ impl<T: SearchExecutor> Multipv<T> {
                 let m = self.params.searchmoves[self.current_move_index];
                 assert!(self.params.position.do_move(m));
                 self.previously_searched_nodes += 1;
-                self.searcher.start_search(SearchParams {
-                    search_id: 0,
-                    depth: self.params.depth - 1,
-                    lower_bound: -self.params.upper_bound,
-                    upper_bound: -max(alpha, self.params.lower_bound),
-                    searchmoves: self.params.position.legal_moves(),
-                    ..self.params.clone()
-                });
+                self.searcher
+                    .start_search(SearchParams {
+                                      search_id: 0,
+                                      depth: self.params.depth - 1,
+                                      lower_bound: -self.params.upper_bound,
+                                      upper_bound: -max(alpha, self.params.lower_bound),
+                                      searchmoves: self.params.position.legal_moves(),
+                                      ..self.params.clone()
+                                  });
                 return true;
             }
         }
@@ -227,10 +235,11 @@ impl<T: SearchExecutor> Multipv<T> {
             };
             let best_move = self.params.searchmoves[0];
             let p = &self.params.position;
-            self.tt.store(p.hash(),
-                          <T::HashTable as HashTable>::Entry::new(value, bound, self.params.depth)
-                              .set_move_digest(best_move.digest())
-                              .set_static_eval(p.evaluator().evaluate(p.board())));
+            self.tt
+                .store(p.hash(),
+                       <T::Ttable as Ttable>::Entry::new(value, bound, self.params.depth)
+                           .set_move_digest(best_move.digest())
+                           .set_static_eval(p.evaluator().evaluate(p.board())));
         }
     }
 
@@ -252,9 +261,4 @@ impl<T: SearchExecutor> Multipv<T> {
     fn runs_genuine_multipv_search(&self) -> bool {
         self.searcher.lmr_mode
     }
-}
-
-
-lazy_static! {
-    static ref VARIATION_COUNT: RwLock<usize> = RwLock::new(1);
 }

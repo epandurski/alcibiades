@@ -88,9 +88,7 @@ impl ZobristArrays {
         static INIT_ARRAYS: Once = ONCE_INIT;
         static mut ARRAYS: Option<ZobristArrays> = None;
         unsafe {
-            INIT_ARRAYS.call_once(|| {
-                ARRAYS = Some(ZobristArrays::new());
-            });
+            INIT_ARRAYS.call_once(|| { ARRAYS = Some(ZobristArrays::new()); });
             ARRAYS.as_ref().unwrap()
         }
     }

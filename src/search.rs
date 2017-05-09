@@ -8,7 +8,7 @@ use uci::SetOption;
 use moves::Move;
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use search_node::SearchNode;
 
 
@@ -139,9 +139,9 @@ pub struct SearchReport<T> {
 /// **Note:** You can use `stock::Deepening` to turn a depth-first
 /// search into an iterative deepening search.
 pub trait DeepeningSearch: SetOption {
-    /// The type of transposition (hash) table that the implementation
-    /// works with.
-    type HashTable: HashTable;
+    /// The type of transposition table that the implementation works
+    /// with.
+    type Ttable: Ttable;
 
     /// The type of search node that the implementation works with.
     type SearchNode: SearchNode;
@@ -153,7 +153,7 @@ pub trait DeepeningSearch: SetOption {
     ///
     /// `tt` supplies a transposition table instance for the search
     /// algorithm to work with.
-    fn new(tt: Arc<Self::HashTable>) -> Self;
+    fn new(tt: Arc<Self::Ttable>) -> Self;
 
     /// Starts a new search.
     ///
@@ -228,9 +228,9 @@ pub trait DeepeningSearch: SetOption {
 /// **Note:** You can use `stock::Deepening` to turn a depth-first
 /// search into an iterative deepening search.
 pub trait Search: SetOption {
-    /// The type of transposition (hash) table that the implementation
-    /// works with.
-    type HashTable: HashTable;
+    /// The type of transposition table that the implementation works
+    /// with.
+    type Ttable: Ttable;
 
     /// The type of search node that the implementation works with.
     type SearchNode: SearchNode;
@@ -273,7 +273,7 @@ pub trait Search: SetOption {
     ///   * Receiving two or more termination requests does not cause
     ///     problems.
     fn spawn(params: SearchParams<Self::SearchNode>,
-             tt: Arc<Self::HashTable>,
+             tt: Arc<Self::Ttable>,
              reports: Sender<SearchReport<Self::ReportData>>,
              messages: Receiver<String>)
              -> thread::JoinHandle<Value>;

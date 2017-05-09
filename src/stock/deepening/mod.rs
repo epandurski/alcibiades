@@ -16,7 +16,7 @@ use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use search_node::SearchNode;
 use search::{Search, SearchParams, SearchReport};
 
@@ -60,7 +60,7 @@ use search::DeepeningSearch as SearchExecutor;
 /// multi-PV, and "searchmoves" support.
 ///
 /// **Important note:** `Deepening` requires a proper transposition
-/// table to do its work. It can not work with `DummyHashTable`.
+/// table to do its work. It can not work with `DummyTtable`.
 pub struct Deepening<T: Search> {
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
@@ -81,13 +81,13 @@ pub struct Deepening<T: Search> {
 
 
 impl<T: Search> SearchExecutor for Deepening<T> {
-    type HashTable = T::HashTable;
+    type Ttable = T::Ttable;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = Vec<Variation>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Deepening<T> {
+    fn new(tt: Arc<Self::Ttable>) -> Deepening<T> {
         Deepening {
             params: bogus_params(),
             search_is_terminated: false,
@@ -116,8 +116,14 @@ impl<T: Search> SearchExecutor for Deepening<T> {
     }
 
     fn try_recv_report(&mut self) -> Result<SearchReport<Self::ReportData>, TryRecvError> {
-        let SearchReport { searched_nodes, depth, value, data, done, .. } =
-            try!(self.multipv.try_recv_report());
+        let SearchReport {
+            searched_nodes,
+            depth,
+            value,
+            data,
+            done,
+            ..
+        } = try!(self.multipv.try_recv_report());
         if value != VALUE_UNKNOWN {
             self.value = value;
         }
@@ -156,7 +162,12 @@ impl<T: Search> SearchExecutor for Deepening<T> {
             static ref RE: Regex = Regex::new(r"^TARGET_DEPTH=([-+]?\d+)$").unwrap();
         }
         if let Some(captures) = RE.captures(message) {
-            self.depth_target = captures.get(1).unwrap().as_str().parse::<Depth>().unwrap();
+            self.depth_target = captures
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse::<Depth>()
+                .unwrap();
         } else {
             if message == "TERMINATE" {
                 self.search_is_terminated = true;
@@ -168,7 +179,7 @@ impl<T: Search> SearchExecutor for Deepening<T> {
 
 
 impl<T: Search> SetOption for Deepening<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         LazySmp::<ThreadExecutor<T>>::options()
     }
 
@@ -192,7 +203,7 @@ impl<T: Search> Deepening<T> {
 
 /// A helper type. It turns a `Search` into `SearchExecutor`.
 struct ThreadExecutor<T: Search> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Ttable>,
     messages_tx: Sender<String>,
     reports_rx: Receiver<SearchReport<T::ReportData>>,
     reports_tx: Sender<SearchReport<T::ReportData>>,
@@ -201,13 +212,13 @@ struct ThreadExecutor<T: Search> {
 }
 
 impl<T: Search> SearchExecutor for ThreadExecutor<T> {
-    type HashTable = T::HashTable;
+    type Ttable = T::Ttable;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = T::ReportData;
 
-    fn new(tt: Arc<Self::HashTable>) -> Self {
+    fn new(tt: Arc<Self::Ttable>) -> Self {
         let (reports_tx, reports_rx) = channel();
         Self {
             tt: tt,
@@ -250,7 +261,7 @@ impl<T: Search> SearchExecutor for ThreadExecutor<T> {
 }
 
 impl<T: Search> SetOption for ThreadExecutor<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 
@@ -265,7 +276,9 @@ fn bogus_params<T: SearchNode>() -> SearchParams<T> {
     const FEN: &'static str = "7k/8/8/8/8/8/8/7K w - - 0 1";
     SearchParams {
         search_id: 0,
-        position: T::from_history(FEN, &mut vec![].into_iter()).ok().unwrap(),
+        position: T::from_history(FEN, &mut vec![].into_iter())
+            .ok()
+            .unwrap(),
         depth: 1,
         lower_bound: VALUE_MIN,
         upper_bound: VALUE_MAX,

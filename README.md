@@ -24,6 +24,18 @@ struggle to understand its cryptic, undocumented source code, hoping
 that it will be general enough to allow modification. This unfortunate
 situation stifles innovation.
 
+## Features
+
+* Modular design. Users can write their own implementations for every
+  part of the chess engine.
+
+* Very good default implementations -- move generation, quiescence
+  search, static exchange evaluation, time management, iterative
+  deepening, multi-PV, aspiration windows, generic transposition
+  table.
+
+* Very complete UCI support (including "searchmoves").
+
 ## Usage
 
 Here is how simple it is to create a chess engine using the framework:
@@ -37,7 +49,7 @@ fn main() {
     type HashTable = StdHashTable<StdHashTableEntry>;
     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
     type SearchExecutor = Deepening<SimpleSearch<HashTable, SearchNode>>;
-    run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe");
+    run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe", vec![]);
 }
 ```
 

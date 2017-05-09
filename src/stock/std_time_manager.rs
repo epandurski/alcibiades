@@ -7,7 +7,7 @@ use board::*;
 use depth::*;
 use value::*;
 use search::*;
-use hash_table::Variation;
+use ttable::Variation;
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
 use uci::{SetOption, OptionDescription};
@@ -62,7 +62,7 @@ impl<T> TimeManager<T> for StdTimeManager
                 // order to find a good ponder move.
                 hard_limit.min(500.0)
             },
-            allotted_time: if *PONDERING_IS_ALLOWED.read().unwrap() {
+            allotted_time: if ::get_option("Ponder") == "true" {
                 // Statistically, the move we ponder will be played in
                 // 50% of the cases. Therefore, in principal we should
                 // add half of opponent's thinking time to our time
@@ -102,18 +102,8 @@ impl<T> TimeManager<T> for StdTimeManager
 
 
 impl SetOption for StdTimeManager {
-    fn options() -> Vec<(String, OptionDescription)> {
-        vec![("Ponder".to_string(), OptionDescription::Check { default: false })]
-    }
-
-    fn set_option(name: &str, value: &str) {
-        if name == "Ponder" {
-            match value {
-                "true" => *PONDERING_IS_ALLOWED.write().unwrap() = true,
-                "false" => *PONDERING_IS_ALLOWED.write().unwrap() = false,
-                _ => (),
-            }
-        }
+    fn options() -> Vec<(&'static str, OptionDescription)> {
+        vec![("Ponder", OptionDescription::Check { default: false })]
     }
 }
 
@@ -183,7 +173,6 @@ impl StdTimeManager {
 
 
 lazy_static! {
-    static ref PONDERING_IS_ALLOWED: RwLock<bool> = RwLock::new(false);
     static ref AVG_SLOPE: RwLock<f64> = RwLock::new(0.7);
 }
 

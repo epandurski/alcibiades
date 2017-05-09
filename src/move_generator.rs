@@ -190,8 +190,9 @@ pub trait MoveGenerator: Clone + SetOption + Send + 'static {
             let file_sliders = piece_type[QUEEN] | piece_type[ROOK];
             let diag_sliders = piece_type[QUEEN] | piece_type[BISHOP];
             let geometry = BoardGeometry::get();
-            let behind_blocker: &[Bitboard; 64] = geometry.squares_behind_blocker
-                                                          .get_unchecked(exchange_square);
+            let behind_blocker: &[Bitboard; 64] = geometry
+                .squares_behind_blocker
+                .get_unchecked(exchange_square);
 
             // These variables (along with `piece`) will be updated on each capture:
             let mut us = self.board().to_move;
