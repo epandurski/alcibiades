@@ -9,7 +9,7 @@ use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use search_node::SearchNode;
 use search::{SearchParams, SearchReport};
 
@@ -29,7 +29,7 @@ fn initial_window() -> isize {
 
 /// Executes searches with aspiration windows.
 pub struct Aspiration<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Ttable>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -60,13 +60,13 @@ pub struct Aspiration<T: SearchExecutor> {
 
 
 impl<T: SearchExecutor> SearchExecutor for Aspiration<T> {
-    type HashTable = T::HashTable;
+    type Ttable = T::Ttable;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = Vec<Move>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Aspiration<T> {
+    fn new(tt: Arc<Self::Ttable>) -> Aspiration<T> {
         Aspiration {
             tt: tt.clone(),
             params: bogus_params(),

@@ -12,7 +12,7 @@ use value::*;
 use depth::*;
 use board::*;
 use moves::*;
-use hash_table::*;
+use ttable::*;
 use search::*;
 use search_node::SearchNode;
 use evaluator::Evaluator;
@@ -42,23 +42,23 @@ use utils::MoveStack;
 /// **Important note:** `SimpleSearch` ignores the `searchmoves`
 /// search parameter. It always analyses all legal moves in the root
 /// position.
-pub struct SimpleSearch<T: HashTable, N: SearchNode> {
+pub struct SimpleSearch<T: Ttable, N: SearchNode> {
     phantom_t: PhantomData<T>,
     phantom_n: PhantomData<N>,
 }
 
 impl<T, N> Search for SimpleSearch<T, N>
-    where T: HashTable,
+    where T: Ttable,
           N: SearchNode
 {
-    type HashTable = T;
+    type Ttable = T;
 
     type SearchNode = N;
 
     type ReportData = ();
 
     fn spawn(params: SearchParams<Self::SearchNode>,
-             tt: Arc<Self::HashTable>,
+             tt: Arc<Self::Ttable>,
              reports_tx: Sender<SearchReport<Self::ReportData>>,
              messages_rx: Receiver<String>)
              -> thread::JoinHandle<Value> {
@@ -122,7 +122,7 @@ impl<T, N> Search for SimpleSearch<T, N>
     }
 }
 
-impl<T: HashTable, N: SearchNode> SetOption for SimpleSearch<T, N> {
+impl<T: Ttable, N: SearchNode> SetOption for SimpleSearch<T, N> {
     fn options() -> Vec<(&'static str, OptionDescription)> {
         N::options()
     }
@@ -139,7 +139,7 @@ struct TerminatedSearch;
 
 /// Represents a game tree search.
 struct SearchRunner<'a, T, N>
-    where T: HashTable + 'a,
+    where T: Ttable + 'a,
           N: SearchNode
 {
     tt: &'a T,
@@ -153,7 +153,7 @@ struct SearchRunner<'a, T, N>
 }
 
 impl<'a, T, N> SearchRunner<'a, T, N>
-    where T: HashTable + 'a,
+    where T: Ttable + 'a,
           N: SearchNode
 {
     /// Creates a new instance.
@@ -840,8 +840,8 @@ mod tests {
     use board::*;
     use search_node::*;
     use moves::*;
-    use hash_table::*;
-    use stock::{StdHashTable, StdHashTableEntry, StdSearchNode, StdQsearch, StdMoveGenerator,
+    use ttable::*;
+    use stock::{StdTtable, StdTtableEntry, StdSearchNode, StdQsearch, StdMoveGenerator,
                 SimpleEvaluator};
     use utils::MoveStack;
 
@@ -849,7 +849,7 @@ mod tests {
 
     #[test]
     fn search() {
-        let tt = StdHashTable::<StdHashTableEntry>::new(None);
+        let tt = StdTtable::<StdTtableEntry>::new(None);
 
         let p = P::from_history("8/8/8/8/3q3k/7n/6PP/2Q2R1K b - - 0 1",
                                 &mut vec![].into_iter())

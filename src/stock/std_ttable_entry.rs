@@ -1,14 +1,14 @@
-//! Implements `StdHashTableEntry`.
+//! Implements `StdTtableEntry`.
 
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use moves::MoveDigest;
 
 
-/// Implements the `HashTableEntry` trait.
+/// Implements the `TtableEntry` trait.
 #[derive(Copy, Clone, Debug)]
-pub struct StdHashTableEntry {
+pub struct StdTtableEntry {
     value: Value,
     bound: BoundType,
     depth: Depth,
@@ -16,13 +16,13 @@ pub struct StdHashTableEntry {
     static_eval: Value,
 }
 
-impl HashTableEntry for StdHashTableEntry {
+impl TtableEntry for StdTtableEntry {
     #[inline]
-    fn new(value: Value, bound: BoundType, depth: Depth) -> StdHashTableEntry {
+    fn new(value: Value, bound: BoundType, depth: Depth) -> StdTtableEntry {
         debug_assert!(VALUE_MIN <= value && value <= VALUE_MAX);
         debug_assert!(bound <= 0b11);
         debug_assert!(DEPTH_MIN <= depth && depth <= DEPTH_MAX);
-        StdHashTableEntry {
+        StdTtableEntry {
             value: value,
             bound: bound,
             depth: depth,

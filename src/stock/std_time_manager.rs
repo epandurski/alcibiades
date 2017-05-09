@@ -7,7 +7,7 @@ use board::*;
 use depth::*;
 use value::*;
 use search::*;
-use hash_table::Variation;
+use ttable::Variation;
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
 use uci::{SetOption, OptionDescription};

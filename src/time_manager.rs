@@ -1,7 +1,7 @@
 //! Defines the `TimeManager` trait.
 
 use uci::SetOption;
-use hash_table::Variation;
+use ttable::Variation;
 use search::*;
 
 

@@ -10,7 +10,7 @@ use uci::{SetOption, OptionDescription};
 use moves::Move;
 use value::*;
 use depth::*;
-use hash_table::*;
+use ttable::*;
 use evaluator::Evaluator;
 use search_node::SearchNode;
 use search::{SearchParams, SearchReport};
@@ -29,7 +29,7 @@ use search::DeepeningSearch as SearchExecutor;
 /// iterative deepening routine to improve `searchmoves`' order on
 /// each iteration.
 pub struct Multipv<T: SearchExecutor> {
-    tt: Arc<T::HashTable>,
+    tt: Arc<T::Ttable>,
     params: SearchParams<T::SearchNode>,
     search_is_terminated: bool,
     previously_searched_nodes: u64,
@@ -53,13 +53,13 @@ pub struct Multipv<T: SearchExecutor> {
 
 
 impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
-    type HashTable = T::HashTable;
+    type Ttable = T::Ttable;
 
     type SearchNode = T::SearchNode;
 
     type ReportData = Vec<Move>;
 
-    fn new(tt: Arc<Self::HashTable>) -> Multipv<T> {
+    fn new(tt: Arc<Self::Ttable>) -> Multipv<T> {
         Multipv {
             tt: tt.clone(),
             params: bogus_params(),
@@ -237,7 +237,7 @@ impl<T: SearchExecutor> Multipv<T> {
             let p = &self.params.position;
             self.tt
                 .store(p.hash(),
-                       <T::HashTable as HashTable>::Entry::new(value, bound, self.params.depth)
+                       <T::Ttable as Ttable>::Entry::new(value, bound, self.params.depth)
                            .set_move_digest(best_move.digest())
                            .set_static_eval(p.evaluator().evaluate(p.board())));
         }
