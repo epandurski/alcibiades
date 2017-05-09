@@ -11,7 +11,7 @@ use uci::*;
 use value::*;
 use depth::*;
 use search::*;
-use hash_table::*;
+use ttable::*;
 use moves::Move;
 use search_node::SearchNode;
 use time_manager::{TimeManager, RemainingTime};
@@ -57,7 +57,7 @@ struct Engine<S, T>
     where S: DeepeningSearch<ReportData = Vec<Variation>>,
           T: TimeManager<S>
 {
-    tt: Arc<S::HashTable>,
+    tt: Arc<S::Ttable>,
     position: S::SearchNode,
     searcher: S,
     queue: VecDeque<EngineReply>,
@@ -161,7 +161,7 @@ impl<S, T> UciEngine for Engine<S, T>
 
     fn new(tt_size_mb: Option<usize>) -> Engine<S, T> {
         const START_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1";
-        let tt = Arc::new(S::HashTable::new(tt_size_mb));
+        let tt = Arc::new(S::Ttable::new(tt_size_mb));
         let started_at = SystemTime::now();
         let mut engine = Engine {
             tt: tt.clone(),

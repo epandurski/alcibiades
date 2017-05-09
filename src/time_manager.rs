@@ -1,7 +1,7 @@
 //! Defines the `TimeManager` trait.
 
 use uci::SetOption;
-use hash_table::Variation;
+use ttable::Variation;
 use search::*;
 
 
@@ -31,6 +31,9 @@ pub struct RemainingTime {
 
 /// A trait for deciding when the search must be terminated and the
 /// best move played.
+///
+/// To implement your own time management logic, you must define a
+/// type that implements the `TimeManager` trait.
 pub trait TimeManager<T: DeepeningSearch<ReportData = Vec<Variation>>>
     : SetOption {
     /// Creates a new instance.

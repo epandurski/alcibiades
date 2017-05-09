@@ -1,4 +1,4 @@
-//! Implements `StdHashTable`.
+//! Implements `StdTtable`.
 
 use libc;
 use libc::c_void;
@@ -8,23 +8,24 @@ use std::isize;
 use std::cell::Cell;
 use std::cmp::max;
 use std::mem;
-use hash_table::*;
+use ttable::*;
 use moves::MoveDigest;
 
 
 /// Represents a record in the transposition table.
 ///
-/// Consists of a hash table entry plus the highest 32 bits of the
-/// key. The key is split into two `u16` values to allow more flexible
-/// alignment.
+/// Consists of a transposition table entry plus the highest 32 bits
+/// of the key. The key is split into two `u16` values to allow more
+/// flexible alignment.
 #[derive(Copy, Clone)]
-struct Record<T: HashTableEntry> {
+struct Record<T: TtableEntry> {
     key: (u16, u16),
     data: T,
 }
 
 
-/// A handle to a set of records (a bucket) in the hash table.
+/// A handle to a set of records (a bucket) in the transposition
+/// table.
 ///
 /// `R` gives records' type. Each bucket can hold up to 6 records,
 /// depending on their size. A 5-bit generation number is stored for
@@ -121,14 +122,14 @@ impl<R> Drop for Bucket<R> {
 }
 
 
-/// Implements the `HashTable` trait.
+/// Implements the `Ttable` trait.
 ///
-/// `StdHashTable` provides a generic transposition table
-/// implementation that can efficiently pack in memory a wide range of
-/// hash table entry types. The only condition is that `T` has a size
+/// `StdTtable` provides a generic transposition table implementation
+/// that can efficiently pack in memory a wide range of transposition
+/// table entry types. The only condition is that `T` has a size
 /// between 6 and 16 bytes, and alignment requirements of 4 bytes or
 /// less.
-pub struct StdHashTable<T: HashTableEntry> {
+pub struct StdTtable<T: TtableEntry> {
     entries: PhantomData<T>,
 
     /// The current generation number.
@@ -160,20 +161,22 @@ pub struct StdHashTable<T: HashTableEntry> {
     table_ptr: *mut c_void,
 }
 
-impl<T: HashTableEntry> HashTable for StdHashTable<T> {
+impl<T: TtableEntry> Ttable for StdTtable<T> {
     type Entry = T;
 
-    fn new(size_mb: Option<usize>) -> StdHashTable<T> {
+    fn new(size_mb: Option<usize>) -> StdTtable<T> {
         // Assert our basic premises.
         assert_eq!(mem::size_of::<c_void>(), 1);
         assert_eq!(BUCKET_SIZE, 64);
         assert!(mem::align_of::<T>() <= 4,
-                format!("too restrictive hash table entry alignment: {} bytes",
+                format!("too restrictive transposition table entry alignment: {} bytes",
                         mem::align_of::<T>()));
         assert!(Bucket::<Record<T>>::len() >= 3,
-                format!("too big hash table entry: {} bytes", mem::size_of::<T>()));
+                format!("too big transposition table entry: {} bytes",
+                        mem::size_of::<T>()));
         assert!(Bucket::<Record<T>>::len() <= 6,
-                format!("too small hash table entry: {} bytes", mem::size_of::<T>()));
+                format!("too small transposition table entry: {} bytes",
+                        mem::size_of::<T>()));
 
         let size_mb = size_mb.unwrap_or(16);
         let bucket_count = {
@@ -191,7 +194,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
             mem::transmute::<usize, *mut c_void>(addr)
         };
 
-        StdHashTable {
+        StdTtable {
             entries: PhantomData,
             generation: Cell::new(1),
             bucket_count: bucket_count,
@@ -323,7 +326,7 @@ impl<T: HashTableEntry> HashTable for StdHashTable<T> {
     }
 }
 
-impl<T: HashTableEntry> StdHashTable<T> {
+impl<T: TtableEntry> StdTtable<T> {
     /// Returns the bucket for a given key.
     #[inline]
     fn bucket(&self, key: u64) -> Bucket<Record<T>> {
@@ -345,7 +348,7 @@ impl<T: HashTableEntry> StdHashTable<T> {
     }
 }
 
-impl<T: HashTableEntry> Drop for StdHashTable<T> {
+impl<T: TtableEntry> Drop for StdTtable<T> {
     fn drop(&mut self) {
         unsafe {
             libc::free(self.alloc_ptr);
@@ -353,21 +356,21 @@ impl<T: HashTableEntry> Drop for StdHashTable<T> {
     }
 }
 
-unsafe impl<T: HashTableEntry> Sync for StdHashTable<T> {}
+unsafe impl<T: TtableEntry> Sync for StdTtable<T> {}
 
-unsafe impl<T: HashTableEntry> Send for StdHashTable<T> {}
+unsafe impl<T: TtableEntry> Send for StdTtable<T> {}
 
 
-/// A helper type for `StdHashTable`. It iterates over the buckets in
-/// the table.
-struct Iter<T: HashTableEntry> {
+/// A helper type for `StdTtable`. It iterates over the buckets in the
+/// table.
+struct Iter<T: TtableEntry> {
     entries: PhantomData<T>,
     table_ptr: *mut c_void,
     bucket_count: usize,
     iterated: usize,
 }
 
-impl<T: HashTableEntry> Iterator for Iter<T> {
+impl<T: TtableEntry> Iterator for Iter<T> {
     type Item = Bucket<Record<T>>;
 
     #[inline]
@@ -385,8 +388,8 @@ impl<T: HashTableEntry> Iterator for Iter<T> {
 }
 
 
-/// A helper function for `StdHashTable`. It takes the highest 32 bits
-/// of an `u64` value and splits them into two `u16` values.
+/// A helper function for `StdTtable`. It takes the highest 32 bits of
+/// an `u64` value and splits them into two `u16` values.
 #[inline]
 fn chop_key(key: u64) -> (u16, u16) {
     unsafe { mem::transmute::<u32, (u16, u16)>((key >> 32) as u32) }
@@ -428,17 +431,17 @@ mod tests {
     use depth::*;
     use value::*;
     use moves::*;
-    use stock::std_hash_table_entry::*;
+    use stock::std_ttable_entry::*;
 
     #[test]
     fn bucket() {
         unsafe {
             let p = libc::calloc(1, 64);
-            let b = Bucket::<Record<StdHashTableEntry>>::new(p);
+            let b = Bucket::<Record<StdTtableEntry>>::new(p);
             assert_eq!(b.get_generation(0), 0);
             assert_eq!(b.get_generation(1), 0);
             let mut record = b.get(0).as_mut().unwrap();
-            let entry = StdHashTableEntry::new(0, BOUND_NONE, 10);
+            let entry = StdTtableEntry::new(0, BOUND_NONE, 10);
             *record = Record {
                 key: (0, 0),
                 data: entry,
@@ -448,7 +451,7 @@ mod tests {
             assert_eq!(record.data.depth(), 10);
             assert_eq!(b.get_generation(0), 12);
             assert_eq!(b.get_generation(1), 13);
-            assert_eq!(Bucket::<Record<StdHashTableEntry>>::len(), 5);
+            assert_eq!(Bucket::<Record<StdTtableEntry>>::len(), 5);
             libc::free(p);
         }
     }
@@ -457,9 +460,9 @@ mod tests {
     fn bucket_endianness() {
         unsafe {
             let p = libc::calloc(1, 64);
-            let b = Bucket::<Record<StdHashTableEntry>>::new(p);
+            let b = Bucket::<Record<StdTtableEntry>>::new(p);
             let mut record = b.get(4).as_mut().unwrap();
-            let entry = StdHashTableEntry::new(0, BOUND_NONE, 10);
+            let entry = StdTtableEntry::new(0, BOUND_NONE, 10);
             *record = Record {
                 key: (0, 0),
                 data: entry,
@@ -476,18 +479,18 @@ mod tests {
 
     #[test]
     fn store_and_probe() {
-        let tt = StdHashTable::<StdHashTableEntry>::new(None);
+        let tt = StdTtable::<StdTtableEntry>::new(None);
         assert!(tt.probe(1).is_none());
-        let data = StdHashTableEntry::new(0, 0, 50);
+        let data = StdTtableEntry::new(0, 0, 50);
         assert_eq!(data.depth(), 50);
         assert_eq!(data.move_digest(), MoveDigest::invalid());
         tt.store(1, data);
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
-        tt.store(1, StdHashTableEntry::new(0, 0, 50));
+        tt.store(1, StdTtableEntry::new(0, 0, 50));
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(1).unwrap().move_digest(), MoveDigest::invalid());
         for i in 2..50 {
-            tt.store(i, StdHashTableEntry::new(i as i16, 0, i as Depth));
+            tt.store(i, StdTtableEntry::new(i as i16, 0, i as Depth));
         }
         assert_eq!(tt.probe(1).unwrap().depth(), 50);
         assert_eq!(tt.probe(49).unwrap().depth(), 49);
@@ -503,7 +506,7 @@ mod tests {
 
     #[test]
     fn new_search() {
-        let tt = StdHashTable::<StdHashTableEntry>::new(None);
+        let tt = StdTtable::<StdTtableEntry>::new(None);
         assert_eq!(tt.generation.get(), 1);
         tt.new_search();
         assert_eq!(tt.generation.get(), 2);
