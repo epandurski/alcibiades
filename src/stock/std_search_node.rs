@@ -146,7 +146,7 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
 
     #[inline]
     fn is_check(&self) -> bool {
-        self.position().checkers() != 0
+        self.position().is_check()
     }
 
     #[inline]
@@ -164,12 +164,17 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     }
 
     #[inline]
-    fn evaluate_quiescence(&self,
-                           depth: Depth,
-                           lower_bound: Value,
-                           upper_bound: Value,
-                           static_eval: Value)
-                           -> Self::QsearchResult {
+    fn evaluate_move(&self, m: Move) -> Value {
+        self.position().evaluate_move(m)
+    }
+
+    #[inline]
+    fn qsearch(&self,
+               depth: Depth,
+               lower_bound: Value,
+               upper_bound: Value,
+               static_eval: Value)
+               -> Self::QsearchResult {
         debug_assert!(DEPTH_MIN <= depth && depth <= 0);
         debug_assert!(lower_bound >= VALUE_MIN);
         debug_assert!(upper_bound <= VALUE_MAX);
@@ -178,18 +183,13 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
             Self::QsearchResult::new(0, 0)
         } else {
             T::qsearch(QsearchParams {
-                position: unsafe { self.position_mut() },
-                depth: depth,
-                lower_bound: lower_bound,
-                upper_bound: upper_bound,
-                static_eval: static_eval,
-            })
+                           position: unsafe { self.position_mut() },
+                           depth: depth,
+                           lower_bound: lower_bound,
+                           upper_bound: upper_bound,
+                           static_eval: static_eval,
+                       })
         }
-    }
-
-    #[inline]
-    fn evaluate_move(&self, m: Move) -> Value {
-        self.position().evaluate_move(m)
     }
 
     #[inline]
@@ -211,6 +211,11 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
     #[inline]
     fn null_move(&self) -> Move {
         self.position().null_move()
+    }
+
+    #[inline]
+    fn last_move(&self) -> Move {
+        self.state().last_move
     }
 
     fn do_move(&mut self, m: Move) -> bool {
@@ -258,10 +263,11 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
                 }
             }
 
-            self.state_stack.push(PositionInfo {
-                halfmove_clock: halfmove_clock,
-                last_move: m,
-            });
+            self.state_stack
+                .push(PositionInfo {
+                          halfmove_clock: halfmove_clock,
+                          last_move: m,
+                      });
             return true;
         }
 
@@ -295,7 +301,7 @@ impl<T: Qsearch> Clone for StdSearchNode<T> {
 
 
 impl<T: Qsearch> SetOption for StdSearchNode<T> {
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)> {
         T::options()
     }
 
@@ -311,18 +317,18 @@ impl<T: Qsearch> StdSearchNode<T> {
         let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
         let gen = try!(T::MoveGenerator::from_board(board));
         Ok(StdSearchNode {
-            zobrist: ZobristArrays::get(),
-            halfmove_count: ((fullmove_number - 1) << 1) + gen.board().to_move as u16,
-            board_hash: gen.hash(),
-            position: UnsafeCell::new(gen),
-            repeated_or_rule50: false,
-            repeated_boards_hash: 0,
-            encountered_boards: vec![0; halfmove_clock as usize],
-            state_stack: vec![PositionInfo {
-                                  halfmove_clock: min(halfmove_clock, 99),
-                                  last_move: Move::invalid(),
-                              }],
-        })
+               zobrist: ZobristArrays::get(),
+               halfmove_count: ((fullmove_number - 1) << 1) + gen.board().to_move as u16,
+               board_hash: gen.hash(),
+               position: UnsafeCell::new(gen),
+               repeated_or_rule50: false,
+               repeated_boards_hash: 0,
+               encountered_boards: vec![0; halfmove_clock as usize],
+               state_stack: vec![PositionInfo {
+                                     halfmove_clock: min(halfmove_clock, 99),
+                                     last_move: Move::invalid(),
+                                 }],
+           })
     }
 
     /// Forgets the previous playing history, preserves only the set
@@ -445,6 +451,7 @@ mod tests {
     use search_node::*;
     use evaluator::*;
     use qsearch::*;
+    use moves::Move;
     use stock::{StdSearchNode, StdQsearch, StdMoveGenerator, SimpleEvaluator};
     type P = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
 
@@ -486,15 +493,21 @@ mod tests {
 
     #[test]
     fn evaluate_fullmove_number() {
-        let mut p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 6 31").ok().unwrap();
+        let mut p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 6 31")
+            .ok()
+            .unwrap();
+        assert_eq!(p.last_move(), Move::invalid());
         assert_eq!(p.fullmove_number(), 31);
         let m = p.legal_moves()[0];
         p.do_move(m);
+        assert_eq!(p.last_move(), m);
         assert_eq!(p.fullmove_number(), 31);
         p.undo_last_move();
         assert_eq!(p.fullmove_number(), 31);
 
-        let mut p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 b - - 6 31").ok().unwrap();
+        let mut p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 b - - 6 31")
+            .ok()
+            .unwrap();
         assert_eq!(p.fullmove_number(), 31);
         let m = p.legal_moves()[0];
         p.do_move(m);
@@ -505,7 +518,9 @@ mod tests {
 
     #[test]
     fn evaluate_static() {
-        let p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1").ok().unwrap();
+        let p = P::from_fen("krq5/p7/8/8/8/8/8/KRQ5 w - - 0 1")
+            .ok()
+            .unwrap();
         assert!(p.evaluator().evaluate(p.board()) < -20);
     }
 
@@ -513,7 +528,9 @@ mod tests {
     fn evaluate_move() {
         let mut s = MoveStack::new();
 
-        let p = P::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1").ok().unwrap();
+        let p = P::from_fen("8/4P1kP/8/8/8/7p/8/7K w - - 0 1")
+            .ok()
+            .unwrap();
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "e7e8q" {
@@ -533,7 +550,9 @@ mod tests {
             }
         }
 
-        let p = P::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1").ok().unwrap();
+        let p = P::from_fen("6k1/1P6/8/4b3/8/8/8/1R3K2 w - - 0 1")
+            .ok()
+            .unwrap();
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "b7b8q" {
@@ -544,7 +563,9 @@ mod tests {
             }
         }
 
-        let p = P::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1").ok().unwrap();
+        let p = P::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 w - - 0 1")
+            .ok()
+            .unwrap();
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "f2f4" {
@@ -564,7 +585,9 @@ mod tests {
             }
         }
 
-        let p = P::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 b - - 0 1").ok().unwrap();
+        let p = P::from_fen("5r2/8/8/4q1p1/3P4/k3P1P1/P2b1R1B/K4R2 b - - 0 1")
+            .ok()
+            .unwrap();
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "e5e3" {
@@ -578,7 +601,9 @@ mod tests {
             }
         }
 
-        let p = P::from_fen("8/8/8/8/8/8/2pkpKp1/8 b - - 0 1").ok().unwrap();
+        let p = P::from_fen("8/8/8/8/8/8/2pkpKp1/8 b - - 0 1")
+            .ok()
+            .unwrap();
         p.generate_moves(&mut s);
         while let Some(m) = s.pop() {
             if m.notation() == "c2c1r" {
@@ -607,8 +632,8 @@ mod tests {
     fn repeated_root_position() {
         let moves: Vec<&str> = vec!["g4f3", "g1f1", "f3g4", "f1g1", "g4f3", "g1f1", "f3g4", "f1g1"];
         let p = P::from_history("8/8/8/8/6k1/6P1/8/6K1 b - - 0 1", &mut moves.into_iter())
-                    .ok()
-                    .unwrap();
+            .ok()
+            .unwrap();
         let mut v = MoveStack::new();
         p.generate_moves(&mut v);
         assert!(v.list().len() != 0);
@@ -624,15 +649,20 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_quiescence() {
-        let p = P::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1").ok().unwrap();
-        assert_eq!(p.evaluate_quiescence(0, -10000, 10000, VALUE_UNKNOWN).searched_nodes(),
+    fn qsearch() {
+        let p = P::from_fen("8/8/8/8/8/6qk/7P/7K b - - 0 1")
+            .ok()
+            .unwrap();
+        assert_eq!(p.qsearch(0, -10000, 10000, VALUE_UNKNOWN)
+                       .searched_nodes(),
                    1);
     }
 
     #[test]
     fn is_repeated() {
-        let mut p = P::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2K w - - 0 1").ok().unwrap();
+        let mut p = P::from_fen("8/5p1b/5Pp1/6P1/6p1/3p1pPk/3PpP2/4B2K w - - 0 1")
+            .ok()
+            .unwrap();
         let mut v = MoveStack::new();
         let mut count = 0;
         for _ in 0..100 {
@@ -650,13 +680,19 @@ mod tests {
 
     #[test]
     fn is_checkmate() {
-        let p = P::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1").ok().unwrap();
+        let p = P::from_fen("8/8/8/8/8/7K/8/5R1k b - - 0 1")
+            .ok()
+            .unwrap();
         assert!(p.is_checkmate());
 
-        let p = P::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1").ok().unwrap();
+        let p = P::from_fen("8/8/8/8/8/7K/6p1/5R1k b - - 0 1")
+            .ok()
+            .unwrap();
         assert!(!p.is_checkmate());
 
-        let p = P::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1").ok().unwrap();
+        let p = P::from_fen("8/8/8/8/8/7K/8/5N1k b - - 0 1")
+            .ok()
+            .unwrap();
         assert!(!p.is_checkmate());
     }
 
@@ -665,20 +701,20 @@ mod tests {
         let p1 = P::from_fen("8/8/8/8/8/7k/8/7K w - - 0 1").ok().unwrap();
         let moves: Vec<&str> = vec![];
         let p2 = P::from_history("8/8/8/8/8/7k/8/7K w - - 0 1", &mut moves.into_iter())
-                     .ok()
-                     .unwrap();
+            .ok()
+            .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1h1", "g3h3"];
         let p2 = P::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
-                     .ok()
-                     .unwrap();
+            .ok()
+            .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert_eq!(p1.hash(), p2.hash());
         let moves: Vec<&str> = vec!["f1g1", "f3g3", "g1f1", "g3f3", "f1g1", "f3g3", "g1h1", "g3h3"];
         let p3 = P::from_history("8/8/8/8/8/5k2/8/5K2 w - - 0 1", &mut moves.into_iter())
-                     .ok()
-                     .unwrap();
+            .ok()
+            .unwrap();
         assert_eq!(p1.board_hash, p2.board_hash);
         assert!(p1.hash() != p3.hash());
     }

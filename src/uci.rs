@@ -28,10 +28,7 @@ use regex::Regex;
 enum UciCommand {
     /// This is sent to the engine when the user wants to change the
     /// value of some configuration option supported by the engine.
-    SetOption {
-        name: String,
-        value: String,
-    },
+    SetOption { name: String, value: String },
 
     /// This is used to synchronize the engine with the GUI.
     IsReady,
@@ -43,10 +40,7 @@ enum UciCommand {
 
     /// Set up the position described in `fen` and play the suppied
     /// `moves` on the internal chess board.
-    Position {
-        fen: String,
-        moves: String,
-    },
+    Position { fen: String, moves: String },
 
     /// Start calculating on the current position set up with
     /// `UciCommand::Position`.
@@ -132,22 +126,22 @@ pub struct GoParams {
 /// during its working. Here are some standard ones:
 ///
 /// * `"depth"`: The search depth in half-moves.
-/// 
+///
 /// * `"time"`: The time searched in milliseconds, this should be sent
 ///   together with the PV.
-/// 
+///
 /// * `"nodes"`: Nodes searched, the engine should send this info
 ///   regularly.
-/// 
+///
 /// * `"pv"`: The best line found.
-/// 
+///
 /// * `"multipv"`: For the multi PV mode.
 ///
 /// * `"score"`: The score from the engine's point of view.
 ///
 /// * `"nps"`: Nodes per second searched, the engine should send this
 ///   info regularly.
-/// 
+///
 /// * `"string"`: Any string that will be displayed.
 pub struct InfoItem {
     pub info_type: String,
@@ -178,21 +172,10 @@ pub enum EngineReply {
 /// combo box, string box, or button.
 #[derive(Clone, Debug)]
 pub enum OptionDescription {
-    Check {
-        default: bool,
-    },
-    Spin {
-        min: i32,
-        max: i32,
-        default: i32,
-    },
-    Combo {
-        list: Vec<String>,
-        default: String,
-    },
-    String {
-        default: String,
-    },
+    Check { default: bool },
+    Spin { min: i32, max: i32, default: i32 },
+    Combo { list: Vec<String>, default: String },
+    String { default: String },
     Button,
 }
 
@@ -201,15 +184,23 @@ pub enum OptionDescription {
 pub trait SetOption {
     /// Returns a list of supported configuration options (name and
     /// description).
-    fn options() -> Vec<(String, OptionDescription)> {
+    fn options() -> Vec<(&'static str, OptionDescription)>
+        where Self: Sized
+    {
         vec![]
     }
 
-    /// Sets a new value for a given configuration option.
+    /// Updates the internal state to keep up with the new value for a
+    /// given configuration option.
     ///
-    /// Does nothing if called with unsupported option name.
+    /// * `name` gives the name of the configuration option.
+    ///
+    /// * `value` is the new value for the configuration option.
+    ///
+    /// Does nothing when called with unsupported configuration option
+    /// name.
     #[allow(unused_variables)]
-    fn set_option(name: &str, value: &str) {}
+    fn set_option(name: &str, value: &str) where Self: Sized {}
 }
 
 
@@ -226,7 +217,7 @@ pub trait UciEngine {
 
     /// Returns a list of supported configuration options (name and
     /// description).
-    fn options() -> Vec<(String, OptionDescription)>;
+    fn options() -> Vec<(&'static str, OptionDescription)>;
 
     /// Creates a new instance.
     ///
@@ -244,7 +235,7 @@ pub trait UciEngine {
     fn new_game(&mut self);
 
     /// Loads a new chess position.
-    /// 
+    ///
     /// `fen` will be the position represented in Forsyth–Edwards
     /// notation. `moves` is an iterator over the moves played from
     /// the given position. The move format is long algebraic
@@ -335,11 +326,12 @@ impl<E: UciEngine> Server<E> {
                             OptionDescription::Combo { default, list } => {
                                 format!("combo default {}{}",
                                         default,
-                                        list.into_iter().fold(String::new(), |mut acc, x| {
-                                            acc.push_str(" var ");
-                                            acc.push_str(x.as_str());
-                                            acc
-                                        }))
+                                        list.into_iter()
+                                            .fold(String::new(), |mut acc, x| {
+                acc.push_str(" var ");
+                acc.push_str(x.as_str());
+                acc
+            }))
                             }
                             OptionDescription::String { default } => {
                                 format!("string default {}", default)
@@ -367,9 +359,9 @@ impl<E: UciEngine> Server<E> {
             let mut line = String::new();
             loop {
                 if let Ok(cmd) = match try!(reader.read_line(&mut line)) {
-                    0 => return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF")),
-                    _ => parse_uci_command(line.as_str()),
-                } {
+                       0 => return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF")),
+                       _ => parse_uci_command(line.as_str()),
+                   } {
                     if let UciCommand::Quit = cmd {
                         return Ok(());
                     }
@@ -382,10 +374,10 @@ impl<E: UciEngine> Server<E> {
         'mainloop: loop {
             // Try to receive commands from the GUI, pass them to the engine.
             'read_commands: while let Some(cmd) = match rx.try_recv() {
-                Ok(cmd) => Some(cmd),
-                Err(TryRecvError::Empty) => None,
-                Err(TryRecvError::Disconnected) => break 'mainloop,
-            } {
+                                      Ok(cmd) => Some(cmd),
+                                      Err(TryRecvError::Empty) => None,
+                                      Err(TryRecvError::Disconnected) => break 'mainloop,
+                                  } {
                 let engine = if let Some(ref mut e) = self.engine {
                     e
                 } else {
@@ -393,7 +385,10 @@ impl<E: UciEngine> Server<E> {
                     // states that the "Hash" "setoption" command
                     // should be the first command passed to the
                     // engine.)
-                    if let UciCommand::SetOption { ref name, ref value } = cmd {
+                    if let UciCommand::SetOption {
+                               ref name,
+                               ref value,
+                           } = cmd {
                         if name == "Hash" {
                             let hash_size_mb = value.parse::<usize>().ok();
                             self.engine = Some(E::new(hash_size_mb));
@@ -432,7 +427,7 @@ impl<E: UciEngine> Server<E> {
                     UciCommand::Go(params) => {
                         engine.go(&params);
                     }
-                    UciCommand::Quit => panic!("This should never happen!"),
+                    UciCommand::Quit => unreachable!(),
                 }
             } // 'read_commands
 
@@ -442,7 +437,10 @@ impl<E: UciEngine> Server<E> {
                 while let Some(reply) = engine.wait_for_reply(Duration::from_millis(25)) {
                     reply_count += 1;
                     match reply {
-                        EngineReply::BestMove { best_move, ponder_move } => {
+                        EngineReply::BestMove {
+                            best_move,
+                            ponder_move,
+                        } => {
                             try!(write!(writer,
                                         "bestmove {}{}",
                                         best_move,
@@ -524,9 +522,9 @@ fn parse_setoption_params(s: &str) -> Result<UciCommand, ParseError> {
     }
     if let Some(captures) = RE.captures(s) {
         Ok(UciCommand::SetOption {
-            name: captures.get(1).unwrap().as_str().to_string(),
-            value: captures.get(2).map_or("", |m| m.as_str()).to_string(),
-        })
+               name: captures.get(1).unwrap().as_str().to_string(),
+               value: captures.get(2).map_or("", |m| m.as_str()).to_string(),
+           })
     } else {
         Err(ParseError)
     }
@@ -546,13 +544,16 @@ fn parse_position_params(s: &str) -> Result<UciCommand, ParseError> {
     }
     if let Some(captures) = RE.captures(s) {
         Ok(UciCommand::Position {
-            fen: if let Some(fen) = captures.name("fen") {
-                fen.as_str().to_string()
-            } else {
-                STARTPOS.to_string()
-            },
-            moves: captures.name("moves").map_or("", |m| m.as_str()).to_string(),
-        })
+               fen: if let Some(fen) = captures.name("fen") {
+                   fen.as_str().to_string()
+               } else {
+                   STARTPOS.to_string()
+               },
+               moves: captures
+                   .name("moves")
+                   .map_or("", |m| m.as_str())
+                   .to_string(),
+           })
     } else {
         Err(ParseError)
     }
@@ -576,10 +577,11 @@ fn parse_go_params(s: &str) -> Result<UciCommand, ParseError> {
         match keyword.as_str() {
             "searchmoves" => {
                 if let Some(moves) = captures.name("moves") {
-                    params.searchmoves = moves.as_str()
-                                              .split_whitespace()
-                                              .map(|x| x.to_string())
-                                              .collect();
+                    params.searchmoves = moves
+                        .as_str()
+                        .split_whitespace()
+                        .map(|x| x.to_string())
+                        .collect();
                 }
             }
             "infinite" => {
@@ -791,62 +793,64 @@ mod tests {
     fn parse_uci_command() {
         use super::{parse_uci_command, UciCommand};
         assert!(match parse_uci_command("isready").ok().unwrap() {
-            UciCommand::IsReady => true,
-            _ => false,
-        });
+                    UciCommand::IsReady => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("   isready  ").ok().unwrap() {
-            UciCommand::IsReady => true,
-            _ => false,
-        });
+                    UciCommand::IsReady => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("isready  ").ok().unwrap() {
-            UciCommand::IsReady => true,
-            _ => false,
-        });
+                    UciCommand::IsReady => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("isready xxx").ok().unwrap() {
-            UciCommand::IsReady => true,
-            _ => false,
-        });
+                    UciCommand::IsReady => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("ponderhit  ").ok().unwrap() {
-            UciCommand::PonderHit => true,
-            _ => false,
-        });
+                    UciCommand::PonderHit => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command(" foo quit  ").ok().unwrap() {
-            UciCommand::Quit => true,
-            _ => false,
-        });
+                    UciCommand::Quit => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("  stop  ").ok().unwrap() {
-            UciCommand::Stop => true,
-            _ => false,
-        });
+                    UciCommand::Stop => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("ucinewgame").ok().unwrap() {
-            UciCommand::UciNewGame => true,
-            _ => false,
-        });
+                    UciCommand::UciNewGame => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("position startpos").ok().unwrap() {
-            UciCommand::Position { .. } => true,
-            _ => false,
-        });
+                    UciCommand::Position { .. } => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1")
                           .ok()
                           .unwrap() {
-            UciCommand::Position { .. } => true,
-            _ => false,
-        });
+                    UciCommand::Position { .. } => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1 moves h1h2")
                           .ok()
                           .unwrap() {
-            UciCommand::Position { .. } => true,
-            _ => false,
-        });
+                    UciCommand::Position { .. } => true,
+                    _ => false,
+                });
         assert!(parse_uci_command("position fen k7/8/8/8/8/8/8/7K w - - 0 1 moves h1h2 aabb")
                     .is_err());
-        assert!(match parse_uci_command("setoption name x value y").ok().unwrap() {
-            UciCommand::SetOption { .. } => true,
-            _ => false,
-        });
+        assert!(match parse_uci_command("setoption name x value y")
+                          .ok()
+                          .unwrap() {
+                    UciCommand::SetOption { .. } => true,
+                    _ => false,
+                });
         assert!(match parse_uci_command("go infinite").ok().unwrap() {
-            UciCommand::Go(_) => true,
-            _ => false,
-        });
+                    UciCommand::Go(_) => true,
+                    _ => false,
+                });
     }
 }

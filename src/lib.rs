@@ -22,6 +22,18 @@
 //! code, hoping that it will be general enough to allow
 //! modification. This unfortunate situation stifles innovation.
 //!
+//! # Features
+//!
+//! * Modular design. Users can write their own implementations for
+//!   every part of the chess engine.
+//!
+//! * Very good default implementations &mdash; move generation,
+//!   quiescence search, static exchange evaluation, time management,
+//!   iterative deepening, multi-PV, aspiration windows, generic
+//!   transposition table.
+//!
+//! * Very complete UCI support (including "searchmoves").
+//!
 //! # Usage
 //!
 //! This crate is [on crates.io](https://crates.io/crates/alcibiades)
@@ -30,7 +42,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! alcibiades = "0.2.7"
+//! alcibiades = "0.3.0"
 //! ```
 //!
 //! and this to your crate root:
@@ -47,10 +59,10 @@
 //! use alcibiades::engine::run_uci;
 //!
 //! fn main() {
-//!     type HashTable = StdHashTable<StdHashTableEntry>;
+//!     type Ttable = StdTtable<StdTtableEntry>;
 //!     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
-//!     type SearchExecutor = Deepening<SimpleSearchExecutor<HashTable, SearchNode>>;
-//!     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe");
+//!     type SearchExecutor = Deepening<SimpleSearch<Ttable, SearchNode>>;
+//!     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe", vec![]);
 //! }
 //! ```
 //!
@@ -88,8 +100,8 @@ mod value;
 mod depth;
 mod evaluator;
 mod search_node;
-mod search_executor;
-mod hash_table;
+mod search;
+mod ttable;
 mod move_generator;
 mod qsearch;
 mod time_manager;
@@ -101,9 +113,31 @@ pub use value::*;
 pub use depth::*;
 pub use evaluator::*;
 pub use search_node::*;
-pub use search_executor::*;
-pub use hash_table::*;
+pub use search::*;
+pub use ttable::*;
 pub use move_generator::*;
 pub use qsearch::*;
 pub use time_manager::*;
 pub use uci::{SetOption, OptionDescription};
+
+
+use std::sync::RwLock;
+use std::collections::HashMap;
+
+lazy_static! {
+    static ref CONFIGURATION: RwLock<HashMap<&'static str, String>> = RwLock::new(HashMap::new());
+}
+
+/// Returns the current value for a given configuration option.
+///
+/// # Panics
+///
+/// Panics if given invalid configuration option name.
+pub fn get_option(name: &'static str) -> String {
+    CONFIGURATION
+        .read()
+        .unwrap()
+        .get(name)
+        .unwrap()
+        .clone()
+}

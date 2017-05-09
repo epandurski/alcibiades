@@ -46,9 +46,9 @@ pub const BOUND_EXACT: BoundType = BOUND_UPPER | BOUND_LOWER;
 /// information about positions previously searched, how deeply they
 /// were searched, and what we concluded about them. To implement your
 /// own transposition table, you must define a type that implements
-/// the `HashTable` trait.
-pub trait HashTable: Sync + Send {
-    type Entry: HashTableEntry;
+/// the `Ttable` trait.
+pub trait Ttable: Sync + Send + 'static {
+    type Entry: TtableEntry;
 
     /// Creates a new transposition table.
     ///
@@ -114,10 +114,14 @@ pub trait HashTable: Sync + Send {
                 // 2) The value has not diverged from the root value.
                 if depth > 0 &&
                    match root_value {
-                    v if v < VALUE_EVAL_MIN => v as isize == value as isize + moves.len() as isize,
-                    v if v > VALUE_EVAL_MAX => v as isize == value as isize - moves.len() as isize,
-                    v => v == value,
-                } {
+                       v if v < VALUE_EVAL_MIN => {
+                           v as isize == value as isize + moves.len() as isize
+                       }
+                       v if v > VALUE_EVAL_MAX => {
+                           v as isize == value as isize - moves.len() as isize
+                       }
+                       v => v == value,
+                   } {
                     // Verify that the hash move is legal.
                     if let Some(m) = p.try_move_digest(e.move_digest()) {
                         if p.do_move(m) {
@@ -149,7 +153,7 @@ pub trait HashTable: Sync + Send {
 
 
 /// A trait for transposition table entries.
-pub trait HashTableEntry: Copy + Send {
+pub trait TtableEntry: Copy + Send + 'static {
     /// Creates a new instance.
     ///
     /// * `value` -- The value assigned to the position. Must be
@@ -157,29 +161,9 @@ pub trait HashTableEntry: Copy + Send {
     ///
     /// * `bound` -- The accuracy of the assigned value.
     ///
-    /// * `depth` -- The depth of search. Must be between `DEPTH_MIN`
-    ///   and `DEPTH_MAX`.
-    ///
-    /// * `move_digest` -- Best or refutation move digest, or
-    ///   `MoveDigest::invalid()` if no move is available.
-    fn new(value: Value, bound: BoundType, depth: Depth, move_digest: MoveDigest) -> Self;
-
-    /// Creates a new instance.
-    ///
-    /// The only difference between this function and `new` is that
-    /// this function requires one additional parameter:
-    ///
-    /// * `static_eval` -- Position's static evaluation, or
-    ///   `VALUE_UNKNOWN`.
-    ///
-    /// **Important note:** `static_eval` will be ignored if there is
-    /// no field allotted for it in the underlying memory structure.
-    fn with_static_eval(value: Value,
-                        bound: BoundType,
-                        depth: Depth,
-                        move_digest: MoveDigest,
-                        static_eval: Value)
-                        -> Self;
+    /// * `depth` -- The search depth for the assigned value. Must be
+    ///   between `DEPTH_MIN` and `DEPTH_MAX`.
+    fn new(value: Value, bound: BoundType, depth: Depth) -> Self;
 
     /// Returns the value assigned to the position.
     fn value(&self) -> Value;
@@ -190,19 +174,30 @@ pub trait HashTableEntry: Copy + Send {
     /// Returns the search depth for the assigned value.
     fn depth(&self) -> Depth;
 
-    /// Returns best or refutation move digest, or
-    /// `MoveDigest::invalid()` if no move is available.
+    /// Consumes the instance and returns a new instance with updated
+    /// best/refutation move digest.
+    fn set_move_digest(self, move_digest: MoveDigest) -> Self;
+
+    /// Returns the best/refutation move digest assigned to the
+    /// position, or `MoveDigest::invalid()` if no move is available.
     fn move_digest(&self) -> MoveDigest;
 
-    /// Returns position's static evaluation, or `VALUE_UNKNOWN`.
-    fn static_eval(&self) -> Value;
-
-    /// Sets a new best or refutation move digest.
+    /// Consumes the instance and returns a new instance with updated
+    /// static evaluation.
     ///
-    /// Transposition tables may use this method when they overwrite
-    /// an old record for the same position, and want to keep the move
-    /// from the old record.
-    fn set_move_digest(&mut self, move_digest: MoveDigest);
+    /// **Important note:** This method will do nothing if the
+    /// underlying memory structure has no field allotted for static
+    /// evaluation.
+    #[allow(unused_variables)]
+    fn set_static_eval(self, static_eval: Value) -> Self {
+        self
+    }
+
+    /// Returns the static evaluation assigned to the position, or
+    /// `VALUE_UNKNOWN`.
+    fn static_eval(&self) -> Value {
+        VALUE_UNKNOWN
+    }
 
     /// Returns the relative importance of the entry.
     ///

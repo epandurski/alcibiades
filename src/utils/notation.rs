@@ -68,12 +68,12 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), IllegalBoard> {
         let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| IllegalBoard));
         if let 1...9000 = fullmove_number {
             return Ok((Board {
-                occupied: pieces.color[WHITE] | pieces.color[BLACK],
-                pieces: pieces,
-                to_move: to_move,
-                castling_rights: castling_rights,
-                enpassant_file: enpassant_file,
-            },
+                           occupied: pieces.color[WHITE] | pieces.color[BLACK],
+                           pieces: pieces,
+                           to_move: to_move,
+                           castling_rights: castling_rights,
+                           enpassant_file: enpassant_file,
+                       },
                        halfmove_clock,
                        fullmove_number));
         }

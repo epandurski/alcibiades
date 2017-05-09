@@ -14,7 +14,7 @@ use move_generator::MoveGenerator;
 /// the exact evaluation is outside of this interval, the search may
 /// return a value that is closer to the the interval bounds than the
 /// exact evaluation, but always staying on the correct side of the
-/// interval (i.e. "fail-soft").
+/// interval (i.e. "fail-soft" semantics).
 pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
     /// A mutable reference to the root position for the search.
     ///
@@ -33,12 +33,12 @@ pub struct QsearchParams<'a, T: MoveGenerator + 'a> {
     /// zero.
     pub depth: Depth,
 
-    /// The lower bound for the new search.
+    /// The lower bound for the search.
     ///
     /// Should be no lesser than `VALUE_MIN`.
     pub lower_bound: Value,
 
-    /// The upper bound for the new search.
+    /// The upper bound for the search.
     ///
     /// Should be greater than `lower_bound`, but no greater than
     /// `VALUE_MAX`.
@@ -84,7 +84,7 @@ pub trait QsearchResult: Clone {
 /// completely blind to the more complex ones. To implement your own
 /// quiescence search routine, you must define a type that implements
 /// the `Qsearch` trait.
-pub trait Qsearch: SetOption + Send {
+pub trait Qsearch: SetOption + Send + 'static {
     /// The type of move generator that the implementation works with.
     type MoveGenerator: MoveGenerator;
 

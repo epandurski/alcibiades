@@ -70,7 +70,7 @@ pub const BB_MAIN_ANTI_DIAG: Bitboard = 0x0102040810204080;
 /// assert_eq!(lsb(0), 0);
 /// ```
 /// ```text
-/// 
+///
 ///        x         &        -x         =      lsb(x)
 /// . . . . . . . .     1 1 1 1 1 1 1 1     . . . . . . . .
 /// . . 1 . 1 . . .     1 1 . 1 . 1 1 1     . . . . . . . .
@@ -106,7 +106,7 @@ pub fn lsb(x: Bitboard) -> Bitboard {
 /// assert_eq!(x, 0);
 /// ```
 /// ```text
-/// 
+///
 ///       x          &      (x - 1)      =  x_with_reset_lsb(x)
 /// . . . . . . . .     . . . . . . . .     . . . . . . . .
 /// . . 1 . 1 . . .     . . 1 . 1 . . .     . . 1 . 1 . . .
@@ -128,7 +128,7 @@ pub fn reset_lsb(x: &mut Bitboard) {
 /// The way to calculate this is: `above_lsb = x ^ -x;`.
 ///
 /// If `x` is `0` this function returns `0`.
-/// 
+///
 /// # Examples:
 ///
 /// ```rust
@@ -137,7 +137,7 @@ pub fn reset_lsb(x: &mut Bitboard) {
 /// assert_eq!(above_lsb(0), 0);
 /// ```
 /// ```text
-/// 
+///
 ///       x          ^        -x         =  above_lsb(x)
 /// . . . . . . . .     1 1 1 1 1 1 1 1     1 1 1 1 1 1 1 1
 /// . . 1 . 1 . . .     1 1 . 1 . 1 1 1     1 1 1 1 1 1 1 1
@@ -160,7 +160,7 @@ pub fn above_lsb(x: Bitboard) -> Bitboard {
 /// The way to calculate this is: `below_lsb_including = x ^ (x - 1);`.
 ///
 /// If `x` is `0` this function returns `0xffffffffffffffff`.
-/// 
+///
 /// # Examples:
 ///
 /// ```rust
@@ -191,7 +191,7 @@ pub fn below_lsb_including(x: Bitboard) -> Bitboard {
 /// The way to calculate this is: `above_lsb_including = x | -x;`.
 ///
 /// If `x` is `0` this function returns `0`.
-/// 
+///
 /// # Examples:
 ///
 /// ```rust
@@ -221,7 +221,7 @@ pub fn above_lsb_including(x: Bitboard) -> Bitboard {
 /// The way to calculate this is: `below_lsb = !x & (x - 1);`.
 ///
 /// If `x` is `0` this function returns `0xffffffffffffffff`.
-/// 
+///
 /// # Examples:
 ///
 /// ```rust
@@ -261,11 +261,7 @@ pub fn below_lsb(x: Bitboard) -> Bitboard {
 /// ```
 #[inline]
 pub fn gen_shift(x: Bitboard, s: isize) -> Bitboard {
-    if s > 0 {
-        x << s
-    } else {
-        x >> -s
-    }
+    if s > 0 { x << s } else { x >> -s }
 }
 
 
@@ -290,7 +286,7 @@ pub fn bsf(x: Bitboard) -> Square {
 /// resets the LSB to zero.
 ///
 /// If `*x` is `0` this function returns `64`.
-/// 
+///
 /// # Examples:
 ///
 /// ```rust

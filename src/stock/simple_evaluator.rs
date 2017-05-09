@@ -1,8 +1,7 @@
 //! Implements the `Evaluator` trait.
 
-use std::hash::Hasher;
-use std::collections::hash_map::DefaultHasher;
 use uci::SetOption;
+use moves::*;
 use board::*;
 use value::*;
 use evaluator::Evaluator;
@@ -12,36 +11,67 @@ use bitsets::*;
 /// A simple evaluator that adds a random number to the available
 /// material.
 #[derive(Clone)]
-pub struct SimpleEvaluator;
+pub struct SimpleEvaluator {
+    material: Value,
+}
 
 impl SetOption for SimpleEvaluator {}
 
 impl Evaluator for SimpleEvaluator {
-    #[allow(unused_variables)]
-    fn new(board: &Board) -> SimpleEvaluator {
-        SimpleEvaluator
+    fn new(position: &Board) -> SimpleEvaluator {
+        let us = position.to_move;
+        let them = 1 ^ us;
+        let color = position.pieces.color;
+        let mut material = 0;
+        for piece in QUEEN..PIECE_NONE {
+            let occupied = position.pieces.piece_type[piece];
+            let count_us = pop_count(occupied & color[us]) as i16;
+            let count_them = pop_count(occupied & color[them]) as i16;
+            material += PIECE_VALUES[piece] * (count_us - count_them);
+        }
+        SimpleEvaluator { material: material }
     }
 
-    fn evaluate(&self, board: &Board) -> Value {
-        const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
-        let piece_type = board.pieces.piece_type;
-        let color = board.pieces.color;
-        let us = board.to_move;
-        let them = 1 ^ us;
-        let mut result = 0;
-        for piece in QUEEN..PIECE_NONE {
-            result += PIECE_VALUES[piece] *
-                      (pop_count(piece_type[piece] & color[us]) as i16 -
-                       pop_count(piece_type[piece] & color[them]) as i16);
-        }
-        let mut hasher = DefaultHasher::new();
-        hasher.write_u64(board.occupied);
-        result + (hasher.finish() >> 59) as i16
+    #[inline]
+    fn done_move(&mut self, _: &Board, m: Move) {
+        self.material = -(self.material + gained_material(m));
+    }
+
+    #[inline]
+    fn undone_move(&mut self, _: &Board, m: Move) {
+        self.material = -self.material - gained_material(m);
+    }
+
+    #[inline]
+    fn evaluate(&self, position: &Board) -> Value {
+        let k = (position.occupied >> 32 ^ position.occupied) as u32;
+        let random_number = (k.wrapping_mul(2654435769) >> 27) as Value;
+        self.material + random_number
     }
 
     #[allow(unused_variables)]
     #[inline]
-    fn is_zugzwangy(&self, board: &Board) -> bool {
+    fn is_zugzwangy(&self, position: &Board) -> bool {
         false
+    }
+}
+
+
+const PIECE_VALUES: [Value; 8] = [10000, 975, 500, 325, 325, 100, 0, 0];
+
+
+#[inline]
+fn gained_material(m: Move) -> Value {
+    if m.move_type() == MOVE_PROMOTION {
+        // the value of the captured piece
+        PIECE_VALUES[m.captured_piece()]
+
+        // add the value of the newly promoted piece
+        + PIECE_VALUES[Move::piece_from_aux_data(m.aux_data())]
+
+        // subtract the value of the promoted pawn
+        - PIECE_VALUES[PAWN]
+    } else {
+        unsafe { *PIECE_VALUES.get_unchecked(m.captured_piece()) }
     }
 }
