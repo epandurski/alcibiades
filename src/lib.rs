@@ -22,6 +22,18 @@
 //! code, hoping that it will be general enough to allow
 //! modification. This unfortunate situation stifles innovation.
 //!
+//! # Features
+//!
+//! * Modular design. Users can write their own implementations for
+//!   every part of the chess engine.
+//!
+//! * Very good default implementations &mdash; move generation,
+//!   quiescence search, static exchange evaluation, time management,
+//!   iterative deepening, multi-PV, aspiration windows, generic
+//!   transposition table.
+//!
+//! * Very complete UCI support (including "searchmoves").
+//!
 //! # Usage
 //!
 //! This crate is [on crates.io](https://crates.io/crates/alcibiades)
