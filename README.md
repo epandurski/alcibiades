@@ -46,9 +46,9 @@ use alcibiades::stock::*;
 use alcibiades::engine::run_uci;
 
 fn main() {
-    type HashTable = StdHashTable<StdHashTableEntry>;
+    type Ttable = StdTtable<StdTtableEntry>;
     type SearchNode = StdSearchNode<StdQsearch<StdMoveGenerator<SimpleEvaluator>>>;
-    type SearchExecutor = Deepening<SimpleSearch<HashTable, SearchNode>>;
+    type SearchExecutor = Deepening<SimpleSearch<Ttable, SearchNode>>;
     run_uci::<SearchExecutor, StdTimeManager>("My engine", "John Doe", vec![]);
 }
 ```
