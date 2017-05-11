@@ -2,6 +2,9 @@
 
 A framework for writing chess engines in Rust.
 
+[![Build Status](https://travis-ci.org/epandurski/alcibiades.svg?branch=master)](https://travis-ci.org/epandurski/alcibiades)
+[![](http://meritbadge.herokuapp.com/alcibiades)](https://crates.io/crates/alcibiades)
+
 ## Why chess engines?
 
 Simple! Chess is the greatest thing humans have invented. Computers
