@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `MoveStack` struct in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, MoveStack">
+
+    <title>alcibiades::utils::MoveStack - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>utils</a></p><script>window.sidebarCurrent = {name: 'MoveStack', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>utils</a>::<wbr><a class="struct" href=''>MoveStack</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/alcibiades/utils/move_stack.rs.html#30-34' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct MoveStack { /* fields omitted */ }</pre><div class='docblock'><p>Stores a list of moves for each position in a given line of play.</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples:</a></h1>
+<pre class="rust rust-example-rendered">
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">MoveStack</span>::<span class="ident">new</span>();
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">ply</span>(), <span class="number">0</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">list</span>().<span class="ident">len</span>(), <span class="number">0</span>);
+<span class="ident">s</span>.<span class="ident">push</span>(<span class="ident">Move</span>::<span class="ident">invalid</span>());
+<span class="ident">s</span>.<span class="ident">push</span>(<span class="ident">Move</span>::<span class="ident">invalid</span>());
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">list</span>().<span class="ident">len</span>(), <span class="number">2</span>);
+<span class="kw">let</span> <span class="ident">first_move</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">pull_best</span>();
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">list</span>().<span class="ident">len</span>(), <span class="number">1</span>);
+<span class="ident">s</span>.<span class="ident">save</span>();
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">ply</span>(), <span class="number">1</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">list</span>().<span class="ident">len</span>(), <span class="number">0</span>);
+<span class="ident">s</span>.<span class="ident">restore</span>();
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">ply</span>(), <span class="number">0</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">list</span>().<span class="ident">len</span>(), <span class="number">1</span>);
+<span class="kw">let</span> <span class="ident">second_move</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">pull_best</span>();
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">list</span>().<span class="ident">len</span>(), <span class="number">0</span>);</pre>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class="struct" href="../../alcibiades/utils/struct.MoveStack.html" title="struct alcibiades::utils::MoveStack">MoveStack</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/alcibiades/utils/move_stack.rs.html#46-228' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class="method"><span id='new.v' class='invisible'><code>fn <a href='#method.new' class='fnname'>new</a>() -&gt; <a class="struct" href="../../alcibiades/utils/struct.MoveStack.html" title="struct alcibiades::utils::MoveStack">MoveStack</a></code></span></h4>
+<div class='docblock'><p>Creates a new (empty) instance.</p>
+</div><h4 id='method.save' class="method"><span id='save.v' class='invisible'><code>fn <a href='#method.save' class='fnname'>save</a>(&amp;mut self)</code></span></h4>
+<div class='docblock'><p>Saves the current move list and replaces it with an empty one.</p>
+
+<p>This method can be called many times. At each call the current
+move list will be saved to the stack of lists that can later
+be restored. After calling <code>save</code> the new current move list
+will be empty.</p>
+</div><h4 id='method.restore' class="method"><span id='restore.v' class='invisible'><code>fn <a href='#method.restore' class='fnname'>restore</a>(&amp;mut self)</code></span></h4>
+<div class='docblock'><p>Restores the last saved move list.</p>
+
+<p>The current move list is lost.</p>
+
+<h1 id='panics' class='section-header'><a href='#panics'>Panics</a></h1>
+<p>Panics if there are no saved move lists left.</p>
+</div><h4 id='method.ply' class="method"><span id='ply.v' class='invisible'><code>fn <a href='#method.ply' class='fnname'>ply</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code></span></h4>
+<div class='docblock'><p>Returns the number of saved move lists.</p>
+
+<p>The number of saved move lists starts at zero. It is
+incremented on each call to <code>save</code>, and decremented on each
+call to <code>restore</code>.</p>
+</div><h4 id='method.clear' class="method"><span id='clear.v' class='invisible'><code>fn <a href='#method.clear' class='fnname'>clear</a>(&amp;mut self)</code></span></h4>
+<div class='docblock'><p>Clears the current move list, removing all moves from it.</p>
+</div><h4 id='method.clear_all' class="method"><span id='clear_all.v' class='invisible'><code>fn <a href='#method.clear_all' class='fnname'>clear_all</a>(&amp;mut self)</code></span></h4>
+<div class='docblock'><p>Clears the current move list and deletes all saved move lists.</p>
+</div><h4 id='method.push' class="method"><span id='push.v' class='invisible'><code>fn <a href='#method.push' class='fnname'>push</a>(&amp;mut self, m: <a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>)</code></span></h4>
+<div class='docblock'><p>Appends a move to the end of the current move list.</p>
+</div><h4 id='method.pop' class="method"><span id='pop.v' class='invisible'><code>fn <a href='#method.pop' class='fnname'>pop</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>&gt;</code></span></h4>
+<div class='docblock'><p>Removes the last move from the current move list and returns it.</p>
+
+<p>If the current move list is empty, <code>None</code> is returned.</p>
+</div><h4 id='method.pull' class="method"><span id='pull.v' class='invisible'><code>fn <a href='#method.pull' class='fnname'>pull</a>(&amp;mut self, index: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>) -&gt; <a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span></h4>
+<div class='docblock'><p>Removes the move at given index from the current move list and
+returns it.</p>
+
+<p>Move&#39;s slot is taken by the last move in the current list, and
+the last slot is discarded.</p>
+
+<h1 id='panics-1' class='section-header'><a href='#panics-1'>Panics</a></h1>
+<p>Panics if there is no move at the given index.</p>
+</div><h4 id='method.pull_move' class="method"><span id='pull_move.v' class='invisible'><code>fn <a href='#method.pull_move' class='fnname'>pull_move</a>(&amp;mut self, move_digest: <a class="struct" href="../../alcibiades/struct.MoveDigest.html" title="struct alcibiades::MoveDigest">MoveDigest</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>&gt;</code></span></h4>
+<div class='docblock'><p>Removes a specific move from the current move list and returns it.</p>
+
+<p>This method tries to find a move <code>m</code> for which <code>m.digest() == move_digest</code>. If such move is found, <code>Some(m)</code> is returned,
+move&#39;s slot is taken by the last move in the current list, and
+the last slot is discarded. If no such move is found, <code>None</code>
+is returned.</p>
+</div><h4 id='method.pull_best' class="method"><span id='pull_best.v' class='invisible'><code>fn <a href='#method.pull_best' class='fnname'>pull_best</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>&gt;</code></span></h4>
+<div class='docblock'><p>Removes the move with the highest value from the current move
+list and returns it.</p>
+
+<p>Best move&#39;s slot is taken by the last move in the current
+list, and the last slot is discarded. <code>None</code> is returned if
+the current move list is empty.</p>
+</div><h4 id='method.list' class="method"><span id='list.v' class='invisible'><code>fn <a href='#method.list' class='fnname'>list</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[</a><a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">]</a></code></span></h4>
+<div class='docblock'><p>Returns the current move list as a slice.</p>
+</div><h4 id='method.list_mut' class="method"><span id='list_mut.v' class='invisible'><code>fn <a href='#method.list_mut' class='fnname'>list_mut</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;mut [</a><a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">]</a></code></span></h4>
+<div class='docblock'><p>Returns the current move list as a mutable slice.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="../../alcibiades/trait.AddMove.html" title="trait alcibiades::AddMove">AddMove</a> for <a class="struct" href="../../alcibiades/utils/struct.MoveStack.html" title="struct alcibiades::utils::MoveStack">MoveStack</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/alcibiades/utils/move_stack.rs.html#37-43' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.add_move' class="method"><span id='add_move.v' class='invisible'><code>fn <a href='../../alcibiades/trait.AddMove.html#tymethod.add_move' class='fnname'>add_move</a>(&amp;mut self, m: <a class="struct" href="../../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>)</code></span></h4>
+<div class='docblock'><p>Appends a move to the end of the current move list.</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

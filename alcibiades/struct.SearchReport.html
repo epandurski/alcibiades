@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `SearchReport` struct in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, SearchReport">
+
+    <title>alcibiades::SearchReport - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>alcibiades</a></p><script>window.sidebarCurrent = {name: 'SearchReport', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>alcibiades</a>::<wbr><a class="struct" href=''>SearchReport</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/alcibiades/search.rs.html#65-109' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct SearchReport&lt;T&gt; {
+    pub search_id: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
+    pub searched_nodes: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>,
+    pub depth: <a class="type" href="../alcibiades/type.Depth.html" title="type alcibiades::Depth">Depth</a>,
+    pub value: <a class="type" href="../alcibiades/type.Value.html" title="type alcibiades::Value">Value</a>,
+    pub done: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
+    pub data: T,
+}</pre><div class='docblock'><p>A progress report from a search.</p>
+</div><h2 class='fields'>Fields</h2><span id='structfield.search_id' class="structfield">
+                           <span id='search_id.v' class='invisible'>
+                           <code>search_id: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code>
+                           </span></span><div class='docblock'><p>The ID assigned to the search.</p>
+
+<p>Should be the same for all reports from a given search.</p>
+</div><span id='structfield.searched_nodes' class="structfield">
+                           <span id='searched_nodes.v' class='invisible'>
+                           <code>searched_nodes: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a></code>
+                           </span></span><div class='docblock'><p>The number of positions searched so far.</p>
+
+<p>Should be no lesser than the value sent in the previous
+report.</p>
+</div><span id='structfield.depth' class="structfield">
+                           <span id='depth.v' class='invisible'>
+                           <code>depth: <a class="type" href="../alcibiades/type.Depth.html" title="type alcibiades::Depth">Depth</a></code>
+                           </span></span><div class='docblock'><p>The search depth completed so far.</p>
+
+<p>Should be no lesser than <code>0</code>. Also, no lesser than the value
+sent in the previous report, and no greater than the requested
+search depth. If the search has not been forcefully stopped,
+the last reported <code>depth</code> should be the requested search
+depth.</p>
+
+<p><strong>Note:</strong> Depth-first searches should send <code>0</code> in all reports
+except the last one.</p>
+</div><span id='structfield.value' class="structfield">
+                           <span id='value.v' class='invisible'>
+                           <code>value: <a class="type" href="../alcibiades/type.Value.html" title="type alcibiades::Value">Value</a></code>
+                           </span></span><div class='docblock'><p>The evaluation of the root position so far, or <code>VALUE_UNKNOWN</code>
+if not available.</p>
+
+<p>If the search has not been forcefully stopped, the last report
+should contain the calculated final evaluation.</p>
+
+<p><strong>Note:</strong> Depth-first searches should send <code>VALUE_UNKNOWN</code> in
+all reports except the last one.</p>
+</div><span id='structfield.done' class="structfield">
+                           <span id='done.v' class='invisible'>
+                           <code>done: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code>
+                           </span></span><div class='docblock'><p>Whether the search is done.</p>
+
+<p>Should be <code>false</code> for all reports except the last one.</p>
+</div><span id='structfield.data' class="structfield">
+                           <span id='data.v' class='invisible'>
+                           <code>data: T</code>
+                           </span></span><div class='docblock'><p>Auxiliary data.</p>
+
+<p>For example, this may contain calculated principal
+variation(s).</p>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl&lt;T:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> for <a class="struct" href="../alcibiades/struct.SearchReport.html" title="struct alcibiades::SearchReport">SearchReport</a>&lt;T&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/search.rs.html#64' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.clone' class="method"><span id='clone.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class="struct" href="../alcibiades/struct.SearchReport.html" title="struct alcibiades::SearchReport">SearchReport</a>&lt;T&gt;</code></span></h4>
+<div class='docblock'><p>Returns a copy of the value. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone">Read more</a></p>
+</div><h4 id='method.clone_from' class="method"><span id='clone_from.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></span></h4>
+<div class='docblock'><p>Performs copy-assignment from <code>source</code>. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl&lt;T:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../alcibiades/struct.SearchReport.html" title="struct alcibiades::SearchReport">SearchReport</a>&lt;T&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/search.rs.html#64' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class="method"><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `SimpleSearch` struct in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, SimpleSearch">
+
+    <title>alcibiades::stock::SimpleSearch - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>stock</a></p><script>window.sidebarCurrent = {name: 'SimpleSearch', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>stock</a>::<wbr><a class="struct" href=''>SimpleSearch</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/alcibiades/stock/simple_search.rs.html#45-48' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct SimpleSearch&lt;T:&nbsp;<a class="trait" href="../../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Ttable</a>, N:&nbsp;<a class="trait" href="../../alcibiades/trait.SearchNode.html" title="trait alcibiades::SearchNode">SearchNode</a>&gt; { /* fields omitted */ }</pre><div class='docblock'><p>Executes depth-first alpha-beta searches with null move pruning
+and late move reductions.</p>
+
+<p><em>The alpha-beta algorithm</em> is an enhancement to the minimax search
+algorithm. It maintains two values, alpha and beta. They represent
+the minimum score that the maximizing player is assured of (lower
+bound) and the maximum score that the minimizing player is assured
+of (upper bound) respectively.</p>
+
+<p><em>Null move pruning</em> is a method to reduce the search space by
+trying a &quot;null&quot; or &quot;passing&quot; move, then seeing if the score of the
+subtree search is still high enough to cause a beta cutoff. Nodes
+are saved by reducing the depth of the subtree under the null
+move.</p>
+
+<p><em>Late move reductions</em> save search space by reducing the search
+depth for moves that are ordered closer to the end (likely
+fail-low nodes).</p>
+
+<p><strong>Important note:</strong> <code>SimpleSearch</code> ignores the <code>searchmoves</code>
+search parameter. It always analyses all legal moves in the root
+position.</p>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl&lt;T, N&gt; <a class="trait" href="../../alcibiades/trait.Search.html" title="trait alcibiades::Search">Search</a> for <a class="struct" href="../../alcibiades/stock/struct.SimpleSearch.html" title="struct alcibiades::stock::SimpleSearch">SimpleSearch</a>&lt;T, N&gt; <span class="where fmt-newline">where T: <a class="trait" href="../../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Ttable</a>, N: <a class="trait" href="../../alcibiades/trait.SearchNode.html" title="trait alcibiades::SearchNode">SearchNode</a></span></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/alcibiades/stock/simple_search.rs.html#50-123' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='associatedtype.Ttable' class="type"><span id='Ttable.t' class='invisible'><code>type <a href='../../alcibiades/trait.Search.html#associatedtype.Ttable' class="type">Ttable</a> = T</code></span></h4>
+<div class='docblock'><p>The type of transposition table that the implementation works with. <a href="../../alcibiades/trait.Search.html#associatedtype.Ttable">Read more</a></p>
+</div><h4 id='associatedtype.SearchNode' class="type"><span id='SearchNode.t' class='invisible'><code>type <a href='../../alcibiades/trait.Search.html#associatedtype.SearchNode' class="type">SearchNode</a> = N</code></span></h4>
+<div class='docblock'><p>The type of search node that the implementation works with.</p>
+</div><h4 id='associatedtype.ReportData' class="type"><span id='ReportData.t' class='invisible'><code>type <a href='../../alcibiades/trait.Search.html#associatedtype.ReportData' class="type">ReportData</a> = <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">()</a></code></span></h4>
+<div class='docblock'><p>The type of auxiliary data that search progress reports carry.</p>
+</div><h4 id='method.spawn' class="method"><span id='spawn.v' class='invisible'><code>fn <a href='../../alcibiades/trait.Search.html#tymethod.spawn' class='fnname'>spawn</a>(params: <a class="struct" href="../../alcibiades/struct.SearchParams.html" title="struct alcibiades::SearchParams">SearchParams</a>&lt;Self::<a class="trait" href="../../alcibiades/trait.Search.html" title="trait alcibiades::Search">SearchNode</a>&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tt: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;Self::<a class="trait" href="../../alcibiades/trait.Search.html" title="trait alcibiades::Search">Ttable</a>&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; reports_tx: <a class="struct" href="https://doc.rust-lang.org/nightly/std/sync/mpsc/struct.Sender.html" title="struct std::sync::mpsc::Sender">Sender</a>&lt;<a class="struct" href="../../alcibiades/struct.SearchReport.html" title="struct alcibiades::SearchReport">SearchReport</a>&lt;Self::<a class="trait" href="../../alcibiades/trait.Search.html" title="trait alcibiades::Search">ReportData</a>&gt;&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; messages_rx: <a class="struct" href="https://doc.rust-lang.org/nightly/std/sync/mpsc/struct.Receiver.html" title="struct std::sync::mpsc::Receiver">Receiver</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/collections/string/struct.String.html" title="struct collections::string::String">String</a>&gt;)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/std/thread/struct.JoinHandle.html" title="struct std::thread::JoinHandle">JoinHandle</a>&lt;<a class="type" href="../../alcibiades/type.Value.html" title="type alcibiades::Value">Value</a>&gt;</code></span></h4>
+<div class='docblock'><p>Spawns a new search thread. <a href="../../alcibiades/trait.Search.html#tymethod.spawn">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl&lt;T:&nbsp;<a class="trait" href="../../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Ttable</a>, N:&nbsp;<a class="trait" href="../../alcibiades/trait.SearchNode.html" title="trait alcibiades::SearchNode">SearchNode</a>&gt; <a class="trait" href="../../alcibiades/trait.SetOption.html" title="trait alcibiades::SetOption">SetOption</a> for <a class="struct" href="../../alcibiades/stock/struct.SimpleSearch.html" title="struct alcibiades::stock::SimpleSearch">SimpleSearch</a>&lt;T, N&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/alcibiades/stock/simple_search.rs.html#125-133' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.options' class="method"><span id='options.v' class='invisible'><code>fn <a href='../../alcibiades/trait.SetOption.html#method.options' class='fnname'>options</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a>&amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <a class="enum" href="../../alcibiades/enum.OptionDescription.html" title="enum alcibiades::OptionDescription">OptionDescription</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a>&gt;</code></span></h4>
+<div class='docblock'><p>Returns a list of supported configuration options (name and description). <a href="../../alcibiades/trait.SetOption.html#method.options">Read more</a></p>
+</div><h4 id='method.set_option' class="method"><span id='set_option.v' class='invisible'><code>fn <a href='../../alcibiades/trait.SetOption.html#method.set_option' class='fnname'>set_option</a>(name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, value: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>)</code></span></h4>
+<div class='docblock'><p>Updates the internal state to keep up with the new value for a given configuration option. <a href="../../alcibiades/trait.SetOption.html#method.set_option">Read more</a></p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

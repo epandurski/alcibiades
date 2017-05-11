@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `bitsets` mod in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, bitsets">
+
+    <title>alcibiades::bitsets - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>alcibiades</a></p><script>window.sidebarCurrent = {name: 'bitsets', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>alcibiades</a>::<wbr><a class="mod" href=''>bitsets</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/alcibiades/bitsets.rs.html#1-439' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>Defines constants and functions for working with bitboards.</p>
+
+<p><code>u64</code> bit-sets called <em>bitboards</em> can be used to represent a set
+of squares on the chessboard. This module defines utility
+functions and constants for working with <code>u64</code> bit-sets.</p>
+
+<p><strong>Note:</strong> &quot;LSB&quot; means &quot;least significant <code>1</code> bit&quot;.</p>
+</div><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_ALL.html"
+                                  title='constant alcibiades::bitsets::BB_ALL'>BB_ALL</a></td>
+                           <td class='docblock-short'>
+                                <p>The set of all 64 squares on the board.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_A.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_A'>BB_FILE_A</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file A.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_B.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_B'>BB_FILE_B</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file B.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_C.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_C'>BB_FILE_C</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file C.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_D.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_D'>BB_FILE_D</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file D.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_E.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_E'>BB_FILE_E</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file E.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_F.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_F'>BB_FILE_F</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file F.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_G.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_G'>BB_FILE_G</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file G.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_FILE_H.html"
+                                  title='constant alcibiades::bitsets::BB_FILE_H'>BB_FILE_H</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on file H.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_MAIN_ANTI_DIAG.html"
+                                  title='constant alcibiades::bitsets::BB_MAIN_ANTI_DIAG'>BB_MAIN_ANTI_DIAG</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on the main anti-diagonal (H1-A8).</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_MAIN_DIAG.html"
+                                  title='constant alcibiades::bitsets::BB_MAIN_DIAG'>BB_MAIN_DIAG</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on the main diagonal (A1-H8).</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_NONE.html"
+                                  title='constant alcibiades::bitsets::BB_NONE'>BB_NONE</a></td>
+                           <td class='docblock-short'>
+                                <p>Empty set of squares.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_1.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_1'>BB_RANK_1</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 1.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_2.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_2'>BB_RANK_2</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 2.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_3.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_3'>BB_RANK_3</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 3.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_4.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_4'>BB_RANK_4</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 4.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_5.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_5'>BB_RANK_5</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 5.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_6.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_6'>BB_RANK_6</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 6.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_7.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_7'>BB_RANK_7</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 7.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BB_RANK_8.html"
+                                  title='constant alcibiades::bitsets::BB_RANK_8'>BB_RANK_8</a></td>
+                           <td class='docblock-short'>
+                                <p>The squares on rank 8.</p>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.above_lsb.html"
+                                  title='fn alcibiades::bitsets::above_lsb'>above_lsb</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns a mask with all bits above the LSB set to <code>1</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.above_lsb_including.html"
+                                  title='fn alcibiades::bitsets::above_lsb_including'>above_lsb_including</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns a mask with all bits above and including the LSB set to
+<code>1</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.bb_anti_diag.html"
+                                  title='fn alcibiades::bitsets::bb_anti_diag'>bb_anti_diag</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the set of squares on the same anti-diagonal as the given square.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.bb_diag.html"
+                                  title='fn alcibiades::bitsets::bb_diag'>bb_diag</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the set of squares on the same diagonal as the given square.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.bb_file.html"
+                                  title='fn alcibiades::bitsets::bb_file'>bb_file</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the set of squares on the same file as the given square.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.bb_rank.html"
+                                  title='fn alcibiades::bitsets::bb_rank'>bb_rank</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the set of squares on the same rank as the given square.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.below_lsb.html"
+                                  title='fn alcibiades::bitsets::below_lsb'>below_lsb</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns a mask with all bits below the LSB set to <code>1</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.below_lsb_including.html"
+                                  title='fn alcibiades::bitsets::below_lsb_including'>below_lsb_including</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns a mask with all bits below and including the LSB set to
+<code>1</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.bsf.html"
+                                  title='fn alcibiades::bitsets::bsf'>bsf</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the binary position of the LSB (bit-scan-forward).</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.bsf_reset.html"
+                                  title='fn alcibiades::bitsets::bsf_reset'>bsf_reset</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the binary position of the LSB (bit-scan-forward), and
+resets the LSB to zero.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.gen_shift.html"
+                                  title='fn alcibiades::bitsets::gen_shift'>gen_shift</a></td>
+                           <td class='docblock-short'>
+                                <p>Shifts a value with a signed number.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.lsb.html"
+                                  title='fn alcibiades::bitsets::lsb'>lsb</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the LSB of a value.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.pop_count.html"
+                                  title='fn alcibiades::bitsets::pop_count'>pop_count</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the number of <code>1</code>s in the binary representation of a
+value.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.reset_lsb.html"
+                                  title='fn alcibiades::bitsets::reset_lsb'>reset_lsb</a></td>
+                           <td class='docblock-short'>
+                                <p>Resets the LSB of a value to zero.</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `run_uci` fn in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, run_uci">
+
+    <title>alcibiades::engine::run_uci - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc fn">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>engine</a></p><script>window.sidebarCurrent = {name: 'run_uci', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Function <a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>engine</a>::<wbr><a class="fn" href=''>run_uci</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/alcibiades/engine.rs.html#578-601' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn run_uci&lt;S, T&gt;(name: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; author: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; options: <a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a>&amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, &amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a>&gt;)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; ! <span class="where fmt-newline">where S: <a class="trait" href="../../alcibiades/trait.DeepeningSearch.html" title="trait alcibiades::DeepeningSearch">DeepeningSearch</a>&lt;ReportData=<a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="struct" href="../../alcibiades/struct.Variation.html" title="struct alcibiades::Variation">Variation</a>&gt;&gt;, T: <a class="trait" href="../../alcibiades/trait.TimeManager.html" title="trait alcibiades::TimeManager">TimeManager</a>&lt;S&gt;</span></pre><div class='docblock'><p>Runs a UCI protocol server.</p>
+
+<p>&quot;Universal Chess Interface&quot; (UCI) is an open protocol for chess
+engines to communicate with other programs including Graphical
+User Interfaces (GUI). The protocol is independent of the
+operating system. For &quot;Windows&quot;, the engine is a normal &quot;exe&quot;
+file, either a console or &quot;real&quot; windows application. All
+communication is done via standard input and output with text
+commands.</p>
+
+<h1 id='parameters' class='section-header'><a href='#parameters'>Parameters:</a></h1>
+<ul>
+<li><p><code>name</code> gives the name of the engine.</p></li>
+<li><p><code>author</code> gives the name of the author.</p></li>
+<li><p><code>options</code> is a vector of (name, value) pairs that override the
+default configuration options.</p>
+
+<h1 id='type-parameters' class='section-header'><a href='#type-parameters'>Type parameters:</a></h1></li>
+<li><p><code>S</code> implements game tree searching with iterative deepening. If
+principal variations are included in the progress reports from
+the search, they will be forwarded to the GUI, and eventually
+used to determine the best move.</p>
+
+<p><strong>Note:</strong> Normally, principal variations (PV) should be sent
+only when a new search depth is reached, and possibly when a new
+best move is found. Therefore, the majority of the progress
+reports will carry an empty <code>Vec&lt;Variation&gt;</code> instance. In
+multi-PV mode the first slot of the vector is for the best
+variation, the second slot is for the second-best variation, and
+so forth.</p></li>
+<li><p><code>T</code> is responsible for managing engine&#39;s thinking time.</p></li>
+</ul>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Ttable` trait in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Ttable">
+
+    <title>alcibiades::Ttable - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc trait">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>alcibiades</a></p><script>window.sidebarCurrent = {name: 'Ttable', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>alcibiades</a>::<wbr><a class="trait" href=''>Ttable</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/alcibiades/ttable.rs.html#50-152' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait Ttable: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static {
+    type <a href='#associatedtype.Entry' class="type">Entry</a>: <a class="trait" href="../alcibiades/trait.TtableEntry.html" title="trait alcibiades::TtableEntry">TtableEntry</a>;
+    fn <a href='#tymethod.new' class='fnname'>new</a>(size_mb: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>&gt;) -&gt; Self;
+    fn <a href='#tymethod.new_search' class='fnname'>new_search</a>(&amp;self);
+    fn <a href='#tymethod.store' class='fnname'>store</a>(&amp;self, key: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>, data: Self::<a class="trait" href="../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Entry</a>);
+    fn <a href='#tymethod.probe' class='fnname'>probe</a>(&amp;self, key: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="trait" href="../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Entry</a>&gt;;
+    fn <a href='#tymethod.clear' class='fnname'>clear</a>(&amp;self);
+
+    fn <a href='#method.extract_pv' class='fnname'>extract_pv</a>&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.SearchNode.html" title="trait alcibiades::SearchNode">SearchNode</a>&gt;(&amp;self, position: &amp;T) -&gt; <a class="struct" href="../alcibiades/struct.Variation.html" title="struct alcibiades::Variation">Variation</a> { ... }
+}</pre><div class='docblock'><p>A trait for transposition tables.</p>
+
+<p>Chess programs, during their brute-force search, encounter the
+same positions again and again, but from different sequences of
+moves, which is called a &quot;transposition&quot;. When the search
+encounters a transposition, it is beneficial to &quot;remember&quot; what
+was determined last time the position was examined, rather than
+redoing the entire search again. For this reason, chess programs
+have a transposition table, which is a large hash table storing
+information about positions previously searched, how deeply they
+were searched, and what we concluded about them. To implement your
+own transposition table, you must define a type that implements
+the <code>Ttable</code> trait.</p>
+</div>
+            <h2 id='associated-types'>Associated Types</h2>
+            <div class='methods'>
+        <h3 id='associatedtype.Entry' class='method'><span id='Entry.t' class='invisible'><code>type <a href='#associatedtype.Entry' class="type">Entry</a>: <a class="trait" href="../alcibiades/trait.TtableEntry.html" title="trait alcibiades::TtableEntry">TtableEntry</a></code></span></h3></div>
+            <h2 id='required-methods'>Required Methods</h2>
+            <div class='methods'>
+        <h3 id='tymethod.new' class='method'><span id='new.v' class='invisible'><code>fn <a href='#tymethod.new' class='fnname'>new</a>(size_mb: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>&gt;) -&gt; Self</code></span></h3><div class='docblock'><p>Creates a new transposition table.</p>
+
+<p><code>size_mb</code> is the desired size in Mbytes.</p>
+</div><h3 id='tymethod.new_search' class='method'><span id='new_search.v' class='invisible'><code>fn <a href='#tymethod.new_search' class='fnname'>new_search</a>(&amp;self)</code></span></h3><div class='docblock'><p>Signals that a new search is about to begin.</p>
+</div><h3 id='tymethod.store' class='method'><span id='store.v' class='invisible'><code>fn <a href='#tymethod.store' class='fnname'>store</a>(&amp;self, key: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>, data: Self::<a class="trait" href="../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Entry</a>)</code></span></h3><div class='docblock'><p>Stores data by key.</p>
+
+<p>After being stored, the data can be retrieved by <code>probe</code>. This
+is not guaranteed though, because the entry might have been
+overwritten in the meantime.</p>
+</div><h3 id='tymethod.probe' class='method'><span id='probe.v' class='invisible'><code>fn <a href='#tymethod.probe' class='fnname'>probe</a>(&amp;self, key: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="trait" href="../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Entry</a>&gt;</code></span></h3><div class='docblock'><p>Probes for data by key.</p>
+</div><h3 id='tymethod.clear' class='method'><span id='clear.v' class='invisible'><code>fn <a href='#tymethod.clear' class='fnname'>clear</a>(&amp;self)</code></span></h3><div class='docblock'><p>Removes all entries in the table.</p>
+</div></div>
+            <h2 id='provided-methods'>Provided Methods</h2>
+            <div class='methods'>
+        <h3 id='method.extract_pv' class='method'><span id='extract_pv.v' class='invisible'><code>fn <a href='#method.extract_pv' class='fnname'>extract_pv</a>&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.SearchNode.html" title="trait alcibiades::SearchNode">SearchNode</a>&gt;(&amp;self, position: &amp;T) -&gt; <a class="struct" href="../alcibiades/struct.Variation.html" title="struct alcibiades::Variation">Variation</a></code></span></h3><div class='docblock'><p>Extracts the principal variation for a given position.</p>
+
+<p>The principal variation (PV) is the sequence of moves that the
+engine considers best and therefore expects to be played.</p>
+</div></div>
+        <h2 id='implementors'>Implementors</h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.TtableEntry.html" title="trait alcibiades::TtableEntry">TtableEntry</a>&gt; Ttable for <a class="struct" href="../alcibiades/stock/struct.StdTtable.html" title="struct alcibiades::stock::StdTtable">StdTtable</a>&lt;T&gt;</code></li>
+<li><code>impl Ttable for <a class="struct" href="../alcibiades/stock/struct.DummyTtable.html" title="struct alcibiades::stock::DummyTtable">DummyTtable</a></code></li>
+</ul><script type="text/javascript" async
+                         src="../implementors/alcibiades/trait.Ttable.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

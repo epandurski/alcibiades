@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `stock` mod in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, stock">
+
+    <title>alcibiades::stock - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>alcibiades</a></p><script>window.sidebarCurrent = {name: 'stock', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>alcibiades</a>::<wbr><a class="mod" href=''>stock</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/alcibiades/stock/mod.rs.html#1-23' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>Implementations of various traits.</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Deepening.html"
+                                  title='struct alcibiades::stock::Deepening'>Deepening</a></td>
+                           <td class='docblock-short'>
+                                <p>Executes searches with iterative deepening, aspiration windows,
+multi-PV, and &quot;searchmoves&quot;.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.DummyTtable.html"
+                                  title='struct alcibiades::stock::DummyTtable'>DummyTtable</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements a transposition table that never stores anything.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.SimpleEvaluator.html"
+                                  title='struct alcibiades::stock::SimpleEvaluator'>SimpleEvaluator</a></td>
+                           <td class='docblock-short'>
+                                <p>A simple evaluator that adds a random number to the available
+material.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.SimpleSearch.html"
+                                  title='struct alcibiades::stock::SimpleSearch'>SimpleSearch</a></td>
+                           <td class='docblock-short'>
+                                <p>Executes depth-first alpha-beta searches with null move pruning
+and late move reductions.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.StdMoveGenerator.html"
+                                  title='struct alcibiades::stock::StdMoveGenerator'>StdMoveGenerator</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements the <code>MoveGenerator</code> trait.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.StdQsearch.html"
+                                  title='struct alcibiades::stock::StdQsearch'>StdQsearch</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements the <code>Qsearch</code> trait.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.StdQsearchResult.html"
+                                  title='struct alcibiades::stock::StdQsearchResult'>StdQsearchResult</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements the <code>QsearchResult</code> trait.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.StdSearchNode.html"
+                                  title='struct alcibiades::stock::StdSearchNode'>StdSearchNode</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements the <code>SearchNode</code> trait.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.StdTimeManager.html"
+                                  title='struct alcibiades::stock::StdTimeManager'>StdTimeManager</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements the <code>TimeManager</code> trait.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.StdTtable.html"
+                                  title='struct alcibiades::stock::StdTtable'>StdTtable</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements the <code>Ttable</code> trait.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.StdTtableEntry.html"
+                                  title='struct alcibiades::stock::StdTtableEntry'>StdTtableEntry</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements the <code>TtableEntry</code> trait.</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

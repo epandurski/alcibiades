@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `BoardGeometry` struct in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, BoardGeometry">
+
+    <title>alcibiades::utils::BoardGeometry - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>utils</a></p><script>window.sidebarCurrent = {name: 'BoardGeometry', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>utils</a>::<wbr><a class="struct" href=''>BoardGeometry</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/alcibiades/utils/board_geometry.rs.html#10-92' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct BoardGeometry {
+    pub squares_at_line: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a>,
+    pub squares_between_including: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a>,
+    pub squares_behind_blocker: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a>,
+    pub pawn_attacks: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 2]</a>,
+}</pre><div class='docblock'><p>Tables and methods useful for move generation and position
+evaluation.</p>
+</div><h2 class='fields'>Fields</h2><span id='structfield.squares_at_line' class="structfield">
+                           <span id='squares_at_line.v' class='invisible'>
+                           <code>squares_at_line: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a></code>
+                           </span></span><div class='docblock'><p>Contains bitboards with all squares lying at the line
+determined by two squares.</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples:</a></h1>
+<pre><code class="language-text">g.squares_at_line[B2][F6]
+. . . . . . . 1
+. . . . . . 1 .
+. . . . . 1 . .
+. . . . 1 . . .
+. . . 1 . . . .
+. . 1 . . . . .
+. 1 . . . . . .
+1 . . . . . . .
+</code></pre>
+</div><span id='structfield.squares_between_including' class="structfield">
+                           <span id='squares_between_including.v' class='invisible'>
+                           <code>squares_between_including: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a></code>
+                           </span></span><div class='docblock'><p>Contains bitboards with all squares lying between two squares
+including the two squares themselves.</p>
+
+<h1 id='examples-1' class='section-header'><a href='#examples-1'>Examples:</a></h1>
+<pre><code class="language-text">g.squares_between_including[B2][F6]
+. . . . . . . .
+. . . . . . . .
+. . . . . 1 . .
+. . . . 1 . . .
+. . . 1 . . . .
+. . 1 . . . . .
+. 1 . . . . . .
+. . . . . . . .
+</code></pre>
+</div><span id='structfield.squares_behind_blocker' class="structfield">
+                           <span id='squares_behind_blocker.v' class='invisible'>
+                           <code>squares_behind_blocker: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a></code>
+                           </span></span><div class='docblock'><p>Contains bitboards with all squares hidden behind a blocker
+from attacker&#39;s position.</p>
+
+<h1 id='examples-2' class='section-header'><a href='#examples-2'>Examples:</a></h1>
+<pre><code class="language-text">g.squares_behind_blocker[B2][F6]
+. . . . . . . 1
+. . . . . . 1 .
+. . . . . B . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. A . . . . . .
+. . . . . . . .
+</code></pre>
+</div><span id='structfield.pawn_attacks' class="structfield">
+                           <span id='pawn_attacks.v' class='invisible'>
+                           <code>pawn_attacks: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">[</a><a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 64]</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">; 2]</a></code>
+                           </span></span><div class='docblock'><p>Contains bitboards with the squares attacked by a pawn from a
+given square.</p>
+
+<h1 id='examples-3' class='section-header'><a href='#examples-3'>Examples:</a></h1>
+<pre><code class="language-text">g.pawn_attacks[WHITE][F6]
+. . . . . . . .
+. . . . 1 . 1 .
+. . . . . P . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+
+g.pawn_attacks[BLACK][H8]
+. . . . . . . p
+. . . . . . 1 .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+</code></pre>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class="struct" href="../../alcibiades/utils/struct.BoardGeometry.html" title="struct alcibiades::utils::BoardGeometry">BoardGeometry</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../../src/alcibiades/utils/board_geometry.rs.html#95-292' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.get' class="method"><span id='get.v' class='invisible'><code>fn <a href='#method.get' class='fnname'>get</a>() -&gt; &amp;'static <a class="struct" href="../../alcibiades/utils/struct.BoardGeometry.html" title="struct alcibiades::utils::BoardGeometry">BoardGeometry</a></code></span></h4>
+<div class='docblock'><p>Returns a reference to an initialized <code>BoardGeometry</code> object.</p>
+
+<p>The object is created only during the first call. All next
+calls will return a reference to the same object. This is done
+in a thread-safe manner.</p>
+</div><h4 id='method.attacks_from' class="method"><span id='attacks_from.v' class='invisible'><code>fn <a href='#method.attacks_from' class='fnname'>attacks_from</a>(&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; piece: <a class="type" href="../../alcibiades/type.PieceType.html" title="type alcibiades::PieceType">PieceType</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; from_square: <a class="type" href="../../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; occupied: <a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a>)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a></code></span></h4>
+<div class='docblock'><p>Returns the set of squares that are attacked by a piece from a
+given square.</p>
+
+<p>This function returns the set of squares that are attacked by
+a piece of type <code>piece</code> from the square <code>from_square</code>, on a
+board which is occupied with pieces according to the
+<code>occupied</code> bitboard. <code>piece</code> <strong>must not</strong> be <code>PAWN</code>. It does
+not matter if <code>from_square</code> is occupied or not.</p>
+</div><h4 id='method.attacks_from_unsafe' class="method"><span id='attacks_from_unsafe.v' class='invisible'><code>unsafe fn <a href='#method.attacks_from_unsafe' class='fnname'>attacks_from_unsafe</a>(&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; piece: <a class="type" href="../../alcibiades/type.PieceType.html" title="type alcibiades::PieceType">PieceType</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; from_square: <a class="type" href="../../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; occupied: <a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a>)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="type" href="../../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a></code></span></h4>
+<div class='docblock'><p>Returns the set of squares that are attacked by a piece from a
+given square.</p>
+
+<p>This is unsafe version of <code>attacks_from</code>. This version is
+slightly faster because it does not verify that <code>from_square &lt;= 63</code>. It is caller&#39;s responsibility to ensure that.</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

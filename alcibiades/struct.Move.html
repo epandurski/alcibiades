@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Move` struct in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Move">
+
+    <title>alcibiades::Move - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc struct">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>alcibiades</a></p><script>window.sidebarCurrent = {name: 'Move', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>alcibiades</a>::<wbr><a class="struct" href=''>Move</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/alcibiades/moves.rs.html#172' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Move(_);</pre><div class='docblock'><p>Represents a move on the chessboard.</p>
+
+<p><code>Move</code> is a <code>u64</code> number. It contains 3 types of information:</p>
+
+<ol>
+<li><p>Information about the played move itself.</p></li>
+<li><p>Information needed so as to be able to undo the move and
+restore the board into the exact same state as before.</p></li>
+<li><p>Move ordering info -- moves with higher move score are tried
+first.</p></li>
+</ol>
+
+<p>Bits 0-15 contain the whole information about the move
+itself. This is called <strong>&quot;move digest&quot;</strong> and is laid out the
+following way:</p>
+
+<pre><code class="language-text">  15                                                           0
+ +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+ |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+ | Move  |    Origin square      |   Destination square  | Aux   |
+ | type  |       6 bits          |        6 bits         | data  |
+ | 2 bits|   |   |   |   |   |   |   |   |   |   |   |   | 2 bits|
+ |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+ +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+</code></pre>
+
+<p>There are 4 &quot;move type&quot;s: <code>0</code>) en-passant capture; <code>1</code>) pawn
+promotion; <code>2</code>) castling; <code>3</code>) normal move. &quot;Aux data&quot; encodes the
+type of the promoted piece if the move type is pawn promotion,
+otherwise it is zero.</p>
+
+<p>Bits 16-31 contain the information needed to undo the move:</p>
+
+<pre><code class="language-text">  31                                                          16
+ +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+ |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+ |   |   |  Captured |  Played   |   Castling    |   En-passant  |
+ | 0 | 0 |  piece    |  piece    |    rights     |      file     |
+ |   |   |  3 bits   |  3 bits   |    4 bits     |     4 bits    |
+ |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+ +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+</code></pre>
+
+<p>If the <em>previous move</em> was a double pawn push, &quot;en-passant file&quot;
+contains pushed pawn&#39;s file (a value between 0 and 7). Otherwise
+it contains <code>8</code>. &quot;Castling rights&quot; holds the castling rights
+before the move was played. When &quot;Captured piece&quot; is stored, its
+bits are inverted, so that MVV-LVA (Most valuable victim -- least
+valuable aggressor) move ordering is followed for moves that have
+the same &quot;score&quot;.</p>
+
+<p>Bits 32-63 contain the &quot;score&quot; field, which is used to influence
+move ordering.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#174-350' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.new' class="method"><span id='new.v' class='invisible'><code>fn <a href='#method.new' class='fnname'>new</a>(move_type: <a class="type" href="../alcibiades/type.MoveType.html" title="type alcibiades::MoveType">MoveType</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; orig_square: <a class="type" href="../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dest_square: <a class="type" href="../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; aux_data: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; captured_piece: <a class="type" href="../alcibiades/type.PieceType.html" title="type alcibiades::PieceType">PieceType</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; played_piece: <a class="type" href="../alcibiades/type.PieceType.html" title="type alcibiades::PieceType">PieceType</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; castling_rights: <a class="struct" href="../alcibiades/struct.CastlingRights.html" title="struct alcibiades::CastlingRights">CastlingRights</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; enpassant_file: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; score: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a>)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span></h4>
+<div class='docblock'><p>Creates a new instance.</p>
+</div><h4 id='method.invalid' class="method"><span id='invalid.v' class='invisible'><code>fn <a href='#method.invalid' class='fnname'>invalid</a>() -&gt; <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span></h4>
+<div class='docblock'><p>Creates an invalid move instance.</p>
+
+<p>The returned instance tries to mimic a legal move, but its
+move digest equals <code>MoveDigest::invalid()</code>. This is sometimes
+useful in places where any move is required but no is
+available.</p>
+</div><h4 id='method.piece_from_aux_data' class="method"><span id='piece_from_aux_data.v' class='invisible'><code>fn <a href='#method.piece_from_aux_data' class='fnname'>piece_from_aux_data</a>(pp_code: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>) -&gt; <a class="type" href="../alcibiades/type.PieceType.html" title="type alcibiades::PieceType">PieceType</a></code></span></h4>
+<div class='docblock'><p>Decodes the promoted piece type from the raw value returned by
+<code>aux_data</code>.</p>
+
+<p>The interpretation of the raw value is: <code>0</code> -- queen, <code>1</code> --
+rook, <code>2</code> -- bishop, <code>3</code> -- knight.</p>
+</div><h4 id='method.set_score' class="method"><span id='set_score.v' class='invisible'><code>fn <a href='#method.set_score' class='fnname'>set_score</a>(&amp;mut self, score: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a>)</code></span></h4>
+<div class='docblock'><p>Assigns a new score for the move.</p>
+</div><h4 id='method.score' class="method"><span id='score.v' class='invisible'><code>fn <a href='#method.score' class='fnname'>score</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a></code></span></h4>
+<div class='docblock'><p>Returns the assigned move score.</p>
+</div><h4 id='method.move_type' class="method"><span id='move_type.v' class='invisible'><code>fn <a href='#method.move_type' class='fnname'>move_type</a>(&amp;self) -&gt; <a class="type" href="../alcibiades/type.MoveType.html" title="type alcibiades::MoveType">MoveType</a></code></span></h4>
+<div class='docblock'><p>Returns the move type.</p>
+</div><h4 id='method.played_piece' class="method"><span id='played_piece.v' class='invisible'><code>fn <a href='#method.played_piece' class='fnname'>played_piece</a>(&amp;self) -&gt; <a class="type" href="../alcibiades/type.PieceType.html" title="type alcibiades::PieceType">PieceType</a></code></span></h4>
+<div class='docblock'><p>Returns the played piece type.</p>
+
+<p>Castling is considered as king&#39;s move.</p>
+</div><h4 id='method.orig_square' class="method"><span id='orig_square.v' class='invisible'><code>fn <a href='#method.orig_square' class='fnname'>orig_square</a>(&amp;self) -&gt; <a class="type" href="../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a></code></span></h4>
+<div class='docblock'><p>Returns the origin square of the played piece.</p>
+</div><h4 id='method.dest_square' class="method"><span id='dest_square.v' class='invisible'><code>fn <a href='#method.dest_square' class='fnname'>dest_square</a>(&amp;self) -&gt; <a class="type" href="../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a></code></span></h4>
+<div class='docblock'><p>Returns the destination square for the played piece.</p>
+</div><h4 id='method.captured_piece' class="method"><span id='captured_piece.v' class='invisible'><code>fn <a href='#method.captured_piece' class='fnname'>captured_piece</a>(&amp;self) -&gt; <a class="type" href="../alcibiades/type.PieceType.html" title="type alcibiades::PieceType">PieceType</a></code></span></h4>
+<div class='docblock'><p>Returns the captured piece type.</p>
+</div><h4 id='method.enpassant_file' class="method"><span id='enpassant_file.v' class='invisible'><code>fn <a href='#method.enpassant_file' class='fnname'>enpassant_file</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code></span></h4>
+<div class='docblock'><p>If the <em>previous move</em> was a double pawn push, returns pushed
+pawn&#39;s file (a value between 0 and 7). Otherwise returns <code>8</code>.</p>
+</div><h4 id='method.castling_rights' class="method"><span id='castling_rights.v' class='invisible'><code>fn <a href='#method.castling_rights' class='fnname'>castling_rights</a>(&amp;self) -&gt; <a class="struct" href="../alcibiades/struct.CastlingRights.html" title="struct alcibiades::CastlingRights">CastlingRights</a></code></span></h4>
+<div class='docblock'><p>Returns the castling rights as they were before the move was
+played.</p>
+</div><h4 id='method.aux_data' class="method"><span id='aux_data.v' class='invisible'><code>fn <a href='#method.aux_data' class='fnname'>aux_data</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a></code></span></h4>
+<div class='docblock'><p>Returns a value between 0 and 3 representing the auxiliary
+data.</p>
+
+<p>When the move type is pawn promotion, &quot;aux data&quot; encodes the
+promoted piece type. For all other move types &quot;aux data&quot; is
+zero.</p>
+</div><h4 id='method.digest' class="method"><span id='digest.v' class='invisible'><code>fn <a href='#method.digest' class='fnname'>digest</a>(&amp;self) -&gt; <a class="struct" href="../alcibiades/struct.MoveDigest.html" title="struct alcibiades::MoveDigest">MoveDigest</a></code></span></h4>
+<div class='docblock'><p>Returns the least significant 16 bits of the raw move value.</p>
+</div><h4 id='method.notation' class="method"><span id='notation.v' class='invisible'><code>fn <a href='#method.notation' class='fnname'>notation</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/collections/string/struct.String.html" title="struct collections::string::String">String</a></code></span></h4>
+<div class='docblock'><p>Returns the algebraic notation of the move.</p>
+
+<p>Examples: <code>e2e4</code>, <code>e7e5</code>, <code>e1g1</code> (white short castling),
+<code>e7e8q</code> (for promotion).</p>
+</div><h4 id='method.is_pawn_advance_or_capure' class="method"><span id='is_pawn_advance_or_capure.v' class='invisible'><code>fn <a href='#method.is_pawn_advance_or_capure' class='fnname'>is_pawn_advance_or_capure</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>Returns <code>true</code> if the move is a pawn advance or a capture,
+<code>false</code> otherwise.</p>
+</div><h4 id='method.is_null' class="method"><span id='is_null.v' class='invisible'><code>fn <a href='#method.is_null' class='fnname'>is_null</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>Returns if the move is a null move.</p>
+
+<p>&quot;Null move&quot; is a pseudo-move that changes nothing on the board
+except the side to move. It is sometimes useful to include a
+speculative null move in the search tree to achieve more
+aggressive pruning. Null moves are represented as king&#39;s moves
+for which the origin and destination squares are the same.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#169' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class="method"><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#170' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.clone' class="method"><span id='clone.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span></h4>
+<div class='docblock'><p>Returns a copy of the value. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone">Read more</a></p>
+</div><h4 id='method.clone_from' class="method"><span id='clone_from.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></span></h4>
+<div class='docblock'><p>Performs copy-assignment from <code>source</code>. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#170' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#171' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.partial_cmp' class="method"><span id='partial_cmp.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#tymethod.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html" title="enum core::cmp::Ordering">Ordering</a>&gt;</code></span></h4>
+<div class='docblock'><p>This method returns an ordering between <code>self</code> and <code>other</code> values if one exists. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#tymethod.partial_cmp">Read more</a></p>
+</div><h4 id='method.lt' class="method"><span id='lt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>This method tests less than (for <code>self</code> and <code>other</code>) and is used by the <code>&lt;</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt">Read more</a></p>
+</div><h4 id='method.le' class="method"><span id='le.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>This method tests less than or equal to (for <code>self</code> and <code>other</code>) and is used by the <code>&lt;=</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le">Read more</a></p>
+</div><h4 id='method.gt' class="method"><span id='gt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>This method tests greater than (for <code>self</code> and <code>other</code>) and is used by the <code>&gt;</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt">Read more</a></p>
+</div><h4 id='method.ge' class="method"><span id='ge.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>This method tests greater than or equal to (for <code>self</code> and <code>other</code>) and is used by the <code>&gt;=</code> operator. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#171' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.cmp' class="method"><span id='cmp.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#tymethod.cmp' class='fnname'>cmp</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html" title="enum core::cmp::Ordering">Ordering</a></code></span></h4>
+<div class='docblock'><p>This method returns an <code>Ordering</code> between <code>self</code> and <code>other</code>. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#tymethod.cmp">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#171' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.eq' class="method"><span id='eq.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>This method tests for <code>self</code> and <code>other</code> values to be equal, and is used by <code>==</code>. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq">Read more</a></p>
+</div><h4 id='method.ne' class="method"><span id='ne.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>This method tests for <code>!=</code>.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#171' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html" title="trait core::fmt::Display">Display</a> for <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/alcibiades/moves.rs.html#352-356' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt-1' class="method"><span id='fmt.v-1' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter. <a href="https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#tymethod.fmt">Read more</a></p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

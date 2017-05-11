@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `DeepeningSearch` trait in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, DeepeningSearch">
+
+    <title>alcibiades::DeepeningSearch - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc trait">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>alcibiades</a></p><script>window.sidebarCurrent = {name: 'DeepeningSearch', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>alcibiades</a>::<wbr><a class="trait" href=''>DeepeningSearch</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/alcibiades/search.rs.html#141-198' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait DeepeningSearch: <a class="trait" href="../alcibiades/trait.SetOption.html" title="trait alcibiades::SetOption">SetOption</a> {
+    type <a href='#associatedtype.Ttable' class="type">Ttable</a>: <a class="trait" href="../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Ttable</a>;
+    type <a href='#associatedtype.SearchNode' class="type">SearchNode</a>: <a class="trait" href="../alcibiades/trait.SearchNode.html" title="trait alcibiades::SearchNode">SearchNode</a>;
+    type <a href='#associatedtype.ReportData' class="type">ReportData</a>;
+    fn <a href='#tymethod.new' class='fnname'>new</a>(tt: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;Self::<a class="trait" href="../alcibiades/trait.DeepeningSearch.html" title="trait alcibiades::DeepeningSearch">Ttable</a>&gt;) -&gt; Self;
+    fn <a href='#tymethod.start_search' class='fnname'>start_search</a>(&amp;mut self, params: <a class="struct" href="../alcibiades/struct.SearchParams.html" title="struct alcibiades::SearchParams">SearchParams</a>&lt;Self::<a class="trait" href="../alcibiades/trait.DeepeningSearch.html" title="trait alcibiades::DeepeningSearch">SearchNode</a>&gt;);
+    fn <a href='#tymethod.wait_report' class='fnname'>wait_report</a>(&amp;self, timeout_after: <a class="struct" href="https://doc.rust-lang.org/nightly/std/time/duration/struct.Duration.html" title="struct std::time::duration::Duration">Duration</a>);
+    fn <a href='#tymethod.try_recv_report' class='fnname'>try_recv_report</a>(&amp;mut self)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../alcibiades/struct.SearchReport.html" title="struct alcibiades::SearchReport">SearchReport</a>&lt;Self::<a class="trait" href="../alcibiades/trait.DeepeningSearch.html" title="trait alcibiades::DeepeningSearch">ReportData</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/std/sync/mpsc/enum.TryRecvError.html" title="enum std::sync::mpsc::TryRecvError">TryRecvError</a>&gt;;
+    fn <a href='#tymethod.send_message' class='fnname'>send_message</a>(&amp;mut self, msg: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>);
+}</pre><div class='docblock'><p>A trait for executing iterative deepening searches.</p>
+
+<p>Chess programs must rely on some type of search in order to play
+reasonably. Searching involves looking ahead at different move
+sequences and evaluating the positions after making the
+moves. Normally, this is done by traversing and min-maxing a
+tree-like data-structure by some algorithm.</p>
+
+<p>There are two types of searches that should be distinguished:</p>
+
+<ul>
+<li><p><strong>Depth-first search</strong> (the <code>Search</code> trait).</p>
+
+<p>Starts at the root position and explores as far as possible
+along each branch before backtracking.</p></li>
+<li><p><strong>Iterative deepening search</strong> (the <code>DeepeningSearch</code> trait).</p>
+
+<p>A depth-first search is executed with a depth of one ply, then
+the depth is incremented and another search is executed. This
+process is repeated until the search is terminated or the
+requested search depth is reached. In case of a terminated
+search, the engine can always fall back to the move selected in
+the last iteration of the search.</p></li>
+</ul>
+
+<p>To implement your own search algorithm, you must define a type
+that implements either <code>Search</code> or <code>DeepeningSearch</code> trait.</p>
+
+<p><strong>Note:</strong> You can use <code>stock::Deepening</code> to turn a depth-first
+search into an iterative deepening search.</p>
+</div>
+            <h2 id='associated-types'>Associated Types</h2>
+            <div class='methods'>
+        <h3 id='associatedtype.Ttable' class='method'><span id='Ttable.t' class='invisible'><code>type <a href='#associatedtype.Ttable' class="type">Ttable</a>: <a class="trait" href="../alcibiades/trait.Ttable.html" title="trait alcibiades::Ttable">Ttable</a></code></span></h3><div class='docblock'><p>The type of transposition table that the implementation works
+with.</p>
+</div><h3 id='associatedtype.SearchNode' class='method'><span id='SearchNode.t' class='invisible'><code>type <a href='#associatedtype.SearchNode' class="type">SearchNode</a>: <a class="trait" href="../alcibiades/trait.SearchNode.html" title="trait alcibiades::SearchNode">SearchNode</a></code></span></h3><div class='docblock'><p>The type of search node that the implementation works with.</p>
+</div><h3 id='associatedtype.ReportData' class='method'><span id='ReportData.t' class='invisible'><code>type <a href='#associatedtype.ReportData' class="type">ReportData</a></code></span></h3><div class='docblock'><p>The type of auxiliary data that search progress reports carry.</p>
+</div></div>
+            <h2 id='required-methods'>Required Methods</h2>
+            <div class='methods'>
+        <h3 id='tymethod.new' class='method'><span id='new.v' class='invisible'><code>fn <a href='#tymethod.new' class='fnname'>new</a>(tt: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;Self::<a class="trait" href="../alcibiades/trait.DeepeningSearch.html" title="trait alcibiades::DeepeningSearch">Ttable</a>&gt;) -&gt; Self</code></span></h3><div class='docblock'><p>Creates a new instance.</p>
+
+<p><code>tt</code> supplies a transposition table instance for the search
+algorithm to work with.</p>
+</div><h3 id='tymethod.start_search' class='method'><span id='start_search.v' class='invisible'><code>fn <a href='#tymethod.start_search' class='fnname'>start_search</a>(&amp;mut self, params: <a class="struct" href="../alcibiades/struct.SearchParams.html" title="struct alcibiades::SearchParams">SearchParams</a>&lt;Self::<a class="trait" href="../alcibiades/trait.DeepeningSearch.html" title="trait alcibiades::DeepeningSearch">SearchNode</a>&gt;)</code></span></h3><div class='docblock'><p>Starts a new search.</p>
+
+<p>This method must not block the current thread. After calling
+<code>start_search</code>, <code>wait_report</code> and <code>try_recv_report</code> will be
+called periodically until the returned report indicates that
+the search is done. A new search will not be started until the
+previous search is done.</p>
+
+<p><strong>Important note:</strong> The executing search must generate
+periodic reports, informing about its current progress. Also,
+the executing search must continuously update the
+transposition table so that, at each moment, it contains the
+results of the work done so far.</p>
+</div><h3 id='tymethod.wait_report' class='method'><span id='wait_report.v' class='invisible'><code>fn <a href='#tymethod.wait_report' class='fnname'>wait_report</a>(&amp;self, timeout_after: <a class="struct" href="https://doc.rust-lang.org/nightly/std/time/duration/struct.Duration.html" title="struct std::time::duration::Duration">Duration</a>)</code></span></h3><div class='docblock'><p>Waits until a search progress report is available, timing out
+after a specified duration or earlier.</p>
+</div><h3 id='tymethod.try_recv_report' class='method'><span id='try_recv_report.v' class='invisible'><code>fn <a href='#tymethod.try_recv_report' class='fnname'>try_recv_report</a>(&amp;mut self)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../alcibiades/struct.SearchReport.html" title="struct alcibiades::SearchReport">SearchReport</a>&lt;Self::<a class="trait" href="../alcibiades/trait.DeepeningSearch.html" title="trait alcibiades::DeepeningSearch">ReportData</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/std/sync/mpsc/enum.TryRecvError.html" title="enum std::sync::mpsc::TryRecvError">TryRecvError</a>&gt;</code></span></h3><div class='docblock'><p>Attempts to return a search progress report without blocking.</p>
+</div><h3 id='tymethod.send_message' class='method'><span id='send_message.v' class='invisible'><code>fn <a href='#tymethod.send_message' class='fnname'>send_message</a>(&amp;mut self, msg: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>)</code></span></h3><div class='docblock'><p>Sends a message to the currently executing search.</p>
+
+<p>The message format is not specified, but the implementation
+<strong>must</strong> meet the following requirements:</p>
+
+<ul>
+<li><p>Unrecognized messages are ignored.</p></li>
+<li><p>The message <code>&quot;TERMINATE&quot;</code> is recognized as a request to
+terminate the current search.</p></li>
+<li><p>Receiving two or more termination requests for the same
+search does not cause any problems.</p></li>
+</ul>
+
+<p><strong>Note:</strong> Normally, after sending one or more <code>&quot;TERMINATE&quot;</code>
+messages, <code>wait_report</code> and <code>try_recv_report</code> methods will
+continue to be called periodically until the returned report
+indicates that the search is done.</p>
+</div></div>
+        <h2 id='implementors'>Implementors</h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.Search.html" title="trait alcibiades::Search">Search</a>&gt; SearchExecutor for <a class="struct" href="../alcibiades/stock/struct.Deepening.html" title="struct alcibiades::stock::Deepening">Deepening</a>&lt;T&gt;</code></li>
+</ul><script type="text/javascript" async
+                         src="../implementors/alcibiades/trait.DeepeningSearch.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

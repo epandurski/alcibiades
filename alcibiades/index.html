@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `alcibiades` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, alcibiades">
+
+    <title>alcibiades - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'alcibiades', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>alcibiades</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/alcibiades/lib.rs.html#1-143' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>This crate provides a framework for writing chess engines.</p>
+
+<h1 id='why-chess-engines' class='section-header'><a href='#why-chess-engines'>Why chess engines?</a></h1>
+<p>Simple! Chess is the greatest thing humans have
+invented. Computers follow closely ;)</p>
+
+<h1 id='why-a-framework' class='section-header'><a href='#why-a-framework'>Why a framework?</a></h1>
+<p>There is lots of knowledge out there about how to write a chess
+engine, and there is a lot of room for innovation also. Writing a
+chess engine is fun, but even for the simplest engine there is a
+lot of complex (and boring) things that have to be implemented
+first: the UCI protocol communication, the rules, the static
+exchange evaluator, and many more. Thousands of programmers have
+been re-implementing those things over and over again.</p>
+
+<p>So, if you want to write your own chess engine, you face an
+unpleasant choice: You either roll up your sleeves and implement
+all the hard stuff from scratch, or you take someone else&#39;s chess
+engine and struggle to understand its cryptic, undocumented source
+code, hoping that it will be general enough to allow
+modification. This unfortunate situation stifles innovation.</p>
+
+<h1 id='features' class='section-header'><a href='#features'>Features</a></h1>
+<ul>
+<li><p>Modular design. Users can write their own implementations for
+every part of the chess engine.</p></li>
+<li><p>Very good default implementations -- move generation, quiescence
+search, static exchange evaluation, time management, iterative
+deepening, multi-PV, aspiration windows, generic transposition
+table.</p></li>
+<li><p>Very complete UCI support (including &quot;searchmoves&quot;).</p></li>
+</ul>
+
+<h1 id='usage' class='section-header'><a href='#usage'>Usage</a></h1>
+<p>This crate is <a href="https://crates.io/crates/alcibiades">on crates.io</a>
+and can be used by adding <code>alcibiades</code> to your dependencies in
+your project&#39;s <code>Cargo.toml</code>.</p>
+
+<pre><code class="language-toml">[dependencies]
+alcibiades = &quot;0.3.0&quot;
+</code></pre>
+
+<p>and this to your crate root:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">alcibiades</span>;</pre>
+
+<p>Here is how simple it is to create a chess engine using this crate:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">alcibiades</span>;
+<span class="kw">use</span> <span class="ident">alcibiades</span>::<span class="ident">stock</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">alcibiades</span>::<span class="ident">engine</span>::<span class="ident">run_uci</span>;
+
+<span class="kw">fn</span> <span class="ident">main</span>() {
+    <span class="kw">type</span> <span class="ident">Ttable</span> <span class="op">=</span> <span class="ident">StdTtable</span><span class="op">&lt;</span><span class="ident">StdTtableEntry</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">SearchNode</span> <span class="op">=</span> <span class="ident">StdSearchNode</span><span class="op">&lt;</span><span class="ident">StdQsearch</span><span class="op">&lt;</span><span class="ident">StdMoveGenerator</span><span class="op">&lt;</span><span class="ident">SimpleEvaluator</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">type</span> <span class="ident">SearchExecutor</span> <span class="op">=</span> <span class="ident">Deepening</span><span class="op">&lt;</span><span class="ident">SimpleSearch</span><span class="op">&lt;</span><span class="ident">Ttable</span>, <span class="ident">SearchNode</span><span class="op">&gt;&gt;</span>;
+    <span class="ident">run_uci</span>::<span class="op">&lt;</span><span class="ident">SearchExecutor</span>, <span class="ident">StdTimeManager</span><span class="op">&gt;</span>(<span class="string">&quot;My engine&quot;</span>, <span class="string">&quot;John Doe&quot;</span>, <span class="macro">vec</span><span class="macro">!</span>[]);
+}</pre>
+
+<p>This engine is assembled from the &quot;in stock&quot; implementations of
+the different framework traits.</p>
+
+<p>In reality, you will probably want to write your own
+implementations for some of the framework traits. Thanks to Rust&#39;s
+incredible generic programming capabilities, you are not limited
+to implementing only the methods required by the traits. For
+example you may write your own static position evaluator which has
+a <code>consult_endgame_table</code> method. Then you will be able to write a
+search algorithm that uses this method.</p>
+
+<h1 id='speed-and-safety' class='section-header'><a href='#speed-and-safety'>Speed and safety</a></h1>
+<p>This crate tries to be fast <em>and</em> memory-safe.</p>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="bitsets/index.html"
+                                  title='mod alcibiades::bitsets'>bitsets</a></td>
+                           <td class='docblock-short'>
+                                <p>Defines constants and functions for working with bitboards.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="engine/index.html"
+                                  title='mod alcibiades::engine'>engine</a></td>
+                           <td class='docblock-short'>
+                                <p>Implements a generic chess engine.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="files/index.html"
+                                  title='mod alcibiades::files'>files</a></td>
+                           <td class='docblock-short'>
+                                <p>Defines a constant for each file on the board.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="ranks/index.html"
+                                  title='mod alcibiades::ranks'>ranks</a></td>
+                           <td class='docblock-short'>
+                                <p>Defines a constant for each rank on the board.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="squares/index.html"
+                                  title='mod alcibiades::squares'>squares</a></td>
+                           <td class='docblock-short'>
+                                <p>Defines a constant for each square on the board.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="stock/index.html"
+                                  title='mod alcibiades::stock'>stock</a></td>
+                           <td class='docblock-short'>
+                                <p>Implementations of various traits.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="utils/index.html"
+                                  title='mod alcibiades::utils'>utils</a></td>
+                           <td class='docblock-short'>
+                                <p>Defines generally useful functions and types.</p>
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Board.html"
+                                  title='struct alcibiades::Board'>Board</a></td>
+                           <td class='docblock-short'>
+                                <p>Holds a chess position.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CastlingRights.html"
+                                  title='struct alcibiades::CastlingRights'>CastlingRights</a></td>
+                           <td class='docblock-short'>
+                                <p>Holds information about which player can castle on which side.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.IllegalBoard.html"
+                                  title='struct alcibiades::IllegalBoard'>IllegalBoard</a></td>
+                           <td class='docblock-short'>
+                                <p>Represents an illegal position error.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Move.html"
+                                  title='struct alcibiades::Move'>Move</a></td>
+                           <td class='docblock-short'>
+                                <p>Represents a move on the chessboard.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.MoveDigest.html"
+                                  title='struct alcibiades::MoveDigest'>MoveDigest</a></td>
+                           <td class='docblock-short'>
+                                <p>Encodes the minimum needed information that unambiguously
+describes a move.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.PiecesPlacement.html"
+                                  title='struct alcibiades::PiecesPlacement'>PiecesPlacement</a></td>
+                           <td class='docblock-short'>
+                                <p>Describes how the pieces are placed on the board.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.QsearchParams.html"
+                                  title='struct alcibiades::QsearchParams'>QsearchParams</a></td>
+                           <td class='docblock-short'>
+                                <p>Parameters describing a quiescence search.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.RemainingTime.html"
+                                  title='struct alcibiades::RemainingTime'>RemainingTime</a></td>
+                           <td class='docblock-short'>
+                                <p>Describes the remaining time on the clocks.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.SearchParams.html"
+                                  title='struct alcibiades::SearchParams'>SearchParams</a></td>
+                           <td class='docblock-short'>
+                                <p>Parameters describing a search.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.SearchReport.html"
+                                  title='struct alcibiades::SearchReport'>SearchReport</a></td>
+                           <td class='docblock-short'>
+                                <p>A progress report from a search.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Variation.html"
+                                  title='struct alcibiades::Variation'>Variation</a></td>
+                           <td class='docblock-short'>
+                                <p>A sequence of moves from some starting position, together with the
+value assigned to the final position.</p>
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.OptionDescription.html"
+                                  title='enum alcibiades::OptionDescription'>OptionDescription</a></td>
+                           <td class='docblock-short'>
+                                <p>Describes a configuration option.</p>
+                           </td>
+                       </tr></table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BISHOP.html"
+                                  title='constant alcibiades::BISHOP'>BISHOP</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BLACK.html"
+                                  title='constant alcibiades::BLACK'>BLACK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BOUND_EXACT.html"
+                                  title='constant alcibiades::BOUND_EXACT'>BOUND_EXACT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BOUND_LOWER.html"
+                                  title='constant alcibiades::BOUND_LOWER'>BOUND_LOWER</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BOUND_NONE.html"
+                                  title='constant alcibiades::BOUND_NONE'>BOUND_NONE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.BOUND_UPPER.html"
+                                  title='constant alcibiades::BOUND_UPPER'>BOUND_UPPER</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.DEPTH_MAX.html"
+                                  title='constant alcibiades::DEPTH_MAX'>DEPTH_MAX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.DEPTH_MIN.html"
+                                  title='constant alcibiades::DEPTH_MIN'>DEPTH_MIN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KING.html"
+                                  title='constant alcibiades::KING'>KING</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KINGSIDE.html"
+                                  title='constant alcibiades::KINGSIDE'>KINGSIDE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KNIGHT.html"
+                                  title='constant alcibiades::KNIGHT'>KNIGHT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.MOVE_CASTLING.html"
+                                  title='constant alcibiades::MOVE_CASTLING'>MOVE_CASTLING</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.MOVE_ENPASSANT.html"
+                                  title='constant alcibiades::MOVE_ENPASSANT'>MOVE_ENPASSANT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.MOVE_NORMAL.html"
+                                  title='constant alcibiades::MOVE_NORMAL'>MOVE_NORMAL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.MOVE_PROMOTION.html"
+                                  title='constant alcibiades::MOVE_PROMOTION'>MOVE_PROMOTION</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.PAWN.html"
+                                  title='constant alcibiades::PAWN'>PAWN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.PIECE_NONE.html"
+                                  title='constant alcibiades::PIECE_NONE'>PIECE_NONE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.QUEEN.html"
+                                  title='constant alcibiades::QUEEN'>QUEEN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.QUEENSIDE.html"
+                                  title='constant alcibiades::QUEENSIDE'>QUEENSIDE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.ROOK.html"
+                                  title='constant alcibiades::ROOK'>ROOK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.VALUE_EVAL_MAX.html"
+                                  title='constant alcibiades::VALUE_EVAL_MAX'>VALUE_EVAL_MAX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.VALUE_EVAL_MIN.html"
+                                  title='constant alcibiades::VALUE_EVAL_MIN'>VALUE_EVAL_MIN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.VALUE_MAX.html"
+                                  title='constant alcibiades::VALUE_MAX'>VALUE_MAX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.VALUE_MIN.html"
+                                  title='constant alcibiades::VALUE_MIN'>VALUE_MIN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.VALUE_UNKNOWN.html"
+                                  title='constant alcibiades::VALUE_UNKNOWN'>VALUE_UNKNOWN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.WHITE.html"
+                                  title='constant alcibiades::WHITE'>WHITE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.AddMove.html"
+                                  title='trait alcibiades::AddMove'>AddMove</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for adding moves to move containers.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.DeepeningSearch.html"
+                                  title='trait alcibiades::DeepeningSearch'>DeepeningSearch</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for executing iterative deepening searches.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Evaluator.html"
+                                  title='trait alcibiades::Evaluator'>Evaluator</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait used to statically evaluate positions.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.MoveGenerator.html"
+                                  title='trait alcibiades::MoveGenerator'>MoveGenerator</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for move generators.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Qsearch.html"
+                                  title='trait alcibiades::Qsearch'>Qsearch</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for performing quiescence searches.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.QsearchResult.html"
+                                  title='trait alcibiades::QsearchResult'>QsearchResult</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for quiescence searches&#39; results.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Search.html"
+                                  title='trait alcibiades::Search'>Search</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait used to execute depth-first searches.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.SearchNode.html"
+                                  title='trait alcibiades::SearchNode'>SearchNode</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for chess positions -- a convenient interface for the
+tree-searching algorithm.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.SetOption.html"
+                                  title='trait alcibiades::SetOption'>SetOption</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for announcing and changing configuration options.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.TimeManager.html"
+                                  title='trait alcibiades::TimeManager'>TimeManager</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for deciding when the search must be terminated and the
+best move played.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.Ttable.html"
+                                  title='trait alcibiades::Ttable'>Ttable</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for transposition tables.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.TtableEntry.html"
+                                  title='trait alcibiades::TtableEntry'>TtableEntry</a></td>
+                           <td class='docblock-short'>
+                                <p>A trait for transposition table entries.</p>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.get_option.html"
+                                  title='fn alcibiades::get_option'>get_option</a></td>
+                           <td class='docblock-short'>
+                                <p>Returns the current value for a given configuration option.</p>
+                           </td>
+                       </tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Bitboard.html"
+                                  title='type alcibiades::Bitboard'>Bitboard</a></td>
+                           <td class='docblock-short'>
+                                <p>A set of squares on the chessboard.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.BoundType.html"
+                                  title='type alcibiades::BoundType'>BoundType</a></td>
+                           <td class='docblock-short'>
+                                <p><code>BOUND_EXACT</code>, <code>BOUND_LOWER</code>, <code>BOUND_UPPER</code>, or <code>BOUND_NONE</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.CastlingSide.html"
+                                  title='type alcibiades::CastlingSide'>CastlingSide</a></td>
+                           <td class='docblock-short'>
+                                <p><code>QUEENSIDE</code> or <code>KINGSIDE</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Color.html"
+                                  title='type alcibiades::Color'>Color</a></td>
+                           <td class='docblock-short'>
+                                <p><code>WHITE</code> or <code>BLACK</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Depth.html"
+                                  title='type alcibiades::Depth'>Depth</a></td>
+                           <td class='docblock-short'>
+                                <p>Search depth in half-moves.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.MoveType.html"
+                                  title='type alcibiades::MoveType'>MoveType</a></td>
+                           <td class='docblock-short'>
+                                <p><code>MOVE_ENPASSANT</code>, <code>MOVE_PROMOTION</code>, <code>MOVE_CASTLING</code>, or <code>MOVE_NORMAL</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.PieceType.html"
+                                  title='type alcibiades::PieceType'>PieceType</a></td>
+                           <td class='docblock-short'>
+                                <p><code>KING</code>, <code>QUEEN</code>, <code>ROOK</code>, <code>BISHOP</code>, <code>KINGHT</code>, <code>PAWN</code> or <code>PIECE_NONE</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Square.html"
+                                  title='type alcibiades::Square'>Square</a></td>
+                           <td class='docblock-short'>
+                                <p>From 0 to 63 (0 is A1, 1 is B1, .. , 62 is G8, 63 is H8).</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Value.html"
+                                  title='type alcibiades::Value'>Value</a></td>
+                           <td class='docblock-short'>
+                                <p>Evaluation value in centipawns.</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

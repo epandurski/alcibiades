@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `MoveGenerator` trait in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, MoveGenerator">
+
+    <title>alcibiades::MoveGenerator - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc trait">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>alcibiades</a></p><script>window.sidebarCurrent = {name: 'MoveGenerator', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>alcibiades</a>::<wbr><a class="trait" href=''>MoveGenerator</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/alcibiades/move_generator.rs.html#39-288' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait MoveGenerator: <a class="trait" href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="../alcibiades/trait.SetOption.html" title="trait alcibiades::SetOption">SetOption</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static {
+    type <a href='#associatedtype.Evaluator' class="type">Evaluator</a>: <a class="trait" href="../alcibiades/trait.Evaluator.html" title="trait alcibiades::Evaluator">Evaluator</a>;
+    fn <a href='#tymethod.from_board' class='fnname'>from_board</a>(board: <a class="struct" href="../alcibiades/struct.Board.html" title="struct alcibiades::Board">Board</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="struct" href="../alcibiades/struct.IllegalBoard.html" title="struct alcibiades::IllegalBoard">IllegalBoard</a>&gt;;
+    fn <a href='#tymethod.board' class='fnname'>board</a>(&amp;self) -&gt; &amp;<a class="struct" href="../alcibiades/struct.Board.html" title="struct alcibiades::Board">Board</a>;
+    fn <a href='#tymethod.hash' class='fnname'>hash</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>;
+    fn <a href='#tymethod.attacks_to' class='fnname'>attacks_to</a>(&amp;self, square: <a class="type" href="../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a>) -&gt; <a class="type" href="../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a>;
+    fn <a href='#tymethod.is_check' class='fnname'>is_check</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>;
+    fn <a href='#tymethod.generate_all' class='fnname'>generate_all</a>&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.AddMove.html" title="trait alcibiades::AddMove">AddMove</a>&gt;(&amp;self, moves: &amp;mut T);
+    fn <a href='#tymethod.generate_forcing' class='fnname'>generate_forcing</a>&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.AddMove.html" title="trait alcibiades::AddMove">AddMove</a>&gt;(&amp;self, generate_checks: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, moves: &amp;mut T);
+    fn <a href='#tymethod.null_move' class='fnname'>null_move</a>(&amp;self) -&gt; <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>;
+    fn <a href='#tymethod.try_move_digest' class='fnname'>try_move_digest</a>(&amp;self, move_digest: <a class="struct" href="../alcibiades/struct.MoveDigest.html" title="struct alcibiades::MoveDigest">MoveDigest</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>&gt;;
+    fn <a href='#tymethod.do_move' class='fnname'>do_move</a>(&amp;mut self, m: <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>&gt;;
+    fn <a href='#tymethod.undo_move' class='fnname'>undo_move</a>(&amp;mut self, m: <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>);
+    fn <a href='#tymethod.evaluator' class='fnname'>evaluator</a>(&amp;self) -&gt; &amp;Self::<a class="trait" href="../alcibiades/trait.MoveGenerator.html" title="trait alcibiades::MoveGenerator">Evaluator</a>;
+
+    fn <a href='#method.evaluate_move' class='fnname'>evaluate_move</a>(&amp;self, m: <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="type" href="../alcibiades/type.Value.html" title="type alcibiades::Value">Value</a> { ... }
+}</pre><div class='docblock'><p>A trait for move generators.</p>
+
+<p>A <code>MoveGenerator</code> holds a chess position and can:</p>
+
+<ul>
+<li><p>Calculate Zobrist hashes.</p></li>
+<li><p>Find which pieces and pawns attack a given square.</p></li>
+<li><p>Find if the side to move is in check.</p></li>
+<li><p>Generate all legal moves, or a subset of all legal moves in the
+current position.</p></li>
+<li><p>Generate a null move.</p></li>
+<li><p>Verify if a random move digest represents a proper move.</p></li>
+<li><p>Play a selected move and take it back.</p></li>
+<li><p>Provide a static evaluator bound to the current position.</p></li>
+<li><p>Perform static exchange evaluation for the generated moves.</p></li>
+</ul>
+
+<p><strong>Important note:</strong> <code>MoveGenerator</code> is unaware of repeating
+positions and rule-50.</p>
+</div>
+            <h2 id='associated-types'>Associated Types</h2>
+            <div class='methods'>
+        <h3 id='associatedtype.Evaluator' class='method'><span id='Evaluator.t' class='invisible'><code>type <a href='#associatedtype.Evaluator' class="type">Evaluator</a>: <a class="trait" href="../alcibiades/trait.Evaluator.html" title="trait alcibiades::Evaluator">Evaluator</a></code></span></h3><div class='docblock'><p>The type of static evaluator that the implementation works
+with.</p>
+</div></div>
+            <h2 id='required-methods'>Required Methods</h2>
+            <div class='methods'>
+        <h3 id='tymethod.from_board' class='method'><span id='from_board.v' class='invisible'><code>fn <a href='#tymethod.from_board' class='fnname'>from_board</a>(board: <a class="struct" href="../alcibiades/struct.Board.html" title="struct alcibiades::Board">Board</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="struct" href="../alcibiades/struct.IllegalBoard.html" title="struct alcibiades::IllegalBoard">IllegalBoard</a>&gt;</code></span></h3><div class='docblock'><p>Creates a new instance, consuming the supplied <code>Board</code>
+instance.</p>
+
+<p>Returns <code>Err(IllegalBoard)</code> if the position is illegal.</p>
+</div><h3 id='tymethod.board' class='method'><span id='board.v' class='invisible'><code>fn <a href='#tymethod.board' class='fnname'>board</a>(&amp;self) -&gt; &amp;<a class="struct" href="../alcibiades/struct.Board.html" title="struct alcibiades::Board">Board</a></code></span></h3><div class='docblock'><p>Returns a reference to the underlying <code>Board</code> instance.</p>
+</div><h3 id='tymethod.hash' class='method'><span id='hash.v' class='invisible'><code>fn <a href='#tymethod.hash' class='fnname'>hash</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a></code></span></h3><div class='docblock'><p>Returns the Zobrist hash value for the underlying <code>Board</code>
+instance.</p>
+
+<p>Zobrist hashing is a technique to transform a board position
+into a number of a fixed length, with an equal distribution
+over all possible numbers, invented by Albert Zobrist. The key
+property of this method is that two similar positions generate
+entirely different hash numbers.</p>
+
+<p><strong>Important note:</strong> This method will be relatively slow if the
+implementation calculates the hash value &quot;from
+scratch&quot;. Inspect the implementation before using <code>hash</code> in
+time-critical paths. (See <code>do_move</code>.)</p>
+</div><h3 id='tymethod.attacks_to' class='method'><span id='attacks_to.v' class='invisible'><code>fn <a href='#tymethod.attacks_to' class='fnname'>attacks_to</a>(&amp;self, square: <a class="type" href="../alcibiades/type.Square.html" title="type alcibiades::Square">Square</a>) -&gt; <a class="type" href="../alcibiades/type.Bitboard.html" title="type alcibiades::Bitboard">Bitboard</a></code></span></h3><div class='docblock'><p>Returns a bitboard with all pieces and pawns that attack a
+given square.</p>
+</div><h3 id='tymethod.is_check' class='method'><span id='is_check.v' class='invisible'><code>fn <a href='#tymethod.is_check' class='fnname'>is_check</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h3><div class='docblock'><p>Returns if the side to move is in check.</p>
+</div><h3 id='tymethod.generate_all' class='method'><span id='generate_all.v' class='invisible'><code>fn <a href='#tymethod.generate_all' class='fnname'>generate_all</a>&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.AddMove.html" title="trait alcibiades::AddMove">AddMove</a>&gt;(&amp;self, moves: &amp;mut T)</code></span></h3><div class='docblock'><p>Generates all legal moves, possibly including some
+pseudo-legal moves too.</p>
+
+<p>The moves are added to <code>moves</code>. All generated moves with
+pieces other than the king will be legal. Some of the
+generated king&#39;s moves may be illegal because the destination
+square is under attack. This arrangement has two important
+advantages:</p>
+
+<ul>
+<li><p><code>do_move</code> can do its work without knowing the set of
+checkers and pinned pieces, so there is no need to keep
+those around.</p></li>
+<li><p>A beta cut-off may make the verification that king&#39;s
+destination square is not under attack unnecessary, thus
+saving time.</p></li>
+</ul>
+
+<p>The initial move score for the generated moves is
+<em>unspecified</em>.</p>
+
+<p><strong>Note:</strong> A pseudo-legal move is a move that is otherwise
+legal, except it might leave the king in check.</p>
+</div><h3 id='tymethod.generate_forcing' class='method'><span id='generate_forcing.v' class='invisible'><code>fn <a href='#tymethod.generate_forcing' class='fnname'>generate_forcing</a>&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.AddMove.html" title="trait alcibiades::AddMove">AddMove</a>&gt;(&amp;self, generate_checks: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, moves: &amp;mut T)</code></span></h3><div class='docblock'><p>Generates moves for the quiescence search.</p>
+
+<p>The moves are added to <code>moves</code>. This method always generates a
+<strong>subset</strong> of the moves generated by <code>generate_all</code>:</p>
+
+<ul>
+<li><p>If the king is in check, all legal moves are included.</p></li>
+<li><p>Captures and pawn promotions to queen are always included.</p></li>
+<li><p>If <code>generate_checks</code> is <code>true</code>, moves that give check are
+included too. Discovered checks and checks given by castling
+can be omitted for speed.</p></li>
+</ul>
+</div><h3 id='tymethod.null_move' class='method'><span id='null_move.v' class='invisible'><code>fn <a href='#tymethod.null_move' class='fnname'>null_move</a>(&amp;self) -&gt; <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a></code></span></h3><div class='docblock'><p>Returns a null move.</p>
+
+<p>&quot;Null move&quot; is a pseudo-move that changes only the side to
+move. It is sometimes useful to include a speculative null
+move in the search tree so as to achieve more aggressive
+pruning. Null moves are represented as king&#39;s moves for which
+the origin and destination squares are the same.</p>
+</div><h3 id='tymethod.try_move_digest' class='method'><span id='try_move_digest.v' class='invisible'><code>fn <a href='#tymethod.try_move_digest' class='fnname'>try_move_digest</a>(&amp;self, move_digest: <a class="struct" href="../alcibiades/struct.MoveDigest.html" title="struct alcibiades::MoveDigest">MoveDigest</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>&gt;</code></span></h3><div class='docblock'><p>Verifies if the supplied move digest represents a proper move.</p>
+
+<p>If a move <code>m</code> exists that would be generated by <code>generate_all</code>
+if called for the current position on the board, and for that
+move <code>m.digest()</code> equals the supplied move digest, this method
+will return <code>Some(m)</code>. Otherwise it will return <code>None</code>. This
+is useful when playing moves from the transposition table,
+without calling <code>generate_all</code>.</p>
+</div><h3 id='tymethod.do_move' class='method'><span id='do_move.v' class='invisible'><code>fn <a href='#tymethod.do_move' class='fnname'>do_move</a>(&amp;mut self, m: <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>&gt;</code></span></h3><div class='docblock'><p>Plays a move on the board.</p>
+
+<p>It the move leaves the king in check, <code>None</code> is returned
+without updating the board. Otherwise, the board is updated
+and an <code>u64</code> value is returned, which should be XOR-ed with
+board&#39;s old Zobrist hash value to obtain board&#39;s new Zobrist
+hash value. The move passed to this method <strong>must</strong> have been
+generated by <code>generate_all</code>, <code>generate_forcing</code>,
+<code>try_move_digest</code>, or <code>null_move</code> methods for the current
+position on the board.</p>
+</div><h3 id='tymethod.undo_move' class='method'><span id='undo_move.v' class='invisible'><code>fn <a href='#tymethod.undo_move' class='fnname'>undo_move</a>(&amp;mut self, m: <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>)</code></span></h3><div class='docblock'><p>Takes back last played move.</p>
+
+<p>The move passed to this method <strong>must</strong> be the last move passed
+to <code>do_move</code>.</p>
+</div><h3 id='tymethod.evaluator' class='method'><span id='evaluator.v' class='invisible'><code>fn <a href='#tymethod.evaluator' class='fnname'>evaluator</a>(&amp;self) -&gt; &amp;Self::<a class="trait" href="../alcibiades/trait.MoveGenerator.html" title="trait alcibiades::MoveGenerator">Evaluator</a></code></span></h3><div class='docblock'><p>Returns a reference to a static evaluator bound to the current
+position.</p>
+</div></div>
+            <h2 id='provided-methods'>Provided Methods</h2>
+            <div class='methods'>
+        <h3 id='method.evaluate_move' class='method'><span id='evaluate_move.v' class='invisible'><code>fn <a href='#method.evaluate_move' class='fnname'>evaluate_move</a>(&amp;self, m: <a class="struct" href="../alcibiades/struct.Move.html" title="struct alcibiades::Move">Move</a>) -&gt; <a class="type" href="../alcibiades/type.Value.html" title="type alcibiades::Value">Value</a></code></span></h3><div class='docblock'><p>Returns the likely evaluation change (material) to be lost or
+gained as a result of a given move.</p>
+
+<p>This method performs static exchange evaluation (SEE). It
+examines the consequence of a series of exchanges on the
+destination square after a given move. A positive returned
+value indicates a &quot;winning&quot; move. For example, &quot;PxQ&quot; will
+always be a win, since the pawn side can choose to stop the
+exchange after its pawn is recaptured, and still be ahead. SEE
+is just an evaluation calculated without actually trying moves
+on the board, and therefore the returned value might be
+incorrect.</p>
+
+<p>The move passed to this method must have been generated by
+<code>generate_all</code>, <code>generate_forcing</code>, <code>try_move_digest</code>, or
+<code>null_move</code> methods for the current position on the board.</p>
+</div></div>
+        <h2 id='implementors'>Implementors</h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl&lt;T:&nbsp;<a class="trait" href="../alcibiades/trait.Evaluator.html" title="trait alcibiades::Evaluator">Evaluator</a>&gt; MoveGenerator for <a class="struct" href="../alcibiades/stock/struct.StdMoveGenerator.html" title="struct alcibiades::stock::StdMoveGenerator">StdMoveGenerator</a>&lt;T&gt;</code></li>
+</ul><script type="text/javascript" async
+                         src="../implementors/alcibiades/trait.MoveGenerator.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

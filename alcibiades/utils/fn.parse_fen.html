@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `parse_fen` fn in crate `alcibiades`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, parse_fen">
+
+    <title>alcibiades::utils::parse_fen - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc fn">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>utils</a></p><script>window.sidebarCurrent = {name: 'parse_fen', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Function <a href='../index.html'>alcibiades</a>::<wbr><a href='index.html'>utils</a>::<wbr><a class="fn" href=''>parse_fen</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/alcibiades/utils/notation.rs.html#52-82' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn parse_fen(s: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a><a class="struct" href="../../alcibiades/struct.Board.html" title="struct alcibiades::Board">Board</a>, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u16.html">u16</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a>, <a class="struct" href="../../alcibiades/struct.IllegalBoard.html" title="struct alcibiades::IllegalBoard">IllegalBoard</a>&gt;</pre><div class='docblock'><p>Parses Forsyth–Edwards Notation (FEN).</p>
+
+<p>Returns a tuple with the following elements: <code>0</code>) a board
+instance, <code>1</code>) halfmove clock, <code>2</code>) fullmove number.</p>
+
+<h1 id='forsythedwards-notation' class='section-header'><a href='#forsythedwards-notation'>Forsyth–Edwards Notation</a></h1>
+<p>A FEN string defines a particular position using only the ASCII
+character set. A FEN string contains six fields separated by a
+space. The fields are:</p>
+
+<ol>
+<li><p>Piece placement (from white&#39;s perspective). Each rank is
+described, starting with rank 8 and ending with rank 1. Within
+each rank, the contents of each square are described from file A
+through file H. Following the Standard Algebraic Notation (SAN),
+each piece is identified by a single letter taken from the
+standard English names. White pieces are designated using
+upper-case letters (&quot;PNBRQK&quot;) whilst Black uses lowercase
+(&quot;pnbrqk&quot;). Blank squares are noted using digits 1 through 8
+(the number of blank squares), and &quot;/&quot; separates ranks.</p></li>
+<li><p>Active color. &quot;w&quot; means white moves next, &quot;b&quot; means black.</p></li>
+<li><p>Castling availability. If neither side can castle, this is
+&quot;-&quot;. Otherwise, this has one or more letters: &quot;K&quot; (White can
+castle kingside), &quot;Q&quot; (White can castle queenside), &quot;k&quot; (Black
+can castle kingside), and/or &quot;q&quot; (Black can castle queenside).</p></li>
+<li><p>En-passant target square (in algebraic notation). If there&#39;s no
+en-passant target square, this is &quot;-&quot;. If a pawn has just made
+a 2-square move, this is the position &quot;behind&quot; the pawn. This
+is recorded regardless of whether there is a pawn in position
+to make an en-passant capture.</p></li>
+<li><p>Halfmove clock. This is the number of halfmoves since the last
+pawn advance or capture. This is used to determine if a draw can
+be claimed under the fifty-move rule.</p></li>
+<li><p>Fullmove number. The number of the full move. It starts at 1,
+and is incremented after black&#39;s move.</p></li>
+</ol>
+
+<h2 id='example' class='section-header'><a href='#example'>Example:</a></h2>
+<p>The starting position: <code>rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1</code></p>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "alcibiades";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>
