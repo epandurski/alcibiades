@@ -10,7 +10,7 @@ use bitsets::*;
 
 /// A simple evaluator that adds a random number to the available
 /// material.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct SimpleEvaluator {
     material: Value,
 }

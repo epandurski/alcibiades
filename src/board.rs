@@ -186,7 +186,7 @@ impl fmt::Display for CastlingRights {
         let mut value = self.value();
         for s in ["Q", "K", "q", "k"].iter() {
             if value & 1 == 1 {
-                try!(f.write_str(s));
+                f.write_str(s)?;
             }
             value >>= 1;
         }

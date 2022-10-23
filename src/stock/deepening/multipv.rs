@@ -115,7 +115,7 @@ impl<T: SearchExecutor> SearchExecutor for Multipv<T> {
                 value,
                 done,
                 ..
-            } = try!(self.searcher.try_recv_report());
+            } = self.searcher.try_recv_report()?;
             let mut report = SearchReport {
                 search_id: self.params.search_id,
                 searched_nodes: self.previously_searched_nodes + searched_nodes,

@@ -1,6 +1,7 @@
 //! Implements `SimpleSearch`.
 
 use std::mem;
+use std::mem::MaybeUninit;
 use std::cmp::max;
 use std::thread;
 use std::sync::Arc;
@@ -149,7 +150,7 @@ struct SearchRunner<'a, T, N>
     state_stack: Vec<NodeState>,
     reported_nodes: u64,
     unreported_nodes: u64,
-    report_function: &'a mut FnMut(u64) -> bool,
+    report_function: &'a mut dyn FnMut(u64) -> bool,
 }
 
 impl<'a, T, N> SearchRunner<'a, T, N>
@@ -166,7 +167,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
     pub fn new(root: N,
                tt: &'a T,
                move_stack: &'a mut MoveStack,
-               report_function: &'a mut FnMut(u64) -> bool)
+               report_function: &'a mut dyn FnMut(u64) -> bool)
                -> SearchRunner<'a, T, N> {
         SearchRunner {
             tt: tt,
@@ -223,7 +224,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
         debug_assert!(alpha < beta);
         let mut value = VALUE_UNKNOWN;
 
-        if let Some(v) = try!(self.node_begin(alpha, beta, depth, last_move)) {
+        if let Some(v) = self.node_begin(alpha, beta, depth, last_move)? {
             // We already have the final result.
             value = v;
 
@@ -235,7 +236,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
 
             // Try moves.
             while let Some(m) = self.do_move() {
-                try!(self.report_progress(1));
+                self.report_progress(1)?;
 
                 // Make a recursive call.
                 let mut v = if m.score() > REDUCTION_THRESHOLD {
@@ -243,7 +244,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
                     // beta cut-off we analyze with a full depth and
                     // fully open window (alpha, beta). We hope that
                     // at least one of these moves will raise `alpha`.
-                    -try!(self.run(-beta, -alpha, depth - 1, m))
+                    -self.run(-beta, -alpha, depth - 1, m)?
                 } else {
                     // For the rest of the moves we first try to prove
                     // that they are not better than our current best
@@ -252,9 +253,9 @@ impl<'a, T, N> SearchRunner<'a, T, N>
                     // 1). Only if it seems that the move is better
                     // than our current best move, we do a full-depth,
                     // full-window search.
-                    match -try!(self.run(-alpha - 1, -alpha, depth - 2, m)) {
+                    match -self.run(-alpha - 1, -alpha, depth - 2, m)? {
                         v if v <= alpha => v,
-                        _ => -try!(self.run(-beta, -alpha, depth - 1, m)),
+                        _ => -self.run(-beta, -alpha, depth - 1, m)?,
                     }
                 };
                 self.undo_move();
@@ -352,7 +353,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
                       phase: NodePhase::Pristine,
                       hash_move_digest: entry.move_digest(),
                       static_eval: static_eval,
-                      is_check: unsafe { mem::uninitialized() }, // We will initialize this soon!
+                      is_check: MaybeUninit::<bool>::uninit(), // We will initialize this soon!
                       killer: None,
                   });
 
@@ -370,7 +371,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
         // On leaf nodes, do quiescence search.
         if depth <= 0 {
             let result = self.position.qsearch(depth, alpha, beta, static_eval);
-            try!(self.report_progress(result.searched_nodes()));
+            self.report_progress(result.searched_nodes())?;
             let bound = if result.value() >= beta {
                 BOUND_LOWER
             } else if result.value() <= alpha {
@@ -390,7 +391,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
             self.moves.save();
             let state = self.state_stack.last_mut().unwrap();
             state.phase = NodePhase::ConsideredNullMove;
-            state.is_check = self.position.is_check();
+            state.is_check.write(self.position.is_check());
         }
 
         // Consider null move pruning. In positions that are not prone
@@ -422,7 +423,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
             // Play a null move and search.
             let m = self.position.null_move();
             if self.position.do_move(m) {
-                let value = -try!(self.run(-beta, -alpha, max(0, reduced_depth - 1), m));
+                let value = -self.run(-beta, -alpha, max(0, reduced_depth - 1), m)?;
                 self.position.undo_last_move();
                 if value >= beta {
                     // The result we are about to return is more or
@@ -595,7 +596,8 @@ impl<'a, T, N> SearchRunner<'a, T, N>
 
             // Fourth -- the remaining quiet moves.
             if self.position.do_move(m) {
-                if state.is_check || self.position.is_check() || m.move_type() == MOVE_PROMOTION {
+                if unsafe { state.is_check.assume_init() } ||
+                    self.position.is_check() || m.move_type() == MOVE_PROMOTION {
                     // When evading check, giving check, or promoting
                     // a pawn -- set a high move score to avoid search
                     // depth reductions.
@@ -703,7 +705,7 @@ struct NodeState {
     phase: NodePhase,
     hash_move_digest: MoveDigest,
     static_eval: Value,
-    is_check: bool,
+    is_check: MaybeUninit::<bool>,
     killer: Option<MoveDigest>,
 }
 

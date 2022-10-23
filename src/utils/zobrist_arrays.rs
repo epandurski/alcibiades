@@ -84,8 +84,8 @@ impl ZobristArrays {
     /// calls will return a reference to the same object. This is done
     /// in a thread-safe manner.
     pub fn get() -> &'static ZobristArrays {
-        use std::sync::{Once, ONCE_INIT};
-        static INIT_ARRAYS: Once = ONCE_INIT;
+        use std::sync::Once;
+        static INIT_ARRAYS: Once = Once::new();
         static mut ARRAYS: Option<ZobristArrays> = None;
         unsafe {
             INIT_ARRAYS.call_once(|| { ARRAYS = Some(ZobristArrays::new()); });
