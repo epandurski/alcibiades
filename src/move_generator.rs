@@ -1,6 +1,6 @@
 //! Defines the `MoveGenerator` trait.
 
-use std::mem::uninitialized;
+use std::mem::MaybeUninit;
 use std::cmp::max;
 use uci::SetOption;
 use board::*;
@@ -203,23 +203,23 @@ pub trait MoveGenerator: Clone + SetOption + Send + 'static {
             // The `gain` array will hold the total material gained at
             // each `depth`, from the viewpoint of the side that made the
             // last capture (`us`).
-            let mut gain: [Value; 34] = uninitialized();
-            gain[0] = if m.move_type() == MOVE_PROMOTION {
-                piece = Move::piece_from_aux_data(m.aux_data());
-                PIECE_VALUES[captured_piece] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
-            } else {
-                *PIECE_VALUES.get_unchecked(captured_piece)
-            };
+            let mut gain: [MaybeUninit<Value>; 34] = MaybeUninit::uninit().assume_init();
+            gain[0].write(if m.move_type() == MOVE_PROMOTION {
+                            piece = Move::piece_from_aux_data(m.aux_data());
+                            PIECE_VALUES[captured_piece] + PIECE_VALUES[piece] - PIECE_VALUES[PAWN]
+                        } else {
+                            *PIECE_VALUES.get_unchecked(captured_piece)
+                        });
 
             // Examine the possible exchanges, fill the `gain` array.
             'exchange: while orig_square_bb != 0 {
-                let current_gain = *gain.get_unchecked(depth);
+                let current_gain = *gain.get_unchecked(depth).assume_init_ref();
 
                 // Store a speculative value that will be used if the
                 // captured piece happens to be defended.
-                let speculative_gain: &mut Value = gain.get_unchecked_mut(depth + 1);
-                *speculative_gain = *PIECE_VALUES.get_unchecked(piece) - current_gain;
-
+                gain[depth + 1].write(*PIECE_VALUES.get_unchecked(piece) - current_gain);
+                let speculative_gain: &mut Value = gain.get_unchecked_mut(depth + 1).assume_init_mut();
+                
                 if max(-current_gain, *speculative_gain) < 0 {
                     // The side that made the last capture wins even if
                     // the captured piece happens to be defended. So, we
@@ -278,11 +278,12 @@ pub trait MoveGenerator: Clone + SetOption + Send + 'static {
             // tree, at each node of which the player can either continue
             // the exchange or back off.)
             while depth > 0 {
-                *gain.get_unchecked_mut(depth - 1) = -max(-*gain.get_unchecked(depth - 1),
-                                                          *gain.get_unchecked(depth));
+                *gain.get_unchecked_mut(depth - 1).assume_init_mut() =
+                                                        -max(-*gain.get_unchecked(depth - 1).assume_init_ref(),
+                                                                *gain.get_unchecked(depth).assume_init_ref());
                 depth -= 1;
             }
-            gain[0]
+            gain[0].assume_init()
         }
     }
 }

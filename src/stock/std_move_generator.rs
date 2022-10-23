@@ -1,6 +1,6 @@
 /// Implements `StdMoveGenerator`.
 
-use std::mem::uninitialized;
+use std::mem::{transmute, MaybeUninit};
 use std::cell::Cell;
 use uci::{SetOption, OptionDescription};
 use board::*;
@@ -18,7 +18,7 @@ pub struct StdMoveGenerator<T: Evaluator> {
     geometry: &'static BoardGeometry,
     zobrist: &'static ZobristArrays,
     board: Board,
-    evaluator: T,
+    evaluator: MaybeUninit::<T>,
 
     /// Lazily calculated bitboard of all checkers -- `BB_ALL` if not
     /// calculated yet.
@@ -34,11 +34,11 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             geometry: BoardGeometry::get(),
             zobrist: ZobristArrays::get(),
             board: board,
-            evaluator: unsafe { uninitialized() },
+            evaluator: MaybeUninit::<T>::uninit(),
             checkers: Cell::new(BB_ALL),
         };
         if gen.is_legal() {
-            gen.evaluator = T::new(gen.board());
+            gen.evaluator.write(T::new(gen.board()));
             Ok(gen)
         } else {
             Err(IllegalBoard)
@@ -98,7 +98,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
     #[inline]
     fn evaluator(&self) -> &Self::Evaluator {
-        &self.evaluator
+        unsafe { self.evaluator.assume_init_ref() }
     }
 
     /// Generates all legal moves, possibly including some
@@ -296,7 +296,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
     fn try_move_digest(&self, move_digest: MoveDigest) -> Option<Move> {
         // We will use `generated_move` to assert that our result is correct.
-        let mut generated_move = unsafe { uninitialized() };
+        let mut generated_move = MaybeUninit::<Option<Move>>::uninit();
 
         // The purpose of `try_move_digest` is to check if a move is
         // pseudo-legal, without spending time to generate all
@@ -304,19 +304,21 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         // performace, the whole complex logic of this method could be
         // substituted with the next few lines:
         if cfg!(debug_assertions) {
-            generated_move = None;
+            generated_move.write(None);
+
             let mut move_stack = Vec::new();
             self.generate_all(&mut move_stack);
             while let Some(m) = move_stack.pop() {
                 if m.digest() == move_digest {
-                    generated_move = Some(m);
+                    unsafe { generated_move.assume_init_drop(); }
+                    generated_move.write(Some(m));
                     break;
                 }
             }
         }
 
         if move_digest == MoveDigest::invalid() {
-            debug_assert!(generated_move.is_none());
+            debug_assert!(unsafe { generated_move.assume_init().is_none() });
             return None;
         }
 
@@ -335,7 +337,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             if !self.can_castle(king_square, side) || orig_square != king_square ||
                dest_square != [[C1, C8], [G1, G8]][side][self.board.to_move] ||
                promoted_piece_code != 0 {
-                debug_assert!(generated_move.is_none());
+                debug_assert!(unsafe { generated_move.assume_init().is_none() });
                 return None;
             }
             let m = Move::new(MOVE_CASTLING,
@@ -347,7 +349,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                               self.board.castling_rights,
                               self.board.enpassant_file,
                               0);
-            debug_assert_eq!(generated_move, Some(m));
+            debug_assert_eq!(unsafe { generated_move.assume_init() }, Some(m));
             return Some(m);
         }
 
@@ -370,7 +372,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                     break 'pieces;
                 }
             }
-            debug_assert!(generated_move.is_none());
+            debug_assert!(unsafe { generated_move.assume_init().is_none() });
             return None;
         }
         debug_assert!(piece <= PAWN);
@@ -393,7 +395,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                     }
                 }
                 _ => {
-                    debug_assert!(generated_move.is_none());
+                    debug_assert!(unsafe { generated_move.assume_init().is_none() });
                     return None;
                 }
             };
@@ -412,21 +414,30 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                 pseudo_legal_dests |= enpassant_bb;
             }
 
-            unsafe {
-                let mut dest_sets: [Bitboard; 4] = uninitialized();
-                calc_pawn_dest_sets(self.board.to_move,
-                                    occupied_by_us,
-                                    *self.board
-                                         .pieces
-                                         .color
-                                         .get_unchecked(1 ^ self.board.to_move),
-                                    enpassant_bb,
-                                    orig_square_bb,
-                                    &mut dest_sets);
-                pseudo_legal_dests &= dest_sets[0] | dest_sets[1] | dest_sets[2] | dest_sets[3];
-            }
+            let dest_sets = {
+                let mut dest_sets: [MaybeUninit<Bitboard>; 4] = unsafe {
+                    MaybeUninit::uninit().assume_init()
+                };
+
+                unsafe {
+                    calc_pawn_dest_sets(self.board.to_move,
+                                       occupied_by_us,
+                                        *self.board
+                                             .pieces
+                                            .color
+                                             .get_unchecked(1 ^ self.board.to_move),
+                                        enpassant_bb,
+                                        orig_square_bb,
+                                        &mut dest_sets);
+
+                    transmute::<_, [Bitboard; 4]>(dest_sets)
+                }
+            };
+
+            pseudo_legal_dests &= dest_sets[0] | dest_sets[1] | dest_sets[2] | dest_sets[3];
+
             if pseudo_legal_dests & dest_square_bb == 0 {
-                debug_assert!(generated_move.is_none());
+                debug_assert!(unsafe { generated_move.assume_init().is_none() });
                 return None;
             }
 
@@ -435,20 +446,20 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                     if move_type != MOVE_ENPASSANT ||
                        !self.enpassant_special_check_is_ok(orig_square, dest_square) ||
                        promoted_piece_code != 0 {
-                        debug_assert!(generated_move.is_none());
+                        debug_assert!(unsafe { generated_move.assume_init().is_none() });
                         return None;
                     }
                     captured_piece = PAWN;
                 }
                 x if x & BB_PAWN_PROMOTION_RANKS != 0 => {
                     if move_type != MOVE_PROMOTION {
-                        debug_assert!(generated_move.is_none());
+                        debug_assert!(unsafe { generated_move.assume_init().is_none() });
                         return None;
                     }
                 }
                 _ => {
                     if move_type != MOVE_NORMAL || promoted_piece_code != 0 {
-                        debug_assert!(generated_move.is_none());
+                        debug_assert!(unsafe { generated_move.assume_init().is_none() });
                         return None;
                     }
                 }
@@ -462,7 +473,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
             };
             if move_type != MOVE_NORMAL || pseudo_legal_dests & dest_square_bb == 0 ||
                promoted_piece_code != 0 {
-                debug_assert!(generated_move.is_none());
+                debug_assert!(unsafe { generated_move.assume_init().is_none() });
                 return None;
             }
         }
@@ -476,7 +487,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
                           self.board.castling_rights,
                           self.board.enpassant_file,
                           0);
-        debug_assert_eq!(generated_move, Some(m));
+        debug_assert_eq!(unsafe { generated_move.assume_init() }, Some(m));
         Some(m)
     }
 
@@ -495,7 +506,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
     }
 
     fn do_move(&mut self, m: Move) -> Option<u64> {
-        let mut old_hash: u64 = unsafe { uninitialized() };
+        let mut old_hash = MaybeUninit::<u64>::uninit();
         let mut h = 0;
         let us = self.board.to_move;
         let them = 1 ^ us;
@@ -522,7 +533,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
 
             // Initialize `old_hash`, which will be used to assert
             // that the returned value (`h`) is calculated correctly.
-            old_hash = self.hash();
+            old_hash.write(self.hash());
         }
 
         // Verify if the move will leave the king in check. (We are
@@ -541,7 +552,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         }
 
         // Tell the evaluator that a move will be played.
-        self.evaluator.will_do_move(&self.board, m);
+        unsafe { self.evaluator.assume_init_mut().will_do_move(&self.board, m) };
 
         // Move the rook if the move is castling.
         if move_type == MOVE_CASTLING {
@@ -626,10 +637,10 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         self.checkers.set(BB_ALL);
 
         // Tell the evaluator that a move was played.
-        self.evaluator.done_move(&self.board, m);
+        unsafe { self.evaluator.assume_init_mut().done_move(&self.board, m) };
 
         debug_assert!(self.is_legal());
-        debug_assert_eq!(old_hash ^ h, self.hash());
+        debug_assert_eq!(unsafe { old_hash.assume_init() } ^ h, self.hash());
         Some(h)
     }
 
@@ -648,7 +659,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         debug_assert!(m.enpassant_file() <= 8);
 
         // Tell the evaluator that a move will be taken back.
-        self.evaluator.will_undo_move(&self.board, m);
+        unsafe { self.evaluator.assume_init_mut().will_undo_move(&self.board, m) };
 
         // Change the side to move.
         self.board.to_move = us;
@@ -701,7 +712,7 @@ impl<T: Evaluator> MoveGenerator for StdMoveGenerator<T> {
         self.checkers.set(BB_ALL);
 
         // Tell the evaluator that a move was taken back.
-        self.evaluator.undone_move(&self.board, m);
+        unsafe { self.evaluator.assume_init_mut().undone_move(&self.board, m) };
 
         debug_assert!(self.is_legal());
     }
@@ -864,10 +875,11 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         debug_assert!(pawns & !self.board.pieces.piece_type[PAWN] == 0);
         debug_assert!(pawns & !self.board.pieces.color[self.board.to_move] == 0);
 
-        let mut dest_sets: [Bitboard; 4];
+        let mut dest_sets: [MaybeUninit<Bitboard>; 4] = unsafe {
+            MaybeUninit::uninit().assume_init()
+        };
         let enpassant_bb = self.enpassant_bb();
         let shifts = unsafe {
-            dest_sets = uninitialized();
             calc_pawn_dest_sets(self.board.to_move,
                                 *self.board
                                      .pieces
@@ -885,7 +897,7 @@ impl<T: Evaluator> StdMoveGenerator<T> {
         // Process each pawn move sub-type (push, double push, west
         // capture, east capture).
         for i in 0..4 {
-            let mut pawn_legal_dests = dest_sets[i] & legal_dests;
+            let mut pawn_legal_dests = unsafe { dest_sets[i].assume_init() } & legal_dests;
 
             // For each legal destination, determine the move type
             // (en-passant capture, pawn promotion, normal move), and
@@ -1210,7 +1222,7 @@ fn calc_pawn_dest_sets(us: Color,
                        occupied_by_them: Bitboard,
                        enpassant_bb: Bitboard,
                        pawns: Bitboard,
-                       dest_sets: &mut [Bitboard; 4])
+                       dest_sets: &mut [MaybeUninit<Bitboard>; 4])
                        -> &'static [isize; 4] {
     debug_assert!(us <= 1);
     debug_assert!(pawns & !occupied_by_us == 0);
@@ -1224,15 +1236,21 @@ fn calc_pawn_dest_sets(us: Color,
                                                !(BB_FILE_H | BB_RANK_1 | BB_RANK_8)];
     let shifts: &[isize; 4] = unsafe { PAWN_MOVE_SHIFTS.get_unchecked(us) };
     let capture_targets = occupied_by_them | enpassant_bb;
+
     for i in 0..4 {
-        dest_sets[i] = gen_shift(pawns & LEGITIMATE_ORIGINS[i], shifts[i]) &
-                       (capture_targets ^ PUSHING_TARGETS[i]) &
-                       !occupied_by_us;
+        dest_sets[i].write(gen_shift(pawns & LEGITIMATE_ORIGINS[i], shifts[i]) &
+                           (capture_targets ^ PUSHING_TARGETS[i]) &
+                           !occupied_by_us);
     }
 
     // Double pushes are trickier -- for a double push to be
     // pseudo-legal, a single push must be pseudo-legal too.
-    dest_sets[PAWN_DOUBLE_PUSH] &= gen_shift(dest_sets[PAWN_PUSH], shifts[PAWN_PUSH]);
+    unsafe {
+        let dest_sets_double_temp = dest_sets[PAWN_DOUBLE_PUSH].assume_init();
+        dest_sets[PAWN_DOUBLE_PUSH].write(dest_sets_double_temp &
+                                            gen_shift(dest_sets[PAWN_PUSH].assume_init(),
+                                                        shifts[PAWN_PUSH]));
+    }
 
     // For convenience, return a reference to the pawn shift array for `us`.
     shifts

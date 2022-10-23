@@ -1,6 +1,7 @@
 //! Implements `SimpleSearch`.
 
 use std::mem;
+use std::mem::MaybeUninit;
 use std::cmp::max;
 use std::thread;
 use std::sync::Arc;
@@ -352,7 +353,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
                       phase: NodePhase::Pristine,
                       hash_move_digest: entry.move_digest(),
                       static_eval: static_eval,
-                      is_check: unsafe { mem::uninitialized() }, // We will initialize this soon!
+                      is_check: MaybeUninit::<bool>::uninit(), // We will initialize this soon!
                       killer: None,
                   });
 
@@ -390,7 +391,7 @@ impl<'a, T, N> SearchRunner<'a, T, N>
             self.moves.save();
             let state = self.state_stack.last_mut().unwrap();
             state.phase = NodePhase::ConsideredNullMove;
-            state.is_check = self.position.is_check();
+            state.is_check.write(self.position.is_check());
         }
 
         // Consider null move pruning. In positions that are not prone
@@ -595,7 +596,8 @@ impl<'a, T, N> SearchRunner<'a, T, N>
 
             // Fourth -- the remaining quiet moves.
             if self.position.do_move(m) {
-                if state.is_check || self.position.is_check() || m.move_type() == MOVE_PROMOTION {
+                if unsafe { state.is_check.assume_init() } ||
+                    self.position.is_check() || m.move_type() == MOVE_PROMOTION {
                     // When evading check, giving check, or promoting
                     // a pawn -- set a high move score to avoid search
                     // depth reductions.
@@ -703,7 +705,7 @@ struct NodeState {
     phase: NodePhase,
     hash_move_digest: MoveDigest,
     static_eval: Value,
-    is_check: bool,
+    is_check: MaybeUninit::<bool>,
     killer: Option<MoveDigest>,
 }
 
