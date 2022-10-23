@@ -50,12 +50,12 @@ use ranks::*;
 /// ## Example:
 /// The starting position: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w QKqk - 0 1`
 pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), IllegalBoard> {
-    let fileds: Vec<_> = s.split_whitespace().collect();
-    if fileds.len() == 6 {
-        let pieces = try!(parse_fen_piece_placement(fileds[0]));
-        let to_move = try!(parse_fen_active_color(fileds[1]));
-        let castling_rights = try!(parse_fen_castling_rights(fileds[2]));
-        let enpassant_file = if let Some(x) = try!(parse_fen_enpassant_square(fileds[3])) {
+    let fields: Vec<_> = s.split_whitespace().collect();
+    if fields.len() == 6 {
+        let pieces = parse_fen_piece_placement(fields[0])?;
+        let to_move = parse_fen_active_color(fields[1])?;
+        let castling_rights = parse_fen_castling_rights(fields[2])?;
+        let enpassant_file = if let Some(x) = parse_fen_enpassant_square(fields[3])? {
             match to_move {
                 WHITE if Board::rank(x) == RANK_6 => Board::file(x),
                 BLACK if Board::rank(x) == RANK_3 => Board::file(x),
@@ -64,9 +64,9 @@ pub fn parse_fen(s: &str) -> Result<(Board, u8, u16), IllegalBoard> {
         } else {
             8
         };
-        let halfmove_clock = try!(fileds[4].parse::<u8>().map_err(|_| IllegalBoard));
-        let fullmove_number = try!(fileds[5].parse::<u16>().map_err(|_| IllegalBoard));
-        if let 1...9000 = fullmove_number {
+        let halfmove_clock = fields[4].parse::<u8>().map_err(|_| IllegalBoard)?;
+        let fullmove_number = fields[5].parse::<u16>().map_err(|_| IllegalBoard)?;
+        if let 1..=9000 = fullmove_number {
             return Ok((Board {
                            occupied: pieces.color[WHITE] | pieces.color[BLACK],
                            pieces: pieces,
@@ -131,7 +131,7 @@ fn parse_fen_piece_placement(s: &str) -> Result<PiecesPlacement, IllegalBoard> {
             'b' => Token::Piece(BLACK, BISHOP),
             'n' => Token::Piece(BLACK, KNIGHT),
             'p' => Token::Piece(BLACK, PAWN),
-            n @ '1'...'8' => Token::EmptySquares(n.to_digit(9).unwrap()),
+            n @ '1'..='8' => Token::EmptySquares(n.to_digit(9).unwrap()),
             '/' => Token::Separator,
             _ => return Err(IllegalBoard),
         };

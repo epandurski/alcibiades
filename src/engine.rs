@@ -230,7 +230,7 @@ impl<S, T> UciEngine for Engine<S, T>
         self.tt.clear();
     }
 
-    fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>) {
+    fn position(&mut self, fen: &str, moves: &mut dyn Iterator<Item = &str>) {
         if let Ok(p) = S::SearchNode::from_history(fen, moves) {
             self.position = p;
         }

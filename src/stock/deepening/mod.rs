@@ -122,7 +122,7 @@ impl<T: Search> SearchExecutor for Deepening<T> {
             data,
             done,
             ..
-        } = try!(self.multipv.try_recv_report());
+        } = self.multipv.try_recv_report()?;
         if value != VALUE_UNKNOWN {
             self.value = value;
         }

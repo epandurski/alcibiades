@@ -169,14 +169,14 @@ impl<T: TtableEntry> Ttable for StdTtable<T> {
         assert_eq!(mem::size_of::<c_void>(), 1);
         assert_eq!(BUCKET_SIZE, 64);
         assert!(mem::align_of::<T>() <= 4,
-                format!("too restrictive transposition table entry alignment: {} bytes",
-                        mem::align_of::<T>()));
+                "too restrictive transposition table entry alignment: {} bytes",
+                        mem::align_of::<T>());
         assert!(Bucket::<Record<T>>::len() >= 3,
-                format!("too big transposition table entry: {} bytes",
-                        mem::size_of::<T>()));
+                "too big transposition table entry: {} bytes",
+                        mem::size_of::<T>());
         assert!(Bucket::<Record<T>>::len() <= 6,
-                format!("too small transposition table entry: {} bytes",
-                        mem::size_of::<T>()));
+                "too small transposition table entry: {} bytes",
+                        mem::size_of::<T>());
 
         let size_mb = size_mb.unwrap_or(16);
         let bucket_count = {
@@ -210,7 +210,7 @@ impl<T: TtableEntry> Ttable for StdTtable<T> {
             // Increment the generation number (with wrapping).
             self.generation
                 .set(match self.generation.get() {
-                         n @ 1...30 => n + 1,
+                         n @ 1..=30 => n + 1,
                          31 => 1,
                          _ => unreachable!(),
                      });

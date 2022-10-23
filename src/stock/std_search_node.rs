@@ -66,8 +66,8 @@ impl<T: Qsearch> SearchNode for StdSearchNode<T> {
 
     type QsearchResult = T::QsearchResult;
 
-    fn from_history(fen: &str, moves: &mut Iterator<Item = &str>) -> Result<Self, IllegalBoard> {
-        let mut p: StdSearchNode<T> = try!(StdSearchNode::from_fen(fen));
+    fn from_history(fen: &str, moves: &mut dyn Iterator<Item = &str>) -> Result<Self, IllegalBoard> {
+        let mut p: StdSearchNode<T> = StdSearchNode::from_fen(fen)?;
         let mut move_list = Vec::new();
         'played_moves: for played_move in moves {
             move_list.clear();
@@ -314,8 +314,8 @@ impl<T: Qsearch> SetOption for StdSearchNode<T> {
 impl<T: Qsearch> StdSearchNode<T> {
     /// Creates a new instance from Forsyth–Edwards Notation (FEN).
     pub fn from_fen(fen: &str) -> Result<StdSearchNode<T>, IllegalBoard> {
-        let (board, halfmove_clock, fullmove_number) = try!(parse_fen(fen));
-        let gen = try!(T::MoveGenerator::from_board(board));
+        let (board, halfmove_clock, fullmove_number) = parse_fen(fen)?;
+        let gen = T::MoveGenerator::from_board(board)?;
         Ok(StdSearchNode {
                zobrist: ZobristArrays::get(),
                halfmove_count: ((fullmove_number - 1) << 1) + gen.board().to_move as u16,

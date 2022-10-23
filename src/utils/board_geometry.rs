@@ -225,8 +225,8 @@ impl BoardGeometry {
     /// calls will return a reference to the same object. This is done
     /// in a thread-safe manner.
     pub fn get() -> &'static BoardGeometry {
-        use std::sync::{Once, ONCE_INIT};
-        static INIT_GEOMETRY: Once = ONCE_INIT;
+        use std::sync::Once;
+        static INIT_GEOMETRY: Once = Once::new();
         static mut GEOMETRY: Option<BoardGeometry> = None;
         unsafe {
             INIT_GEOMETRY.call_once(|| { GEOMETRY = Some(BoardGeometry::new()); });

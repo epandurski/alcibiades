@@ -241,7 +241,7 @@ pub trait UciEngine {
     /// the given position. The move format is long algebraic
     /// notation. Examples: `e2e4`, `e7e5`, `e1g1` (white short
     /// castling), `e7e8q` (for promotion).
-    fn position(&mut self, fen: &str, moves: &mut Iterator<Item = &str>);
+    fn position(&mut self, fen: &str, moves: &mut dyn Iterator<Item = &str>);
 
     /// Tells the engine to start thinking.
     fn go(&mut self, params: &GoParams);
@@ -277,7 +277,7 @@ pub trait UciEngine {
 /// Returns `Err` if the handshake was unsuccessful, or if an IO error
 /// occurred.
 pub fn run_engine<E: UciEngine>() -> io::Result<()> {
-    let mut server = try!(Server::<E>::wait_for_hanshake());
+    let mut server = Server::<E>::wait_for_hanshake()?;
     server.serve()
 }
 
@@ -304,43 +304,43 @@ impl<E: UciEngine> Server<E> {
         let mut reader = stdin.lock();
         let mut writer = BufWriter::new(io::stdout());
         let mut line = String::new();
-        if try!(reader.read_line(&mut line)) == 0 {
+        if reader.read_line(&mut line)? == 0 {
             return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF"));
         }
         if !RE.is_match(line.as_str()) {
             return Err(io::Error::new(ErrorKind::Other, "unrecognized protocol"));
         }
-        try!(write!(writer, "id name {}\n", E::name()));
-        try!(write!(writer, "id author {}\n", E::author()));
+        write!(writer, "id name {}\n", E::name())?;
+        write!(writer, "id author {}\n", E::author())?;
         for (name, description) in E::options() {
-            try!(write!(writer,
-                        "option name {} type {}\n",
-                        name,
-                        match description {
-                            OptionDescription::Check { default } => {
-                                format!("check default {}", default)
-                            }
-                            OptionDescription::Spin { default, min, max } => {
-                                format!("spin default {} min {} max {}", default, min, max)
-                            }
-                            OptionDescription::Combo { default, list } => {
-                                format!("combo default {}{}",
-                                        default,
-                                        list.into_iter()
-                                            .fold(String::new(), |mut acc, x| {
+            write!(writer,
+                    "option name {} type {}\n",
+                    name,
+                    match description {
+                        OptionDescription::Check { default } => {
+                            format!("check default {}", default)
+                        }
+                        OptionDescription::Spin { default, min, max } => {
+                            format!("spin default {} min {} max {}", default, min, max)
+                        }
+                        OptionDescription::Combo { default, list } => {
+                            format!("combo default {}{}",
+                                    default,
+                                    list.into_iter()
+                                        .fold(String::new(), |mut acc, x| {
                 acc.push_str(" var ");
                 acc.push_str(x.as_str());
                 acc
             }))
-                            }
-                            OptionDescription::String { default } => {
-                                format!("string default {}", default)
-                            }
-                            OptionDescription::Button => "button".to_string(),
-                        }));
+                        }
+                        OptionDescription::String { default } => {
+                            format!("string default {}", default)
+                        }
+                        OptionDescription::Button => "button".to_string(),
+                    })?;
         }
-        try!(write!(writer, "uciok\n"));
-        try!(writer.flush());
+        write!(writer, "uciok\n")?;
+        writer.flush()?;
         Ok(Server { engine: None })
     }
 
@@ -358,7 +358,7 @@ impl<E: UciEngine> Server<E> {
             let mut reader = stdin.lock();
             let mut line = String::new();
             loop {
-                if let Ok(cmd) = match try!(reader.read_line(&mut line)) {
+                if let Ok(cmd) = match reader.read_line(&mut line)? {
                        0 => return Err(io::Error::new(ErrorKind::UnexpectedEof, "EOF")),
                        _ => parse_uci_command(line.as_str()),
                    } {
@@ -402,8 +402,8 @@ impl<E: UciEngine> Server<E> {
                 // Pass the received command to the engine.
                 match cmd {
                     UciCommand::IsReady => {
-                        try!(write!(writer, "readyok\n"));
-                        try!(writer.flush());
+                        write!(writer, "readyok\n")?;
+                        writer.flush()?;
                     }
                     UciCommand::SetOption { name, value } => {
                         engine.set_option(name.as_str(), value.as_str());
@@ -441,21 +441,21 @@ impl<E: UciEngine> Server<E> {
                             best_move,
                             ponder_move,
                         } => {
-                            try!(write!(writer,
+                            write!(writer,
                                         "bestmove {}{}",
                                         best_move,
                                         match ponder_move {
                                             None => "\n".to_string(),
                                             Some(m) => format!(" ponder {}\n", m),
-                                        }))
+                                        })?
                         }
                         EngineReply::Info(infos) => {
                             if infos.len() > 0 {
-                                try!(write!(writer, "info"));
+                                write!(writer, "info")?;
                                 for InfoItem { info_type, data } in infos {
-                                    try!(write!(writer, " {} {}", info_type, data));
+                                    write!(writer, " {} {}", info_type, data)?;
                                 }
-                                try!(write!(writer, "\n"));
+                                write!(writer, "\n")?;
                             }
                         }
                     }
@@ -466,7 +466,7 @@ impl<E: UciEngine> Server<E> {
                         break;
                     }
                 }
-                try!(writer.flush());
+                writer.flush()?;
             } else {
                 // The engine is not initialized yet.
                 sleep(Duration::from_millis(25));
