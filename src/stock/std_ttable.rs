@@ -440,7 +440,7 @@ mod tests {
             let b = Bucket::<Record<StdTtableEntry>>::new(p);
             assert_eq!(b.get_generation(0), 0);
             assert_eq!(b.get_generation(1), 0);
-            let mut record = b.get(0).as_mut().unwrap();
+            let record = b.get(0).as_mut().unwrap();
             let entry = StdTtableEntry::new(0, BOUND_NONE, 10);
             *record = Record {
                 key: (0, 0),
@@ -461,7 +461,7 @@ mod tests {
         unsafe {
             let p = libc::calloc(1, 64);
             let b = Bucket::<Record<StdTtableEntry>>::new(p);
-            let mut record = b.get(4).as_mut().unwrap();
+            let record = b.get(4).as_mut().unwrap();
             let entry = StdTtableEntry::new(0, BOUND_NONE, 10);
             *record = Record {
                 key: (0, 0),

@@ -1268,7 +1268,7 @@ mod tests {
 
     impl<E: Evaluator> StdMoveGenerator<E> {
         fn from_fen(fen: &str) -> Result<StdMoveGenerator<E>, IllegalBoard> {
-            StdMoveGenerator::from_board(try!(Board::from_fen(fen)))
+            StdMoveGenerator::from_board(Board::from_fen(fen)?)
         }
     }
     type P = StdMoveGenerator<SimpleEvaluator>;
